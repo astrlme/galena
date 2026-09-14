@@ -1,0 +1,34 @@
+/* packages/ui/src/tokens.css */
+@import "tailwindcss";
+
+:root {
+  --paper: #F7F8F9; --surface: #FFFFFF; --mist: #E4E7EB; --ash: #B8BDC5;
+  --slate: #6A707C; --graphite: #3B404A; --ink: #15171C;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111317; --surface: #181B20; --mist: #272B32; --ash: #474D57;
+    --slate: #8E949F; --graphite: #C4C9D1; --ink: #EEF0F3;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #111317; --surface: #181B20; --mist: #272B32; --ash: #474D57;
+  --slate: #8E949F; --graphite: #C4C9D1; --ink: #EEF0F3;
+}
+
+@theme inline {
+  --color-*: initial;          /* remove Tailwind's colour palette */
+  --animate-*: initial;        /* remove built-in animations */
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-mist: var(--mist);
+  --color-ash: var(--ash);
+  --color-slate: var(--slate);
+  --color-graphite: var(--graphite);
+  --color-ink: var(--ink);
+  --font-sans: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+}
