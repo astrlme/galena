@@ -1,0 +1,33 @@
+{
+  "name": "galena",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.5.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "echo pnpm dev is not set up yet && exit 1",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:deps",
+    "lint": "biome check",
+    "format": "biome check --write",
+    "typecheck": "turbo run typecheck",
+    "test": "vitest run --passWithNoTests",
+    "test:int": "echo test:int is not set up yet && exit 1",
+    "test:e2e": "echo test:e2e is not set up yet && exit 1",
+    "replay": "echo replay is not set up yet && exit 1",
+    "check:deps": "echo check:deps is not set up yet, skipped",
+    "db:generate": "echo db:generate is not set up yet && exit 1",
+    "db:migrate": "echo db:migrate is not set up yet && exit 1",
+    "infra:synth": "echo infra:synth is not set up yet && exit 1",
+    "infra:diff": "echo infra:diff is not set up yet && exit 1",
+    "deploy:dev": "echo deploy:dev is not set up yet && exit 1",
+    "deploy:prod": "echo deploy:prod is not set up yet && exit 1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "turbo": "^2.11.3",
+    "typescript": "6.0.3",
+    "vitest": "^5.0.1"
+  }
+}
