@@ -1,0 +1,17 @@
+{
+  "name": "@galena/workers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "trigger dev",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@galena/config": "workspace:*",
+    "trigger.dev": "4.6.4"
+  },
+  "dependencies": {
+    "@trigger.dev/sdk": "4.6.4"
+  }
+}
