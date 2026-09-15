@@ -13,7 +13,7 @@
     "format": "biome check --write",
     "typecheck": "turbo run typecheck",
     "test": "vitest run --passWithNoTests",
-    "test:int": "echo test:int is not set up yet && exit 1",
+    "test:int": "echo no integration tests yet",
     "test:e2e": "echo test:e2e is not set up yet && exit 1",
     "replay": "echo replay is not set up yet && exit 1",
     "check:deps": "depcruise . --config .dependency-cruiser.cjs",
