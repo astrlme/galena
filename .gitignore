@@ -7,3 +7,5 @@ coverage/
 .env
 .env.*
 !.env.example
+
+!test/fixtures/deps/node_modules/
