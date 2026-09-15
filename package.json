@@ -16,7 +16,7 @@
     "test:int": "echo test:int is not set up yet && exit 1",
     "test:e2e": "echo test:e2e is not set up yet && exit 1",
     "replay": "echo replay is not set up yet && exit 1",
-    "check:deps": "echo check:deps is not set up yet, skipped",
+    "check:deps": "depcruise . --config .dependency-cruiser.cjs",
     "db:generate": "echo db:generate is not set up yet && exit 1",
     "db:migrate": "echo db:migrate is not set up yet && exit 1",
     "infra:synth": "echo infra:synth is not set up yet && exit 1",
@@ -27,6 +27,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
     "@types/node": "^24.13.6",
+    "dependency-cruiser": "^18.4.0",
     "turbo": "^2.11.3",
     "typescript": "6.0.3",
     "vitest": "^5.0.1"

@@ -5,6 +5,12 @@ import { defineConfig } from "vitest/config";
 export const unit = defineConfig({
   test: {
     include: ["**/*.test.{ts,tsx}"],
-    exclude: ["**/node_modules/**", "**/dist/**", "**/*.int.test.{ts,tsx}", "**/e2e/**"],
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/*.int.test.{ts,tsx}",
+      "**/e2e/**",
+      "test/fixtures/**",
+    ],
   },
 });
