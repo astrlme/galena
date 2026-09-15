@@ -148,8 +148,10 @@ module.exports = {
   ],
   options: {
     // No includeOnly: it would drop node_modules targets and blind the npm rules above.
+    // Our own build output only. npm packages often resolve through dist/, and excluding
+    // those would drop them from the graph and blind the npm rules too.
     exclude: {
-      path: "^(?:test/fixtures|docs)/|(?:^|/)(?:dist|coverage|\\.next|\\.astro|\\.turbo|cdk\\.out)/",
+      path: "^(?:apps|packages)/[^/]+/(?:dist|out|coverage|\\.next|\\.astro|\\.turbo)/|^infra/cdk\\.out/",
     },
     doNotFollow: { path: "(?:^|/)node_modules/" },
     tsPreCompilationDeps: true,

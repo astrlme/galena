@@ -8,7 +8,6 @@ const short = (path: string) => path.replace(FIXTURES, "");
 test("each boundary rule fires on its fixture and nowhere else", { timeout: 30_000 }, async () => {
   const { output } = await cruise([FIXTURES], {
     ...config.options,
-    exclude: { path: "(?:^|/)dist/" },
     validate: true,
     ruleSet: { forbidden: config.forbidden },
   });
@@ -34,7 +33,7 @@ test("each boundary rule fires on its fixture and nowhere else", { timeout: 30_0
       "not-to-unresolvable  apps/web/src/page.ts  ./missing.ts",
       "package-arrows  packages/db/src/bad.ts  packages/integrations/src/net/ssrf.ts",
       "packages-no-apps  packages/publisher/src/snapshot.ts  apps/evaluator/src/handler.ts",
-      "probe-no-trigger-dev  apps/probe/src/handler.ts  node_modules/@trigger.dev/sdk/index.js",
+      "probe-no-trigger-dev  apps/probe/src/handler.ts  node_modules/@trigger.dev/sdk/dist/index.js",
       "status-page-publisher-types-only  apps/status/src/page.ts  packages/publisher/src/snapshot.ts",
       "status-page-static  apps/status/src/page.ts  packages/core/src/index.ts",
       "ui-nothing-domain  packages/ui/src/button.ts  packages/contracts/src/index.ts",

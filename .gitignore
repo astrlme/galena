@@ -9,3 +9,4 @@ coverage/
 !.env.example
 
 !test/fixtures/deps/node_modules/
+!test/fixtures/deps/node_modules/**/dist/
