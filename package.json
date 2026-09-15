@@ -15,6 +15,7 @@
     "test": "vitest run --passWithNoTests",
     "test:int": "echo no integration tests yet",
     "test:e2e": "echo test:e2e is not set up yet && exit 1",
+    "trigger:dev": "pnpm --filter @galena/workers dev",
     "replay": "echo replay is not set up yet && exit 1",
     "check:deps": "depcruise apps packages scripts --config .dependency-cruiser.cjs",
     "db:generate": "echo db:generate is not set up yet && exit 1",
