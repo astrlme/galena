@@ -16,7 +16,7 @@
     "test:int": "echo no integration tests yet",
     "test:e2e": "echo test:e2e is not set up yet && exit 1",
     "replay": "echo replay is not set up yet && exit 1",
-    "check:deps": "depcruise . --config .dependency-cruiser.cjs",
+    "check:deps": "depcruise apps packages scripts --config .dependency-cruiser.cjs",
     "db:generate": "echo db:generate is not set up yet && exit 1",
     "db:migrate": "echo db:migrate is not set up yet && exit 1",
     "infra:synth": "echo infra:synth is not set up yet && exit 1",
