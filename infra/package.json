@@ -1,0 +1,23 @@
+{
+  "name": "@galena/infra",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "synth": "cdk synth --quiet -c stage=dev",
+    "diff": "cdk diff -c stage=dev",
+    "deploy:dev": "cdk deploy --all -c stage=dev",
+    "deploy:prod": "cdk deploy --all -c stage=prod",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@galena/config": "workspace:*",
+    "aws-cdk": "2.1143.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.270.0",
+    "cdk-nag": "^3.0.2",
+    "constructs": "^10.8.1",
+    "zod": "^4.6.5"
+  }
+}
