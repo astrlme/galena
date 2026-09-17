@@ -1,0 +1,19 @@
+{
+  "name": "@galena/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@galena/config": "workspace:*"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}

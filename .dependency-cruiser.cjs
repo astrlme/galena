@@ -18,6 +18,8 @@ const NPM_TYPES = [
 const UI_TOKENS_ONLY = { path: pkg("ui"), pathNot: "(?:^|/)packages/ui/src/tokens\\.(?:ts|css)$" };
 const POSTGRES = npm("pg|drizzle-orm|@aws-sdk/client-rds-data");
 const TRIGGER_DEV = npm("@trigger\\.dev");
+// Tests and tool config (vitest.config.ts) are not shipped, so the purity rules skip them.
+const NOT_SHIPPED = String.raw`\.test\.tsx?$|(?:^|/)[\w.-]+\.config\.[cm]?[jt]s$`;
 
 module.exports = {
   forbidden: [
@@ -25,21 +27,21 @@ module.exports = {
       name: "contracts-no-workspace",
       comment: "packages/contracts depends on no other workspace package",
       severity: "error",
-      from: { path: pkg("contracts") },
+      from: { path: pkg("contracts"), pathNot: NOT_SHIPPED },
       to: { path: "(?:^|/)(?:packages|apps)/", pathNot: pkg("contracts") },
     },
     {
       name: "contracts-only-zod",
       comment: "packages/contracts depends on zod and nothing else, not even Node built-ins",
       severity: "error",
-      from: { path: pkg("contracts") },
+      from: { path: pkg("contracts"), pathNot: NOT_SHIPPED },
       to: { dependencyTypes: [...NPM_TYPES, "core"], pathNot: npm("zod") },
     },
     {
       name: "core-is-pure",
       comment: "packages/core imports contracts only: no db, integrations, AWS SDK or Node I/O",
       severity: "error",
-      from: { path: pkg("core"), pathNot: "\\.test\\.ts$" },
+      from: { path: pkg("core"), pathNot: NOT_SHIPPED },
       to: {
         path: `${pkg("db|integrations|publisher|emails|ui")}|(?:^|/)apps/|${npm("@aws-sdk")}|${TRIGGER_DEV}`,
       },
@@ -48,7 +50,7 @@ module.exports = {
       name: "core-no-node-builtins",
       comment: "packages/core does no I/O, so it never needs a Node built-in",
       severity: "error",
-      from: { path: pkg("core"), pathNot: "\\.test\\.ts$" },
+      from: { path: pkg("core"), pathNot: NOT_SHIPPED },
       to: { dependencyTypes: ["core"] },
     },
     {
