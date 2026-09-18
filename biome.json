@@ -47,6 +47,28 @@
       "formatter": {
         "enabled": false
       }
+    },
+    {
+      "includes": ["packages/core/src/**", "!**/*.test.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "process": "packages/core is pure: take it through a port in src/ports.ts",
+                  "fetch": "packages/core is pure: take it through a port in src/ports.ts",
+                  "setTimeout": "packages/core is pure: take it through a port in src/ports.ts",
+                  "setInterval": "packages/core is pure: take it through a port in src/ports.ts",
+                  "crypto": "packages/core is pure: take it through a port in src/ports.ts",
+                  "performance": "packages/core is pure: take it through a port in src/ports.ts"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

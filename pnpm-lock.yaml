@@ -74,6 +74,16 @@ importers:
         specifier: workspace:*
         version: link:../config
 
+  packages/core:
+    dependencies:
+      '@galena/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@galena/config':
+        specifier: workspace:*
+        version: link:../config
+
   packages/ui:
     devDependencies:
       '@galena/config':
