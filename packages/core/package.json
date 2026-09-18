@@ -1,0 +1,19 @@
+{
+  "name": "@galena/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@galena/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@galena/config": "workspace:*"
+  }
+}
