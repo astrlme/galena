@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "echo pnpm dev is not set up yet && exit 1",
+    "dev": "docker compose up -d --wait && pnpm db:migrate && pnpm db:seed && turbo run dev",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:deps",
     "lint": "biome check",
     "format": "biome check --write",
@@ -15,7 +15,7 @@
     "test": "vitest run --passWithNoTests",
     "test:int": "vitest run --config vitest.int.config.ts",
     "test:e2e": "echo test:e2e is not set up yet && exit 1",
-    "trigger:dev": "pnpm --filter @galena/workers dev",
+    "trigger:dev": "pnpm --filter @galena/workers trigger:dev",
     "replay": "echo replay is not set up yet && exit 1",
     "check:deps": "depcruise apps packages scripts infra --config .dependency-cruiser.cjs",
     "db:generate": "pnpm --filter @galena/db generate",
@@ -23,7 +23,8 @@
     "infra:synth": "pnpm --filter @galena/infra synth",
     "infra:diff": "pnpm --filter @galena/infra diff",
     "deploy:dev": "pnpm --filter @galena/infra deploy:dev",
-    "deploy:prod": "pnpm --filter @galena/infra deploy:prod"
+    "deploy:prod": "pnpm --filter @galena/infra deploy:prod",
+    "db:seed": "pnpm --filter @galena/db seed"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",

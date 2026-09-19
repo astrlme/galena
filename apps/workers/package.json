@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "trigger dev",
+    "trigger:dev": "trigger dev",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
