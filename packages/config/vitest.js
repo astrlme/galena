@@ -14,3 +14,14 @@ export const unit = defineConfig({
     ],
   },
 });
+
+// Integration tests (`*.int.test.ts`) start Postgres and DynamoDB Local with Testcontainers,
+// so Docker must be running.
+export const integration = defineConfig({
+  test: {
+    include: ["**/*.int.test.{ts,tsx}"],
+    exclude: ["**/node_modules/**", "**/dist/**", "test/fixtures/**"],
+    testTimeout: 60_000,
+    hookTimeout: 180_000, // the first run pulls the container image
+  },
+});

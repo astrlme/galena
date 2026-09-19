@@ -1,0 +1,29 @@
+{
+  "name": "@galena/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-rds-data": "^3.1140.0",
+    "@galena/contracts": "workspace:*",
+    "@galena/core": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@galena/config": "workspace:*",
+    "@testcontainers/postgresql": "^12.1.0",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
+    "uuid": "^14.0.2"
+  }
+}

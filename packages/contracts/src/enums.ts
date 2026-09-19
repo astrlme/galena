@@ -29,6 +29,9 @@ export type MaintenanceStatus = (typeof maintenanceStatuses)[number];
 export const pageIndicators = ["none", "minor", "major", "critical"] as const;
 export type PageIndicator = (typeof pageIndicators)[number];
 
+export const pageVisibilities = ["public", "internal"] as const;
+export type PageVisibility = (typeof pageVisibilities)[number];
+
 export const incidentVisibilities = ["draft", "published", "dismissed", "internal"] as const;
 export type IncidentVisibility = (typeof incidentVisibilities)[number];
 
