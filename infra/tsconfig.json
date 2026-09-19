@@ -1,5 +1,9 @@
 {
   "extends": "@galena/config/tsconfig.base.json",
-  "compilerOptions": { "types": ["node"] },
+  "compilerOptions": {
+    "types": ["node"],
+    // aws-cdk-lib's jsii-generated types do not satisfy it (a Vpc is not an IVpc under it).
+    "exactOptionalPropertyTypes": false
+  },
   "include": ["bin", "config", "stacks", "test"]
 }
