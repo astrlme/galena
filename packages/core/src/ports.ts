@@ -45,9 +45,11 @@ export type Component = {
   manualStatus: ComponentStatus | null;
 };
 
+// Every lookup is scoped by workspace so no query can reach another tenant's rows.
 export interface ComponentRepository {
   listByWorkspace(workspaceId: WorkspaceId): Promise<Component[]>;
-  findById(id: ComponentId): Promise<Component | undefined>;
+  findById(workspaceId: WorkspaceId, id: ComponentId): Promise<Component | undefined>;
+  /** Inserts or updates by id. */
   save(component: Component): Promise<void>;
-  delete(id: ComponentId): Promise<void>;
+  delete(workspaceId: WorkspaceId, id: ComponentId): Promise<void>;
 }

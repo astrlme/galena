@@ -4,4 +4,7 @@ packages:
   - infra
 allowBuilds:
   '@depot/cli': false
+  cpu-features: false
   esbuild: true
+  protobufjs: false
+  ssh2: false
