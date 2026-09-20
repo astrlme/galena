@@ -1,13 +1,65 @@
-import { type ProblemDetails, problemContentType } from "@galena/contracts";
+import {
+  type MemberRole,
+  memberId,
+  type ProblemDetails,
+  problemContentType,
+  type WorkspaceId,
+  workspaceId,
+} from "@galena/contracts";
+import { roleAtLeast } from "@galena/core";
+import { createWorkspace, type Db, findMembership, workspaceExists } from "@galena/db";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
-import type { Context } from "hono";
+import { APIError } from "better-auth/api";
+import type { MiddlewareHandler } from "hono";
+import { HTTPException } from "hono/http-exception";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { v7 } from "uuid";
+import type { Auth } from "./auth.ts";
+
+export type Deps = { db: Db; auth: Auth };
+type Member = { userId: string; email: string; role: MemberRole; workspaceId: WorkspaceId };
+type Env = { Variables: { member: Member } };
 
 /** An RFC 9457 response with our stable `code`. */
-export function problem(c: Context, details: Omit<ProblemDetails, "type">): Response {
+export function problemResponse(details: Omit<ProblemDetails, "type">): Response {
   const body: ProblemDetails = { type: "about:blank", ...details };
-  return c.body(JSON.stringify(body), details.status as 400, {
-    "content-type": problemContentType,
+  return new Response(JSON.stringify(body), {
+    status: details.status,
+    headers: { "content-type": problemContentType },
   });
+}
+
+/** For expected failures inside typed handlers; `onError` sends the problem as is. */
+function fail(details: Omit<ProblemDetails, "type">): never {
+  throw new HTTPException(details.status as ContentfulStatusCode, {
+    res: problemResponse(details),
+  });
+}
+
+/** 401 without a session, 403 below `required`; sets `member` for the handler. */
+export function requireRole({ db, auth }: Deps, required: MemberRole): MiddlewareHandler<Env> {
+  return async (c, next) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    if (!session) {
+      return problemResponse({
+        status: 401,
+        code: "unauthenticated",
+        title: "Sign in first",
+        detail: "This needs a signed-in member. Sign in and try again.",
+      });
+    }
+    const membership = await findMembership(db, session.user.id);
+    if (!membership || !roleAtLeast(membership.role, required)) {
+      return problemResponse({
+        status: 403,
+        code: "forbidden",
+        title: "Your role does not allow this",
+        detail: `This needs the ${required} role or higher. Ask an owner to change your role.`,
+      });
+    }
+    c.set("member", { userId: session.user.id, email: session.user.email, ...membership });
+    await next();
+  };
 }
 
 const health = createRoute({
@@ -23,14 +75,66 @@ const health = createRoute({
   },
 });
 
-export function createApp() {
-  const app = new OpenAPIHono({
-    defaultHook: (result, c) => {
+const setup = createRoute({
+  method: "post",
+  path: "/v1/setup",
+  summary: "First-run setup",
+  description:
+    "Creates the workspace and its owner, then signs the owner in. Works once per deployment.",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            workspaceName: z.string().trim().min(1).max(100),
+            name: z.string().trim().min(1).max(100),
+            email: z.email(),
+            password: z.string().min(12).max(128),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Workspace and owner created; the response sets the session cookie",
+      content: {
+        "application/json": { schema: z.object({ workspaceId: z.string(), userId: z.string() }) },
+      },
+    },
+  },
+});
+
+const me = createRoute({
+  method: "get",
+  path: "/v1/me",
+  summary: "The signed-in member",
+  responses: {
+    200: {
+      description: "Who is signed in and their role",
+      content: {
+        "application/json": {
+          schema: z.object({
+            userId: z.string(),
+            email: z.string(),
+            role: z.string(),
+            workspaceId: z.string(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+export function createApp(deps: Deps) {
+  const { db, auth } = deps;
+  const app = new OpenAPIHono<Env>({
+    defaultHook: (result) => {
       if (result.success) return;
       const fields = result.error.issues.map(
         (issue) => `${issue.path.join(".") || "request"}: ${issue.message}`,
       );
-      return problem(c, {
+      return problemResponse({
         status: 400,
         code: "validation_failed",
         title: "The request is not valid",
@@ -41,13 +145,63 @@ export function createApp() {
 
   app.openapi(health, (c) => c.json({ status: "ok" as const }, 200));
 
+  // Better Auth: sign-in, sign-out, sessions, two-factor, GitHub OAuth.
+  app.on(["GET", "POST"], "/auth/*", (c) => auth.handler(c.req.raw));
+
+  app.openapi(setup, async (c) => {
+    if (await workspaceExists(db)) {
+      fail({
+        status: 409,
+        code: "already_set_up",
+        title: "This deployment is already set up",
+        detail: "Sign in instead, or ask an owner to invite you.",
+      });
+    }
+    const { workspaceName, name, email, password } = c.req.valid("json");
+    const signUp = await auth.api
+      .signUpEmail({ body: { name, email, password }, returnHeaders: true })
+      .catch((error: unknown) => {
+        if (!(error instanceof APIError)) throw error;
+        return fail({
+          status: error.statusCode,
+          code: "sign_up_rejected",
+          title: "Couldn't create the owner account",
+          detail: error.body?.message ?? error.message,
+        });
+      });
+    const id = workspaceId.parse(v7());
+    const userId = signUp.response.user.id;
+    const outcome = await createWorkspace(db, {
+      id,
+      name: workspaceName,
+      owner: { memberId: memberId.parse(v7()), userId },
+    });
+    if (outcome === "exists") {
+      // Known limit: the loser of a setup race keeps an account with no membership, which grants
+      // nothing; clean it up by hand if it ever happens.
+      fail({
+        status: 409,
+        code: "already_set_up",
+        title: "This deployment is already set up",
+        detail: "Another setup finished first. Sign in instead, or ask an owner to invite you.",
+      });
+    }
+    for (const cookie of signUp.headers.getSetCookie()) {
+      c.header("set-cookie", cookie, { append: true });
+    }
+    return c.json({ workspaceId: id, userId }, 201);
+  });
+
+  app.use("/v1/me", requireRole(deps, "viewer"));
+  app.openapi(me, (c) => c.json(c.get("member"), 200));
+
   app.doc31("/openapi.json", {
     openapi: "3.1.0",
     info: { title: "Galena API", version: "0.0.0" },
   });
 
   app.notFound((c) =>
-    problem(c, {
+    problemResponse({
       status: 404,
       code: "not_found",
       title: "Not found",
@@ -56,13 +210,14 @@ export function createApp() {
   );
 
   app.onError((error, c) => {
+    if (error instanceof HTTPException) return error.getResponse();
     // The cause goes to the logs only: it may hold SQL or secrets.
     console.error("unhandled error", {
       path: c.req.path,
       name: error.name,
       message: error.message,
     });
-    return problem(c, {
+    return problemResponse({
       status: 500,
       code: "internal_error",
       title: "Something went wrong",

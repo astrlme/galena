@@ -15,6 +15,7 @@ test("runs the API on Node 24 arm64 Lambda outside any VPC", () => {
     Runtime: "nodejs24.x",
     Architectures: ["arm64"],
     Timeout: 29,
+    Environment: { Variables: { GLN_STAGE: "dev" } },
   });
   for (const fn of Object.values(template.findResources("AWS::Lambda::Function"))) {
     expect(fn.Properties.VpcConfig).toBeUndefined();

@@ -52,8 +52,8 @@ describe("migrations", () => {
       group by table_name order by table_name`)) as unknown as {
       rows: { table_name: string; has_workspace: boolean }[];
     };
-    const exempt = ["account", "session", "user", "verification", "workspace"];
-    expect(rows).toHaveLength(12);
+    const exempt = ["account", "session", "two_factor", "user", "verification", "workspace"];
+    expect(rows).toHaveLength(13);
     for (const { table_name, has_workspace } of rows) {
       expect(has_workspace, table_name).toBe(!exempt.includes(table_name));
     }
