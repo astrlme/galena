@@ -10,13 +10,19 @@
   },
   "dependencies": {
     "@galena/contracts": "workspace:*",
+    "@galena/core": "workspace:*",
+    "@galena/db": "workspace:*",
     "@hono/node-server": "^2.1.1",
     "@hono/zod-openapi": "^1.6.3",
+    "better-auth": "^1.7.6",
     "hono": "^4.13.9",
+    "uuid": "^14.0.2",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@galena/config": "workspace:*",
-    "@seriousme/openapi-schema-validator": "^2.11.0"
+    "@seriousme/openapi-schema-validator": "^2.11.0",
+    "@testcontainers/postgresql": "^12.1.0",
+    "drizzle-orm": "^0.45.3"
   }
 }

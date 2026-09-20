@@ -40,6 +40,8 @@ export class ApiStack extends Stack {
       timeout: Duration.seconds(29),
       role,
       logGroup,
+      // With a real stage set, env.ts refuses to start without GLN_AUTH_SECRET.
+      environment: { GLN_STAGE: props.config.stage },
       bundling: {
         format: OutputFormat.ESM,
         target: "node24",
