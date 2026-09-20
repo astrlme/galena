@@ -1,6 +1,7 @@
 import { App, Validations } from "aws-cdk-lib";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { stageConfig } from "../config/stages.ts";
+import { ApiStack } from "../stacks/api.ts";
 import { CiAccessStack } from "../stacks/ci-access.ts";
 import { FoundationStack } from "../stacks/foundation.ts";
 
@@ -12,5 +13,6 @@ const env = { region: config.homeRegion, ...(account ? { account } : {}) };
 
 new CiAccessStack(app, `galena-${config.stage}-ci-access`, { env, config });
 new FoundationStack(app, `galena-${config.stage}-foundation`, { env, config });
+new ApiStack(app, `galena-${config.stage}-api`, { env, config });
 
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app, { verbose: true }));
