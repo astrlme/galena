@@ -12,7 +12,8 @@
   },
   "devDependencies": {
     "@galena/config": "workspace:*",
-    "aws-cdk": "2.1143.0"
+    "aws-cdk": "2.1143.0",
+    "esbuild": "^0.28.2"
   },
   "dependencies": {
     "aws-cdk-lib": "2.270.0",

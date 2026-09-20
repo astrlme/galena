@@ -1,0 +1,22 @@
+{
+  "name": "@galena/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@galena/contracts": "workspace:*",
+    "@hono/node-server": "^2.1.1",
+    "@hono/zod-openapi": "^1.6.3",
+    "hono": "^4.13.9",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@galena/config": "workspace:*",
+    "@seriousme/openapi-schema-validator": "^2.11.0"
+  }
+}
