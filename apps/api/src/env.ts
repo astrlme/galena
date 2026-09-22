@@ -5,7 +5,9 @@ export const env = z
   .object({
     GLN_STAGE: z.enum(["local", "dev", "prod"]).default("local"),
     GLN_API_PORT: z.coerce.number().int().min(1).max(65535).default(8787),
-    GLN_PUBLIC_URL: z.url().default("http://localhost:8787"),
+    // The origin people use: the dashboard (CloudFront in AWS, next dev locally), which also
+    // serves the API on the same origin.
+    GLN_PUBLIC_URL: z.url().default("http://localhost:3000"),
     // The docker-compose database; AWS stages switch to the Data API.
     GLN_DATABASE_URL: z.string().default("postgres://galena:galena@localhost:5432/galena"),
     GLN_AUTH_SECRET: z.string().min(32).optional(),

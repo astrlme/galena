@@ -150,10 +150,10 @@ module.exports = {
   ],
   options: {
     // No includeOnly: it would drop node_modules targets and blind the npm rules above.
-    // Our own build output only. npm packages often resolve through dist/, and excluding
-    // those would drop them from the graph and blind the npm rules too.
+    // Our own build output and generated files only. npm packages often resolve through dist/,
+    // and excluding those would drop them from the graph and blind the npm rules too.
     exclude: {
-      path: "^(?:apps|packages)/[^/]+/(?:dist|out|coverage|\\.next|\\.astro|\\.turbo)/|^infra/cdk\\.out/",
+      path: "^(?:apps|packages)/[^/]+/(?:dist|out|coverage|\\.next|\\.astro|\\.turbo)/|^infra/cdk\\.out/|^apps/web/next-env\\.d\\.ts$",
     },
     doNotFollow: { path: "(?:^|/)node_modules/" },
     tsPreCompilationDeps: true,
