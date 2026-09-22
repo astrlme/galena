@@ -29,6 +29,6 @@
   --color-slate: var(--slate);
   --color-graphite: var(--graphite);
   --color-ink: var(--ink);
-  --font-sans: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+  --font-sans: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono Variable", ui-monospace, monospace;
 }

@@ -1,0 +1,18 @@
+{
+  "extends": "@galena/config/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "plugins": [{ "name": "next" }]
+  },
+  "include": [
+    "src",
+    "e2e",
+    "next.config.ts",
+    "playwright.config.ts",
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
+  ]
+}

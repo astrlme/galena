@@ -14,7 +14,7 @@
     "typecheck": "turbo run typecheck",
     "test": "vitest run --passWithNoTests",
     "test:int": "vitest run --config vitest.int.config.ts",
-    "test:e2e": "echo test:e2e is not set up yet && exit 1",
+    "test:e2e": "docker compose up -d --wait && pnpm db:migrate && pnpm db:seed && pnpm --filter @galena/web e2e",
     "trigger:dev": "pnpm --filter @galena/workers trigger:dev",
     "replay": "echo replay is not set up yet && exit 1",
     "check:deps": "depcruise apps packages scripts infra --config .dependency-cruiser.cjs",
@@ -24,7 +24,7 @@
     "infra:diff": "pnpm --filter @galena/infra diff",
     "deploy:dev": "pnpm --filter @galena/infra deploy:dev",
     "deploy:prod": "pnpm --filter @galena/infra deploy:prod",
-    "db:seed": "pnpm --filter @galena/db seed"
+    "db:seed": "pnpm --filter @galena/api seed"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",

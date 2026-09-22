@@ -4,8 +4,8 @@ import type { Deps } from "./app.ts";
 import { createAuth } from "./auth.ts";
 import { env } from "./env.ts";
 
-export function createDeps(): Deps {
-  const { db } = createDb({ kind: "postgres", url: env.GLN_DATABASE_URL });
+export function createDeps(): Deps & { close: () => Promise<void> } {
+  const { db, close } = createDb({ kind: "postgres", url: env.GLN_DATABASE_URL });
   let secret = env.GLN_AUTH_SECRET;
   if (!secret) {
     // Local only (env.ts refuses this elsewhere): a fresh secret per start signs everyone out.
@@ -22,5 +22,5 @@ export function createDeps(): Deps {
     baseURL: env.GLN_PUBLIC_URL,
     ...(github ? { github } : {}),
   });
-  return { db, auth };
+  return { db, auth, close };
 }

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --watch src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed": "node src/seed.ts"
   },
   "dependencies": {
     "@galena/contracts": "workspace:*",

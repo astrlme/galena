@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@galena/config": "workspace:*"
+    "@galena/config": "workspace:*",
+    "tailwindcss": "^4.3.3"
   }
 }
