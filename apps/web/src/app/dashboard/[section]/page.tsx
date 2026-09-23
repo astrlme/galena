@@ -6,7 +6,7 @@ type Props = { params: Promise<{ section: string }> };
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return sections.map(({ slug }) => ({ section: slug }));
+  return sections.filter((s) => !s.built).map(({ slug }) => ({ section: slug }));
 }
 
 async function titleOf({ params }: Props) {

@@ -46,10 +46,23 @@ export type Component = {
 };
 
 // Every lookup is scoped by workspace so no query can reach another tenant's rows.
-export interface ComponentRepository {
-  listByWorkspace(workspaceId: WorkspaceId): Promise<Component[]>;
-  findById(workspaceId: WorkspaceId, id: ComponentId): Promise<Component | undefined>;
+interface WorkspaceRepository<Entity, Id> {
+  /** Ordered by position. */
+  listByWorkspace(workspaceId: WorkspaceId): Promise<Entity[]>;
+  findById(workspaceId: WorkspaceId, id: Id): Promise<Entity | undefined>;
   /** Inserts or updates by id. */
-  save(component: Component): Promise<void>;
-  delete(workspaceId: WorkspaceId, id: ComponentId): Promise<void>;
+  save(entity: Entity): Promise<void>;
+  delete(workspaceId: WorkspaceId, id: Id): Promise<void>;
+  setPositions(workspaceId: WorkspaceId, positions: ReadonlyMap<Id, number>): Promise<void>;
 }
+
+export type ComponentRepository = WorkspaceRepository<Component, ComponentId>;
+
+export type ComponentGroup = {
+  id: ComponentGroupId;
+  workspaceId: WorkspaceId;
+  name: string;
+  position: number;
+};
+
+export type ComponentGroupRepository = WorkspaceRepository<ComponentGroup, ComponentGroupId>;

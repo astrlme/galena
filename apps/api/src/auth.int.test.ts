@@ -1,11 +1,17 @@
 import { createHmac } from "node:crypto";
-import { problemDetails } from "@galena/contracts";
 import { schema } from "@galena/db";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createApp, type Deps, requireRole } from "./app.ts";
-import { TEST_BASE_URL, testDeps } from "./test-deps.ts";
+import { testDeps } from "./test-deps.ts";
+import { Session as BaseSession, expectProblem } from "./test-session.ts";
+
+class Session extends BaseSession {
+  constructor() {
+    super(app);
+  }
+}
 
 const OWNER = { name: "Ada", email: "ada@example.com", password: "correct horse battery" };
 
@@ -32,31 +38,6 @@ afterAll(async () => {
   await container?.stop();
 });
 
-/** Remembers cookies between requests, like a browser. */
-class Session {
-  #cookies = new Map<string, string>();
-
-  async call(path: string, body?: unknown): Promise<Response> {
-    const response = await app.request(path, {
-      method: body === undefined ? "GET" : "POST",
-      headers: {
-        origin: TEST_BASE_URL,
-        "content-type": "application/json",
-        cookie: [...this.#cookies].map(([k, v]) => `${k}=${v}`).join("; "),
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-    for (const header of response.headers.getSetCookie()) {
-      const [pair = ""] = header.split(";");
-      const at = pair.indexOf("=");
-      const [name, value] = [pair.slice(0, at), pair.slice(at + 1)];
-      if (value === "" || /max-age=0/i.test(header)) this.#cookies.delete(name);
-      else this.#cookies.set(name, value);
-    }
-    return response;
-  }
-}
-
 /** RFC 6238 TOTP for an otpauth:// URI, so the test signs in the way an authenticator app does. */
 function totp(uri: string, at = Date.now()): string {
   const params = new URL(uri).searchParams;
@@ -71,11 +52,6 @@ function totp(uri: string, at = Date.now()): string {
   const offset = (hmac.at(-1) ?? 0) & 0xf;
   const digits = Number(params.get("digits") ?? 6);
   return ((hmac.readUInt32BE(offset) & 0x7fffffff) % 10 ** digits).toString().padStart(digits, "0");
-}
-
-async function expectProblem(response: Response, status: number, code: string) {
-  expect(response.status).toBe(status);
-  expect(problemDetails.parse(await response.json())).toMatchObject({ status, code });
 }
 
 describe("sign-up", () => {

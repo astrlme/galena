@@ -1,4 +1,6 @@
 export * from "./assert-never.ts";
+export * from "./components/reorder.ts";
 export * from "./ports.ts";
+export * from "./result.ts";
 export * from "./roles.ts";
 export * from "./status/aggregate.ts";

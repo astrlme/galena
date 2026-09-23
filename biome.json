@@ -6,7 +6,12 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!packages/db/migrations"]
+    "includes": [
+      "**",
+      "!packages/db/migrations",
+      "!apps/api/openapi.json",
+      "!apps/web/src/lib/api-schema.ts"
+    ]
   },
   "formatter": {
     "indentStyle": "space",

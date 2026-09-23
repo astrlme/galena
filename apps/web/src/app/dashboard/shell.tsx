@@ -1,11 +1,12 @@
 "use client";
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { Button } from "../../components/button.tsx";
 import { Wordmark } from "../../components/wordmark.tsx";
-import { authPost, fetchMe, type Me } from "../../lib/api.ts";
+import { api, authPost } from "../../lib/api.ts";
 import { sections } from "./sections.ts";
 
 const nav = [
@@ -13,17 +14,25 @@ const nav = [
   ...sections.map((s) => ({ href: `/dashboard/${s.slug}/`, title: s.title })),
 ];
 
+type Me = { email: string };
+
 export function DashboardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [queryClient] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: false } } }),
+  );
   const [me, setMe] = useState<Me>();
   const [slow, setSlow] = useState(false);
 
   useEffect(() => {
     // Explain the wait once it passes 10 s (Aurora resuming).
     const timer = setTimeout(() => setSlow(true), 10_000);
-    fetchMe()
-      .then((member) => (member ? setMe(member) : router.replace("/sign-in/")))
+    api
+      .GET("/v1/me")
+      .then(({ data, response }) =>
+        response.status === 401 || !data ? router.replace("/sign-in/") : setMe(data),
+      )
       .finally(() => clearTimeout(timer));
     return () => clearTimeout(timer);
   }, [router]);
@@ -44,36 +53,38 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <nav
-        aria-label="Dashboard"
-        className="flex w-[240px] shrink-0 flex-col gap-8 border-r border-mist p-6"
-      >
-        <Wordmark />
-        <ul className="flex flex-col gap-1">
-          {nav.map((item) => {
-            const current = pathname === item.href;
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  aria-current={current ? "page" : undefined}
-                  className={`block rounded-[4px] px-2 py-1 ${current ? "bg-mist font-semibold" : "text-graphite hover:underline"}`}
-                >
-                  {item.title}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-        <div className="mt-auto flex flex-col gap-2 text-[14px]">
-          <span className="text-slate">{me.email}</span>
-          <Button variant="quiet" className="justify-start px-0" onClick={signOut}>
-            Sign out
-          </Button>
-        </div>
-      </nav>
-      <main className="w-full max-w-[1080px] p-8">{children}</main>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <div className="flex min-h-screen">
+        <nav
+          aria-label="Dashboard"
+          className="flex w-[240px] shrink-0 flex-col gap-8 border-r border-mist p-6"
+        >
+          <Wordmark />
+          <ul className="flex flex-col gap-1">
+            {nav.map((item) => {
+              const current = pathname === item.href;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    aria-current={current ? "page" : undefined}
+                    className={`block rounded-[4px] px-2 py-1 ${current ? "bg-mist font-semibold" : "text-graphite hover:underline"}`}
+                  >
+                    {item.title}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-auto flex flex-col gap-2 text-[14px]">
+            <span className="text-slate">{me.email}</span>
+            <Button variant="quiet" className="justify-start px-0" onClick={signOut}>
+              Sign out
+            </Button>
+          </div>
+        </nav>
+        <main className="w-full max-w-[1080px] p-8">{children}</main>
+      </div>
+    </QueryClientProvider>
   );
 }

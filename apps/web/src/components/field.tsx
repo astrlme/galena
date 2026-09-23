@@ -3,8 +3,8 @@ import type { InputHTMLAttributes } from "react";
 type FieldProps = InputHTMLAttributes<HTMLInputElement> & {
   id: string;
   label: string;
-  help?: string;
-  error?: string;
+  help?: string | undefined;
+  error?: string | undefined;
 };
 
 /** Label above, help or error below. */

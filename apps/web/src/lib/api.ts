@@ -1,18 +1,22 @@
-import type { MemberRole } from "@galena/contracts";
+import createClient from "openapi-fetch";
+import type { paths } from "./api-schema.ts";
 
-// Known limit: hand-typed until a client is generated from /openapi.json.
+/** Typed client generated from the API's /openapi.json; same origin, so no host. */
+export const api = createClient<paths>({ baseUrl: "" });
 
-export type Me = { userId: string; email: string; role: MemberRole; workspaceId: string };
-
-/** The signed-in member, or null when nobody is signed in. */
-export async function fetchMe(): Promise<Me | null> {
-  const response = await fetch("/v1/me");
-  if (response.status === 401) return null;
-  if (!response.ok) throw new Error(`GET /v1/me answered ${response.status}`);
-  return (await response.json()) as Me;
+/** The data of an API call, or an Error carrying the problem's detail for the page to show. */
+export async function unwrap<T>(
+  call: Promise<{ data?: T; error?: unknown; response: Response }>,
+): Promise<T> {
+  const { data, error, response } = await call;
+  if (error !== undefined || !response.ok) {
+    const detail = (error as { detail?: string } | undefined)?.detail;
+    throw new Error(detail ?? `The request failed with ${response.status}. Try again.`);
+  }
+  return data as T;
 }
 
-/** POSTs JSON to a Better Auth endpoint and returns the parsed body, or throws with its message. */
+/** POSTs JSON to a Better Auth endpoint (not in /openapi.json) and returns the parsed body. */
 export async function authPost<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`/auth/${path}`, {
     method: "POST",
