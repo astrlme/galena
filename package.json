@@ -24,7 +24,8 @@
     "infra:diff": "pnpm --filter @galena/infra diff",
     "deploy:dev": "pnpm --filter @galena/infra deploy:dev",
     "deploy:prod": "pnpm --filter @galena/infra deploy:prod",
-    "db:seed": "pnpm --filter @galena/api seed"
+    "db:seed": "pnpm --filter @galena/api seed",
+    "api:generate": "pnpm --filter @galena/api openapi && pnpm --filter @galena/web generate:api"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",

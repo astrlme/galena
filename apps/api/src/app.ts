@@ -1,66 +1,18 @@
-import {
-  type MemberRole,
-  memberId,
-  type ProblemDetails,
-  problemContentType,
-  type WorkspaceId,
-  workspaceId,
-} from "@galena/contracts";
-import { roleAtLeast } from "@galena/core";
-import { createWorkspace, type Db, findMembership, workspaceExists } from "@galena/db";
+import { memberId, workspaceId } from "@galena/contracts";
+import { createWorkspace, workspaceExists } from "@galena/db";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { APIError } from "better-auth/api";
-import type { MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { v7 } from "uuid";
-import type { Auth } from "./auth.ts";
+import { type Deps, type Env, fail, problemResponse, requireRole } from "./http.ts";
+import { registerComponentRoutes } from "./routes/components.ts";
 
-export type Deps = { db: Db; auth: Auth };
-type Member = { userId: string; email: string; role: MemberRole; workspaceId: WorkspaceId };
-type Env = { Variables: { member: Member } };
+export { type Deps, problemResponse, requireRole } from "./http.ts";
 
-/** An RFC 9457 response with our stable `code`. */
-export function problemResponse(details: Omit<ProblemDetails, "type">): Response {
-  const body: ProblemDetails = { type: "about:blank", ...details };
-  return new Response(JSON.stringify(body), {
-    status: details.status,
-    headers: { "content-type": problemContentType },
-  });
-}
-
-/** For expected failures inside typed handlers; `onError` sends the problem as is. */
-function fail(details: Omit<ProblemDetails, "type">): never {
-  throw new HTTPException(details.status as ContentfulStatusCode, {
-    res: problemResponse(details),
-  });
-}
-
-/** 401 without a session, 403 below `required`; sets `member` for the handler. */
-export function requireRole({ db, auth }: Deps, required: MemberRole): MiddlewareHandler<Env> {
-  return async (c, next) => {
-    const session = await auth.api.getSession({ headers: c.req.raw.headers });
-    if (!session) {
-      return problemResponse({
-        status: 401,
-        code: "unauthenticated",
-        title: "Sign in first",
-        detail: "This needs a signed-in member. Sign in and try again.",
-      });
-    }
-    const membership = await findMembership(db, session.user.id);
-    if (!membership || !roleAtLeast(membership.role, required)) {
-      return problemResponse({
-        status: 403,
-        code: "forbidden",
-        title: "Your role does not allow this",
-        detail: `This needs the ${required} role or higher. Ask an owner to change your role.`,
-      });
-    }
-    c.set("member", { userId: session.user.id, email: session.user.email, ...membership });
-    await next();
-  };
-}
+export const openApiConfig = {
+  openapi: "3.1.0",
+  info: { title: "Galena API", version: "0.0.0" },
+} as const;
 
 const health = createRoute({
   method: "get",
@@ -195,10 +147,9 @@ export function createApp(deps: Deps) {
   app.use("/v1/me", requireRole(deps, "viewer"));
   app.openapi(me, (c) => c.json(c.get("member"), 200));
 
-  app.doc31("/openapi.json", {
-    openapi: "3.1.0",
-    info: { title: "Galena API", version: "0.0.0" },
-  });
+  registerComponentRoutes(app, deps);
+
+  app.doc31("/openapi.json", openApiConfig);
 
   app.notFound((c) =>
     problemResponse({

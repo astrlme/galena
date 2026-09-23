@@ -64,5 +64,9 @@ export type ChannelKind = (typeof channelKinds)[number];
 export const signalSources = ["alertmanager", "generic"] as const; // post-v1: "grafana", "cloudwatch", "sentry"
 export type SignalSource = (typeof signalSources)[number];
 
+// What a `*.changed` event says happened.
+export const changeActions = ["created", "updated", "deleted", "reordered"] as const;
+export type ChangeAction = (typeof changeActions)[number];
+
 export const memberRoles = ["owner", "admin", "editor", "viewer"] as const;
 export type MemberRole = (typeof memberRoles)[number];
