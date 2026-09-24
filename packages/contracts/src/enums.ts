@@ -58,6 +58,23 @@ export type MonitorState = (typeof monitorStates)[number];
 export const checkStatuses = ["up", "degraded", "down", "error"] as const;
 export type CheckStatus = (typeof checkStatuses)[number];
 
+// Why a check failed. `blocked_by_guard` is the SSRF guard; `probe_failed` means the probe broke.
+export const checkErrorCodes = [
+  "timeout",
+  "dns_failed",
+  "connection_failed",
+  "tls_failed",
+  "http_status",
+  "keyword_missing",
+  "blocked_by_guard",
+  "probe_failed",
+] as const;
+export type CheckErrorCode = (typeof checkErrorCodes)[number];
+
+// The component status a monitor sets while it is down.
+export const downStatuses = ["partial_outage", "major_outage"] as const;
+export type DownStatus = (typeof downStatuses)[number];
+
 export const channelKinds = ["email", "slack", "webhook"] as const; // post-v1: "discord", "teams"
 export type ChannelKind = (typeof channelKinds)[number];
 

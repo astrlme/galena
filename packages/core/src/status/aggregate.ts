@@ -1,5 +1,6 @@
 import {
   type ComponentStatus,
+  type DownStatus,
   type IncidentImpact,
   type IncidentStatus,
   type IncidentVisibility,
@@ -11,7 +12,8 @@ import { assertNever } from "../assert-never.ts";
 
 // Mapping monitor state to component status.
 
-export type DownStatus = Extract<ComponentStatus, "partial_outage" | "major_outage">;
+export type { DownStatus };
+
 type MonitorDrivenStatus = Exclude<ComponentStatus, "under_maintenance">;
 
 // Least to most severe.
