@@ -16,7 +16,7 @@
     "test:int": "vitest run --config vitest.int.config.ts",
     "test:e2e": "docker compose up -d --wait && pnpm db:migrate && pnpm db:seed && pnpm --filter @galena/web e2e",
     "trigger:dev": "pnpm --filter @galena/workers trigger:dev",
-    "replay": "echo replay is not set up yet && exit 1",
+    "replay": "vitest run packages/core/src/detection/replay.test.ts",
     "check:deps": "depcruise apps packages scripts infra --config .dependency-cruiser.cjs",
     "db:generate": "pnpm --filter @galena/db generate",
     "db:migrate": "pnpm --filter @galena/db migrate",

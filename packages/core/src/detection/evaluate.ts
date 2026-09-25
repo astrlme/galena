@@ -32,7 +32,14 @@ export type DetectionState = {
   regions: Record<string, RegionTrack>;
 };
 
-export type Transition = { from: MonitorState; to: MonitorState; seq: number; at: number };
+export type Transition = {
+  from: MonitorState;
+  to: MonitorState;
+  seq: number;
+  at: number;
+  /** Inside a maintenance window: recorded, but nothing customer-facing may follow. */
+  suppressed: boolean;
+};
 
 export type Evaluation = {
   next: DetectionState;
@@ -112,7 +119,7 @@ export function evaluate(
   previous: DetectionState,
   result: CheckResult,
   s: DetectionSettings,
-  context: { clock: Clock; excludedRegions: ReadonlySet<string> },
+  context: { clock: Clock; excludedRegions: ReadonlySet<string>; inMaintenance?: boolean },
 ): Evaluation {
   const now = context.clock.now().getTime();
 
@@ -177,7 +184,13 @@ export function evaluate(
       signal: steady,
       regions,
     },
-    transition: { from: previous.state, to, seq, at: now },
+    transition: {
+      from: previous.state,
+      to,
+      seq,
+      at: now,
+      suppressed: context.inMaintenance ?? false,
+    },
     insufficientRegions: false,
   };
 }
