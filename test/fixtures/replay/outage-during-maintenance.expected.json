@@ -1,0 +1,26 @@
+[
+  {
+    "at": "2026-09-27T10:02:05.000Z",
+    "from": "unknown",
+    "to": "up",
+    "suppressed": false
+  },
+  {
+    "at": "2026-09-27T10:09:05.000Z",
+    "from": "up",
+    "to": "down",
+    "suppressed": true
+  },
+  {
+    "at": "2026-09-27T10:15:05.000Z",
+    "from": "down",
+    "to": "recovering",
+    "suppressed": true
+  },
+  {
+    "at": "2026-09-27T10:30:05.000Z",
+    "from": "recovering",
+    "to": "up",
+    "suppressed": false
+  }
+]

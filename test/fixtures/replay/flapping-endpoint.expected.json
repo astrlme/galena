@@ -1,0 +1,44 @@
+[
+  {
+    "at": "2026-09-27T10:02:05.000Z",
+    "from": "unknown",
+    "to": "up",
+    "suppressed": false
+  },
+  {
+    "at": "2026-09-27T10:06:05.000Z",
+    "from": "up",
+    "to": "down",
+    "suppressed": false
+  },
+  {
+    "at": "2026-09-27T10:09:05.000Z",
+    "from": "down",
+    "to": "recovering",
+    "suppressed": false
+  },
+  {
+    "at": "2026-09-27T10:11:05.000Z",
+    "from": "recovering",
+    "to": "down",
+    "suppressed": false
+  },
+  {
+    "at": "2026-09-27T10:14:05.000Z",
+    "from": "down",
+    "to": "recovering",
+    "suppressed": false
+  },
+  {
+    "at": "2026-09-27T10:16:05.000Z",
+    "from": "recovering",
+    "to": "flapping",
+    "suppressed": false
+  },
+  {
+    "at": "2026-09-27T10:59:05.000Z",
+    "from": "flapping",
+    "to": "up",
+    "suppressed": false
+  }
+]
