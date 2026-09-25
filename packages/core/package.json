@@ -14,6 +14,7 @@
     "@galena/contracts": "workspace:*"
   },
   "devDependencies": {
-    "@galena/config": "workspace:*"
+    "@galena/config": "workspace:*",
+    "fast-check": "^4.10.2"
   }
 }
