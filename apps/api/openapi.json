@@ -654,6 +654,877 @@
           }
         }
       }
+    },
+    "/v1/monitors": {
+      "get": {
+        "summary": "Monitors, oldest first",
+        "responses": {
+          "200": {
+            "description": "Every monitor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "monitors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "componentId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "http"
+                            ]
+                          },
+                          "http": {
+                            "type": "object",
+                            "properties": {
+                              "url": {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              "method": {
+                                "type": "string",
+                                "enum": [
+                                  "GET",
+                                  "HEAD"
+                                ],
+                                "default": "GET"
+                              },
+                              "expectedStatus": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 100,
+                                  "maximum": 599
+                                },
+                                "minItems": 1,
+                                "maxItems": 20
+                              },
+                              "keyword": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "timeoutMs": {
+                                "type": "integer",
+                                "minimum": 1000,
+                                "maximum": 10000,
+                                "default": 10000
+                              },
+                              "followRedirects": {
+                                "type": "boolean",
+                                "default": true
+                              }
+                            },
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          "publishPolicy": {
+                            "type": "string",
+                            "enum": [
+                              "auto",
+                              "approve",
+                              "internal_only"
+                            ],
+                            "default": "approve"
+                          },
+                          "downStatus": {
+                            "type": "string",
+                            "enum": [
+                              "partial_outage",
+                              "major_outage"
+                            ],
+                            "default": "major_outage"
+                          },
+                          "detection": {
+                            "type": "object",
+                            "properties": {
+                              "failThreshold": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10,
+                                "default": 2
+                              },
+                              "recoverThreshold": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10,
+                                "default": 3
+                              },
+                              "quorum": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 5,
+                                "default": 2
+                              },
+                              "degradedLatencyMs": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ],
+                                "minimum": 50,
+                                "maximum": 60000,
+                                "default": null
+                              },
+                              "staleAfterIntervals": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10,
+                                "default": 3
+                              },
+                              "flapWindowMinutes": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 240,
+                                "default": 30
+                              },
+                              "flapMaxTransitions": {
+                                "type": "integer",
+                                "minimum": 2,
+                                "maximum": 20,
+                                "default": 4
+                              },
+                              "stableMinutes": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 240,
+                                "default": 15
+                              }
+                            },
+                            "default": {}
+                          },
+                          "enabled": {
+                            "type": "boolean",
+                            "default": true
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "componentId",
+                          "name",
+                          "type",
+                          "http"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "monitors"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add a monitor; probes pick it up with the next config publish",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "componentId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid",
+                    "default": null
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "http"
+                    ],
+                    "default": "http"
+                  },
+                  "http": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "method": {
+                        "type": "string",
+                        "enum": [
+                          "GET",
+                          "HEAD"
+                        ],
+                        "default": "GET"
+                      },
+                      "expectedStatus": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 100,
+                          "maximum": 599
+                        },
+                        "minItems": 1,
+                        "maxItems": 20
+                      },
+                      "keyword": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "timeoutMs": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 10000,
+                        "default": 10000
+                      },
+                      "followRedirects": {
+                        "type": "boolean",
+                        "default": true
+                      }
+                    },
+                    "required": [
+                      "url"
+                    ]
+                  },
+                  "publishPolicy": {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "approve",
+                      "internal_only"
+                    ],
+                    "default": "approve"
+                  },
+                  "downStatus": {
+                    "type": "string",
+                    "enum": [
+                      "partial_outage",
+                      "major_outage"
+                    ],
+                    "default": "major_outage"
+                  },
+                  "detection": {
+                    "type": "object",
+                    "properties": {
+                      "failThreshold": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "default": 2
+                      },
+                      "recoverThreshold": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "default": 3
+                      },
+                      "quorum": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5,
+                        "default": 2
+                      },
+                      "degradedLatencyMs": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "minimum": 50,
+                        "maximum": 60000,
+                        "default": null
+                      },
+                      "staleAfterIntervals": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "default": 3
+                      },
+                      "flapWindowMinutes": {
+                        "type": "integer",
+                        "minimum": 5,
+                        "maximum": 240,
+                        "default": 30
+                      },
+                      "flapMaxTransitions": {
+                        "type": "integer",
+                        "minimum": 2,
+                        "maximum": 20,
+                        "default": 4
+                      },
+                      "stableMinutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 240,
+                        "default": 15
+                      }
+                    },
+                    "default": {}
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "name",
+                  "http"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new monitor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "componentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "http"
+                      ]
+                    },
+                    "http": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "method": {
+                          "type": "string",
+                          "enum": [
+                            "GET",
+                            "HEAD"
+                          ],
+                          "default": "GET"
+                        },
+                        "expectedStatus": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 100,
+                            "maximum": 599
+                          },
+                          "minItems": 1,
+                          "maxItems": 20
+                        },
+                        "keyword": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "timeoutMs": {
+                          "type": "integer",
+                          "minimum": 1000,
+                          "maximum": 10000,
+                          "default": 10000
+                        },
+                        "followRedirects": {
+                          "type": "boolean",
+                          "default": true
+                        }
+                      },
+                      "required": [
+                        "url"
+                      ]
+                    },
+                    "publishPolicy": {
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "approve",
+                        "internal_only"
+                      ],
+                      "default": "approve"
+                    },
+                    "downStatus": {
+                      "type": "string",
+                      "enum": [
+                        "partial_outage",
+                        "major_outage"
+                      ],
+                      "default": "major_outage"
+                    },
+                    "detection": {
+                      "type": "object",
+                      "properties": {
+                        "failThreshold": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10,
+                          "default": 2
+                        },
+                        "recoverThreshold": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10,
+                          "default": 3
+                        },
+                        "quorum": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5,
+                          "default": 2
+                        },
+                        "degradedLatencyMs": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 50,
+                          "maximum": 60000,
+                          "default": null
+                        },
+                        "staleAfterIntervals": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10,
+                          "default": 3
+                        },
+                        "flapWindowMinutes": {
+                          "type": "integer",
+                          "minimum": 5,
+                          "maximum": 240,
+                          "default": 30
+                        },
+                        "flapMaxTransitions": {
+                          "type": "integer",
+                          "minimum": 2,
+                          "maximum": 20,
+                          "default": 4
+                        },
+                        "stableMinutes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 240,
+                          "default": 15
+                        }
+                      },
+                      "default": {}
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "default": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "componentId",
+                    "name",
+                    "type",
+                    "http"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/monitors/{id}": {
+      "put": {
+        "summary": "Replace a monitor's settings",
+        "description": "Send every field; omitted optional fields fall back to their defaults.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "componentId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid",
+                    "default": null
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "http"
+                    ],
+                    "default": "http"
+                  },
+                  "http": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "method": {
+                        "type": "string",
+                        "enum": [
+                          "GET",
+                          "HEAD"
+                        ],
+                        "default": "GET"
+                      },
+                      "expectedStatus": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 100,
+                          "maximum": 599
+                        },
+                        "minItems": 1,
+                        "maxItems": 20
+                      },
+                      "keyword": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "timeoutMs": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 10000,
+                        "default": 10000
+                      },
+                      "followRedirects": {
+                        "type": "boolean",
+                        "default": true
+                      }
+                    },
+                    "required": [
+                      "url"
+                    ]
+                  },
+                  "publishPolicy": {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "approve",
+                      "internal_only"
+                    ],
+                    "default": "approve"
+                  },
+                  "downStatus": {
+                    "type": "string",
+                    "enum": [
+                      "partial_outage",
+                      "major_outage"
+                    ],
+                    "default": "major_outage"
+                  },
+                  "detection": {
+                    "type": "object",
+                    "properties": {
+                      "failThreshold": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "default": 2
+                      },
+                      "recoverThreshold": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "default": 3
+                      },
+                      "quorum": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5,
+                        "default": 2
+                      },
+                      "degradedLatencyMs": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "minimum": 50,
+                        "maximum": 60000,
+                        "default": null
+                      },
+                      "staleAfterIntervals": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "default": 3
+                      },
+                      "flapWindowMinutes": {
+                        "type": "integer",
+                        "minimum": 5,
+                        "maximum": 240,
+                        "default": 30
+                      },
+                      "flapMaxTransitions": {
+                        "type": "integer",
+                        "minimum": 2,
+                        "maximum": 20,
+                        "default": 4
+                      },
+                      "stableMinutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 240,
+                        "default": 15
+                      }
+                    },
+                    "default": {}
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "name",
+                  "http"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated monitor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "componentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "http"
+                      ]
+                    },
+                    "http": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "method": {
+                          "type": "string",
+                          "enum": [
+                            "GET",
+                            "HEAD"
+                          ],
+                          "default": "GET"
+                        },
+                        "expectedStatus": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 100,
+                            "maximum": 599
+                          },
+                          "minItems": 1,
+                          "maxItems": 20
+                        },
+                        "keyword": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "timeoutMs": {
+                          "type": "integer",
+                          "minimum": 1000,
+                          "maximum": 10000,
+                          "default": 10000
+                        },
+                        "followRedirects": {
+                          "type": "boolean",
+                          "default": true
+                        }
+                      },
+                      "required": [
+                        "url"
+                      ]
+                    },
+                    "publishPolicy": {
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "approve",
+                        "internal_only"
+                      ],
+                      "default": "approve"
+                    },
+                    "downStatus": {
+                      "type": "string",
+                      "enum": [
+                        "partial_outage",
+                        "major_outage"
+                      ],
+                      "default": "major_outage"
+                    },
+                    "detection": {
+                      "type": "object",
+                      "properties": {
+                        "failThreshold": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10,
+                          "default": 2
+                        },
+                        "recoverThreshold": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10,
+                          "default": 3
+                        },
+                        "quorum": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5,
+                          "default": 2
+                        },
+                        "degradedLatencyMs": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 50,
+                          "maximum": 60000,
+                          "default": null
+                        },
+                        "staleAfterIntervals": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10,
+                          "default": 3
+                        },
+                        "flapWindowMinutes": {
+                          "type": "integer",
+                          "minimum": 5,
+                          "maximum": 240,
+                          "default": 30
+                        },
+                        "flapMaxTransitions": {
+                          "type": "integer",
+                          "minimum": 2,
+                          "maximum": 20,
+                          "default": 4
+                        },
+                        "stableMinutes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 240,
+                          "default": 15
+                        }
+                      },
+                      "default": {}
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "default": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "componentId",
+                    "name",
+                    "type",
+                    "http"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a monitor; probes stop checking it with the next config publish",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done"
+          }
+        }
+      }
     }
   },
   "webhooks": {}

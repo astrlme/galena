@@ -1,5 +1,4 @@
 import {
-  type ChangeAction,
   componentGroupId,
   componentGroupInput,
   componentGroupView,
@@ -7,28 +6,14 @@ import {
   componentInput,
   componentPatch,
   componentView,
-  eventId,
   reorderInput,
 } from "@galena/contracts";
 import { type Component, type ComponentGroup, reorder } from "@galena/core";
-import {
-  type Change,
-  componentGroupRepository,
-  componentRepository,
-  recordChange,
-} from "@galena/db";
+import { componentGroupRepository, componentRepository, recordChange } from "@galena/db";
 import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { type App, type Deps, fail, type Member, notFound, requireRole } from "../http.ts";
-
-const json = <T extends z.ZodType>(schema: T, description: string) => ({
-  description,
-  content: { "application/json": { schema } },
-});
-const jsonBody = <T extends z.ZodType>(schema: T) => ({
-  body: { required: true, content: { "application/json": { schema } } },
-});
-const noContent = { 204: { description: "Done" } };
+import { changeOf, json, jsonBody, noContent } from "./shared.ts";
 
 const toComponentView = (c: Component) => ({
   id: c.id,
@@ -39,31 +24,6 @@ const toComponentView = (c: Component) => ({
   status: c.status,
 });
 const toGroupView = (g: ComponentGroup) => ({ id: g.id, name: g.name, position: g.position });
-
-/** The audit entry and outbox event for one change. */
-function changeOf(
-  member: Member,
-  target: "component" | "component_group",
-  action: ChangeAction,
-  ids: string[],
-  data?: unknown,
-): Change {
-  return {
-    workspaceId: member.workspaceId,
-    actorUserId: member.userId,
-    action: `${target}.${action}`,
-    targetType: target,
-    targetId: ids.length === 1 ? (ids[0] ?? null) : null,
-    data,
-    event: {
-      id: eventId.parse(v7()),
-      type: `${target}.changed`,
-      occurredAt: new Date().toISOString(),
-      workspaceId: member.workspaceId,
-      data: { action, ids },
-    },
-  };
-}
 
 function orderMismatch(message: string): never {
   return fail({

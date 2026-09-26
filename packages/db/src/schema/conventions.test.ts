@@ -40,6 +40,7 @@ test("the schema has exactly the expected tables", () => {
       "component",
       "component_group",
       "member",
+      "monitor",
       "outbox",
       "page",
       "page_component",
