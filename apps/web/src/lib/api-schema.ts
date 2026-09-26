@@ -509,6 +509,411 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/monitors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Monitors, oldest first */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Every monitor */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            monitors: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                componentId: string | null;
+                                name: string;
+                                /** @enum {string} */
+                                type: "http";
+                                http: {
+                                    /** Format: uri */
+                                    url: string;
+                                    /**
+                                     * @default GET
+                                     * @enum {string}
+                                     */
+                                    method: "GET" | "HEAD";
+                                    expectedStatus?: number[];
+                                    keyword?: string;
+                                    /** @default 10000 */
+                                    timeoutMs: number;
+                                    /** @default true */
+                                    followRedirects: boolean;
+                                };
+                                /**
+                                 * @default approve
+                                 * @enum {string}
+                                 */
+                                publishPolicy: "auto" | "approve" | "internal_only";
+                                /**
+                                 * @default major_outage
+                                 * @enum {string}
+                                 */
+                                downStatus: "partial_outage" | "major_outage";
+                                /** @default {} */
+                                detection: {
+                                    /** @default 2 */
+                                    failThreshold: number;
+                                    /** @default 3 */
+                                    recoverThreshold: number;
+                                    /** @default 2 */
+                                    quorum: number;
+                                    /** @default null */
+                                    degradedLatencyMs: number | null;
+                                    /** @default 3 */
+                                    staleAfterIntervals: number;
+                                    /** @default 30 */
+                                    flapWindowMinutes: number;
+                                    /** @default 4 */
+                                    flapMaxTransitions: number;
+                                    /** @default 15 */
+                                    stableMinutes: number;
+                                };
+                                /** @default true */
+                                enabled: boolean;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Add a monitor; probes pick it up with the next config publish */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @default null
+                         */
+                        componentId?: string | null;
+                        name: string;
+                        /**
+                         * @default http
+                         * @enum {string}
+                         */
+                        type?: "http";
+                        http: {
+                            /** Format: uri */
+                            url: string;
+                            /**
+                             * @default GET
+                             * @enum {string}
+                             */
+                            method?: "GET" | "HEAD";
+                            expectedStatus?: number[];
+                            keyword?: string;
+                            /** @default 10000 */
+                            timeoutMs?: number;
+                            /** @default true */
+                            followRedirects?: boolean;
+                        };
+                        /**
+                         * @default approve
+                         * @enum {string}
+                         */
+                        publishPolicy?: "auto" | "approve" | "internal_only";
+                        /**
+                         * @default major_outage
+                         * @enum {string}
+                         */
+                        downStatus?: "partial_outage" | "major_outage";
+                        /** @default {} */
+                        detection?: {
+                            /** @default 2 */
+                            failThreshold?: number;
+                            /** @default 3 */
+                            recoverThreshold?: number;
+                            /** @default 2 */
+                            quorum?: number;
+                            /** @default null */
+                            degradedLatencyMs?: number | null;
+                            /** @default 3 */
+                            staleAfterIntervals?: number;
+                            /** @default 30 */
+                            flapWindowMinutes?: number;
+                            /** @default 4 */
+                            flapMaxTransitions?: number;
+                            /** @default 15 */
+                            stableMinutes?: number;
+                        };
+                        /** @default true */
+                        enabled?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description The new monitor */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            componentId: string | null;
+                            name: string;
+                            /** @enum {string} */
+                            type: "http";
+                            http: {
+                                /** Format: uri */
+                                url: string;
+                                /**
+                                 * @default GET
+                                 * @enum {string}
+                                 */
+                                method: "GET" | "HEAD";
+                                expectedStatus?: number[];
+                                keyword?: string;
+                                /** @default 10000 */
+                                timeoutMs: number;
+                                /** @default true */
+                                followRedirects: boolean;
+                            };
+                            /**
+                             * @default approve
+                             * @enum {string}
+                             */
+                            publishPolicy: "auto" | "approve" | "internal_only";
+                            /**
+                             * @default major_outage
+                             * @enum {string}
+                             */
+                            downStatus: "partial_outage" | "major_outage";
+                            /** @default {} */
+                            detection: {
+                                /** @default 2 */
+                                failThreshold: number;
+                                /** @default 3 */
+                                recoverThreshold: number;
+                                /** @default 2 */
+                                quorum: number;
+                                /** @default null */
+                                degradedLatencyMs: number | null;
+                                /** @default 3 */
+                                staleAfterIntervals: number;
+                                /** @default 30 */
+                                flapWindowMinutes: number;
+                                /** @default 4 */
+                                flapMaxTransitions: number;
+                                /** @default 15 */
+                                stableMinutes: number;
+                            };
+                            /** @default true */
+                            enabled: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/monitors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a monitor's settings
+         * @description Send every field; omitted optional fields fall back to their defaults.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @default null
+                         */
+                        componentId?: string | null;
+                        name: string;
+                        /**
+                         * @default http
+                         * @enum {string}
+                         */
+                        type?: "http";
+                        http: {
+                            /** Format: uri */
+                            url: string;
+                            /**
+                             * @default GET
+                             * @enum {string}
+                             */
+                            method?: "GET" | "HEAD";
+                            expectedStatus?: number[];
+                            keyword?: string;
+                            /** @default 10000 */
+                            timeoutMs?: number;
+                            /** @default true */
+                            followRedirects?: boolean;
+                        };
+                        /**
+                         * @default approve
+                         * @enum {string}
+                         */
+                        publishPolicy?: "auto" | "approve" | "internal_only";
+                        /**
+                         * @default major_outage
+                         * @enum {string}
+                         */
+                        downStatus?: "partial_outage" | "major_outage";
+                        /** @default {} */
+                        detection?: {
+                            /** @default 2 */
+                            failThreshold?: number;
+                            /** @default 3 */
+                            recoverThreshold?: number;
+                            /** @default 2 */
+                            quorum?: number;
+                            /** @default null */
+                            degradedLatencyMs?: number | null;
+                            /** @default 3 */
+                            staleAfterIntervals?: number;
+                            /** @default 30 */
+                            flapWindowMinutes?: number;
+                            /** @default 4 */
+                            flapMaxTransitions?: number;
+                            /** @default 15 */
+                            stableMinutes?: number;
+                        };
+                        /** @default true */
+                        enabled?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description The updated monitor */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            componentId: string | null;
+                            name: string;
+                            /** @enum {string} */
+                            type: "http";
+                            http: {
+                                /** Format: uri */
+                                url: string;
+                                /**
+                                 * @default GET
+                                 * @enum {string}
+                                 */
+                                method: "GET" | "HEAD";
+                                expectedStatus?: number[];
+                                keyword?: string;
+                                /** @default 10000 */
+                                timeoutMs: number;
+                                /** @default true */
+                                followRedirects: boolean;
+                            };
+                            /**
+                             * @default approve
+                             * @enum {string}
+                             */
+                            publishPolicy: "auto" | "approve" | "internal_only";
+                            /**
+                             * @default major_outage
+                             * @enum {string}
+                             */
+                            downStatus: "partial_outage" | "major_outage";
+                            /** @default {} */
+                            detection: {
+                                /** @default 2 */
+                                failThreshold: number;
+                                /** @default 3 */
+                                recoverThreshold: number;
+                                /** @default 2 */
+                                quorum: number;
+                                /** @default null */
+                                degradedLatencyMs: number | null;
+                                /** @default 3 */
+                                staleAfterIntervals: number;
+                                /** @default 30 */
+                                flapWindowMinutes: number;
+                                /** @default 4 */
+                                flapMaxTransitions: number;
+                                /** @default 15 */
+                                stableMinutes: number;
+                            };
+                            /** @default true */
+                            enabled: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** Delete a monitor; probes stop checking it with the next config publish */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Done */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {

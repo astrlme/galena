@@ -48,7 +48,7 @@ export const componentGroupView = z.object({
   position: z.number().int(),
 });
 
-const changeData = z.object({ action: z.enum(changeActions), ids: z.array(z.uuid()) });
+export const changeData = z.object({ action: z.enum(changeActions), ids: z.array(z.uuid()) });
 
 /** Components were created, edited, deleted or reordered; the page needs publishing again. */
 export const componentChanged = eventEnvelope("component.changed", changeData);

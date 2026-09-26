@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { changeData } from "./components.ts";
 import {
   checkErrorCodes,
   checkStatuses,
@@ -6,6 +7,7 @@ import {
   monitorTypes,
   publishPolicies,
 } from "./enums.ts";
+import { eventEnvelope } from "./events.ts";
 import { componentId, eventId, monitorId, workspaceId } from "./ids.ts";
 
 export const awsRegion = z
@@ -56,7 +58,7 @@ export const monitorConfig = z.object({
   id: monitorId,
   workspaceId,
   componentId: componentId.nullable(),
-  name: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1, "Enter a name.").max(100, "Keep the name under 100 characters."),
   type: z.enum(monitorTypes),
   http: httpCheck,
   publishPolicy: z.enum(publishPolicies).default("approve"),
@@ -66,6 +68,18 @@ export const monitorConfig = z.object({
   enabled: z.boolean().default(true),
 });
 export type MonitorConfig = z.infer<typeof monitorConfig>;
+
+/** What the dashboard and API clients send to create or replace a monitor. */
+export const monitorInput = monitorConfig.omit({ id: true, workspaceId: true }).extend({
+  componentId: componentId.nullable().default(null),
+  type: z.enum(monitorTypes).default("http"),
+});
+export type MonitorInput = z.infer<typeof monitorInput>;
+
+export const monitorView = monitorConfig.omit({ workspaceId: true });
+
+/** A monitor was created, replaced or deleted; `monitors.json` needs writing again. */
+export const monitorChanged = eventEnvelope("monitor.changed", changeData);
 
 /**
  * `monitors.json` in the private config bucket: what the probes and the evaluator read instead

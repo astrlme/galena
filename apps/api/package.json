@@ -14,6 +14,7 @@
     "@galena/contracts": "workspace:*",
     "@galena/core": "workspace:*",
     "@galena/db": "workspace:*",
+    "@galena/integrations": "workspace:*",
     "@hono/node-server": "^2.1.1",
     "@hono/zod-openapi": "^1.6.3",
     "better-auth": "^1.7.6",

@@ -6,6 +6,7 @@ import { HTTPException } from "hono/http-exception";
 import { v7 } from "uuid";
 import { type Deps, type Env, fail, problemResponse, requireRole } from "./http.ts";
 import { registerComponentRoutes } from "./routes/components.ts";
+import { registerMonitorRoutes } from "./routes/monitors.ts";
 
 export { type Deps, problemResponse, requireRole } from "./http.ts";
 
@@ -148,6 +149,7 @@ export function createApp(deps: Deps) {
   app.openapi(me, (c) => c.json(c.get("member"), 200));
 
   registerComponentRoutes(app, deps);
+  registerMonitorRoutes(app, deps);
 
   app.doc31("/openapi.json", openApiConfig);
 

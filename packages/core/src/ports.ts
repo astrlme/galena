@@ -3,6 +3,8 @@ import type {
   ComponentId,
   ComponentStatus,
   EventEnvelope,
+  MonitorConfig,
+  MonitorId,
   WorkspaceId,
 } from "@galena/contracts";
 
@@ -66,3 +68,6 @@ export type ComponentGroup = {
 };
 
 export type ComponentGroupRepository = WorkspaceRepository<ComponentGroup, ComponentGroupId>;
+
+/** Monitors have no position; they list in creation order (UUIDv7 ids). */
+export type MonitorRepository = Omit<WorkspaceRepository<MonitorConfig, MonitorId>, "setPositions">;
