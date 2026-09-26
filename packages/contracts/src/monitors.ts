@@ -112,10 +112,42 @@ export const checkResult = z
   });
 export type CheckResult = z.infer<typeof checkResult>;
 
+const epochMinute = (scheduledAt: string) => Math.floor(Date.parse(scheduledAt) / 60_000);
+
 /** `{monitorId}#{region}#{epochMinute}`: a retried or slow run keeps its minute. */
 export function checkDeduplicationId(
   result: Pick<CheckResult, "monitorId" | "region" | "scheduledAt">,
 ): string {
-  const epochMinute = Math.floor(Date.parse(result.scheduledAt) / 60_000);
-  return `${result.monitorId}#${result.region}#${epochMinute}`;
+  return `${result.monitorId}#${result.region}#${epochMinute(result.scheduledAt)}`;
+}
+
+/** Whether a probe region can reach a known-good URL; a failing region leaves the quorum. */
+export const canaryResult = z.object({
+  region: awsRegion,
+  scheduledAt: z.iso.datetime(),
+  passed: z.boolean(),
+  eventId,
+});
+export type CanaryResult = z.infer<typeof canaryResult>;
+
+/** One SQS FIFO message from a probe. */
+export const probeMessage = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("check"), result: checkResult }),
+  z.object({ kind: z.literal("canary"), canary: canaryResult }),
+]);
+export type ProbeMessage = z.infer<typeof probeMessage>;
+
+/** FIFO order is kept per monitor for checks and per region for canaries. */
+export function probeMessageIds(message: ProbeMessage) {
+  if (message.kind === "check") {
+    return {
+      groupId: message.result.monitorId,
+      deduplicationId: checkDeduplicationId(message.result),
+    };
+  }
+  const { region, scheduledAt } = message.canary;
+  return {
+    groupId: `canary#${region}`,
+    deduplicationId: `canary#${region}#${epochMinute(scheduledAt)}`,
+  };
 }

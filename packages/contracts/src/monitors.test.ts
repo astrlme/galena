@@ -5,6 +5,8 @@ import {
   detectionSettings,
   monitorConfig,
   monitorsFile,
+  probeMessage,
+  probeMessageIds,
 } from "./monitors.ts";
 
 const ids = {
@@ -151,4 +153,26 @@ test("the FIFO deduplication id uses the scheduled minute, not when the check ra
     `${ids.monitor}#eu-west-1#${1_790_503_200_000 / 60_000}`,
   );
   expect(checkDeduplicationId(late)).toBe(checkDeduplicationId(result));
+});
+
+test("probe messages group checks by monitor and canaries by region", () => {
+  const check = probeMessage.parse({ kind: "check", result: upResult });
+  expect(probeMessageIds(check)).toEqual({
+    groupId: ids.monitor,
+    deduplicationId: `${ids.monitor}#eu-west-1#${1_790_503_200_000 / 60_000}`,
+  });
+  const canary = probeMessage.parse({
+    kind: "canary",
+    canary: {
+      region: "eu-west-1",
+      scheduledAt: upResult.scheduledAt,
+      passed: false,
+      eventId: upResult.eventId,
+    },
+  });
+  expect(probeMessageIds(canary)).toEqual({
+    groupId: "canary#eu-west-1",
+    deduplicationId: `canary#eu-west-1#${1_790_503_200_000 / 60_000}`,
+  });
+  expect(probeMessage.safeParse({ kind: "heartbeat" }).success).toBe(false);
 });
