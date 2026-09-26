@@ -1,0 +1,20 @@
+{
+  "name": "@galena/integrations",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./net": "./src/net/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@galena/contracts": "workspace:*",
+    "@galena/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@galena/config": "workspace:*"
+  }
+}
