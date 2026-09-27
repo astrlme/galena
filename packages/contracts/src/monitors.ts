@@ -4,6 +4,7 @@ import {
   checkErrorCodes,
   checkStatuses,
   downStatuses,
+  monitorStates,
   monitorTypes,
   publishPolicies,
 } from "./enums.ts";
@@ -165,3 +166,24 @@ export function probeMessageIds(message: ProbeMessage) {
     deduplicationId: `canary#${region}#${epochMinute(scheduledAt)}`,
   };
 }
+
+/**
+ * The evaluator's transition, the payload of `monitor.state-changed`. The envelope id is the
+ * check result's `eventId`, so one id follows the outage from probe to delivery.
+ */
+export const monitorTransitioned = eventEnvelope(
+  "monitor.transitioned",
+  z.object({
+    monitorId,
+    from: z.enum(monitorStates),
+    to: z.enum(monitorStates),
+    transitionSeq: z.int().min(1),
+    /** Inside a maintenance window: record it, but publish and notify nothing. */
+    suppressed: z.boolean(),
+  }),
+);
+export type MonitorTransitioned = z.infer<typeof monitorTransitioned>;
+
+/** `mon:{monitorId}:{transitionSeq}`: triggering the same transition twice starts one run. */
+export const transitionIdempotencyKey = ({ data }: MonitorTransitioned) =>
+  `mon:${data.monitorId}:${data.transitionSeq}`;

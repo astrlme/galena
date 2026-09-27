@@ -32,7 +32,8 @@ export interface WorkflowEngine {
   trigger(
     task: string,
     payload: unknown,
-    options: { idempotencyKey: string; delay?: string },
+    /** `tags` label the run, e.g. with the correlation id, so it can be found later. */
+    options: { idempotencyKey: string; delay?: string; tags?: string[] },
   ): Promise<void>;
 }
 

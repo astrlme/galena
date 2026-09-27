@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./config": "./src/config/monitors-file.ts",
     "./net": "./src/net/index.ts"
   },
   "scripts": {
@@ -11,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1141.0",
     "@galena/contracts": "workspace:*",
     "@galena/core": "workspace:*"
   },

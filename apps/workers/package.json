@@ -12,6 +12,7 @@
     "trigger.dev": "4.6.4"
   },
   "dependencies": {
+    "@galena/contracts": "workspace:*",
     "@trigger.dev/sdk": "4.6.4"
   }
 }
