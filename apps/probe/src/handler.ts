@@ -1,12 +1,11 @@
 import { Logger } from "@aws-lambda-powertools/logger";
 import { Metrics, MetricUnit } from "@aws-lambda-powertools/metrics";
-import { S3Client } from "@aws-sdk/client-s3";
 import { SendMessageBatchCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { eventId, type ProbeMessage, probeMessageIds } from "@galena/contracts";
+import { monitorsFileFromS3 } from "@galena/integrations/config";
 import { checkHttp } from "@galena/integrations/net";
 import { v7 } from "uuid";
 import { z } from "zod";
-import { createConfigLoader, fetchFromS3 } from "./config.ts";
 import { env } from "./env.ts";
 import { runProbe } from "./probe.ts";
 
@@ -16,9 +15,12 @@ const metrics = new Metrics({
   serviceName: "probe",
   defaultDimensions: { region: env.AWS_REGION },
 });
-const s3 = new S3Client({ region: env.GLN_HOME_REGION });
 const sqs = new SQSClient({ region: env.GLN_HOME_REGION });
-const loadConfig = createConfigLoader(fetchFromS3(s3, env.GLN_CONFIG_BUCKET, env.GLN_CONFIG_KEY));
+const loadConfig = monitorsFileFromS3({
+  region: env.GLN_HOME_REGION,
+  bucket: env.GLN_CONFIG_BUCKET,
+  key: env.GLN_CONFIG_KEY,
+});
 
 /** The Scheduler's input template passes `<aws.scheduler.scheduled-time>` through. */
 const schedulerEvent = z.object({ scheduledAt: z.iso.datetime() });

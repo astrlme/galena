@@ -1,5 +1,5 @@
 {
-  "name": "@galena/probe",
+  "name": "@galena/evaluator",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,14 +10,17 @@
   "dependencies": {
     "@aws-lambda-powertools/logger": "^2.34.0",
     "@aws-lambda-powertools/metrics": "^2.35.0",
-    "@aws-sdk/client-sqs": "^3.1141.0",
+    "@aws-sdk/client-dynamodb": "^3.1141.0",
+    "@aws-sdk/lib-dynamodb": "^3.1141.0",
     "@galena/contracts": "workspace:*",
+    "@galena/core": "workspace:*",
     "@galena/integrations": "workspace:*",
-    "p-limit": "^7.3.3",
-    "uuid": "^14.0.2",
+    "@trigger.dev/sdk": "4.6.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@galena/config": "workspace:*"
+    "@galena/config": "workspace:*",
+    "testcontainers": "^12.1.0",
+    "uuid": "^14.0.2"
   }
 }

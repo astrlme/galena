@@ -1,4 +1,4 @@
-import { GetObjectCommand, type S3Client, S3ServiceException } from "@aws-sdk/client-s3";
+import { GetObjectCommand, S3Client, S3ServiceException } from "@aws-sdk/client-s3";
 import { type MonitorsFile, monitorsFile } from "@galena/contracts";
 
 type Fetched = { etag: string; body: string } | "not_modified";
@@ -33,4 +33,10 @@ export function fetchFromS3(s3: Pick<S3Client, "send">, bucket: string, key: str
       throw error;
     }
   };
+}
+
+/** The loader both hot-path Lambdas use: one S3 client, the ETag cache for the process. */
+export function monitorsFileFromS3(options: { region: string; bucket: string; key: string }) {
+  const s3 = new S3Client({ region: options.region });
+  return createConfigLoader(fetchFromS3(s3, options.bucket, options.key));
 }

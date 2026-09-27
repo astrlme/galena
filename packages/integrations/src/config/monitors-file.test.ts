@@ -1,6 +1,6 @@
 import { type S3Client, S3ServiceException } from "@aws-sdk/client-s3";
 import { expect, test, vi } from "vitest";
-import { createConfigLoader, fetchFromS3 } from "./config.ts";
+import { createConfigLoader, fetchFromS3 } from "./monitors-file.ts";
 
 const body = (generatedAt: string) => JSON.stringify({ version: 1, generatedAt, monitors: [] });
 
