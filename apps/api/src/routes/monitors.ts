@@ -5,12 +5,12 @@ import {
   monitorInput,
   monitorView,
 } from "@galena/contracts";
-import { componentRepository, monitorRepository, recordChange } from "@galena/db";
+import { componentRepository, monitorRepository } from "@galena/db";
 import { guard } from "@galena/integrations/net";
 import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { type App, type Deps, fail, type Member, notFound, requireRole } from "../http.ts";
-import { changeOf, json, jsonBody, noContent } from "./shared.ts";
+import { changeOf, commit, json, jsonBody, noContent } from "./shared.ts";
 
 const toView = ({ workspaceId: _, ...view }: MonitorConfig) => view;
 
@@ -78,10 +78,9 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
         workspaceId: member.workspaceId,
         ...input,
       };
-      await db.transaction(async (tx) => {
-        await monitorRepository(tx).save(created);
-        await recordChange(tx, changeOf(member, "monitor", "created", [created.id], input));
-      });
+      await commit(deps, changeOf(member, "monitor", "created", [created.id], input), (tx) =>
+        monitorRepository(tx).save(created),
+      );
       return c.json(toView(created), 201);
     },
   );
@@ -103,10 +102,9 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
       if (!(await monitors.findById(member.workspaceId, id))) notFound("Monitor");
       await validate(member, input);
       const updated: MonitorConfig = { id, workspaceId: member.workspaceId, ...input };
-      await db.transaction(async (tx) => {
-        await monitorRepository(tx).save(updated);
-        await recordChange(tx, changeOf(member, "monitor", "updated", [id], input));
-      });
+      await commit(deps, changeOf(member, "monitor", "updated", [id], input), (tx) =>
+        monitorRepository(tx).save(updated),
+      );
       return c.json(toView(updated), 200);
     },
   );
@@ -124,13 +122,11 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
       const member = c.get("member");
       const { id } = c.req.valid("param");
       const existing = (await monitors.findById(member.workspaceId, id)) ?? notFound("Monitor");
-      await db.transaction(async (tx) => {
-        await monitorRepository(tx).delete(member.workspaceId, id);
-        await recordChange(
-          tx,
-          changeOf(member, "monitor", "deleted", [id], { name: existing.name }),
-        );
-      });
+      await commit(
+        deps,
+        changeOf(member, "monitor", "deleted", [id], { name: existing.name }),
+        (tx) => monitorRepository(tx).delete(member.workspaceId, id),
+      );
       return c.body(null, 204);
     },
   );

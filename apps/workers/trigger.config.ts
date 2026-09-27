@@ -20,4 +20,6 @@ export default defineConfig({
   project,
   dirs: ["./src/tasks"],
   maxDuration: 300, // seconds of compute per run; durable waits do not count
+  // Reuse a warm process between runs: an outbox dispatch takes ~50 ms, a cold process seconds.
+  processKeepAlive: true,
 });

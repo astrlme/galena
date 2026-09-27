@@ -17,6 +17,7 @@
     "@galena/integrations": "workspace:*",
     "@hono/node-server": "^2.1.1",
     "@hono/zod-openapi": "^1.6.3",
+    "@trigger.dev/sdk": "4.6.4",
     "better-auth": "^1.7.6",
     "hono": "^4.13.9",
     "uuid": "^14.0.2",

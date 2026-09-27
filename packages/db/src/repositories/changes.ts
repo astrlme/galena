@@ -1,4 +1,10 @@
-import { auditLogId, type EventEnvelope, outboxId, type WorkspaceId } from "@galena/contracts";
+import {
+  auditLogId,
+  type EventEnvelope,
+  type OutboxId,
+  outboxId,
+  type WorkspaceId,
+} from "@galena/contracts";
 import { v7 } from "uuid";
 import type { Db } from "../client.ts";
 import { auditLog, outbox } from "../schema/index.ts";
@@ -18,9 +24,10 @@ export type Change = {
 
 /**
  * Writes the audit entry and the outbox event for one change. Call it inside the same
- * transaction as the change itself, so neither can exist without the other.
+ * transaction as the change itself, so neither can exist without the other. Returns the outbox
+ * id for the dispatcher, which the caller triggers once the transaction has committed.
  */
-export async function recordChange(db: Db, change: Change): Promise<void> {
+export async function recordChange(db: Db, change: Change): Promise<OutboxId> {
   await db.insert(auditLog).values({
     id: auditLogId.parse(v7()),
     workspaceId: change.workspaceId,
@@ -30,10 +37,12 @@ export async function recordChange(db: Db, change: Change): Promise<void> {
     targetId: change.targetId,
     data: change.data ?? null,
   });
+  const id = outboxId.parse(v7());
   await db.insert(outbox).values({
-    id: outboxId.parse(v7()),
+    id,
     workspaceId: change.workspaceId,
     eventType: change.event.type,
     payload: change.event,
   });
+  return id;
 }

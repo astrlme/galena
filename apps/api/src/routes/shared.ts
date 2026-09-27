@@ -1,8 +1,8 @@
 import { type ChangeAction, eventId } from "@galena/contracts";
-import type { Change } from "@galena/db";
+import { type Change, type Db, recordChange } from "@galena/db";
 import type { z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
-import type { Member } from "../http.ts";
+import type { Deps, Member } from "../http.ts";
 
 // Route helpers shared by every resource.
 
@@ -38,4 +38,27 @@ export function changeOf(
       data: { action, ids },
     },
   };
+}
+
+/**
+ * The change, its audit entry and its outbox row in one transaction; then the outbox row goes to
+ * the dispatcher. The trigger comes after the commit, so the dispatcher never sees a row that can
+ * still roll back. If trigger.dev is unreachable, the request still succeeds and the row stays
+ * pending until it is dispatched again.
+ */
+export async function commit(deps: Deps, change: Change, write: (tx: Db) => Promise<unknown>) {
+  const outboxId = await deps.db.transaction(async (tx) => {
+    await write(tx);
+    return recordChange(tx, change);
+  });
+  try {
+    await deps.engine.trigger(
+      "outbox.dispatch",
+      { outboxId },
+      { idempotencyKey: `outbox:${outboxId}` },
+    );
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.warn("outbox.dispatch was not triggered", { outboxId, reason });
+  }
 }

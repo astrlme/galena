@@ -1,11 +1,11 @@
-import { monitorChanged } from "@galena/contracts";
+import { monitorChanged, type OutboxId } from "@galena/contracts";
 import { schema } from "@galena/db";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createApp, type Deps } from "../app.ts";
-import { testDeps } from "../test-deps.ts";
+import { type Triggered, testDeps } from "../test-deps.ts";
 import { expectProblem, Session } from "../test-session.ts";
 
 type View = {
@@ -21,6 +21,7 @@ type View = {
 let container: StartedPostgreSqlContainer | undefined;
 let close: (() => Promise<void>) | undefined;
 let deps: Deps;
+let triggered: Triggered[];
 let owner: Session;
 
 beforeAll(async () => {
@@ -28,6 +29,7 @@ beforeAll(async () => {
   const built = testDeps(container.getConnectionUri());
   await built.migrate();
   deps = built.deps;
+  triggered = built.triggered;
   close = built.close;
   owner = new Session(createApp(deps));
   const setup = await owner.call("/v1/setup", {
@@ -119,6 +121,43 @@ test("every change leaves an audit entry and a monitor.changed outbox event", as
   ]);
   expect(events).toHaveLength(audit.length);
   for (const { payload } of events) expect(monitorChanged.safeParse(payload).success).toBe(true);
+});
+
+test("each change hands its outbox row to outbox.dispatch once it has committed", async () => {
+  const created = await create({ name: "Dispatched", http: { url: "https://example.com/" } });
+  const last = triggered.at(-1);
+  if (!last) throw new Error("The change triggered nothing.");
+  expect(last.task).toBe("outbox.dispatch");
+  const { outboxId } = last.payload as { outboxId: OutboxId };
+  expect(last.idempotencyKey).toBe(`outbox:${outboxId}`);
+  const [row] = await deps.db.select().from(schema.outbox).where(eq(schema.outbox.id, outboxId));
+  expect(row?.payload).toMatchObject({ type: "monitor.changed", data: { ids: [created.id] } });
+});
+
+test("a change still succeeds when trigger.dev is unreachable", async () => {
+  const unreachable: Deps = {
+    ...deps,
+    engine: {
+      trigger: async () => {
+        throw new Error("fetch failed");
+      },
+    },
+  };
+  const session = new Session(createApp(unreachable));
+  await session.call("/auth/sign-in/email", {
+    email: "ada@example.com",
+    password: "correct horse battery",
+  });
+  const response = await session.call("/v1/monitors", {
+    name: "Offline",
+    http: { url: "https://example.com/offline" },
+  });
+  expect(response.status).toBe(201);
+  const pending = await deps.db
+    .select()
+    .from(schema.outbox)
+    .where(eq(schema.outbox.eventType, "monitor.changed"));
+  expect(pending.at(-1)?.dispatchedAt).toBeNull();
 });
 
 test("a viewer may list but not change monitors", async () => {

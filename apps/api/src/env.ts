@@ -13,6 +13,8 @@ export const env = z
     GLN_AUTH_SECRET: z.string().min(32).optional(),
     GLN_GITHUB_CLIENT_ID: z.string().min(1).optional(),
     GLN_GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
+    // Read by the trigger.dev SDK itself; without it, changes stay in the outbox undispatched.
+    TRIGGER_SECRET_KEY: z.string().min(1).optional(),
   })
   .refine((e) => e.GLN_STAGE === "local" || e.GLN_AUTH_SECRET, {
     message: "GLN_AUTH_SECRET is required outside local development (32+ characters, from SSM).",
