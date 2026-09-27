@@ -1,5 +1,13 @@
 import { defineConfig } from "@trigger.dev/sdk";
 
+// The CLI evaluates this file before it reads .env, so load it here. A missing file is fine
+// when the variable comes from the shell or CI instead.
+try {
+  process.loadEnvFile(".env");
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+}
+
 // Every deployment has its own trigger.dev project, so the ref comes from the environment.
 const project = process.env.GLN_TRIGGER_PROJECT_REF;
 if (!project) {
