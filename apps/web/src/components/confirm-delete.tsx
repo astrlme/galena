@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Button } from "../../../components/button.tsx";
-import { Field } from "../../../components/field.tsx";
+import { Button } from "./button.tsx";
+import { Field } from "./field.tsx";
 
 /**
  * Destructive action: an explicit verb and a dialog that asks for the name.
@@ -15,7 +15,7 @@ export function ConfirmDelete({
   onConfirm,
   onClose,
 }: {
-  kind: "component" | "group";
+  kind: "component" | "group" | "monitor";
   name: string;
   consequence: string;
   onConfirm: () => void;

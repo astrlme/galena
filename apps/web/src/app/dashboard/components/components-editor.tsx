@@ -7,11 +7,11 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
+import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { Field } from "../../../components/field.tsx";
 import { StatusLabel } from "../../../components/status.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
-import { ConfirmDelete } from "./confirm-delete.tsx";
 
 type Listing = paths["/v1/components"]["get"]["responses"][200]["content"]["application/json"];
 type Item = Listing["components"][number];
@@ -44,6 +44,12 @@ export function ComponentsEditor() {
     },
     onError: (error) => setProblem(error.message),
   });
+
+  /** Whether the call succeeded; a failure shows above the lists and the form keeps its values. */
+  const run = (call: () => Promise<unknown>) =>
+    new Promise<boolean>((resolve) =>
+      change.mutate(call, { onSuccess: () => resolve(true), onError: () => resolve(false) }),
+    );
 
   if (listing.isPending) return <p className="mt-8 text-slate">Loading components</p>;
   if (listing.isError) return <p className="mt-8 font-semibold">{listing.error.message}</p>;
@@ -121,23 +127,11 @@ export function ComponentsEditor() {
     <>
       <div className="mt-8 grid gap-8 md:grid-cols-2">
         <GroupForm
-          onCreate={(body) =>
-            new Promise((resolve) =>
-              change.mutate(() => unwrap(api.POST("/v1/component-groups", { body })), {
-                onSuccess: resolve,
-              }),
-            )
-          }
+          onCreate={(body) => run(() => unwrap(api.POST("/v1/component-groups", { body })))}
         />
         <ComponentForm
           groups={groups}
-          onCreate={(body) =>
-            new Promise((resolve) =>
-              change.mutate(() => unwrap(api.POST("/v1/components", { body })), {
-                onSuccess: resolve,
-              }),
-            )
-          }
+          onCreate={(body) => run(() => unwrap(api.POST("/v1/components", { body })))}
         />
       </div>
       <p aria-live="polite" className="mt-4 font-semibold empty:hidden">
@@ -202,14 +196,13 @@ export function ComponentsEditor() {
   );
 }
 
-function GroupForm({ onCreate }: { onCreate: (body: ComponentGroupInput) => Promise<unknown> }) {
+function GroupForm({ onCreate }: { onCreate: (body: ComponentGroupInput) => Promise<boolean> }) {
   const form = useForm<ComponentGroupInput>({
     resolver: zodResolver(componentGroupInput),
     defaultValues: { name: "" },
   });
   const submit = form.handleSubmit(async (values) => {
-    await onCreate(values);
-    form.reset();
+    if (await onCreate(values)) form.reset();
   });
   return (
     <form onSubmit={submit} aria-label="New group" className="flex flex-col gap-4" noValidate>
@@ -237,15 +230,14 @@ function ComponentForm({
   onCreate,
 }: {
   groups: Group[];
-  onCreate: (body: ComponentFormOut) => Promise<unknown>;
+  onCreate: (body: ComponentFormOut) => Promise<boolean>;
 }) {
   const form = useForm<ComponentFormIn, unknown, ComponentFormOut>({
     resolver: zodResolver(componentInput),
     defaultValues: { name: "", description: null, groupId: null },
   });
   const submit = form.handleSubmit(async (values) => {
-    await onCreate(values);
-    form.reset();
+    if (await onCreate(values)) form.reset();
   });
   return (
     <form onSubmit={submit} aria-label="New component" className="flex flex-col gap-4" noValidate>
