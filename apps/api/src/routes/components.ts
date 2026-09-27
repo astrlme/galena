@@ -9,11 +9,11 @@ import {
   reorderInput,
 } from "@galena/contracts";
 import { type Component, type ComponentGroup, reorder } from "@galena/core";
-import { componentGroupRepository, componentRepository, recordChange } from "@galena/db";
+import { componentGroupRepository, componentRepository } from "@galena/db";
 import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { type App, type Deps, fail, type Member, notFound, requireRole } from "../http.ts";
-import { changeOf, json, jsonBody, noContent } from "./shared.ts";
+import { changeOf, commit, json, jsonBody, noContent } from "./shared.ts";
 
 const toComponentView = (c: Component) => ({
   id: c.id,
@@ -99,10 +99,9 @@ export function registerComponentRoutes(app: App, deps: Deps) {
         status: "operational",
         manualStatus: null,
       };
-      await db.transaction(async (tx) => {
-        await componentRepository(tx).save(created);
-        await recordChange(tx, changeOf(member, "component", "created", [created.id], input));
-      });
+      await commit(deps, changeOf(member, "component", "created", [created.id], input), (tx) =>
+        componentRepository(tx).save(created),
+      );
       return c.json(toComponentView(created), 201);
     },
   );
@@ -129,10 +128,9 @@ export function registerComponentRoutes(app: App, deps: Deps) {
         description: patch.description === undefined ? existing.description : patch.description,
         groupId: patch.groupId === undefined ? existing.groupId : patch.groupId,
       };
-      await db.transaction(async (tx) => {
-        await componentRepository(tx).save(updated);
-        await recordChange(tx, changeOf(member, "component", "updated", [id], patch));
-      });
+      await commit(deps, changeOf(member, "component", "updated", [id], patch), (tx) =>
+        componentRepository(tx).save(updated),
+      );
       return c.json(toComponentView(updated), 200);
     },
   );
@@ -150,13 +148,11 @@ export function registerComponentRoutes(app: App, deps: Deps) {
       const member = c.get("member");
       const { id } = c.req.valid("param");
       const existing = (await components.findById(member.workspaceId, id)) ?? notFound("Component");
-      await db.transaction(async (tx) => {
-        await componentRepository(tx).delete(member.workspaceId, id);
-        await recordChange(
-          tx,
-          changeOf(member, "component", "deleted", [id], { name: existing.name }),
-        );
-      });
+      await commit(
+        deps,
+        changeOf(member, "component", "deleted", [id], { name: existing.name }),
+        (tx) => componentRepository(tx).delete(member.workspaceId, id),
+      );
       return c.body(null, 204);
     },
   );
@@ -179,10 +175,9 @@ export function registerComponentRoutes(app: App, deps: Deps) {
         ids,
       );
       if (!result.ok) orderMismatch(result.error.message);
-      await db.transaction(async (tx) => {
-        await componentRepository(tx).setPositions(member.workspaceId, result.value);
-        await recordChange(tx, changeOf(member, "component", "reordered", ids));
-      });
+      await commit(deps, changeOf(member, "component", "reordered", ids), (tx) =>
+        componentRepository(tx).setPositions(member.workspaceId, result.value),
+      );
       return c.body(null, 204);
     },
   );
@@ -205,10 +200,11 @@ export function registerComponentRoutes(app: App, deps: Deps) {
         name: input.name,
         position: (await groups.listByWorkspace(member.workspaceId)).length,
       };
-      await db.transaction(async (tx) => {
-        await componentGroupRepository(tx).save(created);
-        await recordChange(tx, changeOf(member, "component_group", "created", [created.id], input));
-      });
+      await commit(
+        deps,
+        changeOf(member, "component_group", "created", [created.id], input),
+        (tx) => componentGroupRepository(tx).save(created),
+      );
       return c.json(toGroupView(created), 201);
     },
   );
@@ -228,10 +224,9 @@ export function registerComponentRoutes(app: App, deps: Deps) {
       const input = c.req.valid("json");
       const existing = (await groups.findById(member.workspaceId, id)) ?? notFound("Group");
       const updated: ComponentGroup = { ...existing, name: input.name };
-      await db.transaction(async (tx) => {
-        await componentGroupRepository(tx).save(updated);
-        await recordChange(tx, changeOf(member, "component_group", "updated", [id], input));
-      });
+      await commit(deps, changeOf(member, "component_group", "updated", [id], input), (tx) =>
+        componentGroupRepository(tx).save(updated),
+      );
       return c.json(toGroupView(updated), 200);
     },
   );
@@ -249,13 +244,11 @@ export function registerComponentRoutes(app: App, deps: Deps) {
       const member = c.get("member");
       const { id } = c.req.valid("param");
       const existing = (await groups.findById(member.workspaceId, id)) ?? notFound("Group");
-      await db.transaction(async (tx) => {
-        await componentGroupRepository(tx).delete(member.workspaceId, id);
-        await recordChange(
-          tx,
-          changeOf(member, "component_group", "deleted", [id], { name: existing.name }),
-        );
-      });
+      await commit(
+        deps,
+        changeOf(member, "component_group", "deleted", [id], { name: existing.name }),
+        (tx) => componentGroupRepository(tx).delete(member.workspaceId, id),
+      );
       return c.body(null, 204);
     },
   );
@@ -278,10 +271,9 @@ export function registerComponentRoutes(app: App, deps: Deps) {
         ids,
       );
       if (!result.ok) orderMismatch(result.error.message);
-      await db.transaction(async (tx) => {
-        await componentGroupRepository(tx).setPositions(member.workspaceId, result.value);
-        await recordChange(tx, changeOf(member, "component_group", "reordered", ids));
-      });
+      await commit(deps, changeOf(member, "component_group", "reordered", ids), (tx) =>
+        componentGroupRepository(tx).setPositions(member.workspaceId, result.value),
+      );
       return c.body(null, 204);
     },
   );

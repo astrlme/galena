@@ -56,3 +56,13 @@ export function monitorRepository(db: Db): MonitorRepository {
     },
   };
 }
+
+/** Every enabled monitor of the deployment (one workspace per deployment), for `monitors.json`. */
+export function listEnabledMonitors(db: Db) {
+  return db
+    .select(columns)
+    .from(monitor)
+    .where(eq(monitor.enabled, true))
+    .orderBy(asc(monitor.id))
+    .limit(MAX_ROWS);
+}

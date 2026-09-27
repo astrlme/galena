@@ -131,7 +131,7 @@ test("every change leaves an audit entry and a well-formed outbox event", async 
   for (const { eventType, payload, dispatchedAt } of events) {
     const parser = eventType === "component.changed" ? componentChanged : componentGroupChanged;
     expect(parser.safeParse(payload).success).toBe(true);
-    expect(dispatchedAt).toBeNull(); // nothing dispatches outbox rows yet
+    expect(dispatchedAt).toBeNull(); // the worker marks rows dispatched, not the API
   }
 });
 

@@ -9,10 +9,16 @@
   },
   "devDependencies": {
     "@galena/config": "workspace:*",
-    "trigger.dev": "4.6.4"
+    "@testcontainers/postgresql": "^12.1.0",
+    "trigger.dev": "4.6.4",
+    "uuid": "^14.0.2"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1141.0",
     "@galena/contracts": "workspace:*",
-    "@trigger.dev/sdk": "4.6.4"
+    "@galena/core": "workspace:*",
+    "@galena/db": "workspace:*",
+    "@trigger.dev/sdk": "4.6.4",
+    "zod": "^4.6.5"
   }
 }

@@ -1,6 +1,6 @@
 import type { MemberRole, ProblemDetails, WorkspaceId } from "@galena/contracts";
 import { problemContentType } from "@galena/contracts";
-import { roleAtLeast } from "@galena/core";
+import { roleAtLeast, type WorkflowEngine } from "@galena/core";
 import { type Db, findMembership } from "@galena/db";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
@@ -8,7 +8,7 @@ import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Auth } from "./auth.ts";
 
-export type Deps = { db: Db; auth: Auth };
+export type Deps = { db: Db; auth: Auth; engine: WorkflowEngine };
 export type Member = { userId: string; email: string; role: MemberRole; workspaceId: WorkspaceId };
 export type Env = { Variables: { member: Member } };
 export type App = OpenAPIHono<Env>;
