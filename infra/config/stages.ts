@@ -29,11 +29,13 @@ export const stageSchema = z
 
 export type StageConfig = z.infer<typeof stageSchema>;
 
-// Pick a home region where your own services do not run.
+// Defaults for a deployment whose people and servers are in Europe: the API and database in
+// Frankfurt, probes in three other EU regions, and the status page in Ireland with a Stockholm
+// replica. Pick a home region where your own services do not run.
 const common = {
   homeRegion: "eu-central-1",
-  probeRegions: ["us-east-1", "eu-west-1", "ap-southeast-1"],
-  pageRegions: { primary: "us-west-2", replica: "eu-north-1" },
+  probeRegions: ["eu-west-1", "eu-west-3", "eu-north-1"],
+  pageRegions: { primary: "eu-west-1", replica: "eu-north-1" },
   github: { repository: "astrlme/galena", deployRef: "refs/heads/main" },
 };
 
