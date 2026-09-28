@@ -32,8 +32,12 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
 
   let secret = env.GLN_AUTH_SECRET;
   if (!secret && env.GLN_AUTH_SECRET_PARAM) secret = await parameter(env.GLN_AUTH_SECRET_PARAM);
+  // Checked here, not in env.ts: the migration Lambda shares env.ts and has no auth secret.
+  if (!secret && env.GLN_STAGE !== "local") {
+    throw new Error("Outside local development, set GLN_AUTH_SECRET_PARAM (an SSM SecureString).");
+  }
   if (!secret) {
-    // Local only (env.ts refuses this elsewhere): a fresh secret per start signs everyone out.
+    // Local only: a fresh secret per start signs everyone out.
     console.warn("GLN_AUTH_SECRET is not set; using a random secret until the API restarts.");
     secret = randomBytes(32).toString("hex");
   }

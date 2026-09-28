@@ -24,10 +24,6 @@ export const env = z
     // Read by the trigger.dev SDK itself; without it, changes stay in the outbox undispatched.
     TRIGGER_SECRET_KEY: z.string().min(1).optional(),
   })
-  .refine((e) => e.GLN_STAGE === "local" || e.GLN_AUTH_SECRET || e.GLN_AUTH_SECRET_PARAM, {
-    message: "Outside local development, set GLN_AUTH_SECRET_PARAM (an SSM SecureString).",
-    path: ["GLN_AUTH_SECRET_PARAM"],
-  })
   .refine((e) => !e.GLN_DB_CLUSTER_ARN || (e.GLN_DB_SECRET_ARN && e.AWS_REGION), {
     message: "The Data API needs GLN_DB_SECRET_ARN and AWS_REGION with GLN_DB_CLUSTER_ARN.",
     path: ["GLN_DB_SECRET_ARN"],
