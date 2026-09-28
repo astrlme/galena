@@ -1,0 +1,33 @@
+name: Smoke
+
+# Stops and restarts a test endpoint in dev and follows the outage through the probes, the
+# evaluator and trigger.dev. Runs after every successful deploy, or by hand.
+on:
+  workflow_run:
+    workflows: [Deploy]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: smoke-dev
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # GitHub's OIDC token, exchanged for the smoke role
+
+jobs:
+  smoke:
+    # Opt in by setting the role variable, once the smoke target has a monitor.
+    if: >-
+      vars.AWS_SMOKE_ROLE_ARN != '' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_SMOKE_ROLE_ARN }}
+          aws-region: eu-central-1
+      - run: bash scripts/smoke-dev.sh
