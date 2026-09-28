@@ -10,7 +10,17 @@ import { dispatchOutbox, localMonitorsFile, s3MonitorsFile } from "../outbox.ts"
 // Split per event type once other consumers make the queue busy.
 const outbox = queue({ name: "outbox", concurrencyLimit: 1 });
 
-const { db } = createDb({ kind: "postgres", url: env.GLN_DATABASE_URL });
+const { db } = createDb(
+  env.GLN_DB_CLUSTER_ARN && env.GLN_DB_SECRET_ARN
+    ? {
+        kind: "data-api",
+        region: env.GLN_HOME_REGION,
+        resourceArn: env.GLN_DB_CLUSTER_ARN,
+        secretArn: env.GLN_DB_SECRET_ARN,
+        database: env.GLN_DB_NAME,
+      }
+    : { kind: "postgres", url: env.GLN_DATABASE_URL },
+);
 const writeMonitorsFile = env.GLN_CONFIG_BUCKET
   ? s3MonitorsFile({
       region: env.GLN_HOME_REGION,
