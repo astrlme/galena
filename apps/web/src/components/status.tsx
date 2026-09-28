@@ -9,7 +9,7 @@ const LABELS: Record<ComponentStatus, string> = {
   under_maintenance: "Maintenance",
 };
 
-function Glyph({ status }: { status: ComponentStatus }) {
+function Glyph({ status }: { status: ComponentStatus | null }) {
   const common = {
     width: 14,
     height: 14,
@@ -49,18 +49,27 @@ function Glyph({ status }: { status: ComponentStatus }) {
           <circle cx="7" cy="7" r="5" />
         </svg>
       );
+    case null: // ○
+      return (
+        <svg aria-hidden="true" {...common}>
+          <circle cx="7" cy="7" r="5" />
+        </svg>
+      );
   }
 }
 
-/** A state badge: glyph and label in a slate border; a major outage is the one inverted badge. */
-export function StatusLabel({ status }: { status: ComponentStatus }) {
+/**
+ * A state badge: glyph and label in a slate border; a major outage is the one inverted badge.
+ * `null` is "No data": nothing has reported yet.
+ */
+export function StatusLabel({ status }: { status: ComponentStatus | null }) {
   const major = status === "major_outage";
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-[4px] border px-2 py-0.5 text-[14px] ${major ? "border-ink bg-ink font-semibold text-paper" : "border-slate"}`}
+      className={`inline-flex items-center gap-1.5 rounded-[4px] border px-2 py-0.5 text-[14px] ${major ? "border-ink bg-ink font-semibold text-paper" : status === null ? "border-slate text-slate" : "border-slate"}`}
     >
       <Glyph status={status} />
-      {LABELS[status]}
+      {status === null ? "No data" : LABELS[status]}
     </span>
   );
 }

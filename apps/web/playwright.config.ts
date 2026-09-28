@@ -19,8 +19,19 @@ export default defineConfig({
       command: "pnpm --filter @galena/api dev",
       url: "http://localhost:8787/health",
       reuseExistingServer: !process.env.CI,
-      // Fixed so sessions survive the API's watch restarts during a run; local only.
-      env: { GLN_AUTH_SECRET: "e2e-only-secret-at-least-32-characters" },
+      // Fixed so sessions survive the API's watch restarts during a run; local only. Loopback
+      // lets a monitor target the test's own server. A reused dev server needs both set too.
+      env: { GLN_AUTH_SECRET: "e2e-only-secret-at-least-32-characters", GLN_ALLOW_LOOPBACK: "1" },
+    },
+    {
+      // The hot path with a simulated minute every 2 s, so an outage shows within seconds.
+      command: "node ../../scripts/dev-hot-path.ts",
+      wait: { stdout: /hot path running/ },
+      env: {
+        GLN_TICK_SECONDS: "2",
+        GLN_ALLOW_LOOPBACK: "1",
+        GLN_CANARY_URL: "http://127.0.0.1:8787/health",
+      },
     },
     {
       command: "pnpm --filter @galena/web dev",

@@ -11,6 +11,7 @@ import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { Field } from "../../../components/field.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
+import { MonitorHealth, useTelemetry } from "./monitor-health.tsx";
 
 type Monitor =
   paths["/v1/monitors"]["get"]["responses"][200]["content"]["application/json"]["monitors"][number];
@@ -70,6 +71,7 @@ export function MonitorsEditor() {
     queryKey: ["components"],
     queryFn: () => unwrap(api.GET("/v1/components")),
   });
+  const telemetry = useTelemetry();
   const change = useMutation({
     mutationFn: (run: () => Promise<unknown>) => run(),
     onSuccess: () => {
@@ -132,6 +134,11 @@ export function MonitorsEditor() {
         >
           All monitors
         </h2>
+        {telemetry.isError && (
+          <p className="py-3 text-[14px]">
+            Check results aren't available. {telemetry.error.message}
+          </p>
+        )}
         {monitors.data.monitors.length === 0 ? (
           <p className="py-3 text-[14px] text-slate">
             No monitors yet. Add one to start checking every minute.
@@ -163,6 +170,12 @@ export function MonitorsEditor() {
                     Delete<span className="sr-only"> {monitor.name}</span>
                   </Button>
                 </div>
+                {telemetry.data && (
+                  <MonitorHealth
+                    reading={telemetry.data.monitors.find((m) => m.id === monitor.id)}
+                    regions={telemetry.data.regions}
+                  />
+                )}
               </li>
             ))}
           </ul>
