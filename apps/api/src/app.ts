@@ -113,8 +113,16 @@ export function createApp(deps: Deps) {
     const { workspaceName, name, email, password } = c.req.valid("json");
     const signUp = await auth.api
       .signUpEmail({ body: { name, email, password }, returnHeaders: true })
-      .catch((error: unknown) => {
+      .catch(async (error: unknown) => {
         if (!(error instanceof APIError)) throw error;
+        // A setup that failed after creating the owner (Aurora resuming mid-way, say) finishes on
+        // a second try: with no workspace yet, the same email and password sign in instead.
+        if (String(error.body?.code ?? "").startsWith("USER_ALREADY_EXISTS")) {
+          const signIn = await auth.api
+            .signInEmail({ body: { email, password }, returnHeaders: true })
+            .catch(() => undefined);
+          if (signIn) return signIn;
+        }
         return fail({
           status: error.statusCode,
           code: "sign_up_rejected",
