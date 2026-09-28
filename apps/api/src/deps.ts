@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import type { WorkflowEngine } from "@galena/core";
 import { createDb, type DbConfig } from "@galena/db";
-import { tasks } from "@trigger.dev/sdk";
+import { configure, tasks } from "@trigger.dev/sdk";
 import type { Deps } from "./app.ts";
 import { createAuth } from "./auth.ts";
 import { env } from "./env.ts";
@@ -51,7 +51,12 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
       ? { clientId: env.GLN_GITHUB_CLIENT_ID, clientSecret: env.GLN_GITHUB_CLIENT_SECRET }
       : undefined;
   const auth = createAuth({ db, secret, baseURL, ...(github ? { github } : {}) });
-  return { db, auth, engine: env.TRIGGER_SECRET_KEY ? triggerDev : notConfigured, close };
+
+  const triggerKey =
+    env.TRIGGER_SECRET_KEY ??
+    (env.GLN_TRIGGER_SECRET_PARAM ? await parameter(env.GLN_TRIGGER_SECRET_PARAM) : undefined);
+  if (triggerKey) configure({ accessToken: triggerKey });
+  return { db, auth, engine: triggerKey ? triggerDev : notConfigured, close };
 }
 
 const triggerDev: WorkflowEngine = {
@@ -66,6 +71,6 @@ const triggerDev: WorkflowEngine = {
 
 const notConfigured: WorkflowEngine = {
   async trigger(task) {
-    console.warn(`TRIGGER_SECRET_KEY is not set, so ${task} was not triggered.`);
+    console.warn(`No trigger.dev secret key is set, so ${task} was not triggered.`);
   },
 };
