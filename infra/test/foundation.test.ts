@@ -75,10 +75,51 @@ test("check results use a FIFO queue with a FIFO dead-letter queue", () => {
   });
 });
 
+test("the config bucket is private and refuses plain HTTP", () => {
+  dev.template.hasResourceProperties("AWS::S3::Bucket", {
+    PublicAccessBlockConfiguration: {
+      BlockPublicAcls: true,
+      BlockPublicPolicy: true,
+      IgnorePublicAcls: true,
+      RestrictPublicBuckets: true,
+    },
+  });
+  dev.template.hasResourceProperties("AWS::S3::BucketPolicy", {
+    PolicyDocument: {
+      Statement: [
+        Match.objectLike({
+          Effect: "Deny",
+          Condition: { Bool: { "aws:SecureTransport": "false" } },
+        }),
+      ],
+    },
+  });
+});
+
+test("publishes the identifiers other stacks and the workers read", () => {
+  const names = resources("AWS::SSM::Parameter").map((p) => p.Properties.Name);
+  expect(names.sort()).toEqual(
+    [
+      "check-results-queue-arn",
+      "check-results-queue-url",
+      "config-bucket",
+      "database-cluster-arn",
+      "database-secret-arn",
+      "kms-key-arn",
+      "telemetry-table",
+    ].map((name) => `/galena/dev/${name}`),
+  );
+});
+
 test("prod keeps its data when the stack goes; dev does not", () => {
   const policies = (template: Template, type: string) =>
     Object.values(template.findResources(type)).map((r) => r.DeletionPolicy);
-  for (const type of ["AWS::RDS::DBCluster", "AWS::DynamoDB::Table", "AWS::KMS::Key"]) {
+  for (const type of [
+    "AWS::RDS::DBCluster",
+    "AWS::DynamoDB::Table",
+    "AWS::KMS::Key",
+    "AWS::S3::Bucket",
+  ]) {
     expect(policies(prod.template, type)).toEqual(["Retain"]);
     expect(policies(dev.template, type)).toEqual(["Delete"]);
   }
