@@ -1,4 +1,3 @@
-import { fileURLToPath } from "node:url";
 import { CfnOutput, Duration, Stack, type StackProps, Validations } from "aws-cdk-lib";
 import {
   HttpApi,
@@ -9,25 +8,13 @@ import {
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import { PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
-import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
+import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { Trigger } from "aws-cdk-lib/triggers";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
-
-const source = (path: string) => fileURLToPath(new URL(`../../${path}`, import.meta.url));
-
-const bundling = {
-  format: OutputFormat.ESM,
-  target: "node24",
-  minify: true,
-  sourceMap: true,
-  mainFields: ["module", "main"],
-  // Some dependencies still call require() inside an ES module bundle.
-  banner:
-    "import { createRequire } from 'node:module';const require = createRequire(import.meta.url);",
-};
+import { bundling, source } from "./bundling.ts";
 
 /** apps/api on Lambda behind an HTTP API. */
 export class ApiStack extends Stack {
