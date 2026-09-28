@@ -58,6 +58,23 @@ describe("migrations", () => {
       expect(has_workspace, table_name).toBe(!exempt.includes(table_name));
     }
   });
+
+  test("every enum takes text, which is how the RDS Data API sends string parameters", async () => {
+    const missing = (await db.execute(sql`
+      select t.typname from pg_type t join pg_namespace n on n.oid = t.typnamespace
+      where t.typtype = 'e' and n.nspname = 'public' and not exists (
+        select 1 from pg_cast c
+        where c.castsource = 'text'::regtype and c.casttarget = t.oid and c.castcontext = 'i')
+      order by 1`)) as unknown as { rows: { typname: string }[] };
+    expect(missing.rows.map((r) => r.typname)).toEqual([]);
+    // Insert a text-typed parameter into an enum column, as the Data API sends it.
+    const stored = (await db.transaction(async (tx) => {
+      await tx.execute(sql`create temporary table enum_probe (role member_role) on commit drop`);
+      await tx.execute(sql`insert into enum_probe values (${"owner"}::text)`);
+      return tx.execute(sql`select role::text as role from enum_probe`);
+    })) as unknown as { rows: { role: string }[] };
+    expect(stored.rows).toEqual([{ role: "owner" }]);
+  });
 });
 
 describe("component repository", () => {
