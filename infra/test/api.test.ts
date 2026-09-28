@@ -56,6 +56,7 @@ test("the API reads its database from Foundation's parameters and its secrets fr
         GLN_STAGE: "dev",
         GLN_DB_NAME: "galena",
         GLN_AUTH_SECRET_PARAM: "/galena/dev/auth-secret",
+        GLN_TRIGGER_SECRET_PARAM: "/galena/dev/trigger-secret-key",
         GLN_PUBLIC_URL_PARAM: "/galena/dev/public-url",
       },
     },

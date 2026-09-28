@@ -1,10 +1,11 @@
 import { Logger } from "@aws-lambda-powertools/logger";
 import { Metrics, MetricUnit } from "@aws-lambda-powertools/metrics";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import type { WorkflowEngine } from "@galena/core";
 import { monitorsFileFromS3 } from "@galena/integrations/config";
-import { tasks } from "@trigger.dev/sdk";
+import { configure, tasks } from "@trigger.dev/sdk";
 import { env } from "./env.ts";
 import { processBatch, type SqsRecord } from "./evaluator.ts";
 import { createStore } from "./store.ts";
@@ -31,8 +32,25 @@ const engine: WorkflowEngine = {
   },
 };
 
+async function start() {
+  const { Parameter } = await new SSMClient({}).send(
+    new GetParameterCommand({ Name: env.GLN_TRIGGER_SECRET_PARAM, WithDecryption: true }),
+  );
+  if (!Parameter?.Value) {
+    throw new Error(`SSM parameter ${env.GLN_TRIGGER_SECRET_PARAM} has no value.`);
+  }
+  configure({ accessToken: Parameter.Value });
+}
+// Once per container. A failed start is not cached, so the next batch tries again.
+let started: Promise<void> | undefined;
+
 /** SQS FIFO event source with `ReportBatchItemFailures`. */
 export async function handler(event: { Records: SqsRecord[] }) {
+  started ??= start().catch((error: unknown) => {
+    started = undefined;
+    throw error;
+  });
+  await started;
   const outcome = await processBatch(event.Records, {
     store,
     loadConfig,

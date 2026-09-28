@@ -14,7 +14,7 @@ export const env = z
       .string()
       .transform((list) => list.split(",").map((r) => r.trim()))
       .pipe(z.array(awsRegion).min(1)),
-    /** Read by the trigger.dev SDK itself; checked here so a missing key fails at cold start. */
-    TRIGGER_SECRET_KEY: z.string().min(1),
+    /** The SecureString holding the trigger.dev secret key, read at cold start. */
+    GLN_TRIGGER_SECRET_PARAM: z.string().startsWith("/"),
   })
   .parse(process.env);

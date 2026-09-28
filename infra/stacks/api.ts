@@ -75,14 +75,15 @@ export class ApiStack extends Stack {
 
     const logGroup = new LogGroup(this, "HandlerLogs", { retention: RetentionDays.ONE_MONTH });
     const role = lambdaRole("HandlerRole", logGroup);
-    // The auth secret is a SecureString made once outside CloudFormation; the Web stack writes
-    // the public URL. Both are read at cold start.
+    // The auth secret and the trigger.dev secret key are SecureStrings made once outside
+    // CloudFormation; the Web stack writes the public URL. All are read at cold start.
     const authSecret = `/galena/${stage}/auth-secret`;
+    const triggerSecret = `/galena/${stage}/trigger-secret-key`;
     const publicUrl = `/galena/${stage}/public-url`;
     role.addToPolicy(
       new PolicyStatement({
         actions: ["ssm:GetParameter"],
-        resources: [authSecret, publicUrl].map((name) =>
+        resources: [authSecret, triggerSecret, publicUrl].map((name) =>
           this.formatArn({ service: "ssm", resource: "parameter", resourceName: name.slice(1) }),
         ),
       }),
@@ -102,6 +103,7 @@ export class ApiStack extends Stack {
         GLN_STAGE: stage,
         ...database,
         GLN_AUTH_SECRET_PARAM: authSecret,
+        GLN_TRIGGER_SECRET_PARAM: triggerSecret,
         GLN_PUBLIC_URL_PARAM: publicUrl,
       },
       bundling,

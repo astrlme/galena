@@ -21,8 +21,10 @@ export const env = z
     GLN_AUTH_SECRET_PARAM: z.string().startsWith("/").optional(),
     GLN_GITHUB_CLIENT_ID: z.string().min(1).optional(),
     GLN_GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
-    // Read by the trigger.dev SDK itself; without it, changes stay in the outbox undispatched.
+    // The trigger.dev secret key: from the env locally, from this SecureString in AWS. Without
+    // it, changes stay in the outbox undispatched.
     TRIGGER_SECRET_KEY: z.string().min(1).optional(),
+    GLN_TRIGGER_SECRET_PARAM: z.string().startsWith("/").optional(),
   })
   .refine((e) => !e.GLN_DB_CLUSTER_ARN || (e.GLN_DB_SECRET_ARN && e.AWS_REGION), {
     message: "The Data API needs GLN_DB_SECRET_ARN and AWS_REGION with GLN_DB_CLUSTER_ARN.",
