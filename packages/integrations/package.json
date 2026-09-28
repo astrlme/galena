@@ -17,6 +17,7 @@
     "@galena/core": "workspace:*"
   },
   "devDependencies": {
-    "@galena/config": "workspace:*"
+    "@galena/config": "workspace:*",
+    "testcontainers": "^12.1.0"
   }
 }
