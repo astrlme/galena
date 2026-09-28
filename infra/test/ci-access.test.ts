@@ -19,7 +19,8 @@ test("only workflows on the repository's deploy ref can assume the deploy role",
           Condition: {
             StringEquals: {
               "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-              "token.actions.githubusercontent.com:sub": "repo:astrlme/galena:ref:refs/heads/main",
+              "token.actions.githubusercontent.com:sub":
+                "repo:astrlme@61922439/galena@1391246106:ref:refs/heads/main",
             },
           },
         }),

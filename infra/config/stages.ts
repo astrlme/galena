@@ -11,6 +11,10 @@ export const stageSchema = z
     pageRegions: z.object({ primary: region, replica: region }),
     github: z.object({
       repository: z.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
+      // The `sub` prefix in GitHub's OIDC tokens. Newer repositories use the immutable form with
+      // owner and repository ids, which survives renames and can't be claimed by a lookalike
+      // (`gh api repos/OWNER/REPO/actions/oidc/customization/sub` prints it).
+      oidcSubject: z.string().regex(/^repo:[\w.-]+(@\d+)?\/[\w.-]+(@\d+)?$/),
       // The only Git ref whose workflows may assume the deploy role.
       deployRef: z.string().startsWith("refs/"),
     }),
@@ -36,7 +40,11 @@ const common = {
   homeRegion: "eu-central-1",
   probeRegions: ["eu-west-1", "eu-west-3", "eu-north-1"],
   pageRegions: { primary: "eu-west-1", replica: "eu-north-1" },
-  github: { repository: "astrlme/galena", deployRef: "refs/heads/main" },
+  github: {
+    repository: "astrlme/galena",
+    oidcSubject: "repo:astrlme@61922439/galena@1391246106",
+    deployRef: "refs/heads/main",
+  },
 };
 
 export const stages = {
