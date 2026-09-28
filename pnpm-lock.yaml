@@ -17,6 +17,9 @@ importers:
       dependency-cruiser:
         specifier: ^18.4.0
         version: 18.4.0
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
       turbo:
         specifier: ^2.11.3
         version: 2.11.3
@@ -269,9 +272,6 @@ importers:
       aws-cdk:
         specifier: 2.1143.0
         version: 2.1143.0
-      esbuild:
-        specifier: ^0.28.2
-        version: 0.28.2
 
   packages/config: {}
 
