@@ -22,6 +22,13 @@
       "when": 1790464419271,
       "tag": "0002_monitor",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790561216384,
+      "tag": "0003_enum_text_casts",
+      "breakpoints": true
     }
   ]
 }
