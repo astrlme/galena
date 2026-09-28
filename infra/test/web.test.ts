@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { App, Validations } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
@@ -10,7 +13,10 @@ const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
 const env = { region: "eu-central-1", account: "111111111111" };
 const api = new ApiStack(app, "Api", { env, config: stages.dev });
-const web = new WebStack(app, "Web", { env, config: stages.dev, api: api.api });
+// A one-page export, so the upload and its cdk-nag acknowledgements are always exercised.
+const siteDir = mkdtempSync(join(tmpdir(), "galena-web-"));
+writeFileSync(join(siteDir, "index.html"), "<!doctype html><title>Galena</title>");
+const web = new WebStack(app, "Web", { env, config: stages.dev, api: api.api, siteDir });
 const template = Template.fromStack(web);
 const distribution = () =>
   Object.values(template.findResources("AWS::CloudFront::Distribution"))[0]?.Properties
@@ -51,6 +57,20 @@ test("forwards /auth/* and /v1/* to the API uncached, with every method", () => 
 
 test("has no custom error pages that would hide the API's problem responses", () => {
   expect(distribution().CustomErrorResponses).toBeUndefined();
+});
+
+test("uploads the export and invalidates every cached path", () => {
+  template.hasResourceProperties("Custom::CDKBucketDeployment", {
+    DistributionPaths: ["/*"],
+    Prune: true,
+  });
+});
+
+test("publishes the dashboard URL for the API to read at cold start", () => {
+  template.hasResourceProperties("AWS::SSM::Parameter", {
+    Name: "/galena/dev/public-url",
+    Type: "String",
+  });
 });
 
 test("passes cdk-nag AwsSolutions", () => {

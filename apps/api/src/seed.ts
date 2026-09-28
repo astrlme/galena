@@ -25,7 +25,7 @@ const components = ["API", "Dashboard", "Webhooks"].map((name, position) => ({
   position,
 }));
 
-const { db, auth, close } = createDeps();
+const { db, auth, close } = await createDeps();
 try {
   if (!(await workspaceExists(db))) {
     const { user } = await auth.api.signUpEmail({ body: LOCAL_OWNER });
