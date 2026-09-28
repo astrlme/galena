@@ -24,7 +24,11 @@ const SEVERITY: readonly MonitorDrivenStatus[] = [
   "major_outage",
 ];
 
-function fromMonitor(state: MonitorState, downStatus: DownStatus): MonitorDrivenStatus | undefined {
+/** One monitor's view of its component; undefined while detection has no opinion yet. */
+export function monitorStatus(
+  state: MonitorState,
+  downStatus: DownStatus,
+): MonitorDrivenStatus | undefined {
   switch (state) {
     case "unknown":
       return undefined;
@@ -55,7 +59,7 @@ export function componentStatus(inputs: ComponentInputs): ComponentStatus {
   if (inputs.inMaintenance) return "under_maintenance";
   let worst: MonitorDrivenStatus | undefined;
   for (const { state, downStatus } of inputs.monitors) {
-    const status = fromMonitor(state, downStatus);
+    const status = monitorStatus(state, downStatus);
     if (status && (!worst || SEVERITY.indexOf(status) > SEVERITY.indexOf(worst))) worst = status;
   }
   return worst ?? inputs.current;

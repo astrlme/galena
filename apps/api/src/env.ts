@@ -19,6 +19,15 @@ export const env = z
     // AWS reads the auth secret from this SecureString parameter at cold start.
     GLN_AUTH_SECRET: z.string().min(32).optional(),
     GLN_AUTH_SECRET_PARAM: z.string().startsWith("/").optional(),
+    // Telemetry the evaluator writes. Locally DynamoDB Local from docker-compose.
+    GLN_TELEMETRY_TABLE: z.string().min(1).default("telemetry"),
+    GLN_DYNAMODB_ENDPOINT: z.url().optional(),
+    /** Comma-separated; the dashboard shows one latency column per region. */
+    GLN_PROBE_REGIONS: z
+      .string()
+      .default("eu-west-1,eu-west-3,eu-north-1")
+      .transform((list) => list.split(",").map((r) => r.trim()))
+      .pipe(z.array(awsRegion).min(1)),
     GLN_GITHUB_CLIENT_ID: z.string().min(1).optional(),
     GLN_GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
     // The trigger.dev secret key: from the env locally, from this SecureString in AWS. Without

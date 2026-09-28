@@ -1165,6 +1165,126 @@
         }
       }
     },
+    "/v1/monitors/telemetry": {
+      "get": {
+        "summary": "Each monitor's state and its results from the last 60 minutes",
+        "description": "Reads telemetry only; poll it while the monitors page is open.",
+        "responses": {
+          "200": {
+            "description": "One entry per monitor, oldest monitor first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "regions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z]{2}(?:-gov)?-[a-z]+-\\d$"
+                      }
+                    },
+                    "monitors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "unknown",
+                              "up",
+                              "degraded",
+                              "down",
+                              "recovering",
+                              "flapping"
+                            ]
+                          },
+                          "status": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "operational",
+                              "degraded_performance",
+                              "partial_outage",
+                              "major_outage",
+                              "under_maintenance",
+                              null
+                            ]
+                          },
+                          "since": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "results": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "region": {
+                                  "type": "string",
+                                  "pattern": "^[a-z]{2}(?:-gov)?-[a-z]+-\\d$"
+                                },
+                                "scheduledAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "up",
+                                    "degraded",
+                                    "down",
+                                    "error"
+                                  ]
+                                },
+                                "latencyMs": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ],
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "region",
+                                "scheduledAt",
+                                "status",
+                                "latencyMs"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "state",
+                          "status",
+                          "since",
+                          "results"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "regions",
+                    "monitors"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/monitors/{id}": {
       "put": {
         "summary": "Replace a monitor's settings",

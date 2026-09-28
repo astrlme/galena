@@ -23,7 +23,7 @@ export class ApiStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps & { config: StageConfig }) {
     super(scope, id, props);
 
-    const { stage } = props.config;
+    const { stage, probeRegions } = props.config;
     // Foundation publishes these for anything outside it; reading them at deploy time keeps the
     // stacks free of CloudFormation exports.
     const clusterArn = StringParameter.valueForStringParameter(
@@ -62,6 +62,19 @@ export class ApiStack extends Stack {
 
     const logGroup = new LogGroup(this, "HandlerLogs", { retention: RetentionDays.ONE_MONTH });
     const role = lambdaRole("HandlerRole", logGroup);
+    // The dashboard reads monitor state and recent results; only the evaluator writes them.
+    const telemetryTable = StringParameter.valueForStringParameter(
+      this,
+      `/galena/${stage}/telemetry-table`,
+    );
+    role.addToPolicy(
+      new PolicyStatement({
+        actions: ["dynamodb:BatchGetItem", "dynamodb:Query"],
+        resources: [
+          this.formatArn({ service: "dynamodb", resource: "table", resourceName: telemetryTable }),
+        ],
+      }),
+    );
     // The auth secret and the trigger.dev secret key are SecureStrings made once outside
     // CloudFormation; the Web stack writes the public URL. All are read at cold start.
     const authSecret = `/galena/${stage}/auth-secret`;
@@ -92,6 +105,8 @@ export class ApiStack extends Stack {
         GLN_AUTH_SECRET_PARAM: authSecret,
         GLN_TRIGGER_SECRET_PARAM: triggerSecret,
         GLN_PUBLIC_URL_PARAM: publicUrl,
+        GLN_TELEMETRY_TABLE: telemetryTable,
+        GLN_PROBE_REGIONS: probeRegions.join(","),
       },
       bundling,
     });

@@ -3,6 +3,7 @@ import { changeData } from "./components.ts";
 import {
   checkErrorCodes,
   checkStatuses,
+  componentStatuses,
   downStatuses,
   monitorStates,
   monitorTypes,
@@ -126,6 +127,28 @@ export const checkResult = z
     path: ["error"],
   });
 export type CheckResult = z.infer<typeof checkResult>;
+
+/** One region's result for one scheduled minute, as the dashboard shows it. */
+export const recentResult = z.object({
+  region: awsRegion,
+  scheduledAt: z.iso.datetime(),
+  status: z.enum(checkStatuses),
+  latencyMs: ms.nullable(),
+});
+export type RecentResult = z.infer<typeof recentResult>;
+
+/** A monitor's detection state and its newest results, read from telemetry. */
+export const monitorTelemetry = z.object({
+  id: monitorId,
+  state: z.enum(monitorStates),
+  /** The component status the state maps to; null while detection has no opinion yet. */
+  status: z.enum(componentStatuses).nullable(),
+  /** When the monitor entered its state; null before its first check. */
+  since: z.iso.datetime().nullable(),
+  /** Newest first: the last 60 scheduled minutes, one entry per region that reported. */
+  results: z.array(recentResult),
+});
+export type MonitorTelemetry = z.infer<typeof monitorTelemetry>;
 
 const epochMinute = (scheduledAt: string) => Math.floor(Date.parse(scheduledAt) / 60_000);
 
