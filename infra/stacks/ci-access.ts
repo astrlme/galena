@@ -32,7 +32,7 @@ export class CiAccessStack extends Stack {
       assumedBy: new WebIdentityPrincipal(provider.oidcProviderArn, {
         StringEquals: {
           [`${GITHUB_OIDC}:aud`]: "sts.amazonaws.com",
-          [`${GITHUB_OIDC}:sub`]: `repo:${github.repository}:ref:${github.deployRef}`,
+          [`${GITHUB_OIDC}:sub`]: `${github.oidcSubject}:ref:${github.deployRef}`,
         },
       }),
     });
