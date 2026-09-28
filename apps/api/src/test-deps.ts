@@ -1,8 +1,10 @@
 // Dependencies for tests. Nothing connects until a query runs, so unit tests need no database.
+import type { MonitorId } from "@galena/contracts";
 import type { WorkflowEngine } from "@galena/core";
 import { createDb } from "@galena/db";
 import type { Deps } from "./app.ts";
 import { createAuth } from "./auth.ts";
+import type { MonitorReading, Telemetry } from "./telemetry.ts";
 
 export const TEST_BASE_URL = "http://localhost:8787";
 
@@ -22,5 +24,24 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
       triggered.push({ task, payload, idempotencyKey });
     },
   };
-  return { deps: { db, auth, engine } satisfies Deps, triggered, migrate, close };
+  // Telemetry the test sets directly instead of DynamoDB.
+  const readings = new Map<MonitorId, MonitorReading>();
+  const telemetry: Telemetry = {
+    regions: ["eu-west-1", "eu-west-3", "eu-north-1"],
+    async read(ids) {
+      return new Map(
+        ids.flatMap((id) => {
+          const reading = readings.get(id);
+          return reading ? [[id, reading] as const] : [];
+        }),
+      );
+    },
+  };
+  return {
+    deps: { db, auth, engine, telemetry } satisfies Deps,
+    triggered,
+    readings,
+    migrate,
+    close,
+  };
 }

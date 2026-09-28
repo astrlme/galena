@@ -11,7 +11,9 @@
     "openapi": "node src/openapi.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1141.0",
     "@aws-sdk/client-ssm": "^3.1141.0",
+    "@aws-sdk/lib-dynamodb": "^3.1141.0",
     "@galena/contracts": "workspace:*",
     "@galena/core": "workspace:*",
     "@galena/db": "workspace:*",
@@ -28,6 +30,7 @@
     "@galena/config": "workspace:*",
     "@seriousme/openapi-schema-validator": "^2.11.0",
     "@testcontainers/postgresql": "^12.1.0",
-    "drizzle-orm": "^0.45.3"
+    "drizzle-orm": "^0.45.3",
+    "testcontainers": "^12.1.0"
   }
 }

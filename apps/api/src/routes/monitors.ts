@@ -1,10 +1,13 @@
 import {
+  awsRegion,
   type MonitorConfig,
   type MonitorInput,
   monitorId,
   monitorInput,
+  monitorTelemetry,
   monitorView,
 } from "@galena/contracts";
+import { monitorStatus } from "@galena/core";
 import { componentRepository, monitorRepository } from "@galena/db";
 import { guard } from "@galena/integrations/net";
 import { createRoute, z } from "@hono/zod-openapi";
@@ -57,6 +60,38 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
     async (c) => {
       const list = await monitors.listByWorkspace(c.get("member").workspaceId);
       return c.json({ monitors: list.map(toView) }, 200);
+    },
+  );
+
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/v1/monitors/telemetry",
+      summary: "Each monitor's state and its results from the last 60 minutes",
+      description: "Reads telemetry only; poll it while the monitors page is open.",
+      middleware: [viewer],
+      responses: {
+        200: json(
+          z.object({ regions: z.array(awsRegion), monitors: z.array(monitorTelemetry) }),
+          "One entry per monitor, oldest monitor first",
+        ),
+      },
+    }),
+    async (c) => {
+      const list = await monitors.listByWorkspace(c.get("member").workspaceId);
+      const readings = await deps.telemetry.read(list.map((m) => m.id));
+      const telemetry = list.map((monitor) => {
+        const reading = readings.get(monitor.id);
+        const state = reading?.state ?? "unknown";
+        return {
+          id: monitor.id,
+          state,
+          status: monitorStatus(state, monitor.downStatus) ?? null,
+          since: reading?.enteredAt ? new Date(reading.enteredAt).toISOString() : null,
+          results: reading?.results ?? [],
+        };
+      });
+      return c.json({ regions: [...deps.telemetry.regions], monitors: telemetry }, 200);
     },
   );
 

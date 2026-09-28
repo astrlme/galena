@@ -7,8 +7,9 @@ import type { MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Auth } from "./auth.ts";
+import type { Telemetry } from "./telemetry.ts";
 
-export type Deps = { db: Db; auth: Auth; engine: WorkflowEngine };
+export type Deps = { db: Db; auth: Auth; engine: WorkflowEngine; telemetry: Telemetry };
 export type Member = { userId: string; email: string; role: MemberRole; workspaceId: WorkspaceId };
 export type Env = { Variables: { member: Member } };
 export type App = OpenAPIHono<Env>;

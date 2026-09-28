@@ -737,6 +737,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/monitors/telemetry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Each monitor's state and its results from the last 60 minutes
+         * @description Reads telemetry only; poll it while the monitors page is open.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description One entry per monitor, oldest monitor first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            regions: string[];
+                            monitors: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                state: "unknown" | "up" | "degraded" | "down" | "recovering" | "flapping";
+                                /** @enum {string|null} */
+                                status: "operational" | "degraded_performance" | "partial_outage" | "major_outage" | "under_maintenance" | null;
+                                /** Format: date-time */
+                                since: string | null;
+                                results: {
+                                    region: string;
+                                    /** Format: date-time */
+                                    scheduledAt: string;
+                                    /** @enum {string} */
+                                    status: "up" | "degraded" | "down" | "error";
+                                    latencyMs: number | null;
+                                }[];
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/monitors/{id}": {
         parameters: {
             query?: never;

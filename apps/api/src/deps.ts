@@ -1,11 +1,14 @@
 import { randomBytes } from "node:crypto";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import type { WorkflowEngine } from "@galena/core";
 import { createDb, type DbConfig } from "@galena/db";
 import { configure, tasks } from "@trigger.dev/sdk";
 import type { Deps } from "./app.ts";
 import { createAuth } from "./auth.ts";
 import { env } from "./env.ts";
+import { dynamoTelemetry } from "./telemetry.ts";
 
 /** Local: docker-compose Postgres and env values. AWS: the Data API, secrets from SSM. */
 export async function createDeps(): Promise<Deps & { close: () => Promise<void> }> {
@@ -56,7 +59,25 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     env.TRIGGER_SECRET_KEY ??
     (env.GLN_TRIGGER_SECRET_PARAM ? await parameter(env.GLN_TRIGGER_SECRET_PARAM) : undefined);
   if (triggerKey) configure({ accessToken: triggerKey });
-  return { db, auth, engine: triggerKey ? triggerDev : notConfigured, close };
+
+  // DynamoDB Local takes any credentials; AWS uses the function's role.
+  const endpoint =
+    env.GLN_DYNAMODB_ENDPOINT ?? (env.GLN_STAGE === "local" ? "http://localhost:8000" : undefined);
+  const dynamo = new DynamoDBClient(
+    endpoint
+      ? {
+          endpoint,
+          region: "eu-central-1",
+          credentials: { accessKeyId: "local", secretAccessKey: "local" },
+        }
+      : {},
+  );
+  const telemetry = dynamoTelemetry(
+    DynamoDBDocumentClient.from(dynamo),
+    env.GLN_TELEMETRY_TABLE,
+    env.GLN_PROBE_REGIONS,
+  );
+  return { db, auth, engine: triggerKey ? triggerDev : notConfigured, telemetry, close };
 }
 
 const triggerDev: WorkflowEngine = {

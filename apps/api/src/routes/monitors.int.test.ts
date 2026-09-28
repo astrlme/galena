@@ -1,10 +1,11 @@
-import { monitorChanged, type OutboxId } from "@galena/contracts";
+import { type MonitorId, monitorChanged, type OutboxId } from "@galena/contracts";
 import { schema } from "@galena/db";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createApp, type Deps } from "../app.ts";
+import type { MonitorReading } from "../telemetry.ts";
 import { type Triggered, testDeps } from "../test-deps.ts";
 import { expectProblem, Session } from "../test-session.ts";
 
@@ -22,6 +23,7 @@ let container: StartedPostgreSqlContainer | undefined;
 let close: (() => Promise<void>) | undefined;
 let deps: Deps;
 let triggered: Triggered[];
+let readings: Map<MonitorId, MonitorReading>;
 let owner: Session;
 
 beforeAll(async () => {
@@ -30,6 +32,7 @@ beforeAll(async () => {
   await built.migrate();
   deps = built.deps;
   triggered = built.triggered;
+  readings = built.readings;
   close = built.close;
   owner = new Session(createApp(deps));
   const setup = await owner.call("/v1/setup", {
@@ -160,12 +163,59 @@ test("a change still succeeds when trigger.dev is unreachable", async () => {
   expect(pending.at(-1)?.dispatchedAt).toBeNull();
 });
 
+test("telemetry maps each monitor's state to a status and passes its recent results on", async () => {
+  const down = await create({
+    name: "Checkout",
+    downStatus: "partial_outage",
+    http: { url: "https://checkout.example.com/health" },
+  });
+  const quiet = await create({ name: "Quiet", http: { url: "https://quiet.example.com/" } });
+  const results = [
+    {
+      region: "eu-west-1",
+      scheduledAt: "2026-09-28T17:33:00.000Z",
+      status: "down",
+      latencyMs: null,
+    },
+    { region: "eu-west-3", scheduledAt: "2026-09-28T17:33:00.000Z", status: "up", latencyMs: 85 },
+  ] as const;
+  readings.set(down.id as MonitorId, {
+    state: "down",
+    enteredAt: Date.parse("2026-09-28T17:30:00.000Z"),
+    results: [...results],
+  });
+
+  const response = await owner.call("/v1/monitors/telemetry");
+  expect(response.status).toBe(200);
+  const body = (await response.json()) as {
+    regions: string[];
+    monitors: { id: string; state: string; status: string | null; since: string | null }[];
+  };
+  expect(body.regions).toEqual(["eu-west-1", "eu-west-3", "eu-north-1"]);
+  expect(body.monitors.find((m) => m.id === down.id)).toEqual({
+    id: down.id,
+    state: "down",
+    status: "partial_outage",
+    since: "2026-09-28T17:30:00.000Z",
+    results,
+  });
+  // No state item yet: detection has no opinion, so there is no status either.
+  expect(body.monitors.find((m) => m.id === quiet.id)).toEqual({
+    id: quiet.id,
+    state: "unknown",
+    status: null,
+    since: null,
+    results: [],
+  });
+});
+
 test("a viewer may list but not change monitors", async () => {
   await deps.db
     .update(schema.member)
     .set({ role: "viewer" })
     .where(eq(schema.member.role, "owner"));
   expect((await owner.call("/v1/monitors")).status).toBe(200);
+  expect((await owner.call("/v1/monitors/telemetry")).status).toBe(200);
   await expectProblem(
     await owner.call("/v1/monitors", { name: "Nope", http: { url: "https://example.com/" } }),
     403,

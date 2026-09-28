@@ -21,7 +21,7 @@ test("runs the API on Node 24 arm64 Lambda outside any VPC", () => {
   }
 });
 
-test("the API and migration roles get logs, the Data API and their secrets, nothing more", () => {
+test("the API and migration roles get logs, the Data API, their secrets and telemetry reads", () => {
   const roles = Object.entries(template.findResources("AWS::IAM::Role")).filter(([id]) =>
     /^(Handler|Migrate)Role/.test(id),
   );
@@ -36,6 +36,8 @@ test("the API and migration roles get logs, the Data API and their secrets, noth
     ),
   );
   expect([...actions].sort()).toEqual([
+    "dynamodb:BatchGetItem",
+    "dynamodb:Query",
     "logs:CreateLogStream",
     "logs:PutLogEvents",
     "rds-data:BatchExecuteStatement",
@@ -58,6 +60,7 @@ test("the API reads its database from Foundation's parameters and its secrets fr
         GLN_AUTH_SECRET_PARAM: "/galena/dev/auth-secret",
         GLN_TRIGGER_SECRET_PARAM: "/galena/dev/trigger-secret-key",
         GLN_PUBLIC_URL_PARAM: "/galena/dev/public-url",
+        GLN_PROBE_REGIONS: "eu-west-1,eu-west-3,eu-north-1",
       },
     },
   });
@@ -81,4 +84,19 @@ test("throttles the stage at 50 requests a second with bursts of 100, with acces
 
 test("passes cdk-nag AwsSolutions", () => {
   expect(() => app.synth()).not.toThrow();
+});
+
+test("only the API's own role reads telemetry, and it never writes it", () => {
+  const statements: { roles: string[]; actions: string[] }[] = Object.values(
+    template.findResources("AWS::IAM::Policy"),
+  ).flatMap((p) =>
+    p.Properties.PolicyDocument.Statement.map((s: { Action: string | string[] }) => ({
+      roles: p.Properties.Roles.map((r: { Ref: string }) => r.Ref),
+      actions: [s.Action].flat(),
+    })),
+  );
+  const dynamo = statements.filter((s) => s.actions.some((a) => a.startsWith("dynamodb:")));
+  expect(dynamo).toHaveLength(1);
+  expect(dynamo[0]?.roles).toEqual([expect.stringMatching(/^HandlerRole/)]);
+  expect(dynamo[0]?.actions.sort()).toEqual(["dynamodb:BatchGetItem", "dynamodb:Query"]);
 });
