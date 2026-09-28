@@ -6,6 +6,7 @@ import { CiAccessStack } from "../stacks/ci-access.ts";
 import { DetectionStack } from "../stacks/detection.ts";
 import { FoundationStack } from "../stacks/foundation.ts";
 import { ProbeStack } from "../stacks/probe.ts";
+import { SmokeStack } from "../stacks/smoke.ts";
 import { WebStack } from "../stacks/web.ts";
 import { WorkerAccessStack } from "../stacks/worker-access.ts";
 
@@ -33,6 +34,8 @@ for (const region of config.probeRegions) {
   });
 }
 new DetectionStack(app, `galena-${config.stage}-detection`, { env, config });
+// Only dev runs the deployed smoke test.
+if (config.stage === "dev") new SmokeStack(app, `galena-${config.stage}-smoke`, { env, config });
 const api = new ApiStack(app, `galena-${config.stage}-api`, { env, config });
 new WebStack(app, `galena-${config.stage}-web`, { env, config, api: api.api });
 new WorkerAccessStack(app, `galena-${config.stage}-worker-access`, { env, config });
