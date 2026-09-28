@@ -10,14 +10,15 @@ import {
   DatabaseCluster,
   DatabaseClusterEngine,
 } from "aws-cdk-lib/aws-rds";
+import { BlockPublicAccess, Bucket, BucketEncryption } from "aws-cdk-lib/aws-s3";
 import { Queue, QueueEncryption } from "aws-cdk-lib/aws-sqs";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
 
 /**
- * The home region's stateful core: KMS key, an isolated VPC
- * for Aurora, the telemetry table and the check-results queue. No NAT gateway and no Lambda in
+ * The home region's stateful core: KMS key, an isolated VPC for Aurora, the telemetry table,
+ * the check-results queue and the private config bucket. No NAT gateway and no Lambda in
  * the VPC: everything reaches Aurora through the Data API.
  */
 export class FoundationStack extends Stack {
@@ -27,6 +28,8 @@ export class FoundationStack extends Stack {
   readonly databaseSecretArn: string;
   readonly telemetry: Table;
   readonly checkResults: Queue;
+  /** Holds `monitors.json`: the workers write it, the probes and the evaluator read it. */
+  readonly config: Bucket;
 
   constructor(scope: Construct, id: string, props: StackProps & { config: StageConfig }) {
     super(scope, id, props);
@@ -129,12 +132,26 @@ export class FoundationStack extends Stack {
       deadLetterQueue: { queue: deadLetters, maxReceiveCount: 5 },
     });
 
+    this.config = new Bucket(this, "Config", {
+      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+      encryption: BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      removalPolicy: dataRemoval,
+    });
+    Validations.of(this.config).acknowledge({
+      id: "AwsSolutions-S1",
+      reason:
+        "Holds one file that the workers rebuild from the database on every change; access logs would mostly record the probes reading it every minute.",
+    });
+
     // Non-secret identifiers for tools outside CDK, such as the trigger.dev workers.
     const parameters = {
       "database-cluster-arn": this.database.clusterArn,
       "database-secret-arn": this.databaseSecretArn,
       "telemetry-table": this.telemetry.tableName,
       "check-results-queue-url": this.checkResults.queueUrl,
+      "check-results-queue-arn": this.checkResults.queueArn,
+      "config-bucket": this.config.bucketName,
       "kms-key-arn": this.key.keyArn,
     };
     for (const [name, value] of Object.entries(parameters)) {
