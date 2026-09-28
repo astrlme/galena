@@ -7,11 +7,12 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "docker compose up -d --wait && pnpm db:migrate && pnpm db:seed && turbo run dev",
+    "dev": "docker compose up -d --wait && pnpm db:migrate && pnpm db:seed && turbo run dev dev:hot-path",
+    "dev:hot-path": "node scripts/dev-hot-path.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:deps",
     "lint": "biome check",
     "format": "biome check --write",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "turbo run typecheck && tsc -p scripts",
     "test": "vitest run --passWithNoTests",
     "test:int": "vitest run --config vitest.int.config.ts",
     "test:e2e": "docker compose up -d --wait && pnpm db:migrate && pnpm db:seed && pnpm --filter @galena/web e2e",
@@ -28,12 +29,20 @@
     "api:generate": "pnpm --filter @galena/api openapi && pnpm --filter @galena/web generate:api"
   },
   "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1141.0",
+    "@aws-sdk/lib-dynamodb": "^3.1141.0",
     "@biomejs/biome": "^2.5.14",
+    "@galena/contracts": "workspace:*",
+    "@galena/core": "workspace:*",
+    "@galena/db": "workspace:*",
+    "@galena/integrations": "workspace:*",
     "@types/node": "^24.13.6",
     "dependency-cruiser": "^18.4.0",
     "esbuild": "^0.28.2",
     "turbo": "^2.11.3",
     "typescript": "6.0.3",
-    "vitest": "^5.0.1"
+    "uuid": "^14.0.2",
+    "vitest": "^5.0.1",
+    "zod": "^4.6.5"
   }
 }

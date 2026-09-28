@@ -8,6 +8,7 @@ import { configure, tasks } from "@trigger.dev/sdk";
 import type { Deps } from "./app.ts";
 import { createAuth } from "./auth.ts";
 import { env } from "./env.ts";
+import { targetGuard } from "./targets.ts";
 import { dynamoTelemetry } from "./telemetry.ts";
 
 /** Local: docker-compose Postgres and env values. AWS: the Data API, secrets from SSM. */
@@ -77,7 +78,14 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     env.GLN_TELEMETRY_TABLE,
     env.GLN_PROBE_REGIONS,
   );
-  return { db, auth, engine: triggerKey ? triggerDev : notConfigured, telemetry, close };
+  return {
+    db,
+    auth,
+    engine: triggerKey ? triggerDev : notConfigured,
+    telemetry,
+    targets: targetGuard(env.GLN_STAGE, env.GLN_ALLOW_LOOPBACK),
+    close,
+  };
 }
 
 const triggerDev: WorkflowEngine = {

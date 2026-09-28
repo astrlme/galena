@@ -28,6 +28,8 @@ export const env = z
       .default("eu-west-1,eu-west-3,eu-north-1")
       .transform((list) => list.split(",").map((r) => r.trim()))
       .pipe(z.array(awsRegion).min(1)),
+    // Local only: monitors may target 127.0.0.1 (see targets.ts). Ignored in every other stage.
+    GLN_ALLOW_LOOPBACK: z.stringbool().default(false),
     GLN_GITHUB_CLIENT_ID: z.string().min(1).optional(),
     GLN_GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
     // The trigger.dev secret key: from the env locally, from this SecureString in AWS. Without

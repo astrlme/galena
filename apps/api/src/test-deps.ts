@@ -2,6 +2,7 @@
 import type { MonitorId } from "@galena/contracts";
 import type { WorkflowEngine } from "@galena/core";
 import { createDb } from "@galena/db";
+import { guard } from "@galena/integrations/net";
 import type { Deps } from "./app.ts";
 import { createAuth } from "./auth.ts";
 import type { MonitorReading, Telemetry } from "./telemetry.ts";
@@ -38,7 +39,7 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
     },
   };
   return {
-    deps: { db, auth, engine, telemetry } satisfies Deps,
+    deps: { db, auth, engine, telemetry, targets: guard } satisfies Deps,
     triggered,
     readings,
     migrate,

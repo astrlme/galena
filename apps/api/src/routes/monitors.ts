@@ -9,7 +9,6 @@ import {
 } from "@galena/contracts";
 import { monitorStatus } from "@galena/core";
 import { componentRepository, monitorRepository } from "@galena/db";
-import { guard } from "@galena/integrations/net";
 import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { type App, type Deps, fail, type Member, notFound, requireRole } from "../http.ts";
@@ -38,7 +37,7 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
       });
     }
     // Names are resolved again at check time; this catches literal addresses early.
-    const url = guard.checkUrl(input.http.url);
+    const url = deps.targets.checkUrl(input.http.url);
     if (!url.ok) {
       fail({
         status: 422,
