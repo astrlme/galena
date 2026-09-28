@@ -8,9 +8,27 @@ importers:
 
   .:
     devDependencies:
+      '@aws-sdk/client-dynamodb':
+        specifier: ^3.1141.0
+        version: 3.1141.0
+      '@aws-sdk/lib-dynamodb':
+        specifier: ^3.1141.0
+        version: 3.1141.0(@aws-sdk/client-dynamodb@3.1141.0)
       '@biomejs/biome':
         specifier: ^2.5.14
         version: 2.5.14
+      '@galena/contracts':
+        specifier: workspace:*
+        version: link:packages/contracts
+      '@galena/core':
+        specifier: workspace:*
+        version: link:packages/core
+      '@galena/db':
+        specifier: workspace:*
+        version: link:packages/db
+      '@galena/integrations':
+        specifier: workspace:*
+        version: link:packages/integrations
       '@types/node':
         specifier: ^24.13.6
         version: 24.13.6
@@ -26,9 +44,15 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+      uuid:
+        specifier: ^14.0.2
+        version: 14.0.2
       vitest:
         specifier: ^5.0.1
         version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@24.13.6)(vite@8.3.1(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
   apps/api:
     dependencies:

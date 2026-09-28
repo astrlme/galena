@@ -2,6 +2,7 @@ import type { MemberRole, ProblemDetails, WorkspaceId } from "@galena/contracts"
 import { problemContentType } from "@galena/contracts";
 import { roleAtLeast, type WorkflowEngine } from "@galena/core";
 import { type Db, findMembership } from "@galena/db";
+import type { Guard } from "@galena/integrations/net";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -9,7 +10,14 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Auth } from "./auth.ts";
 import type { Telemetry } from "./telemetry.ts";
 
-export type Deps = { db: Db; auth: Auth; engine: WorkflowEngine; telemetry: Telemetry };
+export type Deps = {
+  db: Db;
+  auth: Auth;
+  engine: WorkflowEngine;
+  telemetry: Telemetry;
+  /** The SSRF guard monitor URLs must pass when they are saved. */
+  targets: Guard;
+};
 export type Member = { userId: string; email: string; role: MemberRole; workspaceId: WorkspaceId };
 export type Env = { Variables: { member: Member } };
 export type App = OpenAPIHono<Env>;
