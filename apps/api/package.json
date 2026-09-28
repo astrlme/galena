@@ -11,6 +11,7 @@
     "openapi": "node src/openapi.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-ssm": "^3.1141.0",
     "@galena/contracts": "workspace:*",
     "@galena/core": "workspace:*",
     "@galena/db": "workspace:*",

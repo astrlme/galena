@@ -1,4 +1,15 @@
-import { CfnOutput, Fn, RemovalPolicy, Stack, type StackProps, Validations } from "aws-cdk-lib";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import {
+  Annotations,
+  CfnOutput,
+  Fn,
+  RemovalPolicy,
+  Stack,
+  type StackProps,
+  Token,
+  Validations,
+} from "aws-cdk-lib";
 import type { HttpApi } from "aws-cdk-lib/aws-apigatewayv2";
 import {
   AllowedMethods,
@@ -13,7 +24,9 @@ import {
   ViewerProtocolPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
 import { HttpOrigin, S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
-import { BlockPublicAccess, Bucket, BucketEncryption } from "aws-cdk-lib/aws-s3";
+import { BlockPublicAccess, Bucket, BucketEncryption, type CfnBucket } from "aws-cdk-lib/aws-s3";
+import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
+import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
 
@@ -33,7 +46,12 @@ export class WebStack extends Stack {
   constructor(
     scope: Construct,
     id: string,
-    props: StackProps & { config: StageConfig; api: HttpApi },
+    props: StackProps & {
+      config: StageConfig;
+      api: HttpApi;
+      /** The static export to upload; tests pass a fixture. */
+      siteDir?: string;
+    },
   ) {
     super(scope, id, props);
 
@@ -101,9 +119,72 @@ export class WebStack extends Stack {
       Validations.of(id === "AwsSolutions-S1" ? site : distribution).acknowledge({ id, reason });
     }
 
-    new CfnOutput(this, "DashboardUrl", {
-      value: `https://${distribution.distributionDomainName}`,
+    const dashboardUrl = `https://${distribution.distributionDomainName}`;
+    // The API reads this at cold start: it is where people sign in and where cookies belong.
+    new StringParameter(this, "PublicUrl", {
+      parameterName: `/galena/${props.config.stage}/public-url`,
+      stringValue: dashboardUrl,
     });
+
+    // The static export, uploaded on every deploy with a cache invalidation. Synth without a
+    // build (tests, a quick `infra:synth`) skips it rather than failing.
+    const out = props.siteDir ?? fileURLToPath(new URL("../../apps/web/out", import.meta.url));
+    if (existsSync(out)) {
+      new BucketDeployment(this, "Upload", {
+        sources: [Source.asset(out)],
+        destinationBucket: site,
+        distribution,
+        distributionPaths: ["/*"],
+        memoryLimit: 512,
+      });
+      acknowledgeBucketDeployment(this, site);
+    } else {
+      Annotations.of(this).addWarning(
+        "apps/web/out is missing, so the dashboard is not uploaded. Run `pnpm --filter @galena/web build` before deploying.",
+      );
+    }
+
+    new CfnOutput(this, "DashboardUrl", { value: dashboardUrl });
     new CfnOutput(this, "SiteBucket", { value: site.bucketName });
   }
+}
+
+/**
+ * CDK's BucketDeployment brings its own singleton Lambda (with the AWS CLI layer) that we don't
+ * control. cdk-nag's IAM rules are granular, so each finding is acknowledged by its exact id; the
+ * asset-bucket id is spelled with and without a resolved partition, as synth and tests differ.
+ */
+function acknowledgeBucketDeployment(stack: Stack, site: Bucket) {
+  const copier = stack.node.children.find((c) =>
+    c.node.id.startsWith("Custom::CDKBucketDeployment"),
+  );
+  if (!copier) return;
+  const account = Token.isUnresolved(stack.account) ? "<AWS::AccountId>" : stack.account;
+  const region = Token.isUnresolved(stack.region) ? "<AWS::Region>" : stack.region;
+  const siteId = stack.resolve(stack.getLogicalId(site.node.defaultChild as CfnBucket));
+  const copies =
+    "It copies every file of the export into the site bucket and deletes stale ones, so its S3 actions and object paths are wildcards scoped to the CDK assets bucket and the site bucket.";
+  const findings: [string, string][] = [
+    [
+      "AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole]",
+      "CDK's BucketDeployment handler writes its logs through AWSLambdaBasicExecutionRole.",
+    ],
+    ...["s3:GetObject*", "s3:GetBucket*", "s3:List*", "s3:DeleteObject*", "s3:Abort*"].map(
+      (action): [string, string] => [`AwsSolutions-IAM5[Action::${action}]`, copies],
+    ),
+    [`AwsSolutions-IAM5[Resource::<${siteId}.Arn>/*]`, copies],
+    ...["<AWS::Partition>", "aws"].map((partition): [string, string] => [
+      `AwsSolutions-IAM5[Resource::arn:${partition}:s3:::cdk-hnb659fds-assets-${account}-${region}/*]`,
+      copies,
+    ]),
+    [
+      "AwsSolutions-IAM5[Resource::*]",
+      "CloudFront invalidations cannot be scoped to one distribution in IAM.",
+    ],
+    [
+      "AwsSolutions-L1",
+      "CDK pins the BucketDeployment handler's runtime; it moves with aws-cdk-lib upgrades.",
+    ],
+  ];
+  for (const [id, reason] of findings) Validations.of(copier).acknowledge({ id, reason });
 }

@@ -20,9 +20,10 @@ export type DbConfig =
 
 const MIGRATIONS = fileURLToPath(new URL("../migrations", import.meta.url));
 
+/** `migrate` takes another folder where the source tree isn't there, as in a bundled Lambda. */
 export function createDb(config: DbConfig): {
   db: Db;
-  migrate: () => Promise<void>;
+  migrate: (migrationsFolder?: string) => Promise<void>;
   close: () => Promise<void>;
 } {
   if (config.kind === "postgres") {
@@ -30,7 +31,7 @@ export function createDb(config: DbConfig): {
     const db = nodePgDrizzle(pool, { schema, casing: "snake_case" });
     return {
       db,
-      migrate: () => nodePgMigrate(db, { migrationsFolder: MIGRATIONS }),
+      migrate: (migrationsFolder = MIGRATIONS) => nodePgMigrate(db, { migrationsFolder }),
       close: () => pool.end(),
     };
   }
@@ -50,7 +51,7 @@ export function createDb(config: DbConfig): {
   });
   return {
     db,
-    migrate: () => dataApiMigrate(db, { migrationsFolder: MIGRATIONS }),
+    migrate: (migrationsFolder = MIGRATIONS) => dataApiMigrate(db, { migrationsFolder }),
     close: async () => client.destroy(),
   };
 }

@@ -4,6 +4,6 @@ import { createApp } from "./app.ts";
 import { createDeps } from "./deps.ts";
 import { env } from "./env.ts";
 
-serve({ fetch: createApp(createDeps()).fetch, port: env.GLN_API_PORT }, (info) => {
+serve({ fetch: createApp(await createDeps()).fetch, port: env.GLN_API_PORT }, (info) => {
   console.log(`API on http://localhost:${info.port} (OpenAPI at /openapi.json)`);
 });
