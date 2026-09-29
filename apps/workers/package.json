@@ -10,6 +10,7 @@
   "devDependencies": {
     "@galena/config": "workspace:*",
     "@testcontainers/postgresql": "^12.1.0",
+    "@trigger.dev/build": "4.6.4",
     "trigger.dev": "4.6.4"
   },
   "dependencies": {
