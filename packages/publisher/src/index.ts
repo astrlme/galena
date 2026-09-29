@@ -1,10 +1,11 @@
 import type { Snapshot } from "@galena/contracts";
+import { pageIndicatorStates } from "@galena/contracts";
 import { atomFeed, rssFeed } from "./feeds.ts";
-import { type GlyphState, INDICATOR_STATE } from "./glyphs.ts";
+import type { GlyphState } from "./glyphs.ts";
 import { badgeSvg, faviconSvg } from "./images.ts";
 
 export { atomFeed, rssFeed } from "./feeds.ts";
-export { type GlyphState, INDICATOR_LABELS, INDICATOR_STATE } from "./glyphs.ts";
+export type { GlyphState } from "./glyphs.ts";
 export { badgeSvg, faviconSvg } from "./images.ts";
 
 export type PageFile = { path: string; body: string; contentType: string };
@@ -43,7 +44,7 @@ export function pageFiles(snapshot: Snapshot): PageFile[] {
     { path: "badge.svg", body: badgeSvg(snapshot.indicator), contentType: svg },
     {
       path: "favicon.svg",
-      body: faviconSvg(INDICATOR_STATE[snapshot.indicator]),
+      body: faviconSvg(pageIndicatorStates[snapshot.indicator]),
       contentType: svg,
     },
     ...FAVICON_STATES.map((state) => ({
