@@ -126,5 +126,14 @@ export interface IncidentRepository {
     incident: Omit<Incident, "updatedAt" | "components" | keyof IncidentStage>,
     first: IncidentChange,
   ): Promise<void>;
-  append(workspaceId: WorkspaceId, id: IncidentId, change: IncidentChange): Promise<void>;
+  /**
+   * Writes the change only while the incident still has status `expected`, so two people
+   * updating at once can't take it through a move the lifecycle forbids. False when it moved.
+   */
+  append(
+    workspaceId: WorkspaceId,
+    id: IncidentId,
+    expected: IncidentStatus,
+    change: IncidentChange,
+  ): Promise<boolean>;
 }

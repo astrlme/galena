@@ -83,6 +83,7 @@ test("an incident moves from open to resolved with its updates, components and t
   await repo.append(
     acme,
     id,
+    "investigating",
     change("identified", 5, {
       impact: "critical",
       components: [
@@ -92,12 +93,15 @@ test("an incident moves from open to resolved with its updates, components and t
       statusChange: { from: "investigating", to: "identified" },
     }),
   );
-  await repo.append(acme, id, change("identified", 7)); // another update, same status
+  await repo.append(acme, id, "identified", change("identified", 7)); // same status again
   await repo.append(
     acme,
     id,
+    "identified",
     change("resolved", 20, { statusChange: { from: "identified", to: "resolved" } }),
   );
+  // Someone else's screen still showed "identified": their update must not land.
+  expect(await repo.append(acme, id, "identified", change("monitoring", 21))).toBe(false);
 
   const found = await repo.findById(acme, id);
   expect(found).toMatchObject({

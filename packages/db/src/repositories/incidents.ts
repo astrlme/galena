@@ -1,6 +1,6 @@
 import type { AffectedComponent, IncidentId, WorkspaceId } from "@galena/contracts";
 import type { Incident, IncidentChange, IncidentRepository } from "@galena/core";
-import { and, asc, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import type { Db } from "../client.ts";
 import { incident, incidentComponent, incidentUpdate, timelineEvent } from "../schema/index.ts";
@@ -110,13 +110,17 @@ export function incidentRepository(db: Db): IncidentRepository {
       await write(value.workspaceId, value.id, first);
     },
 
-    async append(workspaceId, id, change) {
-      // Every update touches the row, so updated_at is the time of the last update.
-      await db
+    async append(workspaceId, id, expected, change) {
+      // Every update touches the row, so updated_at is the time of the last update. The status
+      // is compared as text: the Data API sends parameters as text, and enum = text has no operator.
+      const moved = await db
         .update(incident)
         .set({ ...change.stage, ...(change.impact ? { impact: change.impact } : {}) })
-        .where(scoped(workspaceId, id));
+        .where(and(scoped(workspaceId, id), sql`${incident.status}::text = ${expected}`))
+        .returning({ id: incident.id });
+      if (moved.length === 0) return false;
       await write(workspaceId, id, change);
+      return true;
     },
   };
 }
