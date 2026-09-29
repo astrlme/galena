@@ -43,7 +43,7 @@ try {
   }
   await db
     .insert(schema.page)
-    .values({ id: statusPage, workspaceId: acme, slug: "acme", name: "Acme status" })
+    .values({ id: statusPage, workspaceId: acme, slug: "acme", name: "Acme" })
     .onConflictDoNothing();
   await db.insert(schema.component).values(components).onConflictDoNothing();
   await db

@@ -1,6 +1,6 @@
 import type { AffectedComponent, IncidentId, WorkspaceId } from "@galena/contracts";
 import type { Incident, IncidentChange, IncidentRepository } from "@galena/core";
-import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import type { Db } from "../client.ts";
 import { incident, incidentComponent, incidentUpdate, timelineEvent } from "../schema/index.ts";
@@ -45,6 +45,13 @@ export function incidentRepository(db: Db): IncidentRepository {
     return byIncident;
   }
 
+  const updateColumns = {
+    id: incidentUpdate.id,
+    status: incidentUpdate.status,
+    body: incidentUpdate.body,
+    createdAt: incidentUpdate.createdAt,
+  };
+
   /** The update and whatever it changes, beside the incident row itself. */
   async function write(workspaceId: WorkspaceId, incidentId: IncidentId, change: IncidentChange) {
     await db.insert(incidentUpdate).values({ ...change.update, workspaceId, incidentId });
@@ -87,16 +94,43 @@ export function incidentRepository(db: Db): IncidentRepository {
       return rows.map((row): Incident => ({ ...row, components: components.get(row.id) ?? [] }));
     },
 
+    async listForPage(workspaceId, resolvedSince) {
+      const rows = await db
+        .select(columns)
+        .from(incident)
+        .where(
+          and(
+            eq(incident.workspaceId, workspaceId),
+            isNull(incident.deletedAt),
+            or(isNull(incident.resolvedAt), gte(incident.resolvedAt, resolvedSince)),
+          ),
+        )
+        .orderBy(desc(incident.startedAt), desc(incident.id))
+        .limit(MAX_INCIDENTS);
+      const ids = rows.map((r) => r.id);
+      const [components, updates] = await Promise.all([
+        componentsOf(ids),
+        ids.length === 0
+          ? []
+          : db
+              .select({ ...updateColumns, incidentId: incidentUpdate.incidentId })
+              .from(incidentUpdate)
+              .where(inArray(incidentUpdate.incidentId, ids))
+              .orderBy(desc(incidentUpdate.createdAt), desc(incidentUpdate.id))
+              .limit(MAX_UPDATES),
+      ]);
+      return rows.map((row) => ({
+        ...row,
+        components: components.get(row.id) ?? [],
+        updates: updates.flatMap(({ incidentId, ...u }) => (incidentId === row.id ? [u] : [])),
+      }));
+    },
+
     async findById(workspaceId, id) {
       const [row] = await db.select(columns).from(incident).where(scoped(workspaceId, id)).limit(1);
       if (!row) return undefined;
       const updates = await db
-        .select({
-          id: incidentUpdate.id,
-          status: incidentUpdate.status,
-          body: incidentUpdate.body,
-          createdAt: incidentUpdate.createdAt,
-        })
+        .select(updateColumns)
         .from(incidentUpdate)
         .where(eq(incidentUpdate.incidentId, id))
         .orderBy(desc(incidentUpdate.createdAt), desc(incidentUpdate.id))

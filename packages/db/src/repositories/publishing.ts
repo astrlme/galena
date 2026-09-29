@@ -1,9 +1,20 @@
-import type { MonitorId, MonitorState, PageId, WorkspaceId } from "@galena/contracts";
-import type { UptimeDay } from "@galena/core";
+import {
+  type MonitorId,
+  type MonitorState,
+  type PageId,
+  pageId,
+  type WorkspaceId,
+} from "@galena/contracts";
+import type { SnapshotInputs, UptimeDay } from "@galena/core";
 import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import type { Db } from "../client.ts";
-import { monitor, monitorStateChange, page, uptimeDaily } from "../schema/index.ts";
+import { monitor, monitorStateChange, page, uptimeDaily, workspace } from "../schema/index.ts";
+import { componentGroupRepository, componentRepository } from "./components.ts";
+import { incidentRepository } from "./incidents.ts";
+import { maintenanceRepository } from "./maintenance.ts";
+
+const DAY = 86_400_000;
 
 export type MonitorTransition = {
   workspaceId: WorkspaceId;
@@ -141,4 +152,78 @@ export async function listUptimeDays(
     .where(and(eq(uptimeDaily.workspaceId, workspaceId), gte(uptimeDaily.day, fromDay)))
     .orderBy(asc(uptimeDaily.day));
   return rows;
+}
+
+const pageColumns = {
+  id: page.id,
+  workspaceId: page.workspaceId,
+  slug: page.slug,
+  name: page.name,
+  publishedVersion: page.publishedVersion,
+  htmlVersion: page.htmlVersion,
+};
+export type PageRow = {
+  id: PageId;
+  workspaceId: WorkspaceId;
+  slug: string;
+  name: string;
+  publishedVersion: number;
+  htmlVersion: number;
+};
+
+/**
+ * The deployment's status page, created from the workspace's name the first time it publishes;
+ * undefined before first-run setup. Known limit: one page per deployment, showing every
+ * component; `page_component` chooses them once a deployment has several pages.
+ */
+export async function ensurePage(db: Db): Promise<PageRow | undefined> {
+  const first = () =>
+    db.select(pageColumns).from(page).orderBy(asc(page.createdAt), asc(page.id)).limit(1);
+  const [existing] = await first();
+  if (existing) return existing;
+  const [ws] = await db.select({ id: workspace.id, name: workspace.name }).from(workspace).limit(1);
+  if (!ws) return undefined;
+  await db
+    .insert(page)
+    .values({ id: pageId.parse(v7()), workspaceId: ws.id, slug: "status", name: ws.name })
+    .onConflictDoNothing();
+  const [created] = await first();
+  return created;
+}
+
+/** Everything `buildSnapshot` needs for the page, read at `now`. */
+export async function loadSnapshotInputs(
+  db: Db,
+  target: PageRow,
+  options: { snapshotVersion: number; url: string; now: Date },
+): Promise<SnapshotInputs> {
+  const ws = target.workspaceId;
+  const recentFrom = new Date(options.now.getTime() - 14 * DAY);
+  const stripFrom = new Date(options.now.getTime() - 89 * DAY).toISOString().slice(0, 10);
+  const [groups, components, monitors, incidents, maintenance, uptime] = await Promise.all([
+    componentGroupRepository(db).listByWorkspace(ws),
+    componentRepository(db).listByWorkspace(ws),
+    db
+      .select({
+        componentId: monitor.componentId,
+        state: monitor.state,
+        downStatus: monitor.downStatus,
+        enabled: monitor.enabled,
+      })
+      .from(monitor)
+      .where(eq(monitor.workspaceId, ws)),
+    incidentRepository(db).listForPage(ws, recentFrom),
+    maintenanceRepository(db).listUnfinished(),
+    listUptimeDays(db, ws, stripFrom),
+  ]);
+  return {
+    snapshotVersion: options.snapshotVersion,
+    page: { slug: target.slug, name: target.name, url: options.url },
+    groups,
+    components,
+    monitors,
+    incidents,
+    maintenance,
+    uptime,
+  };
 }

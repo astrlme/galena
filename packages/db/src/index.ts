@@ -7,10 +7,13 @@ export { listEnabledMonitors, monitorRepository } from "./repositories/monitors.
 export { findOutboxRow, markOutboxDispatched } from "./repositories/outbox.ts";
 export {
   advancePageVersion,
+  ensurePage,
   listMonitorTransitions,
   listUptimeDays,
+  loadSnapshotInputs,
   type MonitorTransition,
   nextSnapshotVersion,
+  type PageRow,
   recordMonitorTransition,
   saveUptimeDays,
 } from "./repositories/publishing.ts";
