@@ -1,0 +1,29 @@
+---
+import {
+  incidentImpactLabels,
+  incidentStatusLabels,
+  pageIndicatorStates,
+  type SnapshotIncident,
+} from "@galena/contracts";
+import Glyph from "./Glyph.astro";
+
+interface Props {
+  incident: SnapshotIncident;
+}
+const { incident } = Astro.props;
+const latest = incident.updates[0];
+// The first sentence or so of the latest update; the incident page has the rest.
+const preview =
+  latest && latest.body.length > 160 ? `${latest.body.slice(0, 157).trimEnd()}…` : latest?.body;
+---
+
+<article class={`incident impact-${incident.impact}`}>
+  <div class="incident-title">
+    <span class="label">
+      <Glyph name={pageIndicatorStates[incident.impact]} />
+      <a href={`/incidents/${incident.id}/`}>{incident.title}</a>
+    </span>
+    {incident.impact !== "none" && <span class="secondary">{incidentImpactLabels[incident.impact]}</span>}
+  </div>
+  {latest && <p>{incidentStatusLabels[latest.status]}. {preview}</p>}
+</article>

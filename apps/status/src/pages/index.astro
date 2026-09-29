@@ -1,0 +1,100 @@
+---
+import {
+  componentStatusLabels,
+  maintenanceStatusLabels,
+  pageIndicatorLabels,
+  pageIndicatorStates,
+  type SnapshotComponent,
+} from "@galena/contracts";
+import Glyph from "../components/Glyph.astro";
+import IncidentSummary from "../components/IncidentSummary.astro";
+import Strip from "../components/Strip.astro";
+import Page from "../layouts/Page.astro";
+import { duration, utcDateTime, utcDay, utcTime } from "../lib/format.ts";
+import { readSnapshot } from "../lib/snapshot.ts";
+
+const s = readSnapshot();
+const headline = pageIndicatorLabels[s.indicator];
+const grouped = new Set(s.groups.flatMap((g) => g.componentIds));
+const ungrouped = s.components.filter((c) => !grouped.has(c.id));
+const byId = new Map(s.components.map((c) => [c.id, c]));
+const componentNames = (ids: string[]) =>
+  ids
+    .map((id) => byId.get(id as never)?.name)
+    .filter(Boolean)
+    .join(", ");
+const groups = s.groups.map((g) => ({
+  ...g,
+  components: g.componentIds.flatMap((id) => byId.get(id) ?? []),
+}));
+const windows = [...s.maintenance.active, ...s.maintenance.upcoming];
+---
+
+<Page title={`${s.page.name} status`} description={`${headline}. The current status of ${s.page.name}.`} pageName={s.page.name}>
+  <div class="hero" data-live-hero>
+    <h1 class="headline"><Glyph name={pageIndicatorStates[s.indicator]} class="" />{headline}</h1>
+    <p class="secondary">Updated <time datetime={s.publishedAt}>{utcTime(s.publishedAt)}</time></p>
+  </div>
+
+  {s.incidents.active.length > 0 && (
+    <section aria-labelledby="active">
+      <h2 id="active">Active incidents</h2>
+      {s.incidents.active.map((incident) => <IncidentSummary incident={incident} />)}
+    </section>
+  )}
+
+  {windows.length > 0 && (
+    <section aria-labelledby="maintenance">
+      <h2 id="maintenance">Maintenance</h2>
+      {windows.map((w) => (
+        <article class="incident impact-none">
+          <h3 class="label"><Glyph name="under_maintenance" />{w.title}</h3>
+          <p class="secondary">
+            {maintenanceStatusLabels[w.status]}. <time datetime={w.startsAt}>{utcDateTime(w.startsAt)}</time> to <time datetime={w.endsAt}>{utcTime(w.endsAt)}</time>{w.componentIds.length > 0 && `. ${componentNames(w.componentIds)}`}.
+          </p>
+          <p>{w.body}</p>
+        </article>
+      ))}
+    </section>
+  )}
+
+  <section aria-labelledby="components">
+    <h2 id="components">Components</h2>
+    {[{ id: "ungrouped", name: "", components: ungrouped }, ...groups].map((group) => (
+      <div class="group">
+        {group.name && <h3>{group.name}</h3>}
+        {group.components.map((c: SnapshotComponent) => (
+          <div class="component">
+            <div class="component-row">
+              <span>{c.name}</span>
+              <span class="state">
+                <span class="label"><Glyph name={c.status} />{componentStatusLabels[c.status]}</span>
+                <span class="num secondary">{c.uptime === null ? "No data" : `${c.uptime.toFixed(2)}%`}</span>
+              </span>
+            </div>
+            <Strip name={c.name} days={c.days} />
+          </div>
+        ))}
+      </div>
+    ))}
+  </section>
+
+  <section aria-labelledby="past">
+    <h2 id="past">Past incidents</h2>
+    {s.incidents.recent.length === 0 ? (
+      <p class="secondary">No incidents in the last 14 days.</p>
+    ) : (
+      <ol class="past">
+        {s.incidents.recent.map((i) => (
+          <li>
+            <time datetime={i.startedAt}>{utcDay(i.startedAt)}</time>
+            <span>
+              <a href={`/incidents/${i.id}/`}>{i.title}</a>
+              {i.resolvedAt && <span class="secondary"><br />Resolved after {duration(i.startedAt, i.resolvedAt)}</span>}
+            </span>
+          </li>
+        ))}
+      </ol>
+    )}
+  </section>
+</Page>

@@ -1,0 +1,4 @@
+dist/
+.astro/
+# Written by page.rebuild-html before each build; `pnpm fixture` writes a sample locally.
+src/data/snapshot.json

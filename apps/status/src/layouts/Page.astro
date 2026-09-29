@@ -1,0 +1,38 @@
+---
+import "@fontsource-variable/atkinson-hyperlegible-next";
+import "virtual:galena/tokens.css";
+import "../styles/page.css";
+
+interface Props {
+  title: string;
+  description: string;
+  pageName: string;
+}
+const { title, description, pageName } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title={`${pageName} status`} href="/feed.rss" />
+    <link rel="alternate" type="application/atom+xml" title={`${pageName} status`} href="/feed.atom" />
+  </head>
+  <body>
+    <main>
+      <header class="brand">
+        <a href="/"><span class="mark" aria-hidden="true"></span>{pageName} status</a>
+      </header>
+      <slot />
+      <footer>
+        <a href="/history/">Past incidents</a>
+        <a href="/feed.rss">RSS</a>
+        <a href="/feed.atom">Atom</a>
+      </footer>
+    </main>
+  </body>
+</html>

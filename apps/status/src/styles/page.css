@@ -1,0 +1,265 @@
+/* The status page: one left-aligned column, monochrome, still. Colours are the token variables. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font:
+    400 16px / 1.55 "Atkinson Hyperlegible Next Variable",
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+main {
+  max-width: 720px;
+  padding: 32px 16px 48px;
+}
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+dl {
+  margin: 0;
+}
+a {
+  color: var(--ink);
+  text-underline-offset: 2px;
+}
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.num,
+time {
+  font-variant-numeric: tabular-nums;
+}
+.secondary {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--slate);
+}
+
+.brand a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.mark {
+  width: 12px;
+  height: 12px;
+  background: var(--ink);
+}
+
+/* Hero */
+.hero {
+  margin-top: 32px;
+}
+.headline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 32px;
+  line-height: 1.15;
+  font-weight: 650;
+}
+.headline svg {
+  width: 28px;
+  height: 28px;
+  flex: none;
+}
+.glyph {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+section {
+  margin-top: 48px;
+}
+h2 {
+  font-size: 19px;
+  line-height: 1.35;
+  font-weight: 600;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--mist);
+}
+h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Incidents: heavier rule and title for a bigger impact. */
+.incident {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.impact-none {
+  padding-left: 16px;
+}
+.impact-minor {
+  border-left: 1px solid var(--graphite);
+  padding-left: 12px;
+}
+.impact-major {
+  border-left: 2px solid var(--ink);
+  padding-left: 12px;
+}
+.impact-critical {
+  border-left: 4px solid var(--ink);
+  padding-left: 12px;
+}
+.incident-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.impact-major .incident-title a {
+  font-weight: 600;
+}
+.impact-critical .incident-title a {
+  font-weight: 650;
+}
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* Components and the signal strip */
+.component {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--mist);
+}
+.component-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.component-row .state {
+  display: inline-flex;
+  gap: 16px;
+}
+.strip {
+  margin-top: 8px;
+  width: 538px;
+  max-width: 100%;
+  overflow: hidden;
+  display: flex;
+  justify-content: flex-end;
+}
+.strip svg {
+  flex: none;
+}
+.m-ok,
+.m-degraded {
+  fill: var(--slate);
+}
+.m-partial {
+  fill: var(--graphite);
+}
+.m-major {
+  fill: var(--ink);
+}
+.m-maintenance {
+  fill: none;
+  stroke: var(--graphite);
+  stroke-dasharray: 2 2;
+}
+.m-none {
+  fill: var(--ash);
+}
+.baseline {
+  fill: var(--mist);
+}
+.captions {
+  display: flex;
+  justify-content: space-between;
+  width: 538px;
+  max-width: 100%;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--slate);
+}
+.days-60,
+.days-30 {
+  display: none;
+}
+/* 90 days on desktop, 60 on tablets, 30 on phones: older marks are cropped on the left. */
+@media (max-width: 720px) {
+  .strip,
+  .captions {
+    width: 358px;
+  }
+  .days-90 {
+    display: none;
+  }
+  .days-60 {
+    display: inline;
+  }
+}
+@media (max-width: 480px) {
+  .strip,
+  .captions {
+    width: 178px;
+  }
+  .days-60 {
+    display: none;
+  }
+  .days-30 {
+    display: inline;
+  }
+}
+
+.group h3 {
+  margin-top: 24px;
+}
+.updates li {
+  list-style: none;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--mist);
+}
+.updates {
+  padding: 0;
+}
+.body p + p,
+.body ul {
+  margin-top: 8px;
+}
+.past li {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--mist);
+}
+.past {
+  padding: 0;
+}
+
+footer {
+  margin-top: 48px;
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+}

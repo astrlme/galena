@@ -1,0 +1,29 @@
+---
+import { incidentImpactLabels } from "@galena/contracts";
+import Page from "../layouts/Page.astro";
+import { duration, utcDay } from "../lib/format.ts";
+import { readSnapshot } from "../lib/snapshot.ts";
+
+const s = readSnapshot();
+const incidents = [...s.incidents.active, ...s.incidents.recent];
+---
+
+<Page title={`Past incidents: ${s.page.name} status`} description={`Incidents on ${s.page.name} in the last 14 days.`} pageName={s.page.name}>
+  <h1 class="headline hero">Past incidents</h1>
+  <p class="secondary">The last 14 days, newest first.</p>
+  {incidents.length === 0 ? (
+    <p class="secondary">No incidents in the last 14 days.</p>
+  ) : (
+    <ol class="past">
+      {incidents.map((i) => (
+        <li>
+          <time datetime={i.startedAt}>{utcDay(i.startedAt)}</time>
+          <span>
+            <a href={`/incidents/${i.id}/`}>{i.title}</a>
+            <span class="secondary"><br />{incidentImpactLabels[i.impact]}. {i.resolvedAt ? `Resolved after ${duration(i.startedAt, i.resolvedAt)}.` : "Ongoing."}</span>
+          </span>
+        </li>
+      ))}
+    </ol>
+  )}
+</Page>
