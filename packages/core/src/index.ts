@@ -8,6 +8,8 @@ export * from "./incidents/templates.ts";
 export * from "./maintenance/lifecycle.ts";
 export * from "./monitors/monitors-file.ts";
 export * from "./ports.ts";
+export * from "./publishing/snapshot.ts";
+export * from "./publishing/uptime.ts";
 export * from "./result.ts";
 export * from "./roles.ts";
 export * from "./status/aggregate.ts";
