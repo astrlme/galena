@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+<id>https://status.example.com/</id>
+<title>Acme status</title>
+<link href="https://status.example.com/"/>
+<link href="https://status.example.com/feed.atom" rel="self"/>
+<updated>2026-09-29T12:00:00.000Z</updated>
+<author><name>Acme</name></author>
+<entry><id>urn:uuid:01920000-0000-7000-8000-000000000101</id><title>Errors on &lt;API&gt; &amp; webhooks</title><link href="https://status.example.com/incidents/01920000-0000-7000-8000-000000000101/"/><published>2026-09-29T10:02:00.000Z</published><updated>2026-09-29T10:20:00.000Z</updated><content type="text">Identified: We found the cause: a bad deploy. We&apos;re rolling it back.
+
+Investigating: We&apos;re seeing errors on API from 3 regions.</content></entry>
+<entry><id>urn:uuid:01920000-0000-7000-8000-000000000102</id><title>Slow dashboard</title><link href="https://status.example.com/incidents/01920000-0000-7000-8000-000000000102/"/><published>2026-09-27T08:00:00.000Z</published><updated>2026-09-27T08:40:00.000Z</updated><content type="text">Resolved: Web has worked normally since 08:40 UTC.</content></entry>
+</feed>

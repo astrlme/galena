@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+<title>Acme status</title>
+<link>https://status.example.com/</link>
+<atom:link href="https://status.example.com/feed.rss" rel="self" type="application/rss+xml"/>
+<description>Incidents on Acme, newest first.</description>
+<lastBuildDate>Tue, 29 Sep 2026 12:00:00 GMT</lastBuildDate>
+<item><title>Errors on &lt;API&gt; &amp; webhooks</title><link>https://status.example.com/incidents/01920000-0000-7000-8000-000000000101/</link><guid isPermaLink="false">01920000-0000-7000-8000-000000000101</guid><pubDate>Tue, 29 Sep 2026 10:20:00 GMT</pubDate><description>Identified: We found the cause: a bad deploy. We&apos;re rolling it back.
+
+Investigating: We&apos;re seeing errors on API from 3 regions.</description></item>
+<item><title>Slow dashboard</title><link>https://status.example.com/incidents/01920000-0000-7000-8000-000000000102/</link><guid isPermaLink="false">01920000-0000-7000-8000-000000000102</guid><pubDate>Sun, 27 Sep 2026 08:40:00 GMT</pubDate><description>Resolved: Web has worked normally since 08:40 UTC.</description></item>
+</channel>
+</rss>
