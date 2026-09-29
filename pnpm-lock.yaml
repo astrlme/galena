@@ -200,6 +200,9 @@ importers:
       '@galena/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@galena/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@galena/ui':
         specifier: workspace:*
         version: link:../../packages/ui
