@@ -30,10 +30,12 @@ const groups = s.groups.map((g) => ({
 const windows = [...s.maintenance.active, ...s.maintenance.upcoming];
 ---
 
-<Page title={`${s.page.name} status`} description={`${headline}. The current status of ${s.page.name}.`} pageName={s.page.name}>
+<Page title={`${s.page.name} status`} description={`${headline}. The current status of ${s.page.name}.`} pageName={s.page.name} snapshotVersion={s.snapshotVersion} publishedAt={s.publishedAt}>
   <div class="hero" data-live-hero>
-    <h1 class="headline"><Glyph name={pageIndicatorStates[s.indicator]} class="" />{headline}</h1>
-    <p class="secondary">Updated <time datetime={s.publishedAt}>{utcTime(s.publishedAt)}</time></p>
+    <h1 class="headline"><Glyph name={pageIndicatorStates[s.indicator]} class="" data-live-hero-glyph /><span data-live-headline>{headline}</span></h1>
+    <p class="secondary" data-live-updated>Updated <time datetime={s.publishedAt}>{utcTime(s.publishedAt)}</time></p>
+    <p class="notice" data-live-incidents data-ids={s.incidents.active.map((i) => i.id).join(",")} hidden></p>
+    <p class="sr-only" aria-live="polite" data-live-announce></p>
   </div>
 
   {s.incidents.active.length > 0 && (
@@ -64,11 +66,11 @@ const windows = [...s.maintenance.active, ...s.maintenance.upcoming];
       <div class="group">
         {group.name && <h3>{group.name}</h3>}
         {group.components.map((c: SnapshotComponent) => (
-          <div class="component">
+          <div class="component" data-component={c.id}>
             <div class="component-row">
               <span>{c.name}</span>
               <span class="state">
-                <span class="label"><Glyph name={c.status} />{componentStatusLabels[c.status]}</span>
+                <span class="label"><Glyph name={c.status} data-live-glyph /><span data-live-status>{componentStatusLabels[c.status]}</span></span>
                 <span class="num secondary">{c.uptime === null ? "No data" : `${c.uptime.toFixed(2)}%`}</span>
               </span>
             </div>
@@ -98,3 +100,8 @@ const windows = [...s.maintenance.active, ...s.maintenance.upcoming];
     )}
   </section>
 </Page>
+
+<script>
+  import "../scripts/live.ts";
+  import "../scripts/strip.ts";
+</script>

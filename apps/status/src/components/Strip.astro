@@ -9,15 +9,41 @@ interface Props {
 }
 const { name, days } = Astro.props;
 const width = stripWidth(days.length);
-// Days worth reading out; the caption says every other day was operational.
-const notable = days.filter((d) => d.worst !== null && d.worst !== "operational");
+// Only the days worth reading out travel to the browser; every other day is operational, or
+// has no data before the first one that has.
+const notable = Object.fromEntries(
+  days.flatMap((d, i) =>
+    d.worst !== null && d.worst !== "operational" ? [[i, describeDay(d)]] : [],
+  ),
+);
+const first = Math.max(
+  0,
+  days.findIndex((d) => d.worst !== null),
+);
+const listed = days.filter((d) => d.worst !== null && d.worst !== "operational");
 ---
 
-<div class="strip">
-  <svg width={width} height={ROW} viewBox={`0 0 ${width} ${ROW}`} role="img" aria-label={`${name}: the last ${days.length} days`}>
-    <rect class="baseline" x="0" y={ROW - 1} width={width} height="1"></rect>
-    {stripPaths(days).map((p) => <path class={p.className} d={p.d}></path>)}
-  </svg>
+<div class="strip-wrap">
+  <div
+    class="strip"
+    tabindex="0"
+    role="group"
+    aria-label={`${name}, the last ${days.length} days`}
+    data-strip
+    data-name={name}
+    data-start={days[0]?.date}
+    data-count={days.length}
+    data-first={first}
+    data-notable={JSON.stringify(notable)}
+  >
+    <svg width={width} height={ROW} viewBox={`0 0 ${width} ${ROW}`} aria-hidden="true">
+      <rect class="baseline" x="0" y={ROW - 1} width={width} height="1"></rect>
+      {stripPaths(days).map((p) => <path class={p.className} d={p.d}></path>)}
+      <rect class="strip-cursor" data-strip-cursor x="0" y="0" width="6" height={ROW} hidden></rect>
+    </svg>
+  </div>
+  <p class="strip-tip" data-strip-tip hidden></p>
+  <p class="sr-only" aria-live="polite" data-strip-live></p>
 </div>
 <div class="captions" aria-hidden="true">
   <span><span class="days-90">90 days ago</span><span class="days-60">60 days ago</span><span class="days-30">30 days ago</span></span>
@@ -28,7 +54,7 @@ const notable = days.filter((d) => d.worst !== null && d.worst !== "operational"
     <caption>{name}: days in the last {days.length} that were not fully operational. Every other day was operational or has no data.</caption>
     <thead><tr><th scope="col">Day</th><th scope="col">State</th></tr></thead>
     <tbody>
-      {notable.map((d) => <tr><td>{utcDay(`${d.date}T00:00:00.000Z`)}</td><td>{describeDay(d)}</td></tr>)}
+      {listed.map((d) => <tr><td>{utcDay(`${d.date}T00:00:00.000Z`)}</td><td>{describeDay(d)}</td></tr>)}
     </tbody>
   </table>
 </div>

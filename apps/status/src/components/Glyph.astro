@@ -4,8 +4,9 @@ import { type GlyphName, glyphs } from "@galena/ui/tokens";
 interface Props {
   name: GlyphName;
   class?: string;
+  [data: `data-${string}`]: string | boolean;
 }
-const { name, class: className = "glyph" } = Astro.props;
+const { name, class: className = "glyph", ...data } = Astro.props;
 ---
 
-<svg class={className} viewBox="0 0 14 14" aria-hidden="true" set:html={glyphs[name]} />
+<svg class={className} viewBox="0 0 14 14" aria-hidden="true" {...data} set:html={glyphs[name]} />
