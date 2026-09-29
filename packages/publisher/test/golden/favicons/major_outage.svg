@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="32" height="32">
 <title>Major outage</title>
-<style>@media (prefers-color-scheme: dark) { .g { stroke: #EEF0F3; fill: #EEF0F3 } .g [fill="none"] { fill: none } }</style>
-<g class="g"><path d="M3 3 L11 11 M11 3 L3 11" fill="none" stroke="#15171C" stroke-width="2"/></g>
+<style>@media (prefers-color-scheme: dark) { g { color: #EEF0F3 } }</style>
+<g color="#15171C"><path d="M3 3 L11 11 M11 3 L3 11" fill="none" stroke="currentColor" stroke-width="2"/></g>
 </svg>

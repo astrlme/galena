@@ -1,4 +1,5 @@
 export * from "./components.ts";
+export * from "./copy.ts";
 export * from "./enums.ts";
 export * from "./events.ts";
 export * from "./ids.ts";

@@ -1,13 +1,6 @@
-import type { PageIndicator } from "@galena/contracts";
+import { type PageIndicator, pageIndicatorLabels, pageIndicatorStates } from "@galena/contracts";
 import { dark, light } from "@galena/ui/tokens";
-import {
-  type GlyphState,
-  glyph,
-  INDICATOR_LABELS,
-  INDICATOR_STATE,
-  STATE_LABELS,
-  xml,
-} from "./glyphs.ts";
+import { type GlyphState, glyph, stateLabel, xml } from "./glyphs.ts";
 
 // Standalone SVGs read without our CSS, so their colours are the token hex values.
 
@@ -20,7 +13,7 @@ const CHAR = 6.6;
  * A major outage inverts the right half, as the dashboard's major-outage badge does.
  */
 export function badgeSvg(indicator: PageIndicator): string {
-  const label = INDICATOR_LABELS[indicator];
+  const label = pageIndicatorLabels[indicator];
   const left = 46;
   const right = Math.ceil(28 + label.length * CHAR);
   const width = left + right;
@@ -33,7 +26,7 @@ export function badgeSvg(indicator: PageIndicator): string {
     `<rect width="${left}" height="20" fill="${light.ink}"/>`,
     `<rect x="${left}" width="${right}" height="20" fill="${back}" stroke="${light.ink}"/>`,
     `<text x="8" y="14" fill="${light.paper}" ${FONT}>status</text>`,
-    `<g transform="translate(${left + 7} 3)">${glyph(INDICATOR_STATE[indicator], fore)}</g>`,
+    `<g transform="translate(${left + 7} 3)">${glyph(pageIndicatorStates[indicator], fore)}</g>`,
     `<text x="${left + 25}" y="14" fill="${fore}" ${FONT}>${xml(label)}</text>`,
     "</svg>",
     "",
@@ -44,9 +37,9 @@ export function badgeSvg(indicator: PageIndicator): string {
 export function faviconSvg(state: GlyphState): string {
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="32" height="32">`,
-    `<title>${STATE_LABELS[state]}</title>`,
-    `<style>@media (prefers-color-scheme: dark) { .g { stroke: ${dark.ink}; fill: ${dark.ink} } .g [fill="none"] { fill: none } }</style>`,
-    `<g class="g">${glyph(state, light.ink)}</g>`,
+    `<title>${stateLabel(state)}</title>`,
+    `<style>@media (prefers-color-scheme: dark) { g { color: ${dark.ink} } }</style>`,
+    glyph(state, light.ink),
     "</svg>",
     "",
   ].join("\n");
