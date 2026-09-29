@@ -1272,6 +1272,259 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/maintenances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Maintenance windows, newest start first */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Windows */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            maintenances: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                                body: string;
+                                /** @enum {string} */
+                                status: "scheduled" | "in_progress" | "verifying" | "completed";
+                                /** Format: date-time */
+                                startsAt: string;
+                                /** Format: date-time */
+                                endsAt: string;
+                                /** Format: date-time */
+                                cancelledAt: string | null;
+                                componentIds: string[];
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Schedule a window; it starts and completes on its own */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        body: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        /** Format: date-time */
+                        endsAt: string;
+                        componentIds: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description The scheduled window */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            title: string;
+                            body: string;
+                            /** @enum {string} */
+                            status: "scheduled" | "in_progress" | "verifying" | "completed";
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** Format: date-time */
+                            endsAt: string;
+                            /** Format: date-time */
+                            cancelledAt: string | null;
+                            componentIds: string[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/maintenances/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One maintenance window */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The window */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            title: string;
+                            body: string;
+                            /** @enum {string} */
+                            status: "scheduled" | "in_progress" | "verifying" | "completed";
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** Format: date-time */
+                            endsAt: string;
+                            /** Format: date-time */
+                            cancelledAt: string | null;
+                            componentIds: string[];
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * Change a window that hasn't completed
+         * @description Send every field. The window's run is replaced to match the new times.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        body: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        /** Format: date-time */
+                        endsAt: string;
+                        componentIds: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description The changed window */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            title: string;
+                            body: string;
+                            /** @enum {string} */
+                            status: "scheduled" | "in_progress" | "verifying" | "completed";
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** Format: date-time */
+                            endsAt: string;
+                            /** Format: date-time */
+                            cancelledAt: string | null;
+                            componentIds: string[];
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/maintenances/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a window before it starts */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The cancelled window */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            title: string;
+                            body: string;
+                            /** @enum {string} */
+                            status: "scheduled" | "in_progress" | "verifying" | "completed";
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** Format: date-time */
+                            endsAt: string;
+                            /** Format: date-time */
+                            cancelledAt: string | null;
+                            componentIds: string[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
