@@ -1,6 +1,7 @@
 import {
   type ComponentStatus,
   type DownStatus,
+  type IncidentComponentStatus,
   type IncidentImpact,
   type IncidentStatus,
   type IncidentVisibility,
@@ -45,21 +46,45 @@ export function monitorStatus(
   }
 }
 
+/** Only these move the public page: drafts, dismissed and internal incidents never do. */
+export function isOpenPublished(incident: {
+  status: IncidentStatus;
+  visibility: IncidentVisibility;
+}): boolean {
+  return (
+    incident.visibility === "published" &&
+    incident.status !== "resolved" &&
+    incident.status !== "postmortem"
+  );
+}
+
 export type ComponentInputs = {
-  /** The status before this evaluation, kept while no monitor has an opinion. */
+  /** The status before this evaluation, kept while nothing has an opinion. */
   current: ComponentStatus;
   monitors: ReadonlyArray<{ state: MonitorState; downStatus: DownStatus }>;
+  /** Incidents naming this component, with the status they give it. */
+  incidents: ReadonlyArray<{
+    status: IncidentStatus;
+    visibility: IncidentVisibility;
+    componentStatus: IncidentComponentStatus;
+  }>;
   inMaintenance: boolean;
   manualStatus: ComponentStatus | null;
 };
 
-/** A member's manual status wins, then an active maintenance window, then the worst monitor. */
+/**
+ * A member's manual status wins, then an active maintenance window, then the worst of the
+ * monitors and the open, published incidents. Resolving an incident removes its say.
+ */
 export function componentStatus(inputs: ComponentInputs): ComponentStatus {
   if (inputs.manualStatus !== null) return inputs.manualStatus;
   if (inputs.inMaintenance) return "under_maintenance";
+  const opinions = [
+    ...inputs.monitors.map(({ state, downStatus }) => monitorStatus(state, downStatus)),
+    ...inputs.incidents.filter(isOpenPublished).map((i) => i.componentStatus),
+  ];
   let worst: MonitorDrivenStatus | undefined;
-  for (const { state, downStatus } of inputs.monitors) {
-    const status = monitorStatus(state, downStatus);
+  for (const status of opinions) {
     if (status && (!worst || SEVERITY.indexOf(status) > SEVERITY.indexOf(worst))) worst = status;
   }
   return worst ?? inputs.current;
@@ -95,11 +120,7 @@ export function pageIndicator(
 ): PageIndicator {
   const indicators = [
     ...components.map((status) => INDICATOR_BY_COMPONENT[status]),
-    ...incidents
-      .filter(
-        (i) => i.visibility === "published" && i.status !== "resolved" && i.status !== "postmortem",
-      )
-      .map((i) => INDICATOR_BY_IMPACT[i.impact]),
+    ...incidents.filter(isOpenPublished).map((i) => INDICATOR_BY_IMPACT[i.impact]),
   ];
   return indicators.reduce<PageIndicator>(
     (worst, next) => (pageIndicators.indexOf(next) > pageIndicators.indexOf(worst) ? next : worst),

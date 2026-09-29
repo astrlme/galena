@@ -38,6 +38,10 @@ export type IncidentVisibility = (typeof incidentVisibilities)[number];
 export const incidentSources = ["manual", "monitor", "signal"] as const; // post-v1: "github", "import"
 export type IncidentSource = (typeof incidentSources)[number];
 
+// What an incident's timeline records besides its public updates.
+export const timelineEventKinds = ["status_changed", "note", "signal"] as const; // post-v1: "deploy"
+export type TimelineEventKind = (typeof timelineEventKinds)[number];
+
 export const publishPolicies = ["auto", "approve", "internal_only"] as const;
 export type PublishPolicy = (typeof publishPolicies)[number];
 

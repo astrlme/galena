@@ -1,7 +1,10 @@
 import {
   type ComponentStatus,
   componentStatuses,
+  type IncidentComponentStatus,
   type IncidentImpact,
+  type IncidentStatus,
+  type IncidentVisibility,
   incidentImpacts,
   incidentStatuses,
   incidentVisibilities,
@@ -17,10 +20,16 @@ const monitor = (state: MonitorState, downStatus: DownStatus = "major_outage") =
   state,
   downStatus,
 });
+const affecting = (
+  status: IncidentStatus,
+  visibility: IncidentVisibility = "published",
+  componentStatus: IncidentComponentStatus = "major_outage",
+) => ({ status, visibility, componentStatus });
 const component = (
   monitors: ReturnType<typeof monitor>[],
   current: ComponentStatus = "operational",
-) => componentStatus({ current, monitors, inMaintenance: false, manualStatus: null });
+) =>
+  componentStatus({ current, monitors, incidents: [], inMaintenance: false, manualStatus: null });
 
 describe("component status", () => {
   // Mapping monitor state to component status, one row each.
@@ -63,6 +72,56 @@ describe("component status", () => {
       componentStatus({
         current: "operational",
         monitors: [monitor("down")],
+        incidents: [],
+        inMaintenance: true,
+        manualStatus: null,
+      }),
+    ).toBe("under_maintenance");
+  });
+
+  test("an open, published incident's status counts like a monitor's: the worst wins", () => {
+    const withIncident = (state: MonitorState, status: IncidentComponentStatus) =>
+      componentStatus({
+        current: "operational",
+        monitors: [monitor(state)],
+        incidents: [affecting("identified", "published", status)],
+        inMaintenance: false,
+        manualStatus: null,
+      });
+    expect(withIncident("up", "partial_outage")).toBe("partial_outage");
+    expect(withIncident("down", "partial_outage")).toBe("major_outage");
+    // With no monitor opinion, the incident alone decides.
+    expect(withIncident("unknown", "degraded_performance")).toBe("degraded_performance");
+  });
+
+  test("resolved, postmortem, draft, dismissed and internal incidents don't count", () => {
+    const quiet = [
+      affecting("resolved"),
+      affecting("postmortem"),
+      ...incidentVisibilities
+        .filter((v) => v !== "published")
+        .map((v) => affecting("investigating", v)),
+    ];
+    for (const i of quiet) {
+      expect(
+        componentStatus({
+          current: "operational",
+          monitors: [monitor("up")],
+          incidents: [i],
+          inMaintenance: false,
+          manualStatus: null,
+        }),
+        `${i.status} ${i.visibility}`,
+      ).toBe("operational");
+    }
+  });
+
+  test("a maintenance window still overrides an open incident", () => {
+    expect(
+      componentStatus({
+        current: "operational",
+        monitors: [],
+        incidents: [affecting("investigating")],
         inMaintenance: true,
         manualStatus: null,
       }),
@@ -74,6 +133,7 @@ describe("component status", () => {
       componentStatus({
         current: "operational",
         monitors: [monitor("down")],
+        incidents: [affecting("resolved")],
         inMaintenance: true,
         manualStatus: manual,
       }),
