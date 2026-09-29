@@ -22,7 +22,7 @@ test("one user, no managed policies, no access key in the template", () => {
   }
 });
 
-test("the workers may use the Data API, read the database secret and write monitors.json", () => {
+test("the workers may use the Data API, the database secret, monitors.json and the page files", () => {
   const actions = statements.flatMap((s) => [s.Action].flat()).sort();
   expect(actions).toEqual([
     "rds-data:BatchExecuteStatement",
@@ -30,12 +30,22 @@ test("the workers may use the Data API, read the database secret and write monit
     "rds-data:CommitTransaction",
     "rds-data:ExecuteStatement",
     "rds-data:RollbackTransaction",
+    "s3:GetObject",
+    "s3:ListBucket",
+    "s3:PutObject",
     "s3:PutObject",
     "secretsmanager:GetSecretValue",
   ]);
-  for (const s of statements) expect(JSON.stringify(s.Resource)).not.toMatch(/"\*"|\/\*/);
   const s3 = statements.find((s) => s.Action === "s3:PutObject");
   expect(JSON.stringify(s3.Resource)).toContain("/monitors.json");
+});
+
+test("page files are the only wildcard, and only under pages/ in the page bucket", () => {
+  const page = statements.find((s) => [s.Action].flat().includes("s3:GetObject"));
+  expect(JSON.stringify(page.Resource)).toMatch(/galena-dev-page-.*\/pages\/\*"/);
+  for (const s of statements.filter((s) => s !== page)) {
+    expect(JSON.stringify(s.Resource)).not.toMatch(/"\*"|\/\*/);
+  }
 });
 
 test("passes cdk-nag AwsSolutions", () => {
