@@ -390,6 +390,22 @@ importers:
         specifier: ^12.1.0
         version: 12.1.0
 
+  packages/publisher:
+    dependencies:
+      '@galena/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@galena/core':
+        specifier: workspace:*
+        version: link:../core
+      '@galena/ui':
+        specifier: workspace:*
+        version: link:../ui
+    devDependencies:
+      '@galena/config':
+        specifier: workspace:*
+        version: link:../config
+
   packages/ui:
     devDependencies:
       '@galena/config':
