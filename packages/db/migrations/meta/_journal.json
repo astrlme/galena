@@ -43,6 +43,13 @@
       "when": 1790673324144,
       "tag": "0005_maintenance",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790706419644,
+      "tag": "0006_publishing",
+      "breakpoints": true
     }
   ]
 }

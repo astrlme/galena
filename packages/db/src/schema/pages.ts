@@ -1,16 +1,35 @@
 import {
   type ComponentGroupId,
   type ComponentId,
+  type ComponentStatus,
   componentStatuses,
   type PageId,
   pageVisibilities,
 } from "@galena/contracts";
-import { index, integer, pgEnum, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  date,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgSequence,
+  pgTable,
+  text,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { timestamps } from "./columns.ts";
 import { workspaceRef } from "./workspace.ts";
 
 export const componentStatus = pgEnum("component_status", componentStatuses);
 export const pageVisibility = pgEnum("page_visibility", pageVisibilities);
+
+/**
+ * Numbers publishes. A value is only ever taken after the changes it covers have committed, so
+ * a publish that read the database after taking version N shows every change numbered below N.
+ */
+export const snapshotVersion = pgSequence("snapshot_version");
 
 export const page = pgTable(
   "page",
@@ -20,6 +39,10 @@ export const page = pgTable(
     slug: text().notNull(),
     name: text().notNull(),
     visibility: pageVisibility().notNull().default("public"),
+    /** The newest snapshot version whose data files are out. */
+    publishedVersion: bigint({ mode: "number" }).notNull().default(0),
+    /** The newest snapshot version whose HTML is out. */
+    htmlVersion: bigint({ mode: "number" }).notNull().default(0),
     ...timestamps,
   },
   (t) => [uniqueIndex().on(t.workspaceId, t.slug)],
@@ -77,4 +100,21 @@ export const pageComponent = pgTable(
     index().on(t.componentId),
     index().on(t.workspaceId),
   ],
+);
+
+/** Minutes one component spent in each status on one UTC day, from the hourly rollup. */
+export const uptimeDaily = pgTable(
+  "uptime_daily",
+  {
+    id: uuid().primaryKey(),
+    workspaceId: workspaceRef(),
+    componentId: uuid()
+      .notNull()
+      .$type<ComponentId>()
+      .references(() => component.id, { onDelete: "cascade" }),
+    day: date({ mode: "string" }).notNull(),
+    minutes: jsonb().$type<Partial<Record<ComponentStatus, number>>>().notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex().on(t.componentId, t.day), index().on(t.workspaceId, t.day)],
 );

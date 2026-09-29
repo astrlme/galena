@@ -5,5 +5,14 @@ export { incidentRepository } from "./repositories/incidents.ts";
 export { maintenanceRepository } from "./repositories/maintenance.ts";
 export { listEnabledMonitors, monitorRepository } from "./repositories/monitors.ts";
 export { findOutboxRow, markOutboxDispatched } from "./repositories/outbox.ts";
+export {
+  advancePageVersion,
+  listMonitorTransitions,
+  listUptimeDays,
+  type MonitorTransition,
+  nextSnapshotVersion,
+  recordMonitorTransition,
+  saveUptimeDays,
+} from "./repositories/publishing.ts";
 export { createWorkspace, findMembership, workspaceExists } from "./repositories/workspace.ts";
 export * as schema from "./schema/index.ts";
