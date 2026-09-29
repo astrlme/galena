@@ -73,6 +73,14 @@ const outboxRow = (type: string, ws: WorkspaceId = acme) =>
     } as never,
   });
 
+/** Monitor changes never start lifecycle runs. */
+const noRuns = {
+  start: async () => {
+    throw new Error("No lifecycle run expected.");
+  },
+  cancel: async () => {},
+};
+
 /** Collects what would be written instead of writing it. */
 function collector() {
   const files: MonitorsFile[] = [];
@@ -85,28 +93,36 @@ test("a monitor change rewrites monitors.json with the enabled monitors, then ma
   const id = await outboxRow("monitor.changed");
   const { files, writeMonitorsFile } = collector();
 
-  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile })).toBe("dispatched");
+  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns })).toBe(
+    "dispatched",
+  );
   expect(files).toHaveLength(1);
   expect(files[0]?.monitors.map((m) => m.http.url)).toEqual(["https://api.example.com/health"]);
   const row = await findOutboxRow(db, id);
   expect(row?.dispatchedAt?.toISOString()).toBe("2026-09-28T10:00:00.000Z");
 
   // A second run for the same row, e.g. the backstop, finds it done and writes nothing.
-  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile })).toBe("already_dispatched");
+  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns })).toBe(
+    "already_dispatched",
+  );
   expect(files).toHaveLength(1);
 });
 
 test("a row whose transaction rolled back is skipped", async () => {
   const { files, writeMonitorsFile } = collector();
   const missing = outboxId.parse(v7());
-  expect(await dispatchOutbox(missing, { db, clock, writeMonitorsFile })).toBe("rolled_back");
+  expect(await dispatchOutbox(missing, { db, clock, writeMonitorsFile, runs: noRuns })).toBe(
+    "rolled_back",
+  );
   expect(files).toHaveLength(0);
 });
 
 test("other event types are marked dispatched without touching monitors.json", async () => {
   const id = await outboxRow("component.changed");
   const { files, writeMonitorsFile } = collector();
-  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile })).toBe("dispatched");
+  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns })).toBe(
+    "dispatched",
+  );
   expect(files).toHaveLength(0);
 });
 
