@@ -12,12 +12,15 @@ export function ConfirmDelete({
   kind,
   name,
   consequence,
+  verb = "Delete",
   onConfirm,
   onClose,
 }: {
-  kind: "component" | "group" | "monitor";
+  kind: "component" | "group" | "monitor" | "window";
   name: string;
   consequence: string;
+  /** The action's own word, kept from the button that opened the dialog. */
+  verb?: "Delete" | "Cancel";
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -35,7 +38,7 @@ export function ConfirmDelete({
       className="m-auto max-w-[480px] rounded-[8px] border border-mist bg-surface p-6 text-ink backdrop:bg-ink/40"
     >
       <h2 id={titleId} className="text-[19px] font-semibold leading-[1.35]">
-        Delete {name}?
+        {verb} {name}?
       </h2>
       <p className="mt-2 text-[16px] leading-[1.55]">{consequence}</p>
       <form
@@ -55,10 +58,10 @@ export function ConfirmDelete({
         />
         <div className="flex gap-4">
           <Button type="submit" disabled={typed !== name}>
-            Delete {kind}
+            {verb} {kind}
           </Button>
           <Button type="button" variant="quiet" onClick={() => dialog.current?.close()}>
-            Cancel
+            {verb === "Cancel" ? `Keep the ${kind}` : "Cancel"}
           </Button>
         </div>
       </form>
