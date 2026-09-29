@@ -1,8 +1,15 @@
 import type {
+  AffectedComponent,
   ComponentGroupId,
   ComponentId,
   ComponentStatus,
   EventEnvelope,
+  IncidentId,
+  IncidentImpact,
+  IncidentSource,
+  IncidentStatus,
+  IncidentUpdateId,
+  IncidentVisibility,
   MonitorConfig,
   MonitorId,
   WorkspaceId,
@@ -72,3 +79,52 @@ export type ComponentGroupRepository = WorkspaceRepository<ComponentGroup, Compo
 
 /** Monitors have no position; they list in creation order (UUIDv7 ids). */
 export type MonitorRepository = Omit<WorkspaceRepository<MonitorConfig, MonitorId>, "setPositions">;
+
+/** Where an incident is in its lifecycle. */
+export type IncidentStage = { status: IncidentStatus; resolvedAt: Date | null };
+
+export type Incident = IncidentStage & {
+  id: IncidentId;
+  workspaceId: WorkspaceId;
+  title: string;
+  impact: IncidentImpact;
+  visibility: IncidentVisibility;
+  source: IncidentSource;
+  startedAt: Date;
+  /** When the last update was posted. */
+  updatedAt: Date;
+  components: AffectedComponent[];
+};
+
+export type IncidentUpdate = {
+  id: IncidentUpdateId;
+  status: IncidentStatus;
+  body: string;
+  createdAt: Date;
+};
+
+/** One posted update and what it changes; the repository writes it all in the caller's transaction. */
+export type IncidentChange = {
+  update: IncidentUpdate & { createdByUserId: string | null };
+  stage: IncidentStage;
+  impact?: IncidentImpact;
+  /** Replaces the affected components when present. */
+  components?: AffectedComponent[];
+  /** Recorded on the timeline when the status moved. */
+  statusChange?: { from: IncidentStatus | null; to: IncidentStatus };
+};
+
+export interface IncidentRepository {
+  /** Open (not resolved) or resolved incidents, newest first. Soft-deleted ones never appear. */
+  list(workspaceId: WorkspaceId, filter: { open: boolean }): Promise<Incident[]>;
+  /** With its updates, newest first. */
+  findById(
+    workspaceId: WorkspaceId,
+    id: IncidentId,
+  ): Promise<(Incident & { updates: IncidentUpdate[] }) | undefined>;
+  create(
+    incident: Omit<Incident, "updatedAt" | "components" | keyof IncidentStage>,
+    first: IncidentChange,
+  ): Promise<void>;
+  append(workspaceId: WorkspaceId, id: IncidentId, change: IncidentChange): Promise<void>;
+}

@@ -1,5 +1,5 @@
 import type { IncidentStatus } from "@galena/contracts";
-import type { Clock } from "../ports.ts";
+import type { Clock, IncidentStage } from "../ports.ts";
 import { err, ok, type Result } from "../result.ts";
 
 // The incident lifecycle. Staying in the same status is always allowed: that is another update
@@ -20,8 +20,6 @@ export function canMoveTo(from: IncidentStatus, to: IncidentStatus): boolean {
 export function nextStatuses(from: IncidentStatus): IncidentStatus[] {
   return [from, ...MOVES[from]];
 }
-
-export type IncidentStage = { status: IncidentStatus; resolvedAt: Date | null };
 
 export type IncidentStep = IncidentStage & {
   /** A timeline entry is due. */
