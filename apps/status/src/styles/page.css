@@ -263,3 +263,33 @@ footer {
   gap: 16px;
   font-size: 14px;
 }
+
+/* The strip for keyboards and pointers: a cursor over the day and a popover with its words. */
+.strip-wrap {
+  position: relative;
+}
+.strip-cursor {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1;
+}
+/* Browsers apply the hidden attribute to HTML elements only. */
+.strip-cursor[hidden] {
+  display: none;
+}
+.strip-tip {
+  position: absolute;
+  bottom: 36px;
+  padding: 4px 8px;
+  background: var(--surface);
+  border: 1px solid var(--mist);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: nowrap;
+  z-index: 1;
+}
+.notice {
+  margin-top: 8px;
+  font-weight: 600;
+}

@@ -8,7 +8,8 @@
     "build": "astro build",
     "preview": "astro preview --port 4321",
     "fixture": "node -e \"require('node:fs').copyFileSync('../../packages/publisher/test/golden/snapshot.json', 'src/data/snapshot.json')\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:page": "pnpm fixture && astro build && node scripts/check-page.mjs"
   },
   "dependencies": {
     "@galena/contracts": "workspace:*",
@@ -17,7 +18,10 @@
     "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@galena/config": "workspace:*",
-    "@galena/publisher": "workspace:*"
+    "@galena/publisher": "workspace:*",
+    "@playwright/test": "^1.63.0",
+    "lighthouse": "13.5.0"
   }
 }

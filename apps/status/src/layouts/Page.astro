@@ -7,12 +7,15 @@ interface Props {
   title: string;
   description: string;
   pageName: string;
+  /** On the live page only: the island applies nothing older than this snapshot. */
+  snapshotVersion?: number;
+  publishedAt?: string;
 }
-const { title, description, pageName } = Astro.props;
+const { title, description, pageName, snapshotVersion, publishedAt } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-snapshot-version={snapshotVersion} data-published-at={publishedAt}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
