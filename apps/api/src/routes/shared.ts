@@ -40,6 +40,28 @@ export function changeOf(
   };
 }
 
+/** The audit entry and outbox event for a change whose event has its own type and data. */
+export function eventChange(
+  member: Member,
+  target: { type: string; id: string },
+  event: { type: string; data: unknown },
+): Change {
+  return {
+    workspaceId: member.workspaceId,
+    actorUserId: member.userId,
+    action: event.type,
+    targetType: target.type,
+    targetId: target.id,
+    event: {
+      id: eventId.parse(v7()),
+      type: event.type,
+      occurredAt: new Date().toISOString(),
+      workspaceId: member.workspaceId,
+      data: event.data,
+    },
+  };
+}
+
 /**
  * The change, its audit entry and its outbox row in one transaction; then the outbox row goes to
  * the dispatcher. The trigger comes after the commit, so the dispatcher never sees a row that can

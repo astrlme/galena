@@ -1,6 +1,5 @@
 import {
   type AffectedComponent,
-  eventId,
   type IncidentEventType,
   incidentCreate,
   incidentId,
@@ -17,11 +16,11 @@ import {
   type IncidentUpdate,
   startIncident,
 } from "@galena/core";
-import { type Change, componentRepository, incidentRepository } from "@galena/db";
+import { componentRepository, incidentRepository } from "@galena/db";
 import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { type App, type Deps, fail, type Member, notFound, requireRole } from "../http.ts";
-import { commit, json, jsonBody } from "./shared.ts";
+import { commit, eventChange, json, jsonBody } from "./shared.ts";
 
 const iso = (date: Date | null) => date?.toISOString() ?? null;
 const toSummary = (i: Incident) => ({
@@ -42,27 +41,16 @@ const toView = (i: Incident & { updates: IncidentUpdate[] }) => ({
 });
 
 /** The audit entry and the `incident.*` outbox event for one change. */
-function incidentChange(
+const incidentChange = (
   member: Member,
   type: IncidentEventType,
-  incident: Pick<Incident, "id" | "status" | "impact" | "visibility">,
-): Change {
-  const { id, status, impact, visibility } = incident;
-  return {
-    workspaceId: member.workspaceId,
-    actorUserId: member.userId,
-    action: type,
-    targetType: "incident",
-    targetId: id,
-    event: {
-      id: eventId.parse(v7()),
-      type,
-      occurredAt: new Date().toISOString(),
-      workspaceId: member.workspaceId,
-      data: { incidentId: id, status, impact, visibility },
-    },
-  };
-}
+  { id, status, impact, visibility }: Pick<Incident, "id" | "status" | "impact" | "visibility">,
+) =>
+  eventChange(
+    member,
+    { type: "incident", id },
+    { type, data: { incidentId: id, status, impact, visibility } },
+  );
 
 /** Thrown inside the transaction so the audit entry and event roll back with the update. */
 class StaleIncident extends Error {}
