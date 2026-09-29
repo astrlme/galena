@@ -6,3 +6,4 @@ export * from "./incidents.ts";
 export * from "./maintenance.ts";
 export * from "./monitors.ts";
 export * from "./problem.ts";
+export * from "./snapshot.ts";
