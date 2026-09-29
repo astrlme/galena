@@ -3,8 +3,20 @@ import { dirname, resolve } from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import type { MonitorsFile, OutboxId } from "@galena/contracts";
 import { buildMonitorsFile, type Clock } from "@galena/core";
-import { type Db, findOutboxRow, listEnabledMonitors, markOutboxDispatched } from "@galena/db";
+import {
+  type Db,
+  findOutboxRow,
+  listEnabledMonitors,
+  maintenanceRepository,
+  markOutboxDispatched,
+} from "@galena/db";
 import { type LifecycleRuns, steerMaintenance } from "./maintenance.ts";
+
+const REWRITES_MONITORS_FILE = new Set([
+  "monitor.changed",
+  "maintenance.scheduled",
+  "maintenance.cancelled",
+]);
 
 export type WriteMonitorsFile = (file: MonitorsFile) => Promise<void>;
 export type DispatchDeps = {
@@ -23,12 +35,17 @@ export async function dispatchOutbox(id: OutboxId, deps: DispatchDeps): Promise<
   const row = await findOutboxRow(deps.db, id);
   if (!row) return "rolled_back";
   if (row.dispatchedAt) return "already_dispatched";
-  if (row.eventType === "monitor.changed") {
-    const monitors = await listEnabledMonitors(deps.db);
-    await deps.writeMonitorsFile(buildMonitorsFile(monitors, deps.clock));
+  const { eventType } = row;
+  if (eventType === "maintenance.scheduled" || eventType === "maintenance.cancelled") {
+    await steerMaintenance(eventType, row.payload, deps);
   }
-  if (row.eventType === "maintenance.scheduled" || row.eventType === "maintenance.cancelled") {
-    await steerMaintenance(row.eventType, row.payload, deps);
+  // Monitors carry the windows covering their components, so both kinds of change rewrite it.
+  if (REWRITES_MONITORS_FILE.has(eventType)) {
+    const [monitors, windows] = await Promise.all([
+      listEnabledMonitors(deps.db),
+      maintenanceRepository(deps.db).listUnfinished(),
+    ]);
+    await deps.writeMonitorsFile(buildMonitorsFile(monitors, deps.clock, windows));
   }
   const marked = await markOutboxDispatched(deps.db, id, deps.clock.now());
   return marked ? "dispatched" : "already_dispatched";

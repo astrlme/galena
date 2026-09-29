@@ -24,13 +24,14 @@ import { createStore, type Store } from "./store.ts";
 // Every batch is delivered twice at once (a visibility timeout running out mid-run) and every
 // trigger fails on its first call, yet each expected transition must be triggered exactly once.
 const FIXTURES = new URL("../../../test/fixtures/replay/", import.meta.url);
-// Maintenance windows don't reach the evaluator yet, so that scenario stays replay-only.
+// Every replay scenario, maintenance included: its windows reach the evaluator in monitors.json.
 const SCENARIOS = [
   "clean-outage",
   "single-region-blip",
   "probe-region-down",
   "flapping-endpoint",
   "latency-degradation",
+  "outage-during-maintenance",
 ];
 const REGIONS = ["us-east-1", "eu-west-1", "ap-southeast-1"];
 const MONITOR = monitorId.parse("01920000-0000-7000-8000-0000000000a1");
@@ -79,7 +80,22 @@ type Line =
   | { type: "settings"; detection: object }
   | { type: "check"; at: string; region: string; status: "up" | "down"; latencyMs: number }
   | { type: "canary"; at: string; region: string; passed: boolean }
-  | { type: "maintenance" };
+  | { type: "maintenance"; at: string; active: boolean };
+
+/** The fixture's maintenance on/off lines as the windows `monitors.json` carries. */
+function windows(lines: Line[]) {
+  const found: { startsAt: string; endsAt: string }[] = [];
+  let start: string | undefined;
+  for (const line of lines) {
+    if (line.type !== "maintenance") continue;
+    if (line.active) start = line.at;
+    else if (start) {
+      found.push({ startsAt: start, endsAt: line.at });
+      start = undefined;
+    }
+  }
+  return found;
+}
 
 /** A scenario as the queue delivers it: one message per check or canary line, in order. */
 function load(name: string) {
@@ -99,6 +115,7 @@ function load(name: string) {
         http: httpCheck.parse({ url: "https://example.com/health" }),
         downStatus: "major_outage",
         detection: detectionSettings.parse(settings?.type === "settings" ? settings.detection : {}),
+        maintenance: windows(lines),
       },
     ],
   };

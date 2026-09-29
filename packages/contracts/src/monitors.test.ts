@@ -94,7 +94,7 @@ test("monitors.json carries only what the hot path needs and round-trips", () =>
     ],
   });
   expect(Object.keys(file.monitors[0] ?? {}).sort()).toEqual(
-    ["detection", "downStatus", "http", "id", "type", "workspaceId"].sort(),
+    ["detection", "downStatus", "http", "id", "maintenance", "type", "workspaceId"].sort(),
   );
   expect(monitorsFile.safeParse({ ...file, version: 2 }).success).toBe(false);
 });

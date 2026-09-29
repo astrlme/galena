@@ -91,14 +91,21 @@ export const monitorsFile = z.object({
   version: z.literal(1),
   generatedAt: z.iso.datetime(),
   monitors: z.array(
-    monitorConfig.pick({
-      id: true,
-      workspaceId: true,
-      type: true,
-      http: true,
-      downStatus: true,
-      detection: true,
-    }),
+    monitorConfig
+      .pick({
+        id: true,
+        workspaceId: true,
+        type: true,
+        http: true,
+        downStatus: true,
+        detection: true,
+      })
+      .extend({
+        /** Windows covering the monitor's component: transitions inside are suppressed. */
+        maintenance: z
+          .array(z.object({ startsAt: z.iso.datetime(), endsAt: z.iso.datetime() }))
+          .default([]),
+      }),
   ),
 });
 export type MonitorsFile = z.infer<typeof monitorsFile>;

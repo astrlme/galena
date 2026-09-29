@@ -5,7 +5,13 @@ import {
   probeMessage,
   transitionIdempotencyKey,
 } from "@galena/contracts";
-import { evaluate, initialDetectionState, nextCanary, type WorkflowEngine } from "@galena/core";
+import {
+  evaluate,
+  initialDetectionState,
+  inMaintenance,
+  nextCanary,
+  type WorkflowEngine,
+} from "@galena/core";
 import {
   type MonitorRecord,
   type RegionHealth,
@@ -113,6 +119,7 @@ async function processRecord(
   const evaluation = evaluate(current.detection, result, monitor.detection, {
     clock: { now: () => now(result) },
     excludedRegions,
+    inMaintenance: inMaintenance(monitor.maintenance, new Date(result.scheduledAt)),
   });
   const t = evaluation.transition;
   const transition: MonitorTransitioned | undefined = t

@@ -1,12 +1,22 @@
 import {
   componentId,
   type MaintenanceEventType,
+  type MonitorsFile,
   maintenanceId,
+  monitorConfig,
+  monitorId,
   type OutboxId,
   workspaceId,
 } from "@galena/contracts";
 import type { Maintenance } from "@galena/core";
-import { createDb, type Db, maintenanceRepository, recordChange, schema } from "@galena/db";
+import {
+  createDb,
+  type Db,
+  maintenanceRepository,
+  monitorRepository,
+  recordChange,
+  schema,
+} from "@galena/db";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -108,6 +118,18 @@ test("an edit while the run sleeps supersedes it: the old run stops and moves no
 
 test("dispatch starts a run per version, cancels the one it replaces, and a cancel stops it", async () => {
   const window = await schedule();
+  const onApi = monitorId.parse(v7());
+  await monitorRepository(db).save(
+    monitorConfig.parse({
+      id: onApi,
+      workspaceId: acme,
+      componentId: api,
+      name: "API",
+      type: "http",
+      http: { url: "https://api.example.com/health" },
+    }),
+  );
+  const files: MonitorsFile[] = [];
   const started: string[] = [];
   const cancelled: string[] = [];
   const runs = {
@@ -132,12 +154,22 @@ test("dispatch starts a run per version, cancels the one it replaces, and a canc
         data: { maintenanceId: window.id, version, status: "scheduled" },
       } as never,
     });
-    const deps = { db, clock: { now: () => at(0) }, writeMonitorsFile: async () => {}, runs };
+    const deps = {
+      db,
+      clock: { now: () => at(0) },
+      writeMonitorsFile: async (file: MonitorsFile) => void files.push(file),
+      runs,
+    };
     expect(await dispatchOutbox(id, deps)).toBe("dispatched");
   };
 
   await dispatch("maintenance.scheduled", 1);
   expect(started).toEqual([`mnt:${window.id}:1`]);
+  // monitors.json is rewritten so the API's monitor carries the window.
+  expect(files.at(-1)?.monitors.find((m) => m.id === onApi)?.maintenance).toContainEqual({
+    startsAt: at(10).toISOString(),
+    endsAt: at(40).toISOString(),
+  });
   expect((await maintenanceRepository(db).findById(acme, window.id))?.runId).toBe("run-1");
 
   await maintenanceRepository(db).save({ ...window, endsAt: at(50), version: 2 }, 1);

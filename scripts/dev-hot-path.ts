@@ -11,7 +11,7 @@ import {
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { awsRegion, eventId } from "@galena/contracts";
 import { buildMonitorsFile, type WorkflowEngine } from "@galena/core";
-import { createDb, listEnabledMonitors } from "@galena/db";
+import { createDb, listEnabledMonitors, maintenanceRepository } from "@galena/db";
 import { checkHttp } from "@galena/integrations/net";
 import { v7 } from "uuid";
 import { z } from "zod";
@@ -87,7 +87,11 @@ let sequence = 0;
 
 async function tick() {
   const scheduledAt = new Date(minute).toISOString();
-  const file = buildMonitorsFile(await listEnabledMonitors(db), { now: () => new Date() });
+  const [monitors, windows] = await Promise.all([
+    listEnabledMonitors(db),
+    maintenanceRepository(db).listUnfinished(),
+  ]);
+  const file = buildMonitorsFile(monitors, { now: () => new Date() }, windows);
   await Promise.all(
     env.GLN_PROBE_REGIONS.map((region) =>
       runProbe(file, scheduledAt, {
