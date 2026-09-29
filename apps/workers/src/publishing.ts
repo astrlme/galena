@@ -1,6 +1,6 @@
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, NoSuchKey, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { buildSnapshot, type Clock } from "@galena/core";
 import {
   advancePageVersion,
@@ -9,19 +9,37 @@ import {
   loadSnapshotInputs,
   nextSnapshotVersion,
 } from "@galena/db";
-import { type PageFile, pageFiles } from "@galena/publisher";
+import { pageFiles } from "@galena/publisher";
 import { z } from "zod";
 
-// Readers may keep a file 15 s; CloudFront keeps serving the last one for a day if S3 fails.
-const DATA_CACHE_CONTROL = "public, max-age=15, stale-while-revalidate=60, stale-if-error=86400";
+// Short enough that a publish shows within seconds with no invalidation: CloudFront asks S3 at
+// most every 2 s per edge, and serves its last copy for a day if S3 fails. Astro's assets have
+// content hashes in their names, so they never change.
+const cacheControl = (path: string) =>
+  path.startsWith("_astro/")
+    ? "public, max-age=31536000, immutable"
+    : "public, max-age=2, stale-if-error=86400";
+
+export type StoredFile = { path: string; body: string | Uint8Array; contentType: string };
 
 /** Where a page's files go; paths are relative to the page's root. */
-export type PageStore = { write: (slug: string, files: readonly PageFile[]) => Promise<void> };
+export type PageStore = {
+  write: (slug: string, files: readonly StoredFile[]) => Promise<void>;
+  /** Undefined when the file isn't there. */
+  read: (slug: string, path: string) => Promise<string | undefined>;
+};
 
 export const publishPayload = z.object({ version: z.int().min(1) });
 export type PublishPayload = z.infer<typeof publishPayload>;
 
-export type PublishDeps = { db: Db; clock: Clock; store: PageStore; url: string };
+export type PublishDeps = {
+  db: Db;
+  clock: Clock;
+  store: PageStore;
+  url: string;
+  /** Starts `page.rebuild-html` for the version just published. */
+  rebuildHtml: (version: number) => Promise<void>;
+};
 export type PublishOutcome = "no_page" | "superseded" | "published";
 
 /**
@@ -46,6 +64,7 @@ export async function publishPage(
   await deps.store.write(target.slug, pageFiles(buildSnapshot(inputs, deps.clock)));
   // Runs of this task queue one at a time, so nothing newer went out while this one wrote.
   await advancePageVersion(deps.db, target.id, "data", current);
+  await deps.rebuildHtml(current);
   return { outcome: "published", published: current };
 }
 
@@ -58,6 +77,14 @@ export function localPageStore(dir: string): PageStore {
         await mkdir(dirname(path), { recursive: true });
         await writeFile(`${path}.tmp`, file.body);
         await rename(`${path}.tmp`, path);
+      }
+    },
+    async read(slug, path) {
+      try {
+        return await readFile(resolve(dir, slug, path), "utf8");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+        throw error;
       }
     },
   };
@@ -76,11 +103,22 @@ export function s3PageStore(options: { region: string; bucket: string }): PageSt
               Key: `pages/${slug}/${file.path}`,
               Body: file.body,
               ContentType: file.contentType,
-              CacheControl: DATA_CACHE_CONTROL,
+              CacheControl: cacheControl(file.path),
             }),
           ),
         ),
       );
+    },
+    async read(slug, path) {
+      try {
+        const object = await s3.send(
+          new GetObjectCommand({ Bucket: options.bucket, Key: `pages/${slug}/${path}` }),
+        );
+        return await object.Body?.transformToString();
+      } catch (error) {
+        if (error instanceof NoSuchKey) return undefined;
+        throw error;
+      }
     },
   };
 }

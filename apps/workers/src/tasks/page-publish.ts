@@ -1,14 +1,11 @@
 import { logger, queue, task, tasks } from "@trigger.dev/sdk";
 import { db } from "../db.ts";
 import { env } from "../env.ts";
-import { localPageStore, publishPage, publishPayload, s3PageStore } from "../publishing.ts";
+import { publishPage, publishPayload } from "../publishing.ts";
+import { pageStore } from "./page-store.ts";
 
 // One run at a time, so each publish reads the database after the one before it wrote.
 const publisher = queue({ name: "publisher", concurrencyLimit: 1 });
-
-const store = env.GLN_PAGE_BUCKET
-  ? s3PageStore({ region: env.GLN_PAGE_REGION, bucket: env.GLN_PAGE_BUCKET })
-  : localPageStore(env.GLN_PAGE_DIR);
 
 /** Starts a publish for `version`, keyed `pub:{version}`. */
 export async function triggerPublish(version: number): Promise<void> {
@@ -24,8 +21,15 @@ export const pagePublish = task({
     const result = await publishPage(request, {
       db,
       clock: { now: () => new Date() },
-      store,
+      store: pageStore,
       url: env.GLN_PAGE_URL,
+      rebuildHtml: async (version) => {
+        await tasks.trigger(
+          "page.rebuild-html",
+          { version },
+          { idempotencyKey: `html:${version}` },
+        );
+      },
     });
     logger.info("page.publish", { ...request, ...result });
     return result;
