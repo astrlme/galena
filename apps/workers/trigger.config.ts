@@ -1,4 +1,7 @@
-import { additionalFiles, additionalPackages } from "@trigger.dev/build/extensions/core";
+import { cp } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import type { BuildExtension } from "@trigger.dev/build/extensions";
+import { additionalPackages } from "@trigger.dev/build/extensions/core";
 import { defineConfig } from "@trigger.dev/sdk";
 
 // The CLI evaluates this file before it reads .env, so load it here. A missing file is fine
@@ -17,6 +20,32 @@ if (!project) {
   );
 }
 
+// page.rebuild-html runs `astro build` on the status app, so the deploy image holds it as
+// `status/` next to the workspace packages it imports. Copied with fs.cp rather than
+// additionalFiles, which keeps `..` in the destination on Windows and copies outside the image.
+const STATUS_APP: Record<string, string[]> = {
+  status: ["../status", "package.json", "astro.config.mjs", "tsconfig.json", "src"],
+  "packages/config": ["../../packages/config", "package.json", "tsconfig.base.json"],
+  "packages/contracts": ["../../packages/contracts", "package.json", "src"],
+  "packages/ui": ["../../packages/ui", "package.json", "src"],
+};
+const statusApp: BuildExtension = {
+  name: "status-app",
+  async onBuildComplete(context, manifest) {
+    // `trigger dev` builds the app where it is.
+    if (context.target === "dev") return;
+    for (const [to, [from = "", ...entries]] of Object.entries(STATUS_APP)) {
+      for (const entry of entries) {
+        await cp(resolve(context.workingDir, from, entry), join(manifest.outputPath, to, entry), {
+          recursive: true,
+          // Tests and the local fixture snapshot stay behind.
+          filter: (path) => !/\.test\.ts$|[\\/]src[\\/]data(?:[\\/]|$)/.test(path),
+        });
+      }
+    }
+  },
+};
+
 export default defineConfig({
   project,
   dirs: ["./src/tasks"],
@@ -25,22 +54,7 @@ export default defineConfig({
   processKeepAlive: true,
   build: {
     extensions: [
-      // page.rebuild-html runs `astro build` on the status app. Paths lose their leading `..`,
-      // so the image holds `status/` next to the `packages/` it imports.
-      additionalFiles({
-        files: [
-          "../status/package.json",
-          "../status/astro.config.mjs",
-          "../status/tsconfig.json",
-          "../status/src/**",
-          "../../packages/config/package.json",
-          "../../packages/config/tsconfig.base.json",
-          "../../packages/contracts/package.json",
-          "../../packages/contracts/src/**",
-          "../../packages/ui/package.json",
-          "../../packages/ui/src/**",
-        ],
-      }),
+      statusApp,
       additionalPackages({
         packages: ["astro@7.3.5", "@fontsource-variable/atkinson-hyperlegible-next@5.3.0"],
       }),
