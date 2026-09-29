@@ -53,7 +53,7 @@ describe("migrations", () => {
       rows: { table_name: string; has_workspace: boolean }[];
     };
     const exempt = ["account", "session", "two_factor", "user", "verification", "workspace"];
-    expect(rows).toHaveLength(14);
+    expect(rows).toHaveLength(18);
     for (const { table_name, has_workspace } of rows) {
       expect(has_workspace, table_name).toBe(!exempt.includes(table_name));
     }
