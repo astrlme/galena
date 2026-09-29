@@ -6,7 +6,12 @@ import { outbox } from "../schema/index.ts";
 /** Undefined when the transaction that wrote it rolled back. */
 export async function findOutboxRow(db: Db, id: OutboxId) {
   const [row] = await db
-    .select({ id: outbox.id, eventType: outbox.eventType, dispatchedAt: outbox.dispatchedAt })
+    .select({
+      id: outbox.id,
+      eventType: outbox.eventType,
+      payload: outbox.payload,
+      dispatchedAt: outbox.dispatchedAt,
+    })
     .from(outbox)
     .where(eq(outbox.id, id))
     .limit(1);

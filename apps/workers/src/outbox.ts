@@ -4,9 +4,15 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import type { MonitorsFile, OutboxId } from "@galena/contracts";
 import { buildMonitorsFile, type Clock } from "@galena/core";
 import { type Db, findOutboxRow, listEnabledMonitors, markOutboxDispatched } from "@galena/db";
+import { type LifecycleRuns, steerMaintenance } from "./maintenance.ts";
 
 export type WriteMonitorsFile = (file: MonitorsFile) => Promise<void>;
-export type DispatchDeps = { db: Db; clock: Clock; writeMonitorsFile: WriteMonitorsFile };
+export type DispatchDeps = {
+  db: Db;
+  clock: Clock;
+  writeMonitorsFile: WriteMonitorsFile;
+  runs: LifecycleRuns;
+};
 export type DispatchOutcome = "rolled_back" | "already_dispatched" | "dispatched";
 
 /**
@@ -20,6 +26,9 @@ export async function dispatchOutbox(id: OutboxId, deps: DispatchDeps): Promise<
   if (row.eventType === "monitor.changed") {
     const monitors = await listEnabledMonitors(deps.db);
     await deps.writeMonitorsFile(buildMonitorsFile(monitors, deps.clock));
+  }
+  if (row.eventType === "maintenance.scheduled" || row.eventType === "maintenance.cancelled") {
+    await steerMaintenance(row.eventType, row.payload, deps);
   }
   const marked = await markOutboxDispatched(deps.db, id, deps.clock.now());
   return marked ? "dispatched" : "already_dispatched";
