@@ -1,7 +1,14 @@
-import type { ComponentStatus } from "@galena/contracts";
+import { type ComponentStatus, componentId, monitorId } from "@galena/contracts";
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
-import { type ComponentHistory, dayMark, SEVERITY_RANK, statusMinutes } from "./uptime.ts";
+import {
+  type ComponentHistory,
+  dayMark,
+  type RollupInputs,
+  rollupUptime,
+  SEVERITY_RANK,
+  statusMinutes,
+} from "./uptime.ts";
 
 const DAY = 86_400_000;
 const DAY0 = Date.parse("2026-09-29T00:00:00.000Z");
@@ -107,5 +114,82 @@ describe("dayMark", () => {
       ),
       { numRuns: 10_000 },
     );
+  });
+});
+
+describe("rollupUptime", () => {
+  const api = componentId.parse("01920000-0000-7000-8000-000000000011");
+  const web = componentId.parse("01920000-0000-7000-8000-000000000012");
+  const probe = monitorId.parse("01920000-0000-7000-8000-000000000021");
+  const now = new Date(at(12));
+  const inputs: RollupInputs = {
+    components: [{ id: api }, { id: web }],
+    monitors: [{ id: probe, componentId: api, downStatus: "major_outage" }],
+    transitions: [
+      { monitorId: probe, state: "up", at: new Date(at(0) - 3 * DAY) },
+      { monitorId: probe, state: "down", at: new Date(at(-1)) },
+      { monitorId: probe, state: "up", at: new Date(at(0, 30)) },
+    ],
+    incidents: [],
+    maintenance: [],
+  };
+
+  test("covers yesterday whole and today up to now, for every component", () => {
+    expect(rollupUptime(inputs, now)).toEqual([
+      { componentId: api, date: "2026-09-28", minutes: { operational: 1380, major_outage: 60 } },
+      { componentId: api, date: "2026-09-29", minutes: { major_outage: 30, operational: 690 } },
+      { componentId: web, date: "2026-09-28", minutes: { operational: 1440 } },
+      { componentId: web, date: "2026-09-29", minutes: { operational: 720 } },
+    ]);
+  });
+
+  test("only published incidents and windows that were not cancelled count", () => {
+    // The internal incident and the cancelled window would each add an hour if they counted.
+    const incident = (visibility: "published" | "internal", hour: number) => ({
+      visibility,
+      startedAt: new Date(at(hour)),
+      resolvedAt: new Date(at(hour + 1)),
+      components: [{ componentId: web, status: "partial_outage" as const }],
+    });
+    const window = (cancelledAt: Date | null, hour: number) => ({
+      startsAt: new Date(at(hour)),
+      endsAt: new Date(at(hour + 1)),
+      cancelledAt,
+      componentIds: [web],
+    });
+    const days = rollupUptime(
+      {
+        ...inputs,
+        incidents: [incident("published", 1), incident("internal", 5)],
+        maintenance: [window(null, 3), window(new Date(at(0)), 7)],
+      },
+      now,
+    );
+    expect(days.find((d) => d.componentId === web && d.date === "2026-09-29")?.minutes).toEqual({
+      operational: 600,
+      partial_outage: 60,
+      under_maintenance: 60,
+    });
+  });
+
+  test("an open incident lasts until now", () => {
+    const days = rollupUptime(
+      {
+        ...inputs,
+        incidents: [
+          {
+            visibility: "published",
+            startedAt: new Date(at(11)),
+            resolvedAt: null,
+            components: [{ componentId: web, status: "degraded_performance" }],
+          },
+        ],
+      },
+      now,
+    );
+    expect(days.find((d) => d.componentId === web && d.date === "2026-09-29")?.minutes).toEqual({
+      operational: 660,
+      degraded_performance: 60,
+    });
   });
 });

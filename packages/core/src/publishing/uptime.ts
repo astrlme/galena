@@ -1,12 +1,16 @@
 import type {
+  ComponentId,
   ComponentStatus,
   DownStatus,
   IncidentComponentStatus,
+  MonitorId,
   MonitorState,
 } from "@galena/contracts";
+import type { Incident, Maintenance } from "../ports.ts";
 import { componentStatus } from "../status/aggregate.ts";
 
 const MINUTE = 60_000;
+const DAY = 86_400_000;
 
 /** For a day's mark: more ink means worse. Maintenance shows only when nothing worse happened. */
 export const SEVERITY_RANK: Record<ComponentStatus, number> = {
@@ -89,4 +93,65 @@ export function dayMark(minutes: Partial<Record<ComponentStatus, number>>): {
   const down = (minutes.partial_outage ?? 0) + (minutes.major_outage ?? 0);
   // Whole minutes only, like the mark: a blip under a minute is noise.
   return { worst, downMinutes: Math.floor(down) };
+}
+
+/** What the hourly rollup reads: enough to replay yesterday and today for every component. */
+export type RollupInputs = {
+  components: ReadonlyArray<{ id: ComponentId }>;
+  monitors: ReadonlyArray<{
+    id: MonitorId;
+    componentId: ComponentId | null;
+    downStatus: DownStatus;
+  }>;
+  /** Each monitor's confirmed transitions since yesterday began, led by the one before that. */
+  transitions: ReadonlyArray<{ monitorId: MonitorId; state: MonitorState; at: Date }>;
+  incidents: ReadonlyArray<
+    Pick<Incident, "visibility" | "startedAt" | "resolvedAt" | "components">
+  >;
+  maintenance: ReadonlyArray<
+    Pick<Maintenance, "startsAt" | "endsAt" | "cancelledAt" | "componentIds">
+  >;
+};
+
+/** Minutes per status for every component, yesterday whole and today up to `now` (UTC days). */
+export function rollupUptime(
+  inputs: RollupInputs,
+  now: Date,
+): Array<{
+  componentId: ComponentId;
+  date: string;
+  minutes: Partial<Record<ComponentStatus, number>>;
+}> {
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return inputs.components.flatMap(({ id }) => {
+    const history: ComponentHistory = {
+      monitors: inputs.monitors
+        .filter((m) => m.componentId === id)
+        .map((m) => ({
+          downStatus: m.downStatus,
+          changes: inputs.transitions
+            .filter((t) => t.monitorId === m.id)
+            .map((t) => ({ at: t.at.getTime(), state: t.state })),
+        })),
+      incidents: inputs.incidents
+        .filter((i) => i.visibility === "published")
+        .flatMap((i) =>
+          i.components
+            .filter((c) => c.componentId === id)
+            .map((c) => ({
+              from: i.startedAt.getTime(),
+              to: i.resolvedAt?.getTime() ?? now.getTime(),
+              status: c.status,
+            })),
+        ),
+      maintenance: inputs.maintenance
+        .filter((w) => w.cancelledAt === null && w.componentIds.includes(id))
+        .map((w) => ({ from: w.startsAt.getTime(), to: w.endsAt.getTime() })),
+    };
+    return [today - DAY, today].map((start) => ({
+      componentId: id,
+      date: new Date(start).toISOString().slice(0, 10),
+      minutes: statusMinutes(history, start, Math.min(start + DAY, now.getTime())),
+    }));
+  });
 }
