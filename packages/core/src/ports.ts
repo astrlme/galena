@@ -10,6 +10,8 @@ import type {
   IncidentStatus,
   IncidentUpdateId,
   IncidentVisibility,
+  MaintenanceId,
+  MaintenanceStatus,
   MonitorConfig,
   MonitorId,
   WorkspaceId,
@@ -136,4 +138,41 @@ export interface IncidentRepository {
     expected: IncidentStatus,
     change: IncidentChange,
   ): Promise<boolean>;
+}
+
+export type Maintenance = {
+  id: MaintenanceId;
+  workspaceId: WorkspaceId;
+  title: string;
+  body: string;
+  status: MaintenanceStatus;
+  startsAt: Date;
+  endsAt: Date;
+  /** Counts edits; the lifecycle run for an older version stops when it wakes. */
+  version: number;
+  /** The lifecycle run for the current version, once started. */
+  runId: string | null;
+  cancelledAt: Date | null;
+  componentIds: ComponentId[];
+};
+
+export interface MaintenanceRepository {
+  /** Newest start first. Soft-deleted windows never appear. */
+  list(workspaceId: WorkspaceId): Promise<Maintenance[]>;
+  findById(workspaceId: WorkspaceId, id: MaintenanceId): Promise<Maintenance | undefined>;
+  /**
+   * Inserts (`expectedVersion` null) or replaces a window that hasn't completed, components
+   * included. False when someone else edited it first or it has completed.
+   */
+  save(window: Omit<Maintenance, "runId">, expectedVersion: number | null): Promise<boolean>;
+  /** Moves the status only while the version and status are still the ones read. */
+  transition(
+    workspaceId: WorkspaceId,
+    id: MaintenanceId,
+    from: { version: number; status: MaintenanceStatus },
+    to: { status: MaintenanceStatus; cancelledAt?: Date },
+  ): Promise<boolean>;
+  setRunId(id: MaintenanceId, version: number, runId: string): Promise<void>;
+  /** Every window not yet completed, across the deployment, for `monitors.json`. */
+  listUnfinished(): Promise<Maintenance[]>;
 }

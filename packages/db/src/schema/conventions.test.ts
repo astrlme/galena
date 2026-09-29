@@ -42,6 +42,8 @@ test("the schema has exactly the expected tables", () => {
       "incident",
       "incident_component",
       "incident_update",
+      "maintenance",
+      "maintenance_component",
       "member",
       "monitor",
       "outbox",
