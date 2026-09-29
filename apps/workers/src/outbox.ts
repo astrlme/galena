@@ -2,13 +2,14 @@ import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import type { MonitorsFile, OutboxId } from "@galena/contracts";
-import { buildMonitorsFile, type Clock } from "@galena/core";
+import { buildMonitorsFile, type Clock, isPageEvent } from "@galena/core";
 import {
   type Db,
   findOutboxRow,
   listEnabledMonitors,
   maintenanceRepository,
   markOutboxDispatched,
+  nextSnapshotVersion,
 } from "@galena/db";
 import { type LifecycleRuns, steerMaintenance } from "./maintenance.ts";
 
@@ -24,6 +25,8 @@ export type DispatchDeps = {
   clock: Clock;
   writeMonitorsFile: WriteMonitorsFile;
   runs: LifecycleRuns;
+  /** Starts `page.publish` for a version taken after the change committed. */
+  publish: (version: number) => Promise<void>;
 };
 export type DispatchOutcome = "rolled_back" | "already_dispatched" | "dispatched";
 
@@ -47,6 +50,7 @@ export async function dispatchOutbox(id: OutboxId, deps: DispatchDeps): Promise<
     ]);
     await deps.writeMonitorsFile(buildMonitorsFile(monitors, deps.clock, windows));
   }
+  if (isPageEvent(eventType)) await deps.publish(await nextSnapshotVersion(deps.db));
   const marked = await markOutboxDispatched(deps.db, id, deps.clock.now());
   return marked ? "dispatched" : "already_dispatched";
 }

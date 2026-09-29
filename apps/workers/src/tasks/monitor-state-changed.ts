@@ -1,11 +1,13 @@
 import { monitorTransitioned } from "@galena/contracts";
-import { recordMonitorTransition } from "@galena/db";
+import { nextSnapshotVersion, recordMonitorTransition } from "@galena/db";
 import { logger, task } from "@trigger.dev/sdk";
 import { db } from "../db.ts";
+import { triggerPublish } from "./page-publish.ts";
 
 // Triggered by the evaluator on every transition, keyed `mon:{monitorId}:{transitionSeq}`.
-// Records it as the monitor's state and in its history; drafting incidents comes with the
-// incident workflow.
+// Records it as the monitor's state and in its history, then republishes the page unless the
+// transition happened inside a maintenance window. Drafting incidents comes with the incident
+// workflow.
 export const monitorStateChanged = task({
   id: "monitor.state-changed",
   run: async (payload: unknown) => {
@@ -18,6 +20,7 @@ export const monitorStateChanged = task({
       seq: data.transitionSeq,
       at: new Date(occurredAt),
     });
+    if (!data.suppressed) await triggerPublish(await nextSnapshotVersion(db));
     logger.info("monitor.state-changed", { eventId: id, ...data, recorded });
     return { recorded };
   },

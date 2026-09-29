@@ -81,6 +81,10 @@ const noRuns = {
   cancel: async () => {},
 };
 
+/** The versions each dispatch asked `page.publish` for. */
+const published: number[] = [];
+const publish = async (version: number) => void published.push(version);
+
 /** Collects what would be written instead of writing it. */
 function collector() {
   const files: MonitorsFile[] = [];
@@ -93,7 +97,7 @@ test("a monitor change rewrites monitors.json with the enabled monitors, then ma
   const id = await outboxRow("monitor.changed");
   const { files, writeMonitorsFile } = collector();
 
-  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns })).toBe(
+  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish })).toBe(
     "dispatched",
   );
   expect(files).toHaveLength(1);
@@ -102,7 +106,7 @@ test("a monitor change rewrites monitors.json with the enabled monitors, then ma
   expect(row?.dispatchedAt?.toISOString()).toBe("2026-09-28T10:00:00.000Z");
 
   // A second run for the same row, e.g. the backstop, finds it done and writes nothing.
-  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns })).toBe(
+  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish })).toBe(
     "already_dispatched",
   );
   expect(files).toHaveLength(1);
@@ -111,19 +115,35 @@ test("a monitor change rewrites monitors.json with the enabled monitors, then ma
 test("a row whose transaction rolled back is skipped", async () => {
   const { files, writeMonitorsFile } = collector();
   const missing = outboxId.parse(v7());
-  expect(await dispatchOutbox(missing, { db, clock, writeMonitorsFile, runs: noRuns })).toBe(
-    "rolled_back",
-  );
+  expect(
+    await dispatchOutbox(missing, { db, clock, writeMonitorsFile, runs: noRuns, publish }),
+  ).toBe("rolled_back");
   expect(files).toHaveLength(0);
 });
 
-test("other event types are marked dispatched without touching monitors.json", async () => {
-  const id = await outboxRow("component.changed");
+test("a page event republishes the page with a newer version each time", async () => {
+  published.length = 0;
   const { files, writeMonitorsFile } = collector();
-  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns })).toBe(
+  for (const type of ["component.changed", "component_group.changed"]) {
+    const id = await outboxRow(type);
+    expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish })).toBe(
+      "dispatched",
+    );
+  }
+  expect(files).toHaveLength(0);
+  expect(published).toHaveLength(2);
+  expect(published[1]).toBeGreaterThan(published[0] ?? Number.POSITIVE_INFINITY);
+});
+
+test("other event types are only marked dispatched", async () => {
+  published.length = 0;
+  const id = await outboxRow("subscriber.confirmed");
+  const { files, writeMonitorsFile } = collector();
+  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish })).toBe(
     "dispatched",
   );
   expect(files).toHaveLength(0);
+  expect(published).toEqual([]);
 });
 
 test("the local writer replaces monitors.json with a file the probes can parse", async () => {

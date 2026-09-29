@@ -301,6 +301,9 @@ importers:
       '@galena/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@galena/publisher':
+        specifier: workspace:*
+        version: link:../../packages/publisher
       '@trigger.dev/sdk':
         specifier: 4.6.4
         version: 4.6.4(react@19.3.0)(zod@4.6.5)

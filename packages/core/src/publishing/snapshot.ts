@@ -74,6 +74,19 @@ const toMaintenance = (m: Maintenance): SnapshotMaintenance => ({
   componentIds: m.componentIds,
 });
 
+const PAGE_EVENT_PREFIXES = [
+  "incident.",
+  "maintenance.",
+  "component.",
+  "component_group.",
+  "monitor.",
+];
+
+/** Whether an outbox event can change what a status page shows, so the page republishes. */
+export function isPageEvent(type: string): boolean {
+  return PAGE_EVENT_PREFIXES.some((prefix) => type.startsWith(prefix));
+}
+
 /** The last 90 UTC dates, oldest first, ending with `now`'s date. */
 function stripDates(now: Date): string[] {
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());

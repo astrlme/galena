@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "../db.ts";
 import { env } from "../env.ts";
 import { dispatchOutbox, localMonitorsFile, s3MonitorsFile } from "../outbox.ts";
+import { triggerPublish } from "./page-publish.ts";
 
 // Known limit: one run at a time for the whole outbox. Each run rebuilds monitors.json from the
 // database, so running them in order means the newest committed state is always written last.
@@ -35,6 +36,7 @@ export const outboxDispatch = task({
           await runs.cancel(runId);
         },
       },
+      publish: triggerPublish,
     });
     logger.info("outbox.dispatch", { outboxId: id, outcome });
     return { outcome };
