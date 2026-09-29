@@ -973,6 +973,305 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open incidents, or recently resolved ones; newest first */
+        get: {
+            parameters: {
+                query?: {
+                    state?: "open" | "resolved";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Incidents */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            incidents: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                                /** @enum {string} */
+                                status: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem";
+                                /** @enum {string} */
+                                impact: "none" | "minor" | "major" | "critical";
+                                /** @enum {string} */
+                                visibility: "draft" | "published" | "dismissed" | "internal";
+                                /** @enum {string} */
+                                source: "manual" | "monitor" | "signal";
+                                /** Format: date-time */
+                                startedAt: string;
+                                /** Format: date-time */
+                                resolvedAt: string | null;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                components: {
+                                    /** Format: uuid */
+                                    componentId: string;
+                                    /** @enum {string} */
+                                    status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
+                                }[];
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Publish an incident with its first update */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        /** @enum {string} */
+                        impact: "none" | "minor" | "major" | "critical";
+                        /**
+                         * @default investigating
+                         * @enum {string}
+                         */
+                        status?: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem";
+                        body: string;
+                        /** @default [] */
+                        components?: {
+                            /** Format: uuid */
+                            componentId: string;
+                            /** @enum {string} */
+                            status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description The new incident */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            title: string;
+                            /** @enum {string} */
+                            status: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem";
+                            /** @enum {string} */
+                            impact: "none" | "minor" | "major" | "critical";
+                            /** @enum {string} */
+                            visibility: "draft" | "published" | "dismissed" | "internal";
+                            /** @enum {string} */
+                            source: "manual" | "monitor" | "signal";
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** Format: date-time */
+                            resolvedAt: string | null;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            components: {
+                                /** Format: uuid */
+                                componentId: string;
+                                /** @enum {string} */
+                                status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
+                            }[];
+                            updates: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                status: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem";
+                                body: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/incidents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One incident with its updates, newest first */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The incident */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            title: string;
+                            /** @enum {string} */
+                            status: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem";
+                            /** @enum {string} */
+                            impact: "none" | "minor" | "major" | "critical";
+                            /** @enum {string} */
+                            visibility: "draft" | "published" | "dismissed" | "internal";
+                            /** @enum {string} */
+                            source: "manual" | "monitor" | "signal";
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** Format: date-time */
+                            resolvedAt: string | null;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            components: {
+                                /** Format: uuid */
+                                componentId: string;
+                                /** @enum {string} */
+                                status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
+                            }[];
+                            updates: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                status: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem";
+                                body: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/incidents/{id}/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post an update; its status moves the incident along its lifecycle
+         * @description Impact and components change only when they are sent.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem";
+                        body: string;
+                        /** @enum {string} */
+                        impact?: "none" | "minor" | "major" | "critical";
+                        components?: {
+                            /** Format: uuid */
+                            componentId: string;
+                            /** @enum {string} */
+                            status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description The incident with the new update */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            title: string;
+                            /** @enum {string} */
+                            status: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem";
+                            /** @enum {string} */
+                            impact: "none" | "minor" | "major" | "critical";
+                            /** @enum {string} */
+                            visibility: "draft" | "published" | "dismissed" | "internal";
+                            /** @enum {string} */
+                            source: "manual" | "monitor" | "signal";
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** Format: date-time */
+                            resolvedAt: string | null;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            components: {
+                                /** Format: uuid */
+                                componentId: string;
+                                /** @enum {string} */
+                                status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
+                            }[];
+                            updates: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                status: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem";
+                                body: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {

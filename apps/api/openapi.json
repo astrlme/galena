@@ -1645,6 +1645,757 @@
           }
         }
       }
+    },
+    "/v1/incidents": {
+      "get": {
+        "summary": "Open incidents, or recently resolved ones; newest first",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "resolved"
+              ],
+              "default": "open"
+            },
+            "required": false,
+            "name": "state",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Incidents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "incidents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "investigating",
+                              "identified",
+                              "monitoring",
+                              "resolved",
+                              "postmortem"
+                            ]
+                          },
+                          "impact": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "minor",
+                              "major",
+                              "critical"
+                            ]
+                          },
+                          "visibility": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "published",
+                              "dismissed",
+                              "internal"
+                            ]
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "manual",
+                              "monitor",
+                              "signal"
+                            ]
+                          },
+                          "startedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "resolvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "components": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "componentId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "operational",
+                                    "degraded_performance",
+                                    "partial_outage",
+                                    "major_outage"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "componentId",
+                                "status"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "status",
+                          "impact",
+                          "visibility",
+                          "source",
+                          "startedAt",
+                          "resolvedAt",
+                          "updatedAt",
+                          "components"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "incidents"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Publish an incident with its first update",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "impact": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "minor",
+                      "major",
+                      "critical"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "investigating",
+                      "identified",
+                      "monitoring",
+                      "resolved",
+                      "postmortem"
+                    ],
+                    "default": "investigating"
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  "components": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "componentId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "operational",
+                            "degraded_performance",
+                            "partial_outage",
+                            "major_outage"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "componentId",
+                        "status"
+                      ]
+                    },
+                    "maxItems": 100,
+                    "default": []
+                  }
+                },
+                "required": [
+                  "title",
+                  "impact",
+                  "body"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new incident",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "investigating",
+                        "identified",
+                        "monitoring",
+                        "resolved",
+                        "postmortem"
+                      ]
+                    },
+                    "impact": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "minor",
+                        "major",
+                        "critical"
+                      ]
+                    },
+                    "visibility": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "published",
+                        "dismissed",
+                        "internal"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "monitor",
+                        "signal"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "resolvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "components": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "componentId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "operational",
+                              "degraded_performance",
+                              "partial_outage",
+                              "major_outage"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "componentId",
+                          "status"
+                        ]
+                      }
+                    },
+                    "updates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "investigating",
+                              "identified",
+                              "monitoring",
+                              "resolved",
+                              "postmortem"
+                            ]
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "body",
+                          "createdAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "status",
+                    "impact",
+                    "visibility",
+                    "source",
+                    "startedAt",
+                    "resolvedAt",
+                    "updatedAt",
+                    "components",
+                    "updates"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/incidents/{id}": {
+      "get": {
+        "summary": "One incident with its updates, newest first",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The incident",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "investigating",
+                        "identified",
+                        "monitoring",
+                        "resolved",
+                        "postmortem"
+                      ]
+                    },
+                    "impact": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "minor",
+                        "major",
+                        "critical"
+                      ]
+                    },
+                    "visibility": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "published",
+                        "dismissed",
+                        "internal"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "monitor",
+                        "signal"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "resolvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "components": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "componentId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "operational",
+                              "degraded_performance",
+                              "partial_outage",
+                              "major_outage"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "componentId",
+                          "status"
+                        ]
+                      }
+                    },
+                    "updates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "investigating",
+                              "identified",
+                              "monitoring",
+                              "resolved",
+                              "postmortem"
+                            ]
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "body",
+                          "createdAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "status",
+                    "impact",
+                    "visibility",
+                    "source",
+                    "startedAt",
+                    "resolvedAt",
+                    "updatedAt",
+                    "components",
+                    "updates"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/incidents/{id}/updates": {
+      "post": {
+        "summary": "Post an update; its status moves the incident along its lifecycle",
+        "description": "Impact and components change only when they are sent.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "investigating",
+                      "identified",
+                      "monitoring",
+                      "resolved",
+                      "postmortem"
+                    ]
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  "impact": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "minor",
+                      "major",
+                      "critical"
+                    ]
+                  },
+                  "components": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "componentId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "operational",
+                            "degraded_performance",
+                            "partial_outage",
+                            "major_outage"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "componentId",
+                        "status"
+                      ]
+                    },
+                    "maxItems": 100
+                  }
+                },
+                "required": [
+                  "status",
+                  "body"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The incident with the new update",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "investigating",
+                        "identified",
+                        "monitoring",
+                        "resolved",
+                        "postmortem"
+                      ]
+                    },
+                    "impact": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "minor",
+                        "major",
+                        "critical"
+                      ]
+                    },
+                    "visibility": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "published",
+                        "dismissed",
+                        "internal"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "monitor",
+                        "signal"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "resolvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "components": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "componentId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "operational",
+                              "degraded_performance",
+                              "partial_outage",
+                              "major_outage"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "componentId",
+                          "status"
+                        ]
+                      }
+                    },
+                    "updates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "investigating",
+                              "identified",
+                              "monitoring",
+                              "resolved",
+                              "postmortem"
+                            ]
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "body",
+                          "createdAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "status",
+                    "impact",
+                    "visibility",
+                    "source",
+                    "startedAt",
+                    "resolvedAt",
+                    "updatedAt",
+                    "components",
+                    "updates"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {}
