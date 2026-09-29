@@ -1,0 +1,23 @@
+{
+  "name": "@galena/status",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --port 4321",
+    "build": "astro build",
+    "preview": "astro preview --port 4321",
+    "fixture": "node -e \"require('node:fs').copyFileSync('../../packages/publisher/test/golden/snapshot.json', 'src/data/snapshot.json')\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@galena/contracts": "workspace:*",
+    "@galena/ui": "workspace:*",
+    "astro": "7.3.5",
+    "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0"
+  },
+  "devDependencies": {
+    "@galena/config": "workspace:*",
+    "@galena/publisher": "workspace:*"
+  }
+}

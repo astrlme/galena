@@ -1,0 +1,75 @@
+---
+import { createHash } from "node:crypto";
+import {
+  componentStatusLabels,
+  incidentImpactLabels,
+  incidentStatusLabels,
+  pageIndicatorStates,
+  type Snapshot,
+  type SnapshotIncident,
+} from "@galena/contracts";
+import type { GetStaticPaths } from "astro";
+import Glyph from "../../components/Glyph.astro";
+import Page from "../../layouts/Page.astro";
+import { duration, utcDateTime } from "../../lib/format.ts";
+import { renderMarkdown } from "../../lib/markdown.ts";
+import { readSnapshot } from "../../lib/snapshot.ts";
+
+// Incremental builds: an incident page re-renders only when its cacheKey changes, so the key
+// covers everything the page shows: the incident itself, and the page-wide names it prints.
+export const getStaticPaths = (() => {
+  const s = readSnapshot();
+  const names = Object.fromEntries(s.components.map((c) => [c.id, c.name]));
+  const pageWide = createHash("sha256")
+    .update(JSON.stringify([s.page.name, names]))
+    .digest("hex")
+    .slice(0, 16);
+  return [...s.incidents.active, ...s.incidents.recent].map((incident) => ({
+    params: { id: incident.id },
+    props: { incident, pageName: s.page.name, names },
+    cacheKey: `${incident.updatedAt}:${pageWide}`,
+  }));
+}) satisfies GetStaticPaths;
+
+interface Props {
+  incident: SnapshotIncident;
+  pageName: Snapshot["page"]["name"];
+  names: Record<string, string>;
+}
+const { incident, pageName, names } = Astro.props;
+---
+
+<Page title={`${incident.title}: ${pageName} status`} description={`${incidentStatusLabels[incident.status]}. ${incident.title}.`} pageName={pageName}>
+  <article class={`incident hero impact-${incident.impact}`}>
+    <h1 class="headline"><Glyph name={pageIndicatorStates[incident.impact]} class="" />{incident.title}</h1>
+    <p class="secondary">
+      {incidentStatusLabels[incident.status]}. {incidentImpactLabels[incident.impact]}. Started <time datetime={incident.startedAt}>{utcDateTime(incident.startedAt)}</time>{incident.resolvedAt ? `, resolved after ${duration(incident.startedAt, incident.resolvedAt)}.` : "."}
+    </p>
+  </article>
+
+  {incident.components.length > 0 && (
+    <section aria-labelledby="affected">
+      <h2 id="affected">Affected components</h2>
+      <ul class="updates">
+        {incident.components.map((c) => (
+          <li class="component-row">
+            <span>{names[c.componentId] ?? "A removed component"}</span>
+            <span class="label"><Glyph name={c.status} />{componentStatusLabels[c.status]}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  <section aria-labelledby="updates">
+    <h2 id="updates">Updates</h2>
+    <ol class="updates">
+      {incident.updates.map((u) => (
+        <li>
+          <p><strong>{incidentStatusLabels[u.status]}</strong> <span class="secondary"><time datetime={u.createdAt}>{utcDateTime(u.createdAt)}</time></span></p>
+          <div class="body" set:html={renderMarkdown(u.body)} />
+        </li>
+      ))}
+    </ol>
+  </section>
+</Page>

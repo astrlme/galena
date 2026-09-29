@@ -1,0 +1,11 @@
+---
+import { type GlyphName, glyphs } from "@galena/ui/tokens";
+
+interface Props {
+  name: GlyphName;
+  class?: string;
+}
+const { name, class: className = "glyph" } = Astro.props;
+---
+
+<svg class={className} viewBox="0 0 14 14" aria-hidden="true" set:html={glyphs[name]} />
