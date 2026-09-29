@@ -159,6 +159,7 @@ test("dispatch starts a run per version, cancels the one it replaces, and a canc
       clock: { now: () => at(0) },
       writeMonitorsFile: async (file: MonitorsFile) => void files.push(file),
       runs,
+      publish: async () => {},
     };
     expect(await dispatchOutbox(id, deps)).toBe("dispatched");
   };

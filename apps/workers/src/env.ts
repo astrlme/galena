@@ -17,6 +17,12 @@ export const env = z
     GLN_CONFIG_KEY: z.string().min(1).default("monitors.json"),
     GLN_HOME_REGION: awsRegion.default("eu-central-1"),
     GLN_CONFIG_DIR: z.string().min(1).default(".local/config"),
+    /** Set in AWS stages: the primary page bucket. Unset: page files go to GLN_PAGE_DIR on disk. */
+    GLN_PAGE_BUCKET: z.string().min(1).optional(),
+    GLN_PAGE_REGION: awsRegion.default("eu-west-1"),
+    GLN_PAGE_DIR: z.string().min(1).default(".local/pages"),
+    /** Where readers find the page, for feed links. */
+    GLN_PAGE_URL: z.url().default("http://localhost:4321"),
   })
   .refine((e) => !e.GLN_DB_CLUSTER_ARN === !e.GLN_DB_SECRET_ARN, {
     message: "The Data API needs both GLN_DB_CLUSTER_ARN and GLN_DB_SECRET_ARN.",

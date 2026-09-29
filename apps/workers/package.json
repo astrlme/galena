@@ -17,6 +17,7 @@
     "@galena/contracts": "workspace:*",
     "@galena/core": "workspace:*",
     "@galena/db": "workspace:*",
+    "@galena/publisher": "workspace:*",
     "@trigger.dev/sdk": "4.6.4",
     "uuid": "^14.0.2",
     "zod": "^4.6.5"

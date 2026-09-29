@@ -9,7 +9,7 @@ import {
 } from "@galena/contracts";
 import { expect, test } from "vitest";
 import { fixedClock, type Incident, type IncidentUpdate, type Maintenance } from "../ports.ts";
-import { buildSnapshot, type SnapshotInputs } from "./snapshot.ts";
+import { buildSnapshot, isPageEvent, type SnapshotInputs } from "./snapshot.ts";
 
 const ws = workspaceId.parse("01920000-0000-7000-8000-000000000001");
 const core = componentGroupId.parse("01920000-0000-7000-8000-000000000031");
@@ -145,4 +145,19 @@ test("lists only published incidents, and resolved ones from the last 14 days", 
   expect(incidents.recent.map((i) => i.title)).toEqual(["Incident 3"]);
   expect(maintenance.active.map((m) => m.title)).toEqual(["Window 1"]);
   expect(maintenance.upcoming.map((m) => m.title)).toEqual(["Window 2"]);
+});
+
+test("incident, maintenance, component and monitor events republish the page; others do not", () => {
+  for (const type of [
+    "incident.updated",
+    "maintenance.started",
+    "component.changed",
+    "component_group.changed",
+    "monitor.changed",
+  ]) {
+    expect(isPageEvent(type), type).toBe(true);
+  }
+  for (const type of ["subscriber.confirmed", "webhook_endpoint.changed", "incidents"]) {
+    expect(isPageEvent(type), type).toBe(false);
+  }
 });
