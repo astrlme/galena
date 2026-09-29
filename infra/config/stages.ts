@@ -9,6 +9,11 @@ export const stageSchema = z
     homeRegion: region,
     probeRegions: z.array(region).min(3),
     pageRegions: z.object({ primary: region, replica: region }),
+    // The status page's own name; its certificate is validated by a CNAME at the DNS host.
+    pageDomain: z
+      .string()
+      .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)
+      .optional(),
     github: z.object({
       repository: z.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
       // The `sub` prefix in GitHub's OIDC tokens. Newer repositories use the immutable form with
@@ -51,6 +56,7 @@ export const stages = {
   dev: stageSchema.parse({
     ...common,
     stage: "dev",
+    pageDomain: "status.astrl.me",
     telemetryCapacity: { read: 5, write: 5 },
     auroraMaxAcu: 2,
   }),

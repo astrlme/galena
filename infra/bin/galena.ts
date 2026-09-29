@@ -7,6 +7,7 @@ import { DetectionStack } from "../stacks/detection.ts";
 import { FoundationStack } from "../stacks/foundation.ts";
 import { ProbeStack } from "../stacks/probe.ts";
 import { SmokeStack } from "../stacks/smoke.ts";
+import { PageCertificateStack, PageReplicaStack, StatusPageStack } from "../stacks/status-page.ts";
 import { WebStack } from "../stacks/web.ts";
 import { WorkerAccessStack } from "../stacks/worker-access.ts";
 
@@ -39,5 +40,23 @@ if (config.stage === "dev") new SmokeStack(app, `galena-${config.stage}-smoke`, 
 const api = new ApiStack(app, `galena-${config.stage}-api`, { env, config });
 new WebStack(app, `galena-${config.stage}-web`, { env, config, api: api.api });
 new WorkerAccessStack(app, `galena-${config.stage}-worker-access`, { env, config });
+// The status page shares nothing with the stacks above, so it serves while they are down.
+const replica = new PageReplicaStack(app, `galena-${config.stage}-page-replica`, {
+  env: inRegion(config.pageRegions.replica),
+  config,
+});
+const certificate = config.pageDomain
+  ? new PageCertificateStack(app, `galena-${config.stage}-page-certificate`, {
+      env: inRegion("us-east-1"),
+      domain: config.pageDomain,
+      crossRegionReferences: true,
+    }).certificate
+  : undefined;
+new StatusPageStack(app, `galena-${config.stage}-page`, {
+  env: inRegion(config.pageRegions.primary),
+  config,
+  ...(certificate ? { certificate } : {}),
+  crossRegionReferences: true,
+}).addStackDependency(replica);
 
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app, { verbose: true }));
