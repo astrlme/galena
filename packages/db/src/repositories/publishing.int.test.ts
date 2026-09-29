@@ -1,14 +1,25 @@
-import { componentId, monitorId, pageId, workspaceId } from "@galena/contracts";
+import {
+  componentId,
+  type IncidentStatus,
+  incidentId,
+  incidentUpdateId,
+  monitorId,
+  type PageId,
+  workspaceId,
+} from "@galena/contracts";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createDb, type Db } from "../client.ts";
 import { component, monitor, page, workspace } from "../schema/index.ts";
+import { incidentRepository } from "./incidents.ts";
 import {
   advancePageVersion,
+  ensurePage,
   listMonitorTransitions,
   listUptimeDays,
+  loadSnapshotInputs,
   nextSnapshotVersion,
   recordMonitorTransition,
   saveUptimeDays,
@@ -20,7 +31,7 @@ let close: (() => Promise<void>) | undefined;
 const acme = workspaceId.parse(v7());
 const web = componentId.parse(v7());
 const api = monitorId.parse(v7());
-const acmePage = pageId.parse(v7());
+let acmePage: PageId;
 
 beforeAll(async () => {
   container = await new PostgreSqlContainer("postgres:16-alpine").start();
@@ -29,7 +40,6 @@ beforeAll(async () => {
   close = client.close;
   await client.migrate();
   await db.insert(workspace).values({ id: acme, name: "Acme" });
-  await db.insert(page).values({ id: acmePage, workspaceId: acme, slug: "acme", name: "Acme" });
   await db.insert(component).values({ id: web, workspaceId: acme, name: "Web", position: 0 });
   await db.insert(monitor).values({
     id: api,
@@ -48,6 +58,13 @@ afterAll(async () => {
 });
 
 const at = (iso: string) => new Date(iso);
+
+test("the first publish creates the page from the workspace's name, then finds it", async () => {
+  const created = await ensurePage(db);
+  expect(created).toMatchObject({ workspaceId: acme, slug: "status", name: "Acme" });
+  acmePage = created?.id as PageId;
+  expect((await ensurePage(db))?.id).toBe(acmePage);
+});
 const stateOf = async () => {
   const [row] = await db
     .select({ state: monitor.state, seq: monitor.stateSeq })
@@ -125,4 +142,57 @@ test("saving a day's rollup again replaces its minutes", async () => {
   expect(await listUptimeDays(db, acme, "2026-09-29")).toEqual([
     { componentId: web, date: "2026-09-29", minutes: { operational: 690, major_outage: 30 } },
   ]);
+});
+
+test("loads open incidents with their updates and those resolved in the last 14 days", async () => {
+  const repo = incidentRepository(db);
+  const open = async (title: string, status: IncidentStatus, startedAt: Date) => {
+    const id = incidentId.parse(v7());
+    await repo.create(
+      {
+        id,
+        workspaceId: acme,
+        title,
+        impact: "minor",
+        visibility: "published",
+        source: "manual",
+        startedAt,
+      },
+      {
+        update: {
+          id: incidentUpdateId.parse(v7()),
+          status,
+          body: title,
+          createdAt: startedAt,
+          createdByUserId: null,
+        },
+        stage: { status, resolvedAt: status === "resolved" ? startedAt : null },
+        components: [{ componentId: web, status: "degraded_performance" }],
+      },
+    );
+    return id;
+  };
+  const now = at("2026-09-29T12:00:00Z");
+  const current = await open("Slow pages", "investigating", at("2026-09-29T11:00:00Z"));
+  const recent = await open("Errors last week", "resolved", at("2026-09-22T11:00:00Z"));
+  await open("Errors last month", "resolved", at("2026-09-01T11:00:00Z"));
+
+  const target = await ensurePage(db);
+  if (!target) throw new Error("no page");
+  const inputs = await loadSnapshotInputs(db, target, {
+    snapshotVersion: 9,
+    url: "https://status.example.com",
+    now,
+  });
+  expect(inputs.page).toEqual({ slug: "status", name: "Acme", url: "https://status.example.com" });
+  expect(inputs.components.map((c) => c.id)).toEqual([web]);
+  expect(inputs.monitors).toEqual([
+    { componentId: web, state: "up", downStatus: "major_outage", enabled: true },
+  ]);
+  expect(inputs.incidents.map((i) => i.id)).toEqual([current, recent]);
+  expect(inputs.incidents[0]).toMatchObject({
+    components: [{ componentId: web, status: "degraded_performance" }],
+    updates: [{ status: "investigating", body: "Slow pages" }],
+  });
+  expect(inputs.uptime.map((d) => d.date)).toEqual(["2026-09-28", "2026-09-29"]);
 });
