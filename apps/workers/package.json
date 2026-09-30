@@ -15,9 +15,12 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",
+    "@aws-sdk/client-sesv2": "^3.1143.0",
     "@galena/contracts": "workspace:*",
     "@galena/core": "workspace:*",
     "@galena/db": "workspace:*",
+    "@galena/emails": "workspace:*",
+    "@galena/integrations": "workspace:*",
     "@galena/publisher": "workspace:*",
     "@trigger.dev/sdk": "4.6.4",
     "uuid": "^14.0.2",

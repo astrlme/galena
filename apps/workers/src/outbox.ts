@@ -1,7 +1,7 @@
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import type { MonitorsFile, OutboxId } from "@galena/contracts";
+import { eventId, type MonitorsFile, type OutboxId, subscriberId } from "@galena/contracts";
 import { buildMonitorsFile, type Clock, isPageEvent } from "@galena/core";
 import {
   type Db,
@@ -11,6 +11,7 @@ import {
   markOutboxDispatched,
   nextSnapshotVersion,
 } from "@galena/db";
+import { z } from "zod";
 import { type LifecycleRuns, steerMaintenance } from "./maintenance.ts";
 
 const REWRITES_MONITORS_FILE = new Set([
@@ -27,7 +28,11 @@ export type DispatchDeps = {
   runs: LifecycleRuns;
   /** Starts `page.publish` for a version taken after the change committed. */
   publish: (version: number) => Promise<void>;
+  /** Starts `notify.email` with a subscriber's confirmation. */
+  confirm: (request: { eventId: string; subscriberId: string }) => Promise<void>;
 };
+
+const subscriberRequested = z.object({ id: eventId, data: z.object({ subscriberId }) });
 export type DispatchOutcome = "rolled_back" | "already_dispatched" | "dispatched";
 
 /**
@@ -51,6 +56,10 @@ export async function dispatchOutbox(id: OutboxId, deps: DispatchDeps): Promise<
     await deps.writeMonitorsFile(buildMonitorsFile(monitors, deps.clock, windows));
   }
   if (isPageEvent(eventType)) await deps.publish(await nextSnapshotVersion(deps.db));
+  if (eventType === "subscriber.requested") {
+    const { id, data } = subscriberRequested.parse(row.payload);
+    await deps.confirm({ eventId: id, subscriberId: data.subscriberId });
+  }
   const marked = await markOutboxDispatched(deps.db, id, deps.clock.now());
   return marked ? "dispatched" : "already_dispatched";
 }

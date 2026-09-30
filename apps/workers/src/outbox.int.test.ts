@@ -84,6 +84,9 @@ const noRuns = {
 /** The versions each dispatch asked `page.publish` for. */
 const published: number[] = [];
 const publish = async (version: number) => void published.push(version);
+const confirmations: { eventId: string; subscriberId: string }[] = [];
+const confirm = async (request: { eventId: string; subscriberId: string }) =>
+  void confirmations.push(request);
 
 /** Collects what would be written instead of writing it. */
 function collector() {
@@ -97,18 +100,18 @@ test("a monitor change rewrites monitors.json with the enabled monitors, then ma
   const id = await outboxRow("monitor.changed");
   const { files, writeMonitorsFile } = collector();
 
-  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish })).toBe(
-    "dispatched",
-  );
+  expect(
+    await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish, confirm }),
+  ).toBe("dispatched");
   expect(files).toHaveLength(1);
   expect(files[0]?.monitors.map((m) => m.http.url)).toEqual(["https://api.example.com/health"]);
   const row = await findOutboxRow(db, id);
   expect(row?.dispatchedAt?.toISOString()).toBe("2026-09-28T10:00:00.000Z");
 
   // A second run for the same row, e.g. the backstop, finds it done and writes nothing.
-  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish })).toBe(
-    "already_dispatched",
-  );
+  expect(
+    await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish, confirm }),
+  ).toBe("already_dispatched");
   expect(files).toHaveLength(1);
 });
 
@@ -116,7 +119,7 @@ test("a row whose transaction rolled back is skipped", async () => {
   const { files, writeMonitorsFile } = collector();
   const missing = outboxId.parse(v7());
   expect(
-    await dispatchOutbox(missing, { db, clock, writeMonitorsFile, runs: noRuns, publish }),
+    await dispatchOutbox(missing, { db, clock, writeMonitorsFile, runs: noRuns, publish, confirm }),
   ).toBe("rolled_back");
   expect(files).toHaveLength(0);
 });
@@ -126,9 +129,9 @@ test("a page event republishes the page with a newer version each time", async (
   const { files, writeMonitorsFile } = collector();
   for (const type of ["component.changed", "component_group.changed"]) {
     const id = await outboxRow(type);
-    expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish })).toBe(
-      "dispatched",
-    );
+    expect(
+      await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish, confirm }),
+    ).toBe("dispatched");
   }
   expect(files).toHaveLength(0);
   expect(published).toHaveLength(2);
@@ -139,9 +142,9 @@ test("other event types are only marked dispatched", async () => {
   published.length = 0;
   const id = await outboxRow("subscriber.confirmed");
   const { files, writeMonitorsFile } = collector();
-  expect(await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish })).toBe(
-    "dispatched",
-  );
+  expect(
+    await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish, confirm }),
+  ).toBe("dispatched");
   expect(files).toHaveLength(0);
   expect(published).toEqual([]);
 });
@@ -160,4 +163,28 @@ test("the local writer replaces monitors.json with a file the probes can parse",
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("a subscription request sends its confirmation, keyed by the event and subscriber", async () => {
+  const subscriber = v7();
+  const event = v7();
+  const id = await recordChange(db, {
+    workspaceId: acme,
+    actorUserId: null,
+    action: "subscriber.requested",
+    targetType: "subscriber",
+    targetId: subscriber,
+    event: {
+      id: event,
+      type: "subscriber.requested",
+      occurredAt: clock.now().toISOString(),
+      workspaceId: acme,
+      data: { subscriberId: subscriber },
+    } as never,
+  });
+  const { writeMonitorsFile } = collector();
+  expect(
+    await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish, confirm }),
+  ).toBe("dispatched");
+  expect(confirmations).toEqual([{ eventId: event, subscriberId: subscriber }]);
 });

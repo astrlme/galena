@@ -23,6 +23,16 @@ export const env = z
     GLN_PAGE_DIR: z.string().min(1).default(".local/pages"),
     /** Where readers find the page, for feed links. */
     GLN_PAGE_URL: z.url().default("http://localhost:4321"),
+    /** The app key (32 bytes, base64) the API also holds: signs links, seals credentials. */
+    GLN_APP_KEY: z.string().min(1).optional(),
+    /** Set in AWS stages: email goes through SES from this address. Unset: to GLN_MAIL_DIR. */
+    GLN_EMAIL_FROM: z.email().optional(),
+    GLN_SES_CONFIGURATION_SET: z.string().min(1).default("galena-dev"),
+    GLN_MAIL_DIR: z.string().min(1).default(".local/mail"),
+  })
+  .refine((e) => !e.GLN_DB_CLUSTER_ARN || e.GLN_APP_KEY, {
+    message: "Workers reaching the Data API need GLN_APP_KEY, the same app key the API reads.",
+    path: ["GLN_APP_KEY"],
   })
   .refine((e) => !e.GLN_DB_CLUSTER_ARN === !e.GLN_DB_SECRET_ARN, {
     message: "The Data API needs both GLN_DB_CLUSTER_ARN and GLN_DB_SECRET_ARN.",

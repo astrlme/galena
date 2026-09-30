@@ -37,6 +37,13 @@ export const outboxDispatch = task({
         },
       },
       publish: triggerPublish,
+      confirm: async ({ eventId, subscriberId }) => {
+        await tasks.trigger(
+          "notify.email",
+          { kind: "confirmation", subscriberId },
+          { idempotencyKey: `send:${eventId}:${subscriberId}` },
+        );
+      },
     });
     logger.info("outbox.dispatch", { outboxId: id, outcome });
     return { outcome };

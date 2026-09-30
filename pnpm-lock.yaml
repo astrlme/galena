@@ -292,6 +292,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1141.0
         version: 3.1141.0
+      '@aws-sdk/client-sesv2':
+        specifier: ^3.1143.0
+        version: 3.1143.0
       '@galena/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -301,6 +304,12 @@ importers:
       '@galena/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@galena/emails':
+        specifier: workspace:*
+        version: link:../../packages/emails
+      '@galena/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@galena/publisher':
         specifier: workspace:*
         version: link:../../packages/publisher
@@ -628,6 +637,10 @@ packages:
 
   '@aws-sdk/client-s3@3.1141.0':
     resolution: {integrity: sha512-uOVH37xGLenAdJkCPCin/JJG2PgWrFcSsDnQ9+C9Zq8N9Oalo5ol4xmn5fG28iWAlA/b/9boQZgHbMh+UsIhcg==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-sesv2@3.1143.0':
+    resolution: {integrity: sha512-OvjoC0oShCY59FYa454TTmhVM+iSQI6nO16BW1YGZuj+lu3esAUunQVWa0ousxD9/Fx68q3qtE3ApYlO4Dl7Fg==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-sqs@3.1141.0':
@@ -6203,6 +6216,18 @@ snapshots:
       '@smithy/types': 4.19.0
       tslib: 2.8.1
 
+  '@aws-sdk/client-sesv2@3.1143.0':
+    dependencies:
+      '@aws-sdk/core': 3.978.1
+      '@aws-sdk/credential-provider-node': 3.972.84
+      '@aws-sdk/signature-v4-multi-region': 3.996.47
+      '@aws-sdk/types': 3.974.6
+      '@smithy/core': 3.35.0
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/node-http-handler': 4.12.1
+      '@smithy/types': 4.19.0
+      tslib: 2.8.1
+
   '@aws-sdk/client-sqs@3.1141.0':
     dependencies:
       '@aws-sdk/core': 3.978.1
@@ -7197,7 +7222,7 @@ snapshots:
 
   '@kwsites/file-exists@1.1.1':
     dependencies:
-      debug: 4.4.3(supports-color@10.0.0)
+      debug: 4.4.3(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
 
@@ -7325,6 +7350,15 @@ snapshots:
       '@opentelemetry/api': 1.9.1
       systeminformation: 5.33.13
 
+  '@opentelemetry/instrumentation@0.219.0(@opentelemetry/api@1.9.1)':
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      '@opentelemetry/api-logs': 0.219.0
+      import-in-the-middle: 3.5.1
+      require-in-the-middle: 8.0.1
+    transitivePeerDependencies:
+      - supports-color
+
   '@opentelemetry/instrumentation@0.219.0(@opentelemetry/api@1.9.1)(supports-color@10.0.0)':
     dependencies:
       '@opentelemetry/api': 1.9.1
@@ -7339,7 +7373,7 @@ snapshots:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/api-logs': 0.220.0
       import-in-the-middle: 3.5.1
-      require-in-the-middle: 8.0.1(supports-color@10.0.0)
+      require-in-the-middle: 8.0.1
     transitivePeerDependencies:
       - supports-color
 
@@ -7674,6 +7708,13 @@ snapshots:
   '@rollup/rollup-darwin-arm64@4.63.5':
     optional: true
 
+  '@s2-dev/streamstore@0.25.0':
+    dependencies:
+      '@protobuf-ts/runtime': 2.11.1
+      debug: 4.4.3(supports-color@10.2.2)
+    transitivePeerDependencies:
+      - supports-color
+
   '@s2-dev/streamstore@0.25.0(supports-color@10.0.0)':
     dependencies:
       '@protobuf-ts/runtime': 2.11.1
@@ -7996,13 +8037,13 @@ snapshots:
       '@opentelemetry/exporter-metrics-otlp-http': 0.219.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/exporter-trace-otlp-http': 0.219.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/host-metrics': 0.38.3(@opentelemetry/api@1.9.1)
-      '@opentelemetry/instrumentation': 0.219.0(@opentelemetry/api@1.9.1)(supports-color@10.0.0)
+      '@opentelemetry/instrumentation': 0.219.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/resources': 2.8.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-logs': 0.219.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-metrics': 2.8.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-base': 2.8.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-node': 2.8.0(@opentelemetry/api@1.9.1)
-      '@s2-dev/streamstore': 0.25.0(supports-color@10.0.0)
+      '@s2-dev/streamstore': 0.25.0
       dequal: 2.0.3
       eventsource: 3.0.5
       eventsource-parser: 3.1.1
@@ -8010,7 +8051,7 @@ snapshots:
       jose: 5.4.0
       nanoid: 3.3.18
       prom-client: 15.1.3
-      socket.io-client: 4.7.5(supports-color@10.0.0)
+      socket.io-client: 4.7.5
       std-env: 3.8.1
       tinyexec: 0.3.2
       uncrypto: 0.1.3
@@ -8880,7 +8921,7 @@ snapshots:
 
   docker-modem@5.0.7:
     dependencies:
-      debug: 4.4.3(supports-color@10.0.0)
+      debug: 4.4.3(supports-color@10.2.2)
       readable-stream: 3.6.2
       split-ca: 1.0.1
       ssh2: 1.17.0
@@ -9644,7 +9685,7 @@ snapshots:
 
   lighthouse-logger@2.0.2:
     dependencies:
-      debug: 4.4.3(supports-color@10.0.0)
+      debug: 4.4.3(supports-color@10.2.2)
       marky: 1.3.0
     transitivePeerDependencies:
       - supports-color
@@ -10421,6 +10462,13 @@ snapshots:
 
   require-from-string@2.0.2: {}
 
+  require-in-the-middle@8.0.1:
+    dependencies:
+      debug: 4.4.3(supports-color@10.2.2)
+      module-details-from-path: 1.0.4
+    transitivePeerDependencies:
+      - supports-color
+
   require-in-the-middle@8.0.1(supports-color@10.0.0):
     dependencies:
       debug: 4.4.3(supports-color@10.0.0)
@@ -10652,6 +10700,17 @@ snapshots:
 
   smol-toml@1.9.0: {}
 
+  socket.io-client@4.7.5:
+    dependencies:
+      '@socket.io/component-emitter': 3.1.2
+      debug: 4.3.7(supports-color@10.0.0)
+      engine.io-client: 6.5.2(supports-color@10.0.0)
+      socket.io-parser: 4.2.7
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
   socket.io-client@4.7.5(supports-color@10.0.0):
     dependencies:
       '@socket.io/component-emitter': 3.1.2
@@ -10662,6 +10721,13 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
+
+  socket.io-parser@4.2.7:
+    dependencies:
+      '@socket.io/component-emitter': 3.1.2
+      debug: 4.4.3(supports-color@10.2.2)
+    transitivePeerDependencies:
+      - supports-color
 
   socket.io-parser@4.2.7(supports-color@10.0.0):
     dependencies:
@@ -10891,7 +10957,7 @@ snapshots:
       archiver: 7.0.1
       async-lock: 1.4.1
       byline: 5.0.0
-      debug: 4.4.3(supports-color@10.0.0)
+      debug: 4.4.3(supports-color@10.2.2)
       docker-compose: 1.5.0
       dockerode: 5.0.1
       get-port: 5.1.1
