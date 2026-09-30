@@ -54,6 +54,30 @@ test("dev sends as status@mail.astrl.me, and a from address must be at the domai
   expect(email).toEqual({ domain: "mail.astrl.me", from: "status@mail.astrl.me" });
 });
 
+test("bounces and complaints reach a Lambda that can use the Data API and nothing else", () => {
+  template.hasResourceProperties("AWS::SES::ConfigurationSetEventDestination", {
+    EventDestination: { MatchingEventTypes: ["bounce", "complaint"], Enabled: true },
+  });
+  template.hasResourceProperties("AWS::SNS::Subscription", { Protocol: "lambda" });
+  template.hasResourceProperties("AWS::Lambda::Function", {
+    Runtime: "nodejs24.x",
+    Architectures: ["arm64"],
+    Environment: { Variables: { GLN_STAGE: "dev", GLN_DB_NAME: "galena" } },
+  });
+  const actions = Object.values(template.findResources("AWS::IAM::Policy"))
+    .flatMap((p) => p.Properties.PolicyDocument.Statement)
+    .flatMap((s: { Action: string | string[] }) => [s.Action].flat())
+    .filter((a: string) => !a.startsWith("logs:"));
+  expect(actions.sort()).toEqual([
+    "rds-data:BatchExecuteStatement",
+    "rds-data:BeginTransaction",
+    "rds-data:CommitTransaction",
+    "rds-data:ExecuteStatement",
+    "rds-data:RollbackTransaction",
+    "secretsmanager:GetSecretValue",
+  ]);
+});
+
 test("passes cdk-nag AwsSolutions", () => {
   expect(() => app.synth()).not.toThrow();
 });

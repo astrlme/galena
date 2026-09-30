@@ -35,6 +35,7 @@ test("the workers may use the Data API, the database secret, monitors.json and t
     "s3:PutObject",
     "s3:PutObject",
     "secretsmanager:GetSecretValue",
+    "ses:SendEmail",
   ]);
   const s3 = statements.find((s) => s.Action === "s3:PutObject");
   expect(JSON.stringify(s3.Resource)).toContain("/monitors.json");
@@ -50,4 +51,12 @@ test("page files are the only wildcard, and only under pages/ in the page bucket
 
 test("passes cdk-nag AwsSolutions", () => {
   expect(() => app.synth()).not.toThrow();
+});
+
+test("the workers send email only as the stage's identity, through its configuration set", () => {
+  const ses = statements.find((s) => s.Action === "ses:SendEmail");
+  const resources = JSON.stringify(ses.Resource);
+  expect(resources).toContain(":identity/mail.astrl.me");
+  expect(resources).toContain(":configuration-set/galena-dev");
+  expect(ses.Resource).toHaveLength(2);
 });

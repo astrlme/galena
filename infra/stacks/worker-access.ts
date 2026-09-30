@@ -54,6 +54,26 @@ export class WorkerAccessStack extends Stack {
     ]) {
       this.user.addToPolicy(statement);
     }
+    // notify.email sends as the stage's identity, through its configuration set only.
+    if (props.config.email) {
+      this.user.addToPolicy(
+        new PolicyStatement({
+          actions: ["ses:SendEmail"],
+          resources: [
+            this.formatArn({
+              service: "ses",
+              resource: "identity",
+              resourceName: props.config.email.domain,
+            }),
+            this.formatArn({
+              service: "ses",
+              resource: "configuration-set",
+              resourceName: `galena-${stage}`,
+            }),
+          ],
+        }),
+      );
+    }
     const account = Token.isUnresolved(this.account) ? "<AWS::AccountId>" : this.account;
     for (const partition of ["aws", "<AWS::Partition>"]) {
       Validations.of(this.user).acknowledge({
