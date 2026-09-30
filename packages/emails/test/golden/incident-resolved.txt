@@ -1,0 +1,15 @@
+✓︎ Resolved: API
+
+Errors on <API> & webhooks
+
+Resolved. Major impact. Started 30 Sep 2026, 10:00 UTC. Resolved 30 Sep 2026, 10:45 UTC.
+
+Affected: API (Operational)
+
+API has worked normally since 10:40 UTC.
+
+Read the incident on Acme status: https://status.example.com/incidents/01920000-0000-7000-8000-000000000101/
+
+--
+
+You get these emails because you subscribed to updates from Acme status. Unsubscribe: https://status.example.com/public/unsubscribe?t=unsubscribe.x.1.sig

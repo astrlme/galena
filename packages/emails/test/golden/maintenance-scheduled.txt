@@ -1,0 +1,15 @@
+◌︎ Maintenance scheduled: Database upgrade
+
+Database upgrade
+
+Scheduled. 1 Oct 2026, 22:00 UTC to 23:00 UTC.
+
+Components: API
+
+Writes pause for up to 5 minutes.
+
+See Acme status: https://status.example.com/
+
+--
+
+You get these emails because you subscribed to updates from Acme status. Unsubscribe: https://status.example.com/public/unsubscribe?t=unsubscribe.x.1.sig

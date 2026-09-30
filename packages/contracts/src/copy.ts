@@ -16,6 +16,18 @@ export const componentStatusLabels: Record<ComponentStatus, string> = {
   under_maintenance: "Maintenance",
 };
 
+/**
+ * The state glyphs as text, for email subjects, plain text and chat. U+FE0E asks for the text
+ * form, so no client turns them into emoji.
+ */
+export const componentStatusSymbols: Record<ComponentStatus, string> = {
+  operational: "✓︎",
+  degraded_performance: "∿︎",
+  partial_outage: "▲︎",
+  major_outage: "✕︎",
+  under_maintenance: "◌︎",
+};
+
 export const pageIndicatorLabels: Record<PageIndicator, string> = {
   none: "All systems operational",
   minor: "Some systems degraded",
