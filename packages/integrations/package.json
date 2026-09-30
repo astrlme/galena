@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./config": "./src/config/monitors-file.ts",
-    "./net": "./src/net/index.ts"
+    "./net": "./src/net/index.ts",
+    "./secrets": "./src/secrets/keys.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
