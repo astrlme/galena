@@ -5,10 +5,12 @@ import {
   incidentUpdateId,
   maintenanceId,
   subscriberId,
+  webhookEndpointId,
   workspaceId,
 } from "@galena/contracts";
 import {
   createDb,
+  createEndpoint,
   type Db,
   incidentRepository,
   maintenanceRepository,
@@ -79,6 +81,7 @@ function pipeline() {
     fanOut(event, {
       db,
       url,
+      sendToEndpoints: async () => {},
       sendEmails: async (requests) => {
         for (const { subscriberId: id, notice } of requests) {
           await sendEmail(
@@ -171,4 +174,40 @@ test("a window is announced when scheduled, not again on every edit", async () =
   expect(await run(scheduled(2))).toEqual({ outcome: "not_notified" });
   expect(inbox.map((e) => e.to).sort()).toEqual(["everything@example.com", "webOnly@example.com"]);
   expect(inbox[0]?.subject).toBe("◌︎ Maintenance scheduled: Database upgrade");
+});
+
+test("endpoints following the event's components get one delivery each, like subscribers", async () => {
+  const everything = webhookEndpointId.parse(v7());
+  const webOnly = webhookEndpointId.parse(v7());
+  for (const [id, componentIds] of [
+    [everything, []],
+    [webOnly, [web]],
+  ] as const) {
+    await createEndpoint(db, {
+      id,
+      workspaceId: acme,
+      kind: "webhook",
+      name: id,
+      componentIds: [...componentIds],
+      urlSealed: "v1.a.b",
+      secretSealed: "v1.c.d",
+    });
+  }
+  const requested: string[] = [];
+  const event = await openIncident("published");
+  for (let i = 0; i < 2; i++) {
+    await fanOut(event, {
+      db,
+      url,
+      sendEmails: async () => {},
+      sendToEndpoints: async (requests) => {
+        requested.push(...requests.map((r) => `${r.kind}:${r.endpointId}`));
+      },
+    });
+  }
+  // Asked twice (the re-run), for the one endpoint that follows API; one delivery row.
+  expect(requested).toEqual([`webhook:${everything}`, `webhook:${everything}`]);
+  const rows = await db.select().from(schema.delivery);
+  expect(rows.filter((r) => r.endpointId === everything && r.eventId === event.id)).toHaveLength(1);
+  expect(rows.some((r) => r.endpointId === webOnly)).toBe(false);
 });

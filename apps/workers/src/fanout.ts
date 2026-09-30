@@ -1,4 +1,5 @@
 import {
+  type EndpointKind,
   eventId,
   incidentEventData,
   incidentEventTypes,
@@ -6,6 +7,7 @@ import {
   maintenanceEventTypes,
   type Notice,
   type SubscriberId,
+  type WebhookEndpointId,
   workspaceId,
 } from "@galena/contracts";
 import { audience, incidentNotice, maintenanceNotice, noticeKind, notifies } from "@galena/core";
@@ -15,6 +17,7 @@ import {
   ensurePage,
   incidentRepository,
   listActiveSubscribers,
+  listDeliverableEndpoints,
   maintenanceRepository,
   recordDeliveries,
   wasAnnounced,
@@ -49,6 +52,10 @@ export type FanoutDeps = {
   /** Starts one `notify.email` per subscriber, keyed `send:{eventId}:{subscriberId}`. */
   sendEmails: (
     requests: ReadonlyArray<{ subscriberId: SubscriberId; notice: Notice }>,
+  ) => Promise<void>;
+  /** Starts one `notify.slack` or `notify.webhook` per endpoint, `send:{eventId}:{endpointId}`. */
+  sendToEndpoints: (
+    requests: ReadonlyArray<{ endpointId: WebhookEndpointId; kind: EndpointKind; notice: Notice }>,
   ) => Promise<void>;
 };
 export type FanoutOutcome = "not_notified" | "gone" | "no_page" | "fanned_out";
@@ -99,15 +106,14 @@ export async function fanOut(
     notice = maintenanceNotice({ ...common, kind: noticeKind(event.type, true), window });
   }
 
-  const subscribers = audience(
-    notice.components.map((c) => c.id),
-    await listActiveSubscribers(deps.db, ws),
-  );
-  await recordDeliveries(
-    deps.db,
-    { workspaceId: ws, eventId: event.id, subjectId },
-    subscribers.map((s) => ({ subscriberId: s.id, channel: "email" as const })),
-  );
+  const components = notice.components.map((c) => c.id);
+  const subscribers = audience(components, await listActiveSubscribers(deps.db, ws));
+  const endpoints = audience(components, await listDeliverableEndpoints(deps.db, ws));
+  await recordDeliveries(deps.db, { workspaceId: ws, eventId: event.id, subjectId }, [
+    ...subscribers.map((s) => ({ subscriberId: s.id, channel: "email" as const })),
+    ...endpoints.map((e) => ({ endpointId: e.id, channel: e.kind })),
+  ]);
   await deps.sendEmails(subscribers.map((s) => ({ subscriberId: s.id, notice })));
-  return { outcome: "fanned_out", targets: subscribers.length };
+  await deps.sendToEndpoints(endpoints.map((e) => ({ endpointId: e.id, kind: e.kind, notice })));
+  return { outcome: "fanned_out", targets: subscribers.length + endpoints.length };
 }
