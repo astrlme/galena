@@ -87,6 +87,7 @@ const publish = async (version: number) => void published.push(version);
 const confirmations: { eventId: string; subscriberId: string }[] = [];
 const confirm = async (request: { eventId: string; subscriberId: string }) =>
   void confirmations.push(request);
+const fanOut = async () => {};
 
 /** Collects what would be written instead of writing it. */
 function collector() {
@@ -101,7 +102,15 @@ test("a monitor change rewrites monitors.json with the enabled monitors, then ma
   const { files, writeMonitorsFile } = collector();
 
   expect(
-    await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish, confirm }),
+    await dispatchOutbox(id, {
+      db,
+      clock,
+      writeMonitorsFile,
+      runs: noRuns,
+      publish,
+      confirm,
+      fanOut,
+    }),
   ).toBe("dispatched");
   expect(files).toHaveLength(1);
   expect(files[0]?.monitors.map((m) => m.http.url)).toEqual(["https://api.example.com/health"]);
@@ -110,7 +119,15 @@ test("a monitor change rewrites monitors.json with the enabled monitors, then ma
 
   // A second run for the same row, e.g. the backstop, finds it done and writes nothing.
   expect(
-    await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish, confirm }),
+    await dispatchOutbox(id, {
+      db,
+      clock,
+      writeMonitorsFile,
+      runs: noRuns,
+      publish,
+      confirm,
+      fanOut,
+    }),
   ).toBe("already_dispatched");
   expect(files).toHaveLength(1);
 });
@@ -119,7 +136,15 @@ test("a row whose transaction rolled back is skipped", async () => {
   const { files, writeMonitorsFile } = collector();
   const missing = outboxId.parse(v7());
   expect(
-    await dispatchOutbox(missing, { db, clock, writeMonitorsFile, runs: noRuns, publish, confirm }),
+    await dispatchOutbox(missing, {
+      db,
+      clock,
+      writeMonitorsFile,
+      runs: noRuns,
+      publish,
+      confirm,
+      fanOut,
+    }),
   ).toBe("rolled_back");
   expect(files).toHaveLength(0);
 });
@@ -130,7 +155,15 @@ test("a page event republishes the page with a newer version each time", async (
   for (const type of ["component.changed", "component_group.changed"]) {
     const id = await outboxRow(type);
     expect(
-      await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish, confirm }),
+      await dispatchOutbox(id, {
+        db,
+        clock,
+        writeMonitorsFile,
+        runs: noRuns,
+        publish,
+        confirm,
+        fanOut,
+      }),
     ).toBe("dispatched");
   }
   expect(files).toHaveLength(0);
@@ -143,7 +176,15 @@ test("other event types are only marked dispatched", async () => {
   const id = await outboxRow("subscriber.confirmed");
   const { files, writeMonitorsFile } = collector();
   expect(
-    await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish, confirm }),
+    await dispatchOutbox(id, {
+      db,
+      clock,
+      writeMonitorsFile,
+      runs: noRuns,
+      publish,
+      confirm,
+      fanOut,
+    }),
   ).toBe("dispatched");
   expect(files).toHaveLength(0);
   expect(published).toEqual([]);
@@ -184,7 +225,15 @@ test("a subscription request sends its confirmation, keyed by the event and subs
   });
   const { writeMonitorsFile } = collector();
   expect(
-    await dispatchOutbox(id, { db, clock, writeMonitorsFile, runs: noRuns, publish, confirm }),
+    await dispatchOutbox(id, {
+      db,
+      clock,
+      writeMonitorsFile,
+      runs: noRuns,
+      publish,
+      confirm,
+      fanOut,
+    }),
   ).toBe("dispatched");
   expect(confirmations).toEqual([{ eventId: event, subscriberId: subscriber }]);
 });

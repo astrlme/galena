@@ -44,6 +44,9 @@ export const outboxDispatch = task({
           { idempotencyKey: `send:${eventId}:${subscriberId}` },
         );
       },
+      fanOut: async (event) => {
+        await tasks.trigger("notify.fanout", event, { idempotencyKey: `fan:${event.id}` });
+      },
     });
     logger.info("outbox.dispatch", { outboxId: id, outcome });
     return { outcome };

@@ -161,6 +161,7 @@ test("dispatch starts a run per version, cancels the one it replaces, and a canc
       runs,
       publish: async () => {},
       confirm: async () => {},
+      fanOut: async () => {},
     };
     expect(await dispatchOutbox(id, deps)).toBe("dispatched");
   };

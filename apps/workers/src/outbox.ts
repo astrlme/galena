@@ -12,6 +12,7 @@ import {
   nextSnapshotVersion,
 } from "@galena/db";
 import { z } from "zod";
+import { type FanoutEvent, fanoutPayload, isNotifyEvent } from "./fanout.ts";
 import { type LifecycleRuns, steerMaintenance } from "./maintenance.ts";
 
 const REWRITES_MONITORS_FILE = new Set([
@@ -30,6 +31,8 @@ export type DispatchDeps = {
   publish: (version: number) => Promise<void>;
   /** Starts `notify.email` with a subscriber's confirmation. */
   confirm: (request: { eventId: string; subscriberId: string }) => Promise<void>;
+  /** Starts `notify.fanout` for an incident or maintenance event, keyed by its envelope id. */
+  fanOut: (event: FanoutEvent) => Promise<void>;
 };
 
 const subscriberRequested = z.object({ id: eventId, data: z.object({ subscriberId }) });
@@ -56,6 +59,7 @@ export async function dispatchOutbox(id: OutboxId, deps: DispatchDeps): Promise<
     await deps.writeMonitorsFile(buildMonitorsFile(monitors, deps.clock, windows));
   }
   if (isPageEvent(eventType)) await deps.publish(await nextSnapshotVersion(deps.db));
+  if (isNotifyEvent(eventType)) await deps.fanOut(fanoutPayload.parse(row.payload));
   if (eventType === "subscriber.requested") {
     const { id, data } = subscriberRequested.parse(row.payload);
     await deps.confirm({ eventId: id, subscriberId: data.subscriberId });
