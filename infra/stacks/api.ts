@@ -6,7 +6,7 @@ import {
   type ThrottleSettings,
 } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
-import { PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
+import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
@@ -15,6 +15,7 @@ import { Trigger } from "aws-cdk-lib/triggers";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
 import { bundling, source } from "./bundling.ts";
+import { dataApiAccess } from "./data-api.ts";
 
 /** apps/api on Lambda behind an HTTP API. */
 export class ApiStack extends Stack {
@@ -24,41 +25,7 @@ export class ApiStack extends Stack {
     super(scope, id, props);
 
     const { stage, probeRegions } = props.config;
-    // Foundation publishes these for anything outside it; reading them at deploy time keeps the
-    // stacks free of CloudFormation exports.
-    const clusterArn = StringParameter.valueForStringParameter(
-      this,
-      `/galena/${stage}/database-cluster-arn`,
-    );
-    const secretArn = StringParameter.valueForStringParameter(
-      this,
-      `/galena/${stage}/database-secret-arn`,
-    );
-    const database = {
-      GLN_DB_CLUSTER_ARN: clusterArn,
-      GLN_DB_SECRET_ARN: secretArn,
-      GLN_DB_NAME: "galena",
-    };
-    const dataApi = [
-      new PolicyStatement({
-        actions: [
-          "rds-data:ExecuteStatement",
-          "rds-data:BatchExecuteStatement",
-          "rds-data:BeginTransaction",
-          "rds-data:CommitTransaction",
-          "rds-data:RollbackTransaction",
-        ],
-        resources: [clusterArn],
-      }),
-      new PolicyStatement({ actions: ["secretsmanager:GetSecretValue"], resources: [secretArn] }),
-    ];
-    // Its own role that can only write its own logs, instead of AWSLambdaBasicExecutionRole.
-    const lambdaRole = (id: string, logGroup: LogGroup) => {
-      const role = new Role(this, id, { assumedBy: new ServicePrincipal("lambda.amazonaws.com") });
-      logGroup.grantWrite(role);
-      for (const statement of dataApi) role.addToPolicy(statement);
-      return role;
-    };
+    const { environment: database, role: lambdaRole } = dataApiAccess(this, stage);
 
     const logGroup = new LogGroup(this, "HandlerLogs", { retention: RetentionDays.ONE_MONTH });
     const role = lambdaRole("HandlerRole", logGroup);

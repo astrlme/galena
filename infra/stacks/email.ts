@@ -1,15 +1,24 @@
-import { CfnOutput, Stack, type StackProps } from "aws-cdk-lib";
+import { CfnOutput, Duration, Stack, type StackProps, Validations } from "aws-cdk-lib";
+import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
+import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import {
   ConfigurationSet,
   DkimIdentity,
   EasyDkimSigningKeyLength,
   EmailIdentity,
+  EmailSendingEvent,
+  EventDestination,
   Identity,
   MailFromBehaviorOnMxFailure,
   SuppressionReasons,
 } from "aws-cdk-lib/aws-ses";
+import { Topic } from "aws-cdk-lib/aws-sns";
+import { LambdaSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
+import { bundling, source } from "./bundling.ts";
+import { dataApiAccess } from "./data-api.ts";
 
 /**
  * The SES identity notification email is sent from. DNS lives at Cloudflare, so the records it
@@ -44,6 +53,34 @@ export class EmailStack extends Stack {
       // missing, SES falls back to its own MAIL FROM and DKIM alone still passes DMARC.
       mailFromDomain: mailFrom,
       mailFromBehaviorOnMxFailure: MailFromBehaviorOnMxFailure.USE_DEFAULT_VALUE,
+    });
+
+    // Bounces and complaints: SES → SNS → a small Lambda that suppresses the address.
+    const feedback = new Topic(this, "Feedback", { enforceSSL: true });
+    this.configurationSet.addEventDestination("Feedback", {
+      destination: EventDestination.snsTopic(feedback),
+      events: [EmailSendingEvent.BOUNCE, EmailSendingEvent.COMPLAINT],
+    });
+    const access = dataApiAccess(this, stage);
+    const logs = new LogGroup(this, "FeedbackLogs", { retention: RetentionDays.ONE_MONTH });
+    const handler = new NodejsFunction(this, "FeedbackHandler", {
+      entry: source("apps/api/src/ses-feedback.ts"),
+      handler: "handler",
+      runtime: Runtime.NODEJS_24_X,
+      architecture: Architecture.ARM_64,
+      memorySize: 256,
+      // The first statement after Aurora pauses waits ~15 s for it to resume.
+      timeout: Duration.seconds(60),
+      role: access.role("FeedbackRole", logs),
+      logGroup: logs,
+      environment: { GLN_STAGE: stage, ...access.environment },
+      bundling,
+    });
+    feedback.addSubscription(new LambdaSubscription(handler));
+    Validations.of(feedback).acknowledge({
+      id: "AwsSolutions-SNS2",
+      reason:
+        "SES can publish only to topics under a customer-managed key, which costs more than this budget; each message lives seconds, in transit over TLS only.",
     });
 
     this.identity.dkimRecords.forEach((record, i) => {
