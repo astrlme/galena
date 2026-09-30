@@ -11,13 +11,16 @@ import { Field } from "./field.tsx";
 export function ConfirmDelete({
   kind,
   name,
+  noun,
   consequence,
   verb = "Delete",
   onConfirm,
   onClose,
 }: {
-  kind: "component" | "group" | "monitor" | "window";
+  kind: "component" | "group" | "monitor" | "window" | "destination" | "subscriber";
   name: string;
+  /** What to type, when it isn't "the {kind} name". */
+  noun?: string;
   consequence: string;
   /** The action's own word, kept from the button that opened the dialog. */
   verb?: "Delete" | "Cancel";
@@ -50,7 +53,7 @@ export function ConfirmDelete({
       >
         <Field
           id={`confirm-${kind}`}
-          label={`Type the ${kind} name`}
+          label={`Type the ${noun ?? `${kind} name`}`}
           help={`Enter “${name}” to confirm.`}
           value={typed}
           onChange={(event) => setTyped(event.target.value)}
