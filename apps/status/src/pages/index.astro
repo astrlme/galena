@@ -100,9 +100,33 @@ const windows = [...s.maintenance.active, ...s.maintenance.upcoming];
       </ol>
     )}
   </section>
+
+  <section id="subscribe" aria-labelledby="subscribe-title">
+    <h2 id="subscribe-title">Get updates by email</h2>
+    <form class="subscribe" method="post" action="/public/subscribe" data-subscribe>
+      <label for="subscribe-email">Email address</label>
+      <div class="subscribe-row">
+        <input id="subscribe-email" name="email" type="email" autocomplete="email" required />
+        <button type="submit">Subscribe</button>
+      </div>
+      {s.components.length > 1 && (
+        <details>
+          <summary>Only some components</summary>
+          <fieldset>
+            <legend class="sr-only">Components to hear about</legend>
+            {s.components.map((c) => (
+              <label class="choice"><input type="checkbox" name="component" value={c.id} />{c.name}</label>
+            ))}
+          </fieldset>
+        </details>
+      )}
+      <p class="secondary" data-subscribe-status role="status">We'll email a link to confirm. Every email has a one-click unsubscribe.</p>
+    </form>
+  </section>
 </Page>
 
 <script>
   import "../scripts/live.ts";
   import "../scripts/strip.ts";
+  import "../scripts/subscribe.ts";
 </script>

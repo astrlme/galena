@@ -1,0 +1,36 @@
+---
+import type { GetStaticPaths } from "astro";
+import Page from "../../layouts/Page.astro";
+import { readSnapshot } from "../../lib/snapshot.ts";
+import { type SubscriptionState, subscriptionPages } from "../../lib/subscription.ts";
+
+export const getStaticPaths = (() =>
+  Object.keys(subscriptionPages).map((state) => ({ params: { state } }))) satisfies GetStaticPaths;
+
+const state = Astro.params.state as SubscriptionState;
+const { title, text } = subscriptionPages[state];
+const s = readSnapshot();
+---
+
+<Page title={`${title}: ${s.page.name} status`} description={title} pageName={s.page.name}>
+  <h1 class="headline hero">{title}</h1>
+  {state === "unsubscribe" ? (
+    <>
+      <p>Stop email from {s.page.name} status?</p>
+      <form class="subscribe" method="post" action="/public/unsubscribe" data-unsubscribe>
+        <input type="hidden" name="t" />
+        <button type="submit">Unsubscribe</button>
+      </form>
+      <noscript><p class="secondary">This page needs JavaScript to read your link. The Unsubscribe button in your mail app works without it.</p></noscript>
+    </>
+  ) : (
+    <p>{text}</p>
+  )}
+</Page>
+
+<script>
+  // The token is in the link from the email; the form posts it, so opening the page (or a mail
+  // scanner following the link) unsubscribes nobody.
+  const input = document.querySelector<HTMLInputElement>("[data-unsubscribe] input[name=t]");
+  if (input) input.value = new URLSearchParams(location.search).get("t") ?? "";
+</script>
