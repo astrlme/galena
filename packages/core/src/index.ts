@@ -7,6 +7,8 @@ export * from "./incidents/lifecycle.ts";
 export * from "./incidents/templates.ts";
 export * from "./maintenance/lifecycle.ts";
 export * from "./monitors/monitors-file.ts";
+export * from "./notifications/audience.ts";
+export * from "./notifications/subscriber.ts";
 export * from "./ports.ts";
 export * from "./publishing/snapshot.ts";
 export * from "./publishing/uptime.ts";
