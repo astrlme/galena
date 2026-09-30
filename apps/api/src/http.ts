@@ -20,6 +20,8 @@ export type Deps = {
   targets: Guard;
   /** Keys derived from the deployment's app key: sealing, link tokens, keyed hashes. */
   keys: AppKeys;
+  /** The dashboard's origin, where the API also answers. */
+  publicUrl: string;
 };
 export type Member = { userId: string; email: string; role: MemberRole; workspaceId: WorkspaceId };
 export type Env = { Variables: { member: Member } };

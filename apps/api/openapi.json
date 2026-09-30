@@ -2877,6 +2877,346 @@
           }
         }
       }
+    },
+    "/v1/webhook-endpoints": {
+      "get": {
+        "summary": "Slack and webhook endpoints, oldest first",
+        "responses": {
+          "200": {
+            "description": "Endpoints, without their URLs or secrets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "slack",
+                          "webhook"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "active",
+                          "failing",
+                          "disabled"
+                        ]
+                      },
+                      "componentIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "failingSince": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "date-time"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "name",
+                      "state",
+                      "componentIds",
+                      "failingSince",
+                      "createdAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add a Slack incoming webhook or an outgoing webhook",
+        "description": "An outgoing webhook's signing secret is in this answer only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "slack",
+                      "webhook"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "format": "uri"
+                  },
+                  "componentIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "maxItems": 100,
+                    "default": []
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name",
+                  "url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The endpoint, and a webhook's signing secret",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "endpoint": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "slack",
+                            "webhook"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "failing",
+                            "disabled"
+                          ]
+                        },
+                        "componentIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "failingSince": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "name",
+                        "state",
+                        "componentIds",
+                        "failingSince",
+                        "createdAt"
+                      ]
+                    },
+                    "secret": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "endpoint",
+                    "secret"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhook-endpoints/{id}": {
+      "delete": {
+        "summary": "Remove an endpoint",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done"
+          }
+        }
+      }
+    },
+    "/v1/webhook-endpoints/{id}/test": {
+      "post": {
+        "summary": "Send a test message",
+        "description": "Posts a sample notice now and says what the endpoint answered.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the endpoint answered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "status",
+                    "detail"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/subscribers": {
+      "get": {
+        "summary": "Email subscribers, newest first",
+        "responses": {
+          "200": {
+            "description": "Subscribers, with masked addresses",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "pending_confirmation",
+                          "active",
+                          "unsubscribed",
+                          "suppressed"
+                        ]
+                      },
+                      "componentIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "email",
+                      "state",
+                      "componentIds",
+                      "createdAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/subscribers/{id}": {
+      "delete": {
+        "summary": "Remove a subscriber",
+        "description": "Deletes the address; it can subscribe again, even after a bounce.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done"
+          }
+        }
+      }
     }
   },
   "webhooks": {}
