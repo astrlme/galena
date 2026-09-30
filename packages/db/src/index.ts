@@ -4,6 +4,21 @@ export { componentGroupRepository, componentRepository } from "./repositories/co
 export { incidentRepository } from "./repositories/incidents.ts";
 export { maintenanceRepository } from "./repositories/maintenance.ts";
 export { listEnabledMonitors, monitorRepository } from "./repositories/monitors.ts";
+export {
+  countSubscribersFromIp,
+  type DeliveryTarget,
+  findDelivery,
+  findSubscriber,
+  findSubscriberByEmail,
+  listActiveSubscribers,
+  recordDeliveries,
+  type SubscriberRow,
+  saveSubscriber,
+  setSubscriberState,
+  settleDelivery,
+  suppressSubscriber,
+  wasAnnounced,
+} from "./repositories/notifications.ts";
 export { findOutboxRow, markOutboxDispatched } from "./repositories/outbox.ts";
 export {
   advancePageVersion,
