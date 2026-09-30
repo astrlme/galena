@@ -9,6 +9,7 @@ import { registerComponentRoutes } from "./routes/components.ts";
 import { registerIncidentRoutes } from "./routes/incidents.ts";
 import { registerMaintenanceRoutes } from "./routes/maintenance.ts";
 import { registerMonitorRoutes } from "./routes/monitors.ts";
+import { registerNotificationRoutes } from "./routes/notifications.ts";
 import { registerPublicRoutes } from "./routes/public.ts";
 
 export { type Deps, problemResponse, requireRole } from "./http.ts";
@@ -163,6 +164,7 @@ export function createApp(deps: Deps) {
   registerMonitorRoutes(app, deps);
   registerIncidentRoutes(app, deps);
   registerMaintenanceRoutes(app, deps);
+  registerNotificationRoutes(app, deps);
   registerPublicRoutes(app, deps);
 
   app.doc31("/openapi.json", openApiConfig);

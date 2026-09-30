@@ -93,6 +93,7 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     telemetry,
     targets: targetGuard(env.GLN_STAGE, env.GLN_ALLOW_LOOPBACK),
     keys: appKeys(appKey),
+    publicUrl: baseURL,
     close,
   };
 }

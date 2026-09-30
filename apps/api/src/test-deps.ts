@@ -47,6 +47,7 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
       telemetry,
       targets: guard,
       keys: appKeys(LOCAL_APP_KEY),
+      publicUrl: TEST_BASE_URL,
     } satisfies Deps,
     triggered,
     readings,

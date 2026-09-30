@@ -12,7 +12,7 @@ import {
   type WebhookEndpointId,
   type WorkspaceId,
 } from "@galena/contracts";
-import { and, asc, count, eq, gte, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNull, ne, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import type { Db } from "../client.ts";
 import { delivery, subscriber, webhookEndpoint } from "../schema/index.ts";
@@ -282,4 +282,26 @@ export async function markEndpointActive(db: Db, id: WebhookEndpointId): Promise
     .update(webhookEndpoint)
     .set({ state: "active", failingSince: null })
     .where(and(eq(webhookEndpoint.id, id), sql`${webhookEndpoint.state}::text = 'failing'`));
+}
+
+/** For the dashboard: newest first. Known limit: the first 500; paginate when lists grow. */
+export function listSubscribers(db: Db, workspaceId: WorkspaceId) {
+  return db
+    .select({ ...subscriberColumns, createdAt: subscriber.createdAt })
+    .from(subscriber)
+    .where(eq(subscriber.workspaceId, workspaceId))
+    .orderBy(desc(subscriber.createdAt), desc(subscriber.id))
+    .limit(500);
+}
+
+export async function deleteSubscriber(
+  db: Db,
+  workspaceId: WorkspaceId,
+  id: SubscriberId,
+): Promise<boolean> {
+  const rows = await db
+    .delete(subscriber)
+    .where(and(eq(subscriber.workspaceId, workspaceId), eq(subscriber.id, id)))
+    .returning({ id: subscriber.id });
+  return rows.length === 1;
 }
