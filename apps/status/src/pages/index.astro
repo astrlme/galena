@@ -62,6 +62,7 @@ const windows = [...s.maintenance.active, ...s.maintenance.upcoming];
 
   <section aria-labelledby="components">
     <h2 id="components">Components</h2>
+    {s.components.length === 0 && <p class="secondary">No components yet.</p>}
     {[{ id: "ungrouped", name: "", components: ungrouped }, ...groups].map((group) => (
       <div class="group">
         {group.name && <h3>{group.name}</h3>}
