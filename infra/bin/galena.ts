@@ -4,6 +4,7 @@ import { stageConfig } from "../config/stages.ts";
 import { ApiStack } from "../stacks/api.ts";
 import { CiAccessStack } from "../stacks/ci-access.ts";
 import { DetectionStack } from "../stacks/detection.ts";
+import { EmailStack } from "../stacks/email.ts";
 import { FoundationStack } from "../stacks/foundation.ts";
 import { ProbeStack } from "../stacks/probe.ts";
 import { SmokeStack } from "../stacks/smoke.ts";
@@ -40,6 +41,12 @@ if (config.stage === "dev") new SmokeStack(app, `galena-${config.stage}-smoke`, 
 const api = new ApiStack(app, `galena-${config.stage}-api`, { env, config });
 new WebStack(app, `galena-${config.stage}-web`, { env, config, api: api.api });
 new WorkerAccessStack(app, `galena-${config.stage}-worker-access`, { env, config });
+if (config.email) {
+  new EmailStack(app, `galena-${config.stage}-email`, {
+    env,
+    config: { ...config, email: config.email },
+  });
+}
 // The status page shares nothing with the stacks above, so it serves while they are down.
 const replica = new PageReplicaStack(app, `galena-${config.stage}-page-replica`, {
   env: inRegion(config.pageRegions.replica),

@@ -14,6 +14,15 @@ export const stageSchema = z
       .string()
       .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)
       .optional(),
+    // Where notification email comes from: an SES identity for `domain`, verified by DKIM
+    // CNAMEs at the DNS host, sending as `from`.
+    email: z
+      .object({ domain: z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/), from: z.email() })
+      .refine(
+        ({ domain, from }) => from.endsWith(`@${domain}`),
+        "from must be an address at domain",
+      )
+      .optional(),
     github: z.object({
       repository: z.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
       // The `sub` prefix in GitHub's OIDC tokens. Newer repositories use the immutable form with
@@ -57,6 +66,7 @@ export const stages = {
     ...common,
     stage: "dev",
     pageDomain: "status.astrl.me",
+    email: { domain: "mail.astrl.me", from: "status@mail.astrl.me" },
     telemetryCapacity: { read: 5, write: 5 },
     auroraMaxAcu: 2,
   }),
