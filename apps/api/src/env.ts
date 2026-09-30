@@ -35,6 +35,10 @@ export const env = z
     // The trigger.dev secret key: from the env locally, from this SecureString in AWS. Without
     // it, changes stay in the outbox undispatched.
     TRIGGER_SECRET_KEY: z.string().min(1).optional(),
+    // 32 random bytes, base64: seals stored credentials and signs subscription links. From the
+    // env or this SecureString; local development falls back to a fixed development key.
+    GLN_APP_KEY: z.string().min(1).optional(),
+    GLN_APP_KEY_PARAM: z.string().startsWith("/").optional(),
     GLN_TRIGGER_SECRET_PARAM: z.string().startsWith("/").optional(),
   })
   .refine((e) => !e.GLN_DB_CLUSTER_ARN || (e.GLN_DB_SECRET_ARN && e.AWS_REGION), {

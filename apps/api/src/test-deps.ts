@@ -3,6 +3,7 @@ import type { MonitorId } from "@galena/contracts";
 import type { WorkflowEngine } from "@galena/core";
 import { createDb } from "@galena/db";
 import { guard } from "@galena/integrations/net";
+import { appKeys, LOCAL_APP_KEY } from "@galena/integrations/secrets";
 import type { Deps } from "./app.ts";
 import { createAuth } from "./auth.ts";
 import type { MonitorReading, Telemetry } from "./telemetry.ts";
@@ -39,7 +40,14 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
     },
   };
   return {
-    deps: { db, auth, engine, telemetry, targets: guard } satisfies Deps,
+    deps: {
+      db,
+      auth,
+      engine,
+      telemetry,
+      targets: guard,
+      keys: appKeys(LOCAL_APP_KEY),
+    } satisfies Deps,
     triggered,
     readings,
     migrate,

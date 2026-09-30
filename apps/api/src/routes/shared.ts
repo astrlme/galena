@@ -1,4 +1,4 @@
-import { type ChangeAction, eventId } from "@galena/contracts";
+import { type ChangeAction, eventId, type OutboxId } from "@galena/contracts";
 import { type Change, type Db, recordChange } from "@galena/db";
 import type { z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
@@ -73,6 +73,11 @@ export async function commit(deps: Deps, change: Change, write: (tx: Db) => Prom
     await write(tx);
     return recordChange(tx, change);
   });
+  await dispatch(deps, outboxId);
+}
+
+/** Hands a committed outbox row to the dispatcher; if trigger.dev is unreachable it stays pending. */
+export async function dispatch(deps: Deps, outboxId: OutboxId) {
   try {
     await deps.engine.trigger(
       "outbox.dispatch",
