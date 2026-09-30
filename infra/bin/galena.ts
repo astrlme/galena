@@ -62,6 +62,7 @@ const certificate = config.pageDomain
 new StatusPageStack(app, `galena-${config.stage}-page`, {
   env: inRegion(config.pageRegions.primary),
   config,
+  apiEndpoint: api.api.apiEndpoint,
   ...(certificate ? { certificate } : {}),
   crossRegionReferences: true,
 }).addStackDependency(replica);

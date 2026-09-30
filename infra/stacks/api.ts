@@ -75,15 +75,16 @@ export class ApiStack extends Stack {
         ],
       }),
     );
-    // The auth secret and the trigger.dev secret key are SecureStrings made once outside
-    // CloudFormation; the Web stack writes the public URL. All are read at cold start.
+    // The auth secret, the trigger.dev secret key and the app key are SecureStrings made once
+    // outside CloudFormation; the Web stack writes the public URL. All are read at cold start.
     const authSecret = `/galena/${stage}/auth-secret`;
     const triggerSecret = `/galena/${stage}/trigger-secret-key`;
+    const appKey = `/galena/${stage}/app-key`;
     const publicUrl = `/galena/${stage}/public-url`;
     role.addToPolicy(
       new PolicyStatement({
         actions: ["ssm:GetParameter"],
-        resources: [authSecret, triggerSecret, publicUrl].map((name) =>
+        resources: [authSecret, triggerSecret, appKey, publicUrl].map((name) =>
           this.formatArn({ service: "ssm", resource: "parameter", resourceName: name.slice(1) }),
         ),
       }),
@@ -104,6 +105,7 @@ export class ApiStack extends Stack {
         ...database,
         GLN_AUTH_SECRET_PARAM: authSecret,
         GLN_TRIGGER_SECRET_PARAM: triggerSecret,
+        GLN_APP_KEY_PARAM: appKey,
         GLN_PUBLIC_URL_PARAM: publicUrl,
         GLN_TELEMETRY_TABLE: telemetryTable,
         GLN_PROBE_REGIONS: probeRegions.join(","),

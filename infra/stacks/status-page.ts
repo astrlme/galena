@@ -1,6 +1,7 @@
 import {
   CfnOutput,
   Duration,
+  Fn,
   RemovalPolicy,
   Stack,
   type StackProps,
@@ -13,6 +14,7 @@ import {
   type ICertificate,
 } from "aws-cdk-lib/aws-certificatemanager";
 import {
+  AllowedMethods,
   CachePolicy,
   Function as CloudFrontFunction,
   Distribution,
@@ -21,11 +23,15 @@ import {
   FunctionRuntime,
   HeadersFrameOption,
   HeadersReferrerPolicy,
+  OriginRequestCookieBehavior,
+  OriginRequestHeaderBehavior,
+  OriginRequestPolicy,
+  OriginRequestQueryStringBehavior,
   ResponseHeadersPolicy,
   SecurityPolicyProtocol,
   ViewerProtocolPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
-import { OriginGroup, S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
+import { HttpOrigin, OriginGroup, S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
 import { PolicyStatement, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import {
   BlockPublicAccess,
@@ -102,13 +108,19 @@ export class PageCertificateStack extends Stack {
 /**
  * The public status page: S3 in the primary page region, replicated to the replica region, behind
  * CloudFront, which fails over to the replica when the primary answers 403 or 5xx. Nothing here
- * calls the API, the database or trigger.dev.
+ * calls the API, the database or trigger.dev; only the subscription forms under /public/* go
+ * to the API.
  */
 export class StatusPageStack extends Stack {
   constructor(
     scope: Construct,
     id: string,
-    props: StackProps & { config: StageConfig; certificate?: ICertificate },
+    props: StackProps & {
+      config: StageConfig;
+      certificate?: ICertificate;
+      /** The HTTP API's endpoint (https://…): the subscription forms post to it. */
+      apiEndpoint: string;
+    },
   ) {
     super(scope, id, props);
     const { config, certificate } = props;
@@ -125,7 +137,8 @@ export class StatusPageStack extends Stack {
         // Scripts and styles are pinned by hash in the page's own CSP; what a meta tag can't
         // say goes here.
         contentSecurityPolicy: {
-          contentSecurityPolicy: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+          contentSecurityPolicy:
+            "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'",
           override: true,
         },
         strictTransportSecurity: {
@@ -140,6 +153,18 @@ export class StatusPageStack extends Stack {
           override: true,
         },
       },
+    });
+    // The subscription forms, on the page's own origin so they need no CORS. Only what the API
+    // uses crosses: the visitor's address for the per-network limit, the form's type, the query.
+    const forms = new OriginRequestPolicy(this, "Forms", {
+      comment: "Status page subscription forms",
+      headerBehavior: OriginRequestHeaderBehavior.allowList(
+        "CloudFront-Viewer-Address",
+        "Content-Type",
+        "Accept",
+      ),
+      queryStringBehavior: OriginRequestQueryStringBehavior.all(),
+      cookieBehavior: OriginRequestCookieBehavior.none(),
     });
     const distribution = new Distribution(this, "Distribution", {
       comment: `Galena ${config.stage} status page`,
@@ -170,6 +195,16 @@ export class StatusPageStack extends Stack {
             }),
           },
         ],
+      },
+      additionalBehaviors: {
+        "/public/*": {
+          origin: new HttpOrigin(Fn.select(2, Fn.split("/", props.apiEndpoint))),
+          viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+          allowedMethods: AllowedMethods.ALLOW_ALL,
+          cachePolicy: CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: forms,
+          responseHeadersPolicy: headers,
+        },
       },
     });
 
