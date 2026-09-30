@@ -4,6 +4,6 @@ export const sections = [
   { slug: "maintenance", title: "Maintenance", built: true },
   { slug: "monitors", title: "Monitors", built: true },
   { slug: "components", title: "Components", built: true },
-  { slug: "subscribers", title: "Subscribers", built: false },
+  { slug: "subscribers", title: "Subscribers", built: true },
   { slug: "settings", title: "Settings", built: false },
 ] as const;
