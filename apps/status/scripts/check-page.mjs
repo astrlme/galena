@@ -90,6 +90,7 @@ try {
         "",
         "history/",
         ...readdirSync("dist/incidents").map((id) => `incidents/${id}/`),
+        ...readdirSync("dist/subscription").map((state) => `subscription/${state}/`),
       ]) {
         const context = await browser.newContext({ colorScheme: scheme });
         const page = await context.newPage();

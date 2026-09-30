@@ -293,3 +293,60 @@ footer {
   margin-top: 8px;
   font-weight: 600;
 }
+
+/* Subscribing */
+.brand {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.subscribe {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.subscribe-row {
+  display: flex;
+  gap: 8px;
+}
+.subscribe input[type="email"] {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--ash);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+/* The one primary action on the page, inverted. */
+.subscribe button {
+  font: inherit;
+  font-weight: 600;
+  color: var(--paper);
+  background: var(--ink);
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.subscribe button[disabled] {
+  cursor: default;
+}
+.subscribe fieldset {
+  border: 0;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.choice {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.subscribe summary {
+  cursor: pointer;
+}
