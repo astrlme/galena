@@ -12,7 +12,8 @@
       "!apps/api/openapi.json",
       "!apps/web/src/lib/api-schema.ts",
       "!packages/publisher/test/golden",
-      "!packages/emails/test/golden"
+      "!packages/emails/test/golden",
+      "!packages/integrations/test/golden"
     ]
   },
   "formatter": {
