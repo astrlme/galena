@@ -1,15 +1,30 @@
-import { componentId, eventId, incidentId, subscriberId, workspaceId } from "@galena/contracts";
+import {
+  componentId,
+  eventId,
+  incidentId,
+  subscriberId,
+  webhookEndpointId,
+  workspaceId,
+} from "@galena/contracts";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import { eq } from "drizzle-orm";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createDb, type Db } from "../client.ts";
-import { workspace } from "../schema/index.ts";
+import { webhookEndpoint, workspace } from "../schema/index.ts";
 import {
   countSubscribersFromIp,
+  createEndpoint,
+  deleteEndpoint,
   findDelivery,
+  findEndpointForSend,
   findSubscriber,
   findSubscriberByEmail,
   listActiveSubscribers,
+  listDeliverableEndpoints,
+  listEndpoints,
+  markEndpointActive,
+  markEndpointFailing,
   recordDeliveries,
   saveSubscriber,
   setSubscriberState,
@@ -109,4 +124,54 @@ test("a delivery names exactly one target", async () => {
     subjectId: incidentId.parse(v7()),
   };
   await expect(recordDeliveries(db, event, [{ channel: "email" } as never])).rejects.toThrow();
+});
+
+test("endpoints list without their secrets, fail from the first time, and recover", async () => {
+  const slack = webhookEndpointId.parse(v7());
+  const hook = webhookEndpointId.parse(v7());
+  await createEndpoint(db, {
+    id: slack,
+    workspaceId: acme,
+    kind: "slack",
+    name: "#status",
+    componentIds: [],
+    urlSealed: "v1.a.b",
+    secretSealed: null,
+  });
+  await createEndpoint(db, {
+    id: hook,
+    workspaceId: acme,
+    kind: "webhook",
+    name: "Ops",
+    componentIds: [api],
+    urlSealed: "v1.c.d",
+    secretSealed: "v1.e.f",
+  });
+
+  const listed = await listEndpoints(db, acme);
+  expect(listed.map((e) => e.name)).toEqual(["#status", "Ops"]);
+  expect(JSON.stringify(listed)).not.toContain("v1.");
+  expect(await findEndpointForSend(db, hook)).toMatchObject({
+    urlSealed: "v1.c.d",
+    secretSealed: "v1.e.f",
+  });
+
+  const first = new Date("2026-09-30T12:00:00Z");
+  await markEndpointFailing(db, hook, first);
+  await markEndpointFailing(db, hook, new Date("2026-09-30T13:00:00Z"));
+  expect(listed.find((e) => e.id === hook)?.state).toBe("active");
+  expect((await listEndpoints(db, acme)).find((e) => e.id === hook)).toMatchObject({
+    state: "failing",
+    failingSince: first,
+  });
+  await markEndpointActive(db, hook);
+  expect((await listEndpoints(db, acme)).find((e) => e.id === hook)).toMatchObject({
+    state: "active",
+    failingSince: null,
+  });
+
+  await db.update(webhookEndpoint).set({ state: "disabled" }).where(eq(webhookEndpoint.id, slack));
+  expect((await listDeliverableEndpoints(db, acme)).map((e) => e.id)).toEqual([hook]);
+  expect(await deleteEndpoint(db, workspaceId.parse(v7()), hook)).toBe(false);
+  expect(await deleteEndpoint(db, acme, hook)).toBe(true);
 });

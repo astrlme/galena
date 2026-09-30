@@ -4,16 +4,18 @@ import {
   type DeliveryId,
   type DeliveryStatus,
   deliveryId,
+  type EndpointKind,
+  type EndpointState,
   type EventId,
   type SubscriberId,
   type SubscriberState,
   type WebhookEndpointId,
   type WorkspaceId,
 } from "@galena/contracts";
-import { and, count, eq, gte, ne, sql } from "drizzle-orm";
+import { and, asc, count, eq, gte, isNull, ne, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import type { Db } from "../client.ts";
-import { delivery, subscriber } from "../schema/index.ts";
+import { delivery, subscriber, webhookEndpoint } from "../schema/index.ts";
 
 const subscriberColumns = {
   id: subscriber.id,
@@ -180,4 +182,104 @@ export async function wasAnnounced(
     )
     .limit(1);
   return row !== undefined;
+}
+
+const endpointColumns = {
+  id: webhookEndpoint.id,
+  workspaceId: webhookEndpoint.workspaceId,
+  kind: webhookEndpoint.kind,
+  name: webhookEndpoint.name,
+  state: webhookEndpoint.state,
+  componentIds: webhookEndpoint.componentIds,
+  failingSince: webhookEndpoint.failingSince,
+  createdAt: webhookEndpoint.createdAt,
+};
+/** An endpoint as members see it: never its URL or secret. */
+export type EndpointRow = {
+  id: WebhookEndpointId;
+  workspaceId: WorkspaceId;
+  kind: EndpointKind;
+  name: string;
+  state: EndpointState;
+  componentIds: ComponentId[];
+  failingSince: Date | null;
+  createdAt: Date;
+};
+
+export function listEndpoints(db: Db, workspaceId: WorkspaceId): Promise<EndpointRow[]> {
+  return db
+    .select(endpointColumns)
+    .from(webhookEndpoint)
+    .where(eq(webhookEndpoint.workspaceId, workspaceId))
+    .orderBy(asc(webhookEndpoint.createdAt), asc(webhookEndpoint.id));
+}
+
+export async function createEndpoint(
+  db: Db,
+  row: Pick<EndpointRow, "id" | "workspaceId" | "kind" | "name" | "componentIds"> & {
+    urlSealed: string;
+    secretSealed: string | null;
+  },
+): Promise<void> {
+  await db.insert(webhookEndpoint).values(row);
+}
+
+export async function deleteEndpoint(
+  db: Db,
+  workspaceId: WorkspaceId,
+  id: WebhookEndpointId,
+): Promise<boolean> {
+  const rows = await db
+    .delete(webhookEndpoint)
+    .where(and(eq(webhookEndpoint.workspaceId, workspaceId), eq(webhookEndpoint.id, id)))
+    .returning({ id: webhookEndpoint.id });
+  return rows.length === 1;
+}
+
+/** Endpoints that should hear about the workspace's events: all but disabled ones. */
+export function listDeliverableEndpoints(db: Db, workspaceId: WorkspaceId) {
+  return db
+    .select({
+      id: webhookEndpoint.id,
+      kind: webhookEndpoint.kind,
+      componentIds: webhookEndpoint.componentIds,
+    })
+    .from(webhookEndpoint)
+    .where(
+      and(
+        eq(webhookEndpoint.workspaceId, workspaceId),
+        sql`${webhookEndpoint.state}::text <> 'disabled'`,
+      ),
+    );
+}
+
+/** What a send needs: the sealed URL and secret, which only the workers open. */
+export async function findEndpointForSend(db: Db, id: WebhookEndpointId) {
+  const [row] = await db
+    .select({
+      id: webhookEndpoint.id,
+      kind: webhookEndpoint.kind,
+      state: webhookEndpoint.state,
+      urlSealed: webhookEndpoint.urlSealed,
+      secretSealed: webhookEndpoint.secretSealed,
+    })
+    .from(webhookEndpoint)
+    .where(eq(webhookEndpoint.id, id));
+  return row;
+}
+
+/** A delivery ran out of retries: the endpoint is failing, from the first time it happened. */
+export async function markEndpointFailing(db: Db, id: WebhookEndpointId, at: Date): Promise<void> {
+  await db
+    .update(webhookEndpoint)
+    .set({ state: "failing", failingSince: at })
+    .where(and(eq(webhookEndpoint.id, id), isNull(webhookEndpoint.failingSince)));
+}
+
+/** A send got through: a failing endpoint is working again. */
+export async function markEndpointActive(db: Db, id: WebhookEndpointId): Promise<void> {
+  await db
+    .update(webhookEndpoint)
+    .set({ state: "active", failingSince: null })
+    .where(and(eq(webhookEndpoint.id, id), sql`${webhookEndpoint.state}::text = 'failing'`));
 }
