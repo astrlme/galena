@@ -50,6 +50,13 @@
       "when": 1790706419644,
       "tag": "0006_publishing",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790795882303,
+      "tag": "0007_notifications",
+      "breakpoints": true
     }
   ]
 }
