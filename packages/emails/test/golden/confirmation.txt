@@ -1,0 +1,11 @@
+Confirm your subscription to Acme status
+
+Confirm that you want email from Acme status when an incident or maintenance is posted.
+
+Confirm subscription: https://status.example.com/public/confirm?t=confirm.x.1.sig
+
+The link works for 7 days. If you didn't ask for this, ignore this email: nothing is sent until you confirm.
+
+--
+
+Sent because this address was entered on https://status.example.com.

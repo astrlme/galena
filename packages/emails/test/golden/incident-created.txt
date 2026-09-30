@@ -1,0 +1,17 @@
+▲︎ Partial outage: API, Web
+
+Errors on <API> & webhooks
+
+Investigating. Major impact. Started 30 Sep 2026, 10:00 UTC.
+
+Affected: API (Partial outage), Web (Degraded performance)
+
+We're seeing errors on API from 3 regions.
+
+We're investigating and will update by 10:30 UTC.
+
+Read the incident on Acme status: https://status.example.com/incidents/01920000-0000-7000-8000-000000000101/
+
+--
+
+You get these emails because you subscribed to updates from Acme status. Unsubscribe: https://status.example.com/public/unsubscribe?t=unsubscribe.x.1.sig
