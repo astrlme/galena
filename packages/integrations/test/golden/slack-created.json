@@ -1,0 +1,62 @@
+{
+  "text": "✕︎ Major outage: API. Identified. Critical impact. Started 30 Sep 2026, 10:00 UTC.",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "✕︎ Major outage: API"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Errors on &lt;API&gt; &amp; webhooks*\n\nWe found the cause: a bad deploy.\n\nWe're rolling it back."
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        {
+          "type": "mrkdwn",
+          "text": "*Status*\nIdentified"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Impact*\nCritical impact"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Components*\nAPI (Major outage)"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Started*\n30 Sep 2026, 10:00 UTC"
+        }
+      ]
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": {
+            "type": "plain_text",
+            "text": "Read the incident"
+          },
+          "url": "https://status.example.com/incidents/01920000-0000-7000-8000-000000000101/"
+        }
+      ]
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Updated 14:02 UTC"
+        }
+      ]
+    }
+  ]
+}

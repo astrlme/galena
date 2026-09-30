@@ -1,4 +1,10 @@
-import type { Notice } from "@galena/contracts";
+import {
+  noticeAffected as affected,
+  type Notice,
+  noticeParagraphs as paragraphs,
+  noticeStatusLine as statusLine,
+  noticeSubject as subject,
+} from "@galena/contracts";
 import { light } from "@galena/ui/tokens";
 import {
   Body,
@@ -13,9 +19,7 @@ import {
 } from "@react-email/components";
 import { render } from "@react-email/render";
 import type { ReactNode } from "react";
-import { affected, footerText, linkText, paragraphs, statusLine, subject } from "./words.ts";
-
-export { subject } from "./words.ts";
+import { footerText, linkText } from "./words.ts";
 
 export type Email = { subject: string; html: string; text: string };
 type Page = Notice["page"];

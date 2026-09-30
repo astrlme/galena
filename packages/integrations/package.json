@@ -6,7 +6,8 @@
   "exports": {
     "./config": "./src/config/monitors-file.ts",
     "./net": "./src/net/index.ts",
-    "./secrets": "./src/secrets/keys.ts"
+    "./secrets": "./src/secrets/keys.ts",
+    "./channels": "./src/channels/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@galena/config": "workspace:*",
+    "standardwebhooks": "^1.1.1",
     "testcontainers": "^12.1.0"
   }
 }
