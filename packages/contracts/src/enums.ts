@@ -82,6 +82,24 @@ export type DownStatus = (typeof downStatuses)[number];
 export const channelKinds = ["email", "slack", "webhook"] as const; // post-v1: "discord", "teams"
 export type ChannelKind = (typeof channelKinds)[number];
 
+export const subscriberStates = [
+  "pending_confirmation",
+  "active",
+  "unsubscribed",
+  "suppressed",
+] as const;
+export type SubscriberState = (typeof subscriberStates)[number];
+
+// Destinations a member adds; email subscribers sign up themselves.
+export const endpointKinds = ["slack", "webhook"] as const;
+export type EndpointKind = (typeof endpointKinds)[number];
+
+export const endpointStates = ["active", "failing", "disabled"] as const;
+export type EndpointState = (typeof endpointStates)[number];
+
+export const deliveryStatuses = ["pending", "sent", "failed", "skipped"] as const;
+export type DeliveryStatus = (typeof deliveryStatuses)[number];
+
 export const signalSources = ["alertmanager", "generic"] as const; // post-v1: "grafana", "cloudwatch", "sentry"
 export type SignalSource = (typeof signalSources)[number];
 
