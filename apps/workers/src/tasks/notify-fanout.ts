@@ -27,6 +27,24 @@ export const notifyFanout = task({
           );
         }
       },
+      sendToEndpoints: async (requests) => {
+        for (const kind of ["slack", "webhook"] as const) {
+          const mine = requests.filter((r) => r.kind === kind);
+          for (let i = 0; i < mine.length; i += BATCH) {
+            await tasks.batchTrigger(
+              `notify.${kind}`,
+              mine.slice(i, i + BATCH).map(({ endpointId, notice }) => ({
+                payload: { endpointId, notice },
+                options: {
+                  idempotencyKey: `send:${notice.eventId}:${endpointId}`,
+                  // One delivery at a time per destination, so a slow one throttles only itself.
+                  concurrencyKey: `${kind}:${endpointId}`,
+                },
+              })),
+            );
+          }
+        }
+      },
     });
     logger.info("notify.fanout", { eventId: event.id, type: event.type, ...result });
     return result;
