@@ -4,6 +4,7 @@ import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import type { WorkflowEngine } from "@galena/core";
 import { createDb, type DbConfig } from "@galena/db";
+import { appKeys, LOCAL_APP_KEY } from "@galena/integrations/secrets";
 import { configure, tasks } from "@trigger.dev/sdk";
 import type { Deps } from "./app.ts";
 import { createAuth } from "./auth.ts";
@@ -61,6 +62,13 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     (env.GLN_TRIGGER_SECRET_PARAM ? await parameter(env.GLN_TRIGGER_SECRET_PARAM) : undefined);
   if (triggerKey) configure({ accessToken: triggerKey });
 
+  let appKey =
+    env.GLN_APP_KEY ?? (env.GLN_APP_KEY_PARAM ? await parameter(env.GLN_APP_KEY_PARAM) : undefined);
+  if (!appKey && env.GLN_STAGE !== "local") {
+    throw new Error("Outside local development, set GLN_APP_KEY_PARAM (an SSM SecureString).");
+  }
+  appKey ??= LOCAL_APP_KEY;
+
   // DynamoDB Local takes any credentials; AWS uses the function's role.
   const endpoint =
     env.GLN_DYNAMODB_ENDPOINT ?? (env.GLN_STAGE === "local" ? "http://localhost:8000" : undefined);
@@ -84,6 +92,7 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     engine: triggerKey ? triggerDev : notConfigured,
     telemetry,
     targets: targetGuard(env.GLN_STAGE, env.GLN_ALLOW_LOOPBACK),
+    keys: appKeys(appKey),
     close,
   };
 }

@@ -3,6 +3,7 @@ import { problemContentType } from "@galena/contracts";
 import { roleAtLeast, type WorkflowEngine } from "@galena/core";
 import { type Db, findMembership } from "@galena/db";
 import type { Guard } from "@galena/integrations/net";
+import type { AppKeys } from "@galena/integrations/secrets";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -17,6 +18,8 @@ export type Deps = {
   telemetry: Telemetry;
   /** The SSRF guard monitor URLs must pass when they are saved. */
   targets: Guard;
+  /** Keys derived from the deployment's app key: sealing, link tokens, keyed hashes. */
+  keys: AppKeys;
 };
 export type Member = { userId: string; email: string; role: MemberRole; workspaceId: WorkspaceId };
 export type Env = { Variables: { member: Member } };

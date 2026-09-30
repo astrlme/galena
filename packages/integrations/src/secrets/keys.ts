@@ -12,6 +12,9 @@ import {
 
 export type AppKeys = { seal: Buffer; link: Buffer; hash: Buffer };
 
+/** Local development only, so the API and the workers agree without setup. Never used in AWS. */
+export const LOCAL_APP_KEY = Buffer.from("galena-local-development-app-key").toString("base64");
+
 export function appKeys(appKey: string): AppKeys {
   const material = Buffer.from(appKey, "base64");
   if (material.length !== 32) throw new Error("The app key must be 32 bytes, base64-encoded.");
