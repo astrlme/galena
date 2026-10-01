@@ -58,15 +58,23 @@ function Glyph({ status }: { status: ComponentStatus | null }) {
   }
 }
 
+/** Each state's colour; the label and glyph still say it. */
+const TONE: Record<ComponentStatus, string> = {
+  operational: "text-operational",
+  degraded_performance: "text-degraded",
+  partial_outage: "text-partial",
+  major_outage: "border-major bg-major font-semibold text-paper",
+  under_maintenance: "text-maintenance",
+};
+
 /**
- * A state badge: glyph and label in a slate border; a major outage is the one inverted badge.
- * `null` is "No data": nothing has reported yet.
+ * A state badge: glyph and label in the state's colour on a hairline; a major outage is the one
+ * filled badge. `null` is "No data": nothing has reported yet.
  */
 export function StatusLabel({ status }: { status: ComponentStatus | null }) {
-  const major = status === "major_outage";
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-[4px] border px-2 py-0.5 text-[14px] ${major ? "border-ink bg-ink font-semibold text-paper" : status === null ? "border-slate text-slate" : "border-slate"}`}
+      className={`inline-flex items-center gap-1.5 rounded-[6px] border border-mist px-2 py-0.5 text-[14px] ${status === null ? "text-slate" : TONE[status]}`}
     >
       <Glyph status={status} />
       {status === null ? "No data" : LABELS[status]}

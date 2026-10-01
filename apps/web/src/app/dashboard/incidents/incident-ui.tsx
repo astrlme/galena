@@ -1,6 +1,7 @@
 "use client";
 
 import type { IncidentComponentStatus, IncidentImpact, IncidentStatus } from "@galena/contracts";
+import { control } from "../../../components/field.tsx";
 
 /** A component an incident names, as the API sends and takes it. */
 export type Affected = { componentId: string; status: IncidentComponentStatus };
@@ -55,7 +56,7 @@ export function Time({ iso }: { iso: string }) {
   );
 }
 
-export const select = "rounded-[4px] border border-slate bg-surface px-3 py-2 text-[16px] text-ink";
+export const select = control;
 
 /** Which components the incident affects, and the status it gives each. */
 export function ComponentPicker({

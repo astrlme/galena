@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
-import { Field } from "../../../components/field.tsx";
+import { control, Field } from "../../../components/field.tsx";
 import { StatusLabel } from "../../../components/status.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
@@ -259,7 +259,7 @@ function ComponentForm({
         </label>
         <select
           id="component-group"
-          className="rounded-[4px] border border-slate bg-surface px-3 py-2 text-[16px] text-ink"
+          className={control}
           {...form.register("groupId", { setValueAs: (v: string) => (v === "" ? null : v) })}
         >
           <option value="">No group</option>

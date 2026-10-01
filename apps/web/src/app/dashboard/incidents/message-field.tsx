@@ -4,6 +4,7 @@ import type { IncidentStatus } from "@galena/contracts";
 import { fillTemplate } from "@galena/core";
 import { useEffect, useRef } from "react";
 import type { UseFormRegisterReturn } from "react-hook-form";
+import { control } from "../../../components/field.tsx";
 
 /**
  * Starts the message from the status's template, with the affected components filled in. It
@@ -47,7 +48,7 @@ export function MessageField({
         rows={4}
         aria-invalid={error ? true : undefined}
         aria-describedby={`${id}-note`}
-        className="rounded-[4px] border border-slate bg-surface px-3 py-2 text-[16px] text-ink aria-invalid:border-2 aria-invalid:border-ink"
+        className={control}
         {...registration}
       />
       <p

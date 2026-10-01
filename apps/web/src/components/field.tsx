@@ -7,6 +7,10 @@ type FieldProps = InputHTMLAttributes<HTMLInputElement> & {
   error?: string | undefined;
 };
 
+/** Inputs, selects and textareas: a hairline that darkens on hover and focus, red when invalid. */
+export const control =
+  "rounded-[6px] border border-mist bg-paper px-3 py-2 text-[16px] text-ink transition-colors duration-[120ms] hover:border-slate focus:border-ink motion-reduce:transition-none aria-invalid:border-major";
+
 /** Label above, help or error below. */
 export function Field({ id, label, help, error, ...input }: FieldProps) {
   const note = error ?? help;
@@ -20,13 +24,13 @@ export function Field({ id, label, help, error, ...input }: FieldProps) {
         name={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={note ? `${id}-note` : undefined}
-        className="rounded-[4px] border border-slate bg-surface px-3 py-2 text-[16px] text-ink aria-invalid:border-2 aria-invalid:border-ink"
+        className={control}
         {...input}
       />
       {note && (
         <p
           id={`${id}-note`}
-          className={`text-[14px] ${error ? "font-semibold text-ink" : "text-slate"}`}
+          className={`text-[14px] ${error ? "font-semibold text-major" : "text-slate"}`}
         >
           {note}
         </p>
