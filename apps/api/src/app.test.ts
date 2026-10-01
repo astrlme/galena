@@ -62,3 +62,13 @@ test("an unexpected error answers 500 problem details without leaking the cause"
   expect(text).not.toContain("hunter2");
   expect(text).not.toContain("SELECT");
 });
+
+test("with an origin secret, only requests carrying it reach a route; /health stays open", async () => {
+  const app = createApp({ ...testDeps().deps, originSecret: "from-cloudfront" });
+  await expectProblem(await app.request("/nope"), 403, "not_through_cloudfront");
+  const forged = { headers: { "x-galena-origin": "guess" } };
+  await expectProblem(await app.request("/nope", forged), 403, "not_through_cloudfront");
+  const through = { headers: { "x-galena-origin": "from-cloudfront" } };
+  await expectProblem(await app.request("/nope", through), 404, "not_found");
+  expect((await app.request("/health")).status).toBe(200);
+});

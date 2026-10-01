@@ -5,6 +5,7 @@ import {
   CfnOutput,
   Fn,
   RemovalPolicy,
+  SecretValue,
   Stack,
   type StackProps,
   Token,
@@ -29,6 +30,7 @@ import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
+import { ORIGIN_HEADER, originSecretName } from "./api.ts";
 
 // The export writes /dashboard/ as dashboard/index.html; S3 behind OAC has no index documents.
 export const indexRewrite = `function handler(event) {
@@ -63,7 +65,13 @@ export class WebStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    const api = new HttpOrigin(Fn.select(2, Fn.split("/", props.api.apiEndpoint)));
+    const api = new HttpOrigin(Fn.select(2, Fn.split("/", props.api.apiEndpoint)), {
+      customHeaders: {
+        [ORIGIN_HEADER]: SecretValue.secretsManager(
+          originSecretName(props.config.stage),
+        ).unsafeUnwrap(),
+      },
+    });
     const apiBehavior = {
       origin: api,
       viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,

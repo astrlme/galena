@@ -10,12 +10,21 @@ import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
+import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { Trigger } from "aws-cdk-lib/triggers";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
 import { bundling, source } from "./bundling.ts";
 import { dataApiAccess } from "./data-api.ts";
+
+/**
+ * CloudFront adds this header, holding the origin secret, to every request it forwards to the
+ * API, and the API refuses requests without it: the execute-api URL is public, and there a caller
+ * could forge the CloudFront-Viewer-Address that per-visitor limits trust.
+ */
+export const ORIGIN_HEADER = "x-galena-origin";
+export const originSecretName = (stage: string) => `galena/${stage}/origin-secret`;
 
 /** apps/api on Lambda behind an HTTP API. */
 export class ApiStack extends Stack {
@@ -24,7 +33,7 @@ export class ApiStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps & { config: StageConfig }) {
     super(scope, id, props);
 
-    const { stage, probeRegions } = props.config;
+    const { stage, probeRegions, pageRegions } = props.config;
     const { environment: database, role: lambdaRole } = dataApiAccess(this, stage);
 
     const logGroup = new LogGroup(this, "HandlerLogs", { retention: RetentionDays.ONE_MONTH });
@@ -57,6 +66,33 @@ export class ApiStack extends Stack {
       }),
     );
 
+    // Generated here, copied to the page region, where the status page's distribution reads it.
+    const originSecret = new Secret(this, "OriginSecret", {
+      secretName: originSecretName(stage),
+      description: "Sent by CloudFront to the API, which refuses requests without it",
+      generateSecretString: { passwordLength: 48, excludePunctuation: true },
+      replicaRegions: [{ region: pageRegions.primary }],
+    });
+    originSecret.grantRead(role);
+    const originSecretParam = `/aws/reference/secretsmanager/${originSecretName(stage)}`;
+    role.addToPolicy(
+      new PolicyStatement({
+        actions: ["ssm:GetParameter"],
+        resources: [
+          this.formatArn({
+            service: "ssm",
+            resource: "parameter",
+            resourceName: originSecretParam.slice(1),
+          }),
+        ],
+      }),
+    );
+    Validations.of(originSecret).acknowledge({
+      id: "AwsSolutions-SMG4",
+      reason:
+        "CloudFront holds a copy in its origin settings, so a rotation means a redeploy; it only proves a request came through CloudFront.",
+    });
+
     const handler = new NodejsFunction(this, "Handler", {
       entry: source("apps/api/src/lambda.ts"),
       handler: "handler",
@@ -74,6 +110,7 @@ export class ApiStack extends Stack {
         GLN_TRIGGER_SECRET_PARAM: triggerSecret,
         GLN_APP_KEY_PARAM: appKey,
         GLN_PUBLIC_URL_PARAM: publicUrl,
+        GLN_ORIGIN_SECRET_PARAM: originSecretParam,
         GLN_TELEMETRY_TABLE: telemetryTable,
         GLN_PROBE_REGIONS: probeRegions.join(","),
       },

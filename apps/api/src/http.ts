@@ -22,7 +22,15 @@ export type Deps = {
   keys: AppKeys;
   /** The dashboard's origin, where the API also answers. */
   publicUrl: string;
+  /**
+   * Set in AWS: CloudFront sends it in `ORIGIN_HEADER` with every request it forwards. The
+   * execute-api URL is public too, and there a caller could forge CloudFront-Viewer-Address.
+   */
+  originSecret?: string;
 };
+
+/** Infra's CloudFront distributions add this header to requests they send to the API. */
+export const ORIGIN_HEADER = "x-galena-origin";
 export type Member = { userId: string; email: string; role: MemberRole; workspaceId: WorkspaceId };
 export type Env = { Variables: { member: Member } };
 export type App = OpenAPIHono<Env>;
