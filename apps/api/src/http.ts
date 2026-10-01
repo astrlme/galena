@@ -31,6 +31,15 @@ export type Deps = {
 
 /** Infra's CloudFront distributions add this header to requests they send to the API. */
 export const ORIGIN_HEADER = "x-galena-origin";
+
+/**
+ * The visitor's address from CloudFront's `ip:port` (IPv6 too: the port follows the last colon).
+ * Trusted because requests only arrive through CloudFront, which sets it.
+ */
+export function viewerAddress(headers: Headers): string | undefined {
+  const address = headers.get("cloudfront-viewer-address");
+  return address ? address.slice(0, address.lastIndexOf(":")) : undefined;
+}
 export type Member = { userId: string; email: string; role: MemberRole; workspaceId: WorkspaceId };
 export type Env = { Variables: { member: Member } };
 export type App = OpenAPIHono<Env>;

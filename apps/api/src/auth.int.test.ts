@@ -4,7 +4,8 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testconta
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createApp, type Deps, requireRole } from "./app.ts";
-import { testDeps } from "./test-deps.ts";
+import { createAuth } from "./auth.ts";
+import { TEST_BASE_URL, testDeps } from "./test-deps.ts";
 import { Session as BaseSession, expectProblem } from "./test-session.ts";
 
 class Session extends BaseSession {
@@ -109,6 +110,37 @@ describe("sign-in", () => {
     const right = await browser.call("/auth/sign-in/email", OWNER);
     expect(right.status).toBe(200);
     expect((await browser.call("/v1/me")).status).toBe(200);
+  });
+});
+
+describe("rate limits", () => {
+  test("a visitor gets 3 sign-in attempts per 10 s, keyed on CloudFront's address", async () => {
+    const auth = createAuth({
+      db: deps.db,
+      secret: "test-secret-that-is-at-least-32-chars",
+      baseURL: TEST_BASE_URL,
+      rateLimit: true,
+    });
+    const limited = createApp({ ...deps, auth });
+    const attempt = (address: string) =>
+      limited.request("/auth/sign-in/email", {
+        method: "POST",
+        headers: {
+          origin: TEST_BASE_URL,
+          "content-type": "application/json",
+          "cloudfront-viewer-address": address,
+          // Forged by the visitor: replaced before Better Auth reads it.
+          "x-galena-client-ip": "198.51.100.99",
+        },
+        body: JSON.stringify({ email: OWNER.email, password: "not the password" }),
+      });
+    const statuses: number[] = [];
+    // A new source port each time is still the same visitor.
+    for (const port of [40001, 40002, 40003, 40004]) {
+      statuses.push((await attempt(`203.0.113.7:${port}`)).status);
+    }
+    expect(statuses).toEqual([401, 401, 401, 429]);
+    expect((await attempt("203.0.113.8:40001")).status).toBe(401);
   });
 });
 

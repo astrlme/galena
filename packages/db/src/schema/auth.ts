@@ -1,4 +1,4 @@
-import { boolean, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { timestamps } from "./columns.ts";
 
 // Better Auth's tables: core plus the two-factor plugin (better-auth 1.7). They are global
@@ -79,3 +79,13 @@ export const twoFactor = pgTable(
   },
   (t) => [index().on(t.userId), index().on(t.secret)],
 );
+
+/** Better Auth's rate limiter, one row per client and path, so a limit holds across Lambdas. */
+export const rateLimit = pgTable("rate_limit", {
+  id: text().primaryKey(),
+  key: text().notNull().unique(),
+  count: integer().notNull(),
+  /** Epoch milliseconds. */
+  lastRequest: bigint({ mode: "number" }).notNull(),
+  ...timestamps,
+});

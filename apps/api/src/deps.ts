@@ -55,7 +55,13 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     env.GLN_GITHUB_CLIENT_ID && env.GLN_GITHUB_CLIENT_SECRET
       ? { clientId: env.GLN_GITHUB_CLIENT_ID, clientSecret: env.GLN_GITHUB_CLIENT_SECRET }
       : undefined;
-  const auth = createAuth({ db, secret, baseURL, ...(github ? { github } : {}) });
+  const auth = createAuth({
+    db,
+    secret,
+    baseURL,
+    rateLimit: env.GLN_STAGE !== "local",
+    ...(github ? { github } : {}),
+  });
 
   const triggerKey =
     env.TRIGGER_SECRET_KEY ??

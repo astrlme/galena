@@ -20,7 +20,10 @@ import {
   FunctionCode,
   FunctionEventType,
   FunctionRuntime,
+  OriginRequestCookieBehavior,
+  OriginRequestHeaderBehavior,
   OriginRequestPolicy,
+  OriginRequestQueryStringBehavior,
   ResponseHeadersPolicy,
   ViewerProtocolPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
@@ -72,13 +75,27 @@ export class WebStack extends Stack {
         ).unsafeUnwrap(),
       },
     });
+    // What the API reads: cookies, the query and these headers. Host stays API Gateway's own;
+    // CloudFront-Viewer-Address is the visitor's address, which the sign-in limits key on.
+    const apiRequests = new OriginRequestPolicy(this, "ApiRequests", {
+      comment: "Dashboard requests to the API",
+      headerBehavior: OriginRequestHeaderBehavior.allowList(
+        "CloudFront-Viewer-Address",
+        "Origin",
+        "Referer",
+        "User-Agent",
+        "Content-Type",
+        "Accept",
+      ),
+      cookieBehavior: OriginRequestCookieBehavior.all(),
+      queryStringBehavior: OriginRequestQueryStringBehavior.all(),
+    });
     const apiBehavior = {
       origin: api,
       viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
       allowedMethods: AllowedMethods.ALLOW_ALL,
       cachePolicy: CachePolicy.CACHING_DISABLED,
-      // Everything but Host, so API Gateway sees its own name and the app sees the cookies.
-      originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+      originRequestPolicy: apiRequests,
     };
 
     // No custom error pages: CloudFront applies them to every behaviour and would turn the API's

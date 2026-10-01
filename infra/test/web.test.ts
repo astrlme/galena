@@ -55,6 +55,26 @@ test("forwards /auth/* and /v1/* to the API uncached, with every method", () => 
   }
 });
 
+test("sends the API cookies, the query and only the headers it reads, with the visitor's address", () => {
+  template.hasResourceProperties("AWS::CloudFront::OriginRequestPolicy", {
+    OriginRequestPolicyConfig: {
+      HeadersConfig: {
+        HeaderBehavior: "whitelist",
+        Headers: [
+          "CloudFront-Viewer-Address",
+          "Origin",
+          "Referer",
+          "User-Agent",
+          "Content-Type",
+          "Accept",
+        ],
+      },
+      CookiesConfig: { CookieBehavior: "all" },
+      QueryStringsConfig: { QueryStringBehavior: "all" },
+    },
+  });
+});
+
 test("adds the origin secret to every request it forwards to the API", () => {
   const apiOrigin = distribution().Origins.find(
     (o: { CustomOriginConfig?: unknown }) => o.CustomOriginConfig,
