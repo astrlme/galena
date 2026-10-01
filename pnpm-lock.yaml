@@ -459,6 +459,9 @@ importers:
       '@galena/core':
         specifier: workspace:*
         version: link:../core
+      '@galena/ui':
+        specifier: workspace:*
+        version: link:../ui
     devDependencies:
       '@galena/config':
         specifier: workspace:*

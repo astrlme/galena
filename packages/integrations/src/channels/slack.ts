@@ -5,24 +5,24 @@ import {
   maintenanceStatusLabels,
   type Notice,
   noticeParagraphs,
+  noticeState,
   noticeStatusLine,
   noticeSubject,
   utcDateTime,
 } from "@galena/contracts";
+import { embed, stateTokens } from "@galena/ui/tokens";
 
-// A notice as a Slack incoming-webhook message (Block Kit). Glyph and words carry the state; no
-// colour bar, and the one button has no style (Slack's primary is green, danger red).
+// A notice as a Slack incoming-webhook message (Block Kit) inside an attachment, for the colour
+// bar in the state's colour. Glyph and words still carry the state, and the one button has no
+// style (Slack's primary is green, danger red).
 
 type Text = { type: "plain_text" | "mrkdwn"; text: string };
-export type SlackMessage = {
-  text: string;
-  blocks: Array<
-    | { type: "header"; text: Text }
-    | { type: "section"; text?: Text; fields?: Text[] }
-    | { type: "actions"; elements: Array<{ type: "button"; text: Text; url: string }> }
-    | { type: "context"; elements: Text[] }
-  >;
-};
+type Block =
+  | { type: "header"; text: Text }
+  | { type: "section"; text?: Text; fields?: Text[] }
+  | { type: "actions"; elements: Array<{ type: "button"; text: Text; url: string }> }
+  | { type: "context"; elements: Text[] };
+export type SlackMessage = { text: string; attachments: [{ color: string; blocks: Block[] }] };
 
 // Slack's limits: header 150 characters, section text 3,000, field 2,000.
 const cut = (text: string, max: number) =>
@@ -66,26 +66,31 @@ export function slackMessage(notice: Notice): SlackMessage {
   return {
     // What notifications and screen readers show.
     text: cut(`${subject}. ${noticeStatusLine(notice)}`, 3_000),
-    blocks: [
-      { type: "header", text: { type: "plain_text", text: cut(subject, 150) } },
-      { type: "section", text: { type: "mrkdwn", text: cut(body, 3_000) } },
-      { type: "section", fields },
+    attachments: [
       {
-        type: "actions",
-        elements: [
+        color: embed[stateTokens[noticeState(notice)]],
+        blocks: [
+          { type: "header", text: { type: "plain_text", text: cut(subject, 150) } },
+          { type: "section", text: { type: "mrkdwn", text: cut(body, 3_000) } },
+          { type: "section", fields },
           {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: maintenance ? "See the status page" : "Read the incident",
-            },
-            url: notice.url,
+            type: "actions",
+            elements: [
+              {
+                type: "button",
+                text: {
+                  type: "plain_text",
+                  text: maintenance ? "See the status page" : "Read the incident",
+                },
+                url: notice.url,
+              },
+            ],
+          },
+          {
+            type: "context",
+            elements: [{ type: "mrkdwn", text: `Updated ${hhmm(notice.occurredAt)}` }],
           },
         ],
-      },
-      {
-        type: "context",
-        elements: [{ type: "mrkdwn", text: `Updated ${hhmm(notice.occurredAt)}` }],
       },
     ],
   };
