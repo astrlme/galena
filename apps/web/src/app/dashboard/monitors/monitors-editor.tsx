@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
-import { Field } from "../../../components/field.tsx";
+import { control, Field } from "../../../components/field.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { MonitorHealth, useTelemetry } from "./monitor-health.tsx";
@@ -53,7 +53,7 @@ const EMPTY: FormIn = {
   enabled: true,
 };
 const small = "px-2 py-1 text-[14px]";
-const select = "rounded-[4px] border border-slate bg-surface px-3 py-2 text-[16px] text-ink";
+const select = control;
 
 /** A full PUT body from a listed monitor: PUT replaces every setting. */
 const toInput = ({ id: _, ...input }: Monitor): FormIn => input;

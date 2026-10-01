@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
-import { Field } from "../../../components/field.tsx";
+import { control, Field } from "../../../components/field.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { Time } from "../incidents/incident-ui.tsx";
@@ -252,11 +252,7 @@ function DestinationForm({
         <label htmlFor="destination-kind" className="text-[14px] font-semibold">
           Kind
         </label>
-        <select
-          id="destination-kind"
-          className="rounded-[4px] border border-slate bg-surface px-3 py-2 text-[16px] text-ink"
-          {...form.register("kind")}
-        >
+        <select id="destination-kind" className={control} {...form.register("kind")}>
           <option value="slack">Slack incoming webhook</option>
           <option value="webhook">Outgoing webhook (signed)</option>
         </select>
