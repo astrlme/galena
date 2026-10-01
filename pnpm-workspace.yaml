@@ -8,3 +8,7 @@ allowBuilds:
   esbuild: true
   protobufjs: false
   ssh2: false
+overrides:
+  # The trigger.dev SDK's socket client pins ws 8.11, which has DoS and memory-disclosure fixes
+  # since; the 8.x API it uses is unchanged.
+  engine.io-client>ws: ^8.21.0
