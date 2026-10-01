@@ -6,6 +6,7 @@ import {
   maintenanceStatusLabels,
   pageIndicatorStates,
 } from "./copy.ts";
+import type { ComponentStatus } from "./enums.ts";
 import type { Notice } from "./notifications.ts";
 
 // The words of a notice, the same in an email, a Slack message and anywhere else it is read.
@@ -30,17 +31,34 @@ function until(startsAt: string, endsAt: string): string {
 const isMaintenance = (n: Notice) => n.kind.startsWith("maintenance_");
 const names = (n: Notice) => n.components.map((c) => c.name).join(", ");
 
+/**
+ * The state a notice is drawn in: an open incident's worst component state (or what its impact
+ * stands for), operational once resolved or completed, maintenance otherwise.
+ */
+export function noticeState(n: Notice): ComponentStatus {
+  switch (n.kind) {
+    case "incident_created":
+    case "incident_updated": {
+      const states = n.components.flatMap((c) => (c.status ? [c.status] : []));
+      const order = Object.keys(componentStatusLabels);
+      const worst = states.sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
+      return worst ?? pageIndicatorStates[n.impact ?? "none"];
+    }
+    case "incident_resolved":
+    case "maintenance_completed":
+      return "operational";
+    default:
+      return "under_maintenance";
+  }
+}
+
 /** Glyph, state and what it is about: "▲ Partial outage: API". */
 export function noticeSubject(n: Notice): string {
   const about = names(n) || n.title;
   switch (n.kind) {
     case "incident_created":
     case "incident_updated": {
-      // The worst state the incident gives a component, or what its impact stands for.
-      const states = n.components.flatMap((c) => (c.status ? [c.status] : []));
-      const order = Object.keys(componentStatusLabels);
-      const worst = states.sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
-      const state = worst ?? pageIndicatorStates[n.impact ?? "none"];
+      const state = noticeState(n);
       return `${componentStatusSymbols[state]} ${componentStatusLabels[state]}: ${about}`;
     }
     case "incident_resolved":

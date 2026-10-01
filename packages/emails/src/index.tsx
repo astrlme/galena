@@ -1,11 +1,14 @@
 import {
   noticeAffected as affected,
+  type ComponentStatus,
+  componentStatusLabels,
   type Notice,
+  noticeState,
   noticeParagraphs as paragraphs,
   noticeStatusLine as statusLine,
   noticeSubject as subject,
 } from "@galena/contracts";
-import { light } from "@galena/ui/tokens";
+import { light, stateTokens } from "@galena/ui/tokens";
 import {
   Body,
   Container,
@@ -19,7 +22,7 @@ import {
   Text,
 } from "@react-email/components";
 import { render } from "@react-email/render";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { footerText, linkText } from "./words.ts";
 
 export type Email = { subject: string; html: string; text: string };
@@ -31,6 +34,8 @@ const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, 
 const text = { fontSize: "16px", lineHeight: "1.55", margin: "0 0 16px" };
 const secondary = { ...text, fontSize: "14px", lineHeight: "1.45", color: light.slate };
 const link = { color: light.ink, textDecoration: "underline" };
+/** A state's light-mode colour: it reads at 4.5:1 on the white background. */
+const stateColour = (state: ComponentStatus) => light[stateTokens[state]];
 // The one primary action a view may have, inverted.
 const button = {
   display: "inline-block",
@@ -117,8 +122,29 @@ export async function noticeEmail(
       <Heading as="h1" style={{ fontSize: "24px", lineHeight: "1.25", margin: "24px 0 8px" }}>
         {notice.title}
       </Heading>
-      <Text style={secondary}>{statusLine(notice)}</Text>
-      {who && <Text style={text}>{who}</Text>}
+      <Text style={{ ...secondary, color: stateColour(noticeState(notice)), fontWeight: 600 }}>
+        {statusLine(notice)}
+      </Text>
+      {who && (
+        <Text style={text}>
+          {notice.kind.startsWith("maintenance_") ? "Components" : "Affected"}:{" "}
+          {notice.components.map((c, i) => (
+            <Fragment key={c.id}>
+              {i > 0 && ", "}
+              {c.name}
+              {c.status && (
+                <>
+                  {" ("}
+                  <span style={{ color: stateColour(c.status) }}>
+                    {componentStatusLabels[c.status]}
+                  </span>
+                  {")"}
+                </>
+              )}
+            </Fragment>
+          ))}
+        </Text>
+      )}
       {paragraphs(notice).map((p) => (
         <Text key={p} style={text}>
           {p}
