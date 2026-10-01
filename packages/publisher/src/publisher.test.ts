@@ -32,8 +32,8 @@ describe("page files from the fixture workspace", () => {
 test("the badge inverts its right half only for a major outage, and grows with its label", () => {
   const calm = badgeSvg("none");
   const major = badgeSvg("critical");
-  expect(calm).toContain('fill="#FFFFFF" stroke="#15171C"');
-  expect(major).toContain('fill="#15171C" stroke="#15171C"');
+  expect(calm).toContain('fill="#FAFAFA" stroke="#0A0A0A"');
+  expect(major).toContain('fill="#0A0A0A" stroke="#0A0A0A"');
   const width = (svg: string) => Number(/width="(\d+)"/.exec(svg)?.[1]);
   expect(width(calm)).toBeGreaterThan(width(badgeSvg("critical")));
 });
