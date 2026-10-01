@@ -1,60 +1,65 @@
 {
   "text": "◌︎ Maintenance scheduled: Database upgrade. Scheduled. 1 Oct 2026, 22:00 UTC to 23:00 UTC.",
-  "blocks": [
+  "attachments": [
     {
-      "type": "header",
-      "text": {
-        "type": "plain_text",
-        "text": "◌︎ Maintenance scheduled: Database upgrade"
-      }
-    },
-    {
-      "type": "section",
-      "text": {
-        "type": "mrkdwn",
-        "text": "*Database upgrade*\n\nWrites pause for up to 5 minutes."
-      }
-    },
-    {
-      "type": "section",
-      "fields": [
+      "color": "#3B82F6",
+      "blocks": [
         {
-          "type": "mrkdwn",
-          "text": "*Status*\nScheduled"
-        },
-        {
-          "type": "mrkdwn",
-          "text": "*Components*\nAPI"
-        },
-        {
-          "type": "mrkdwn",
-          "text": "*Starts*\n1 Oct 2026, 22:00 UTC"
-        },
-        {
-          "type": "mrkdwn",
-          "text": "*Ends*\n1 Oct 2026, 23:00 UTC"
-        }
-      ]
-    },
-    {
-      "type": "actions",
-      "elements": [
-        {
-          "type": "button",
+          "type": "header",
           "text": {
             "type": "plain_text",
-            "text": "See the status page"
-          },
-          "url": "https://status.example.com/"
-        }
-      ]
-    },
-    {
-      "type": "context",
-      "elements": [
+            "text": "◌︎ Maintenance scheduled: Database upgrade"
+          }
+        },
         {
-          "type": "mrkdwn",
-          "text": "Updated 14:02 UTC"
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*Database upgrade*\n\nWrites pause for up to 5 minutes."
+          }
+        },
+        {
+          "type": "section",
+          "fields": [
+            {
+              "type": "mrkdwn",
+              "text": "*Status*\nScheduled"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "*Components*\nAPI"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "*Starts*\n1 Oct 2026, 22:00 UTC"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "*Ends*\n1 Oct 2026, 23:00 UTC"
+            }
+          ]
+        },
+        {
+          "type": "actions",
+          "elements": [
+            {
+              "type": "button",
+              "text": {
+                "type": "plain_text",
+                "text": "See the status page"
+              },
+              "url": "https://status.example.com/"
+            }
+          ]
+        },
+        {
+          "type": "context",
+          "elements": [
+            {
+              "type": "mrkdwn",
+              "text": "Updated 14:02 UTC"
+            }
+          ]
         }
       ]
     }
