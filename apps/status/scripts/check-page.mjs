@@ -105,6 +105,26 @@ try {
         await context.close();
       }
     }
+    // The subscribe dialog: the header button opens it, it passes axe open, Escape closes it.
+    for (const scheme of ["light", "dark"]) {
+      const context = await browser.newContext({ colorScheme: scheme });
+      const page = await context.newPage();
+      await page.goto(ORIGIN, { waitUntil: "networkidle" });
+      const field = page.locator("[data-subscribe] input[type=email]");
+      await page.click("[data-open-subscribe]");
+      await field.waitFor({ state: "visible", timeout: 2000 }).catch(() => {});
+      const { violations } = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+        .analyze();
+      check(
+        (await field.isVisible()) && violations.length === 0,
+        `subscribe dialog ${scheme}: ${(await field.isVisible()) ? "opens" : "does not open"}, ${violations.map((v) => v.id).join(", ") || "no violations"}`,
+      );
+      await page.keyboard.press("Escape");
+      await field.waitFor({ state: "hidden", timeout: 2000 }).catch(() => {});
+      check(!(await field.isVisible()), `subscribe dialog ${scheme}: Escape closes it`);
+      await context.close();
+    }
   } finally {
     await browser.close();
   }

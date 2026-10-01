@@ -24,7 +24,9 @@ let version = Number(root.dataset.snapshotVersion);
 let publishedAt = root.dataset.publishedAt ?? "";
 
 function setGlyph(svg: Element | null, name: GlyphName) {
-  if (svg) svg.innerHTML = glyphs[name]; // our own constant markup, never data
+  if (!svg) return;
+  svg.innerHTML = glyphs[name]; // our own constant markup, never data
+  svg.setAttribute("data-state", name); // its colour
 }
 
 /** "Updated 14:02 UTC", or the warning once the page hasn't been confirmed for 2 hours. */

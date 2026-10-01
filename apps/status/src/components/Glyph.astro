@@ -9,4 +9,4 @@ interface Props {
 const { name, class: className = "glyph", ...data } = Astro.props;
 ---
 
-<svg class={className} viewBox="0 0 14 14" aria-hidden="true" {...data} set:html={glyphs[name]} />
+<svg class={className} viewBox="0 0 14 14" aria-hidden="true" data-state={name} {...data} set:html={glyphs[name]} />

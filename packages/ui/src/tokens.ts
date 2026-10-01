@@ -14,6 +14,8 @@ export const light = {
   partial: "#C2410C",
   major: "#DC2626",
   maintenance: "#2563EB",
+  /** Behind dialogs and drawers, at 60%: black in both modes. */
+  scrim: "#000000",
 } as const;
 
 export const dark = {
@@ -29,6 +31,7 @@ export const dark = {
   partial: "#F97316",
   major: "#EF4444",
   maintenance: "#3B82F6",
+  scrim: "#000000",
 } as const;
 
 // Slack attachment bars and Discord embeds: the dark values, which sit mid-range and show on
