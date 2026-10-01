@@ -54,6 +54,8 @@ export async function runMaintenance(
       );
       return moved ? recordChange(tx, systemChange(window, step.event, step.to, deps.clock)) : null;
     });
+    // Known limit: if this trigger fails, the retry finds the window already moved and the
+    // row stays pending; nothing sweeps pending rows yet.
     if (outboxId) await deps.dispatch(outboxId);
   }
 }

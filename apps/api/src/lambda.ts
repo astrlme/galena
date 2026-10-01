@@ -8,11 +8,11 @@ import { createDeps } from "./deps.ts";
 let app: Promise<ReturnType<typeof handle>> | undefined;
 
 export async function handler(event: LambdaEvent, context: LambdaContext) {
-  app ??= createDeps().then((deps) => handle(createApp(deps)));
-  try {
-    return await (await app)(event, context);
-  } catch (error) {
-    app = undefined;
-    throw error;
-  }
+  app ??= createDeps()
+    .then((deps) => handle(createApp(deps)))
+    .catch((error: unknown) => {
+      app = undefined;
+      throw error;
+    });
+  return (await app)(event, context);
 }

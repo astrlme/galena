@@ -46,7 +46,8 @@ async function sendConfirmation(id: EmailPayload["subscriberId"], deps: EmailDep
 
 /**
  * One notice to one subscriber, recorded on its delivery row. A row already settled means an
- * earlier run sent it (or skipped it), so a retry never sends twice.
+ * earlier run sent it (or skipped it), so a retry never sends twice. Known limit: if the send
+ * succeeds and recording it fails, the retry sends again; SES takes no idempotency key.
  */
 async function sendNotice(id: EmailPayload["subscriberId"], notice: Notice, deps: EmailDeps) {
   const delivery = await findDelivery(deps.db, notice.eventId, { subscriberId: id });

@@ -16,6 +16,7 @@ import {
   type EndpointRow,
   ensurePage,
   findEndpointForSend,
+  findSubscriber,
   listEndpoints,
   listSubscribers,
 } from "@galena/db";
@@ -250,8 +251,12 @@ export function registerNotificationRoutes(app: App, deps: Deps) {
     async (c) => {
       const member = c.get("member");
       const { id } = c.req.valid("param");
-      const removed = await deleteSubscriber(db, member.workspaceId, id);
-      if (!removed) return notFound("Subscriber");
+      const existing = await findSubscriber(db, id);
+      if (existing?.workspaceId !== member.workspaceId) return notFound("Subscriber");
+      // The audit entry names the row only: the address stays out of the log.
+      await commit(deps, changeOf(member, "subscriber", "deleted", [id]), (tx) =>
+        deleteSubscriber(tx, member.workspaceId, id),
+      );
       return c.body(null, 204);
     },
   );
