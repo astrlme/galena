@@ -1,7 +1,9 @@
+import { subscriberId } from "@galena/contracts";
 import { schema } from "@galena/db";
 import { linkToken } from "@galena/integrations/secrets";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
+import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createApp, type Deps } from "../app.ts";
 import { type Triggered, testDeps } from "../test-deps.ts";
@@ -153,4 +155,27 @@ test("unsubscribes from the page's form and from a mail app's one-click post", a
     form({ "List-Unsubscribe": "One-Click" }),
   );
   expect(forged.status).toBe(400);
+});
+
+// Last: it fills the hour's allowance.
+test("past the hour's confirmations, the form answers the same and sends nothing", async () => {
+  const workspaceId = (await subscriber("grace@example.com"))?.workspaceId;
+  if (!workspaceId) throw new Error("no workspace");
+  const sent = (await deps.db.select().from(schema.subscriber)).filter((s) => s.confirmSentAt);
+  await deps.db.insert(schema.subscriber).values(
+    Array.from({ length: 200 - sent.length }, (_, i) => ({
+      id: subscriberId.parse(v7()),
+      workspaceId,
+      email: `cap${i}@example.com`,
+      confirmSentAt: new Date(),
+    })),
+  );
+  const before = (await requests()).length;
+  const res = await app.request(
+    "/public/subscribe",
+    form({ email: "late@example.com" }, "192.0.2.50"),
+  );
+  expect(res.headers.get("location")).toBe("/subscription/sent/");
+  expect(await subscriber("late@example.com")).toBeUndefined();
+  expect((await requests()).length).toBe(before);
 });
