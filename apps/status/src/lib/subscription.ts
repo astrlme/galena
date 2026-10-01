@@ -9,6 +9,7 @@ export const subscriptionPages = {
     title: "That doesn't look like an email address",
     text: "Go back, check the address and try again.",
   },
+  confirm: { title: "Confirm your subscription", text: "" },
   confirmed: {
     title: "You're subscribed",
     text: "You'll get an email when an incident or maintenance is posted. Every email has a one-click unsubscribe.",

@@ -37,7 +37,8 @@ async function sendConfirmation(id: EmailPayload["subscriberId"], deps: EmailDep
   const token = linkToken(deps.keys, "confirm", id, deps.now());
   const email = await confirmationEmail({
     page: { name: target.name, url: deps.url },
-    confirmUrl: `${deps.url}/public/confirm?t=${encodeURIComponent(token)}`,
+    // The page's button confirms; a mail scanner opening the link does nothing.
+    confirmUrl: `${deps.url}/subscription/confirm/?t=${encodeURIComponent(token)}`,
   });
   await deps.mailer.send({ to: subscriber.email, fromName: target.name, headers: {}, ...email });
   return "sent";

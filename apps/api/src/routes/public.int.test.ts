@@ -99,7 +99,8 @@ test("one network can submit only so many addresses an hour", async () => {
 test("a confirmation link activates once and keeps working; an old or edited one does not", async () => {
   const row = await subscriber("grace@example.com");
   if (!row) throw new Error("no subscriber");
-  const confirm = (t: string) => app.request(`/public/confirm?t=${encodeURIComponent(t)}`);
+  const confirm = (t: string) =>
+    app.request("/public/confirm", { method: "POST", body: new URLSearchParams({ t }) });
   const fresh = linkToken(deps.keys, "confirm", row.id, new Date());
   for (let i = 0; i < 2; i++) {
     expect((await confirm(fresh)).headers.get("location")).toBe("/subscription/confirmed/");
@@ -115,6 +116,16 @@ test("a confirmation link activates once and keeps working; an old or edited one
   for (const t of [old, edited, "junk"]) {
     expect((await confirm(t)).headers.get("location")).toBe("/subscription/bad-link/");
   }
+  expect((await subscriber("linus@example.com"))?.state).toBe("pending_confirmation");
+});
+
+test("following an older email's confirm link only opens the confirm page", async () => {
+  const pending = await subscriber("linus@example.com");
+  if (!pending) throw new Error("no subscriber");
+  const t = linkToken(deps.keys, "confirm", pending.id, new Date());
+  const res = await app.request(`/public/confirm?t=${encodeURIComponent(t)}`);
+  expect(res.status).toBe(303);
+  expect(res.headers.get("location")).toBe(`/subscription/confirm/?t=${encodeURIComponent(t)}`);
   expect((await subscriber("linus@example.com"))?.state).toBe("pending_confirmation");
 });
 

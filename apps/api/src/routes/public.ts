@@ -110,8 +110,15 @@ export function registerPublicRoutes(app: App, deps: Deps) {
     return accepted();
   });
 
-  app.get("/public/confirm", async (c) => {
-    const token = readLinkToken(keys, "confirm", c.req.query("t") ?? "");
+  // Emails link to the static confirm page, whose button posts here: mail scanners follow links
+  // but don't press buttons, so nobody is subscribed by a scanner. Older emails linked here.
+  app.get("/public/confirm", (c) =>
+    c.redirect(`${page("confirm")}?t=${encodeURIComponent(c.req.query("t") ?? "")}`, 303),
+  );
+
+  app.post("/public/confirm", async (c) => {
+    const form = await readForm(c);
+    const token = readLinkToken(keys, "confirm", list(form.t)[0] ?? "");
     const id = subscriberId.safeParse(token?.id);
     const current = token && id.success ? await findSubscriber(db, id.data) : undefined;
     const step = current && token ? confirmStep(current, token.issuedAt, new Date()) : undefined;
