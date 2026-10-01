@@ -9,15 +9,17 @@ import Glyph from "./Glyph.astro";
 
 interface Props {
   incident: SnapshotIncident;
+  /** On its own card, as on the front page. */
+  card?: boolean;
 }
-const { incident } = Astro.props;
+const { incident, card = false } = Astro.props;
 const latest = incident.updates[0];
 // The first sentence or so of the latest update; the incident page has the rest.
 const preview =
   latest && latest.body.length > 160 ? `${latest.body.slice(0, 157).trimEnd()}…` : latest?.body;
 ---
 
-<article class={`incident impact-${incident.impact}`}>
+<article class:list={["incident", `impact-${incident.impact}`, { card }]}>
   <div class="incident-title">
     <span class="label">
       <Glyph name={pageIndicatorStates[incident.impact]} />

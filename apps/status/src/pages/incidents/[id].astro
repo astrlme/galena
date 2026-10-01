@@ -54,7 +54,7 @@ const { incident, pageName, names } = Astro.props;
         {incident.components.map((c) => (
           <li class="component-row">
             <span>{names[c.componentId] ?? "A removed component"}</span>
-            <span class="label"><Glyph name={c.status} />{componentStatusLabels[c.status]}</span>
+            <span class="label state-label"><Glyph name={c.status} />{componentStatusLabels[c.status]}</span>
           </li>
         ))}
       </ul>

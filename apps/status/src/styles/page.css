@@ -1,4 +1,5 @@
-/* The status page: one left-aligned column, monochrome, still. Colours are the token variables. */
+/* The status page: one left-aligned column on white or black, a colour per state, nothing moving
+   unless the reader made it move. Colours are the token variables. */
 
 *,
 *::before,
@@ -17,6 +18,7 @@ body {
 }
 main {
   max-width: 720px;
+  margin: 0 auto;
   padding: 32px 16px 48px;
 }
 h1,
@@ -89,6 +91,30 @@ time {
   height: 14px;
   flex: none;
 }
+/* Each state in its colour: glyphs everywhere, and a state's label beside its glyph. */
+[data-state="operational"],
+.state-label:has(> [data-state="operational"]) {
+  color: var(--operational);
+}
+[data-state="degraded_performance"],
+.state-label:has(> [data-state="degraded_performance"]) {
+  color: var(--degraded);
+}
+[data-state="partial_outage"],
+.state-label:has(> [data-state="partial_outage"]) {
+  color: var(--partial);
+}
+[data-state="major_outage"],
+.state-label:has(> [data-state="major_outage"]) {
+  color: var(--major);
+}
+[data-state="under_maintenance"],
+.state-label:has(> [data-state="under_maintenance"]) {
+  color: var(--maintenance);
+}
+[data-state="no_data"] {
+  color: var(--ash);
+}
 
 section {
   margin-top: 48px;
@@ -116,15 +142,15 @@ h3 {
   padding-left: 16px;
 }
 .impact-minor {
-  border-left: 1px solid var(--graphite);
+  border-left: 2px solid var(--degraded);
   padding-left: 12px;
 }
 .impact-major {
-  border-left: 2px solid var(--ink);
+  border-left: 3px solid var(--partial);
   padding-left: 12px;
 }
 .impact-critical {
-  border-left: 4px solid var(--ink);
+  border-left: 4px solid var(--major);
   padding-left: 12px;
 }
 .incident-title {
@@ -145,10 +171,35 @@ h3 {
   white-space: nowrap;
 }
 
+/* Cards: a surface with a hairline, for components, active incidents and maintenance. */
+.card {
+  margin-top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--mist);
+  border-radius: 12px;
+  padding: 0 16px;
+}
+.incident.card {
+  padding: 16px;
+}
+/* The impact rule replaces the card's left hairline. */
+.incident.card.impact-minor {
+  border-left: 2px solid var(--degraded);
+}
+.incident.card.impact-major {
+  border-left: 3px solid var(--partial);
+}
+.incident.card.impact-critical {
+  border-left: 4px solid var(--major);
+}
+
 /* Components and the signal strip */
 .component {
   padding: 16px 0;
   border-bottom: 1px solid var(--mist);
+}
+.component:last-child {
+  border-bottom: 0;
 }
 .component-row {
   display: flex;
@@ -170,19 +221,22 @@ h3 {
 .strip svg {
   flex: none;
 }
-.m-ok,
+/* Heights still grow with severity, so the strip reads without colour too. */
+.m-ok {
+  fill: var(--operational);
+}
 .m-degraded {
-  fill: var(--slate);
+  fill: var(--degraded);
 }
 .m-partial {
-  fill: var(--graphite);
+  fill: var(--partial);
 }
 .m-major {
-  fill: var(--ink);
+  fill: var(--major);
 }
 .m-maintenance {
   fill: none;
-  stroke: var(--graphite);
+  stroke: var(--maintenance);
   stroke-dasharray: 2 2;
 }
 .m-none {
@@ -231,7 +285,7 @@ h3 {
 }
 
 .group h3 {
-  margin-top: 24px;
+  padding-top: 16px;
 }
 .updates li {
   list-style: none;
@@ -315,10 +369,17 @@ footer {
   min-width: 0;
   font: inherit;
   color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--ash);
-  border-radius: 8px;
+  background: var(--paper);
+  border: 1px solid var(--mist);
+  border-radius: 6px;
   padding: 8px 12px;
+  transition: border-color 120ms ease;
+}
+.subscribe input[type="email"]:hover {
+  border-color: var(--slate);
+}
+.subscribe input[type="email"]:focus {
+  border-color: var(--ink);
 }
 /* The one primary action on the page, inverted. */
 .subscribe button {
@@ -327,7 +388,7 @@ footer {
   color: var(--paper);
   background: var(--ink);
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 8px 16px;
   cursor: pointer;
 }
@@ -349,4 +410,166 @@ footer {
 }
 .subscribe summary {
   cursor: pointer;
+}
+
+/* The header's Subscribe: a quiet bordered button. */
+.subscribe-link {
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid var(--mist);
+  border-radius: 6px;
+  padding: 6px 12px;
+  transition: border-color 120ms ease;
+}
+.subscribe-link:hover {
+  border-color: var(--slate);
+}
+
+/* The subscribe dialog: centred from 640 px, a bottom sheet below, fading or sliding in
+   220 ms when opened; nothing moves under reduced motion. */
+.sheet {
+  width: min(448px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0 24px 24px;
+  border: 1px solid var(--mist);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  opacity: 0;
+  transform: scale(0.94);
+  transition:
+    opacity 220ms ease,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    overlay 220ms allow-discrete,
+    display 220ms allow-discrete;
+}
+.sheet[open] {
+  opacity: 1;
+  transform: none;
+}
+@starting-style {
+  .sheet[open] {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+.sheet::backdrop {
+  background: color-mix(in srgb, var(--scrim) 60%, transparent);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition:
+    opacity 220ms ease,
+    overlay 220ms allow-discrete,
+    display 220ms allow-discrete;
+}
+.sheet[open]::backdrop {
+  opacity: 1;
+}
+@starting-style {
+  .sheet[open]::backdrop {
+    opacity: 0;
+  }
+}
+.sheet-grip {
+  padding-top: 24px;
+}
+.sheet-handle {
+  display: none;
+}
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.sheet-head h2 {
+  border: 0;
+  padding: 0;
+}
+.sheet-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--slate);
+  cursor: pointer;
+}
+.sheet-close:hover {
+  color: var(--ink);
+}
+.sheet-close svg {
+  width: 14px;
+  height: 14px;
+}
+@media (max-width: 639px) {
+  .sheet {
+    width: 100%;
+    max-width: none;
+    margin: auto 0 0;
+    padding-bottom: 40px;
+    border-width: 1px 0 0;
+    border-radius: 24px 24px 0 0;
+    opacity: 1;
+    transform: translateY(100%);
+  }
+  .sheet[open] {
+    transform: none;
+  }
+  @starting-style {
+    .sheet[open] {
+      transform: translateY(100%);
+    }
+  }
+  /* Drag the handle down to close. */
+  .sheet-grip {
+    padding: 12px 0 16px;
+    touch-action: none;
+    cursor: grab;
+  }
+  .sheet-handle {
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin: 0 auto;
+    border-radius: 2px;
+    background: var(--ash);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .sheet::backdrop,
+  .subscribe-link,
+  .subscribe input[type="email"] {
+    transition: none;
+  }
+}
+/* Without JavaScript the dialog is never opened: show it as a plain section at the end. */
+@media (scripting: none) {
+  .sheet {
+    display: block;
+    position: static;
+    width: auto;
+    max-width: none;
+    max-height: none;
+    margin: 48px 0 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    opacity: 1;
+    transform: none;
+  }
+  .sheet-grip,
+  .sheet-close {
+    display: none;
+  }
+  .sheet-head h2 {
+    width: 100%;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--mist);
+  }
 }
