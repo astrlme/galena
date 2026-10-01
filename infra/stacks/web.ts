@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import {
   Annotations,
   CfnOutput,
+  Duration,
   Fn,
   RemovalPolicy,
   SecretValue,
@@ -20,6 +21,8 @@ import {
   FunctionCode,
   FunctionEventType,
   FunctionRuntime,
+  HeadersFrameOption,
+  HeadersReferrerPolicy,
   OriginRequestCookieBehavior,
   OriginRequestHeaderBehavior,
   OriginRequestPolicy,
@@ -98,6 +101,39 @@ export class WebStack extends Stack {
       originRequestPolicy: apiRequests,
     };
 
+    // Next's static export bootstraps with inline scripts, so scripts and styles allow
+    // 'unsafe-inline'; everything else is this origin only, and nothing may frame the dashboard.
+    const headers = new ResponseHeadersPolicy(this, "Headers", {
+      comment: `Galena ${props.config.stage} dashboard`,
+      securityHeadersBehavior: {
+        contentSecurityPolicy: {
+          contentSecurityPolicy: [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data:",
+            "connect-src 'self'",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "object-src 'none'",
+          ].join("; "),
+          override: true,
+        },
+        strictTransportSecurity: {
+          accessControlMaxAge: Duration.days(365),
+          includeSubdomains: true,
+          override: true,
+        },
+        contentTypeOptions: { override: true },
+        frameOptions: { frameOption: HeadersFrameOption.DENY, override: true },
+        referrerPolicy: {
+          referrerPolicy: HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+          override: true,
+        },
+      },
+    });
+
     // No custom error pages: CloudFront applies them to every behaviour and would turn the API's
     // JSON 403 and 404 problems into HTML.
     const distribution = new Distribution(this, "Distribution", {
@@ -105,7 +141,7 @@ export class WebStack extends Stack {
       defaultBehavior: {
         origin: S3BucketOrigin.withOriginAccessControl(site),
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        responseHeadersPolicy: ResponseHeadersPolicy.SECURITY_HEADERS,
+        responseHeadersPolicy: headers,
         functionAssociations: [
           {
             eventType: FunctionEventType.VIEWER_REQUEST,

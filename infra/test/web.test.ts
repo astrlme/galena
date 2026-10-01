@@ -34,12 +34,18 @@ test("keeps the site bucket private and reads it through origin access control",
   template.resourceCountIs("AWS::CloudFront::OriginAccessControl", 1);
 });
 
-test("serves the export over HTTPS with security headers and the index rewrite", () => {
+test("serves the export over HTTPS with a CSP, HSTS and no framing, and the index rewrite", () => {
   expect(distribution().DefaultCacheBehavior).toMatchObject({
     ViewerProtocolPolicy: "redirect-to-https",
-    ResponseHeadersPolicyId: "67f7725c-6f97-4210-82d7-5512b31e9d03", // managed SecurityHeadersPolicy
+    ResponseHeadersPolicyId: { Ref: expect.stringMatching(/^Headers/) },
     FunctionAssociations: [{ EventType: "viewer-request" }],
   });
+  const [policy] = Object.values(template.findResources("AWS::CloudFront::ResponseHeadersPolicy"));
+  const security = policy?.Properties.ResponseHeadersPolicyConfig.SecurityHeadersConfig;
+  expect(security.ContentSecurityPolicy.ContentSecurityPolicy).toContain("frame-ancestors 'none'");
+  expect(security.ContentSecurityPolicy.ContentSecurityPolicy).toContain("default-src 'self'");
+  expect(security.StrictTransportSecurity.AccessControlMaxAgeSec).toBe(31536000);
+  expect(security.FrameOptions.FrameOption).toBe("DENY");
 });
 
 test("forwards /auth/* and /v1/* to the API uncached, with every method", () => {
