@@ -54,6 +54,9 @@ const common = {
   homeRegion: "eu-central-1",
   probeRegions: ["eu-west-1", "eu-west-3", "eu-north-1"],
   pageRegions: { primary: "eu-west-1", replica: "eu-north-1" },
+  // The maintainer's repository and domains below: a fork replaces them with its own. The
+  // subject is `repo:<owner>@<owner id>/<repo>@<repo id>`; `gh api repos/<owner>/<repo>` shows
+  // both ids.
   github: {
     repository: "astrlme/galena",
     oidcSubject: "repo:astrlme@61922439/galena@1391246106",
