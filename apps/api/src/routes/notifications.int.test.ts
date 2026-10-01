@@ -1,5 +1,5 @@
 import { webhookEndpointId } from "@galena/contracts";
-import { createEndpoint } from "@galena/db";
+import { createEndpoint, schema } from "@galena/db";
 import { seal } from "@galena/integrations/secrets";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
@@ -107,4 +107,11 @@ test("lists subscribers with masked addresses and removes one", async () => {
   const id = list[0]?.id ?? "";
   expect((await owner.call(`/v1/subscribers/${id}`, undefined, "DELETE")).status).toBe(204);
   expect(await (await owner.call("/v1/subscribers")).json()).toEqual([]);
+  const audit = await deps.db.select().from(schema.auditLog);
+  expect(audit.find((a) => a.action === "subscriber.deleted")).toMatchObject({ targetId: id });
+  await expectProblem(
+    await owner.call(`/v1/subscribers/${id}`, undefined, "DELETE"),
+    404,
+    "not_found",
+  );
 });

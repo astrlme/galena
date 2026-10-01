@@ -66,7 +66,7 @@ export function eventChange(
  * The change, its audit entry and its outbox row in one transaction; then the outbox row goes to
  * the dispatcher. The trigger comes after the commit, so the dispatcher never sees a row that can
  * still roll back. If trigger.dev is unreachable, the request still succeeds and the row stays
- * pending until it is dispatched again.
+ * pending.
  */
 export async function commit(deps: Deps, change: Change, write: (tx: Db) => Promise<unknown>) {
   const outboxId = await deps.db.transaction(async (tx) => {
@@ -76,7 +76,10 @@ export async function commit(deps: Deps, change: Change, write: (tx: Db) => Prom
   await dispatch(deps, outboxId);
 }
 
-/** Hands a committed outbox row to the dispatcher; if trigger.dev is unreachable it stays pending. */
+/**
+ * Hands a committed outbox row to the dispatcher. Known limit: a row whose trigger failed stays
+ * pending, and nothing dispatches it later until an hourly sweep of pending rows exists.
+ */
 export async function dispatch(deps: Deps, outboxId: OutboxId) {
   try {
     await deps.engine.trigger(
