@@ -36,6 +36,14 @@ export class RetryableSendError extends Error {
 }
 
 /**
+ * Only the guard refusing the address can't change on a retry. Timeouts, resets, 429/5xx and
+ * the database resuming may all pass, so they get the task's retries before the endpoint is
+ * marked failing.
+ */
+export const isFinalSendError = (error: unknown) =>
+  error instanceof Error && error.name === "BlockedByGuardError";
+
+/**
  * One notice to one Slack or webhook endpoint, recorded on its delivery row. The webhook id is
  * the delivery's, so it stays the same across retries and receivers can drop duplicates.
  */
