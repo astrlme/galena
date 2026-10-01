@@ -96,7 +96,9 @@ test("a pending subscriber gets a confirmation link the API will accept", async 
   const id = await subscriber("ada@example.com", "pending_confirmation");
   expect(await sendEmail({ kind: "confirmation", subscriberId: id }, deps)).toBe("sent");
   expect(sent[0]).toMatchObject({ to: "ada@example.com", fromName: "Acme" });
-  const link = /https:\/\/status\.example\.com\/public\/confirm\?t=(\S+)/.exec(sent[0]?.text ?? "");
+  const link = /https:\/\/status\.example\.com\/subscription\/confirm\/\?t=(\S+)/.exec(
+    sent[0]?.text ?? "",
+  );
   expect(readLinkToken(keys, "confirm", decodeURIComponent(link?.[1] ?? ""))).toEqual({
     id,
     issuedAt: now,
