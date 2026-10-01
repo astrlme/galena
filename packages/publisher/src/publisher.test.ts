@@ -29,11 +29,11 @@ describe("page files from the fixture workspace", () => {
   });
 });
 
-test("the badge inverts its right half only for a major outage, and grows with its label", () => {
+test("the badge's right half takes the state's colour, and grows with its label", () => {
   const calm = badgeSvg("none");
   const major = badgeSvg("critical");
-  expect(calm).toContain('fill="#FAFAFA" stroke="#0A0A0A"');
-  expect(major).toContain('fill="#0A0A0A" stroke="#0A0A0A"');
+  expect(calm).toContain('fill="#15803D"');
+  expect(major).toContain('fill="#DC2626"');
   const width = (svg: string) => Number(/width="(\d+)"/.exec(svg)?.[1]);
   expect(width(calm)).toBeGreaterThan(width(badgeSvg("critical")));
 });
