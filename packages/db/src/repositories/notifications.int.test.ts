@@ -13,6 +13,7 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { createDb, type Db } from "../client.ts";
 import { webhookEndpoint, workspace } from "../schema/index.ts";
 import {
+  countConfirmationsSince,
   countSubscribersFromIp,
   createEndpoint,
   deleteEndpoint,
@@ -74,6 +75,8 @@ test("an address is stored once; asking again updates the same row", async () =>
     componentIds: [],
   });
   expect(await countSubscribersFromIp(db, "ip-1", at("2026-01-01T00:00:00Z"))).toBe(1);
+  expect(await countConfirmationsSince(db, acme, at("2026-09-30T11:00:00Z"))).toBe(1);
+  expect(await countConfirmationsSince(db, acme, at("2026-09-30T13:00:00Z"))).toBe(0);
 });
 
 test("only active subscribers hear about events, and a bounce suppresses the address", async () => {

@@ -99,6 +99,19 @@ export async function countSubscribersFromIp(db: Db, ipHash: string, since: Date
   return row?.n ?? 0;
 }
 
+/** Confirmation emails sent since `since`, across the workspace: the form's overall cap. */
+export async function countConfirmationsSince(
+  db: Db,
+  workspaceId: WorkspaceId,
+  since: Date,
+): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(subscriber)
+    .where(and(eq(subscriber.workspaceId, workspaceId), gte(subscriber.confirmSentAt, since)));
+  return row?.n ?? 0;
+}
+
 /** Everyone who should hear about the workspace's events: confirmed, not unsubscribed. */
 export function listActiveSubscribers(db: Db, workspaceId: WorkspaceId) {
   return db
