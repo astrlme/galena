@@ -61,10 +61,10 @@ time {
   font-weight: 600;
   text-decoration: none;
 }
+/* The cleaved crystal, pixel-drawn for 16 px. */
 .mark {
-  width: 12px;
-  height: 12px;
-  background: var(--ink);
+  flex: none;
+  fill: var(--ink);
 }
 
 /* Hero */
