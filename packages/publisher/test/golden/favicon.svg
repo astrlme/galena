@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="32" height="32">
 <title>Partial outage</title>
-<style>@media (prefers-color-scheme: dark) { g { color: #FAFAFA } }</style>
-<g color="#0A0A0A"><path d="M7 2 L12.5 12 L1.5 12 Z" fill="currentColor"/></g>
+<style>@media (prefers-color-scheme: dark) { g { color: #F97316 } }</style>
+<g color="#C2410C"><path d="M7 2 L12.5 12 L1.5 12 Z" fill="currentColor"/></g>
 </svg>
