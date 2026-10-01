@@ -55,6 +55,18 @@ test("forwards /auth/* and /v1/* to the API uncached, with every method", () => 
   }
 });
 
+test("adds the origin secret to every request it forwards to the API", () => {
+  const apiOrigin = distribution().Origins.find(
+    (o: { CustomOriginConfig?: unknown }) => o.CustomOriginConfig,
+  );
+  expect(apiOrigin.OriginCustomHeaders).toEqual([
+    {
+      HeaderName: "x-galena-origin",
+      HeaderValue: "{{resolve:secretsmanager:galena/dev/origin-secret:SecretString:::}}",
+    },
+  ]);
+});
+
 test("has no custom error pages that would hide the API's problem responses", () => {
   expect(distribution().CustomErrorResponses).toBeUndefined();
 });

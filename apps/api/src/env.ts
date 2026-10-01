@@ -40,6 +40,9 @@ export const env = z
     GLN_APP_KEY: z.string().min(1).optional(),
     GLN_APP_KEY_PARAM: z.string().startsWith("/").optional(),
     GLN_TRIGGER_SECRET_PARAM: z.string().startsWith("/").optional(),
+    // AWS: the secret CloudFront adds to every request it forwards, read through SSM's
+    // /aws/reference/secretsmanager/ path. Unset locally, where nothing checks it.
+    GLN_ORIGIN_SECRET_PARAM: z.string().startsWith("/aws/reference/secretsmanager/").optional(),
   })
   .refine((e) => !e.GLN_DB_CLUSTER_ARN || (e.GLN_DB_SECRET_ARN && e.AWS_REGION), {
     message: "The Data API needs GLN_DB_SECRET_ARN and AWS_REGION with GLN_DB_CLUSTER_ARN.",

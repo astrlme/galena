@@ -3,6 +3,7 @@ import {
   Duration,
   Fn,
   RemovalPolicy,
+  SecretValue,
   Stack,
   type StackProps,
   Token,
@@ -42,6 +43,7 @@ import {
 } from "aws-cdk-lib/aws-s3";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
+import { ORIGIN_HEADER, originSecretName } from "./api.ts";
 import { indexRewrite } from "./web.ts";
 
 // The page the workers publish: `ensurePage` creates it with this slug.
@@ -198,7 +200,14 @@ export class StatusPageStack extends Stack {
       },
       additionalBehaviors: {
         "/public/*": {
-          origin: new HttpOrigin(Fn.select(2, Fn.split("/", props.apiEndpoint))),
+          origin: new HttpOrigin(Fn.select(2, Fn.split("/", props.apiEndpoint)), {
+            // From the secret's copy in this region.
+            customHeaders: {
+              [ORIGIN_HEADER]: SecretValue.secretsManager(
+                originSecretName(config.stage),
+              ).unsafeUnwrap(),
+            },
+          }),
           viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
           allowedMethods: AllowedMethods.ALLOW_ALL,
           cachePolicy: CachePolicy.CACHING_DISABLED,

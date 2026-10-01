@@ -1,10 +1,11 @@
+import { timingSafeEqual } from "node:crypto";
 import { memberId, workspaceId } from "@galena/contracts";
 import { createWorkspace, workspaceExists } from "@galena/db";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { APIError } from "better-auth/api";
 import { HTTPException } from "hono/http-exception";
 import { v7 } from "uuid";
-import { type Deps, type Env, fail, problemResponse, requireRole } from "./http.ts";
+import { type Deps, type Env, fail, ORIGIN_HEADER, problemResponse, requireRole } from "./http.ts";
 import { registerComponentRoutes } from "./routes/components.ts";
 import { registerIncidentRoutes } from "./routes/incidents.ts";
 import { registerMaintenanceRoutes } from "./routes/maintenance.ts";
@@ -99,6 +100,27 @@ export function createApp(deps: Deps) {
       });
     },
   });
+
+  // Only requests that came through CloudFront: the per-visitor limits trust the address it
+  // adds. Health checks may come from anywhere.
+  if (deps.originSecret) {
+    const expected = Buffer.from(deps.originSecret);
+    app.use("*", async (c, next) => {
+      const given = Buffer.from(c.req.header(ORIGIN_HEADER) ?? "");
+      if (
+        c.req.path === "/health" ||
+        (given.length === expected.length && timingSafeEqual(given, expected))
+      ) {
+        return next();
+      }
+      return problemResponse({
+        status: 403,
+        code: "not_through_cloudfront",
+        title: "Use the dashboard's address",
+        detail: "The API answers through the dashboard and status page addresses only.",
+      });
+    });
+  }
 
   app.openapi(health, (c) => c.json({ status: "ok" as const }, 200));
 

@@ -134,4 +134,11 @@ test("sends only the subscription forms to the API, uncached, with the visitor's
     (o: { CustomOriginConfig?: unknown }) => o.CustomOriginConfig,
   );
   expect(apiOrigin.DomainName).toBe("abc123.execute-api.eu-central-1.amazonaws.com");
+  // From the secret's copy in the page region; the API refuses requests without it.
+  expect(apiOrigin.OriginCustomHeaders).toEqual([
+    {
+      HeaderName: "x-galena-origin",
+      HeaderValue: "{{resolve:secretsmanager:galena/dev/origin-secret:SecretString:::}}",
+    },
+  ]);
 });

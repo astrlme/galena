@@ -69,6 +69,10 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
   }
   appKey ??= LOCAL_APP_KEY;
 
+  const originSecret = env.GLN_ORIGIN_SECRET_PARAM
+    ? await parameter(env.GLN_ORIGIN_SECRET_PARAM)
+    : undefined;
+
   // DynamoDB Local takes any credentials; AWS uses the function's role.
   const endpoint =
     env.GLN_DYNAMODB_ENDPOINT ?? (env.GLN_STAGE === "local" ? "http://localhost:8000" : undefined);
@@ -94,6 +98,7 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     targets: targetGuard(env.GLN_STAGE, env.GLN_ALLOW_LOOPBACK),
     keys: appKeys(appKey),
     publicUrl: baseURL,
+    ...(originSecret ? { originSecret } : {}),
     close,
   };
 }

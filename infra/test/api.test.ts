@@ -45,9 +45,26 @@ test("the API and migration roles get logs, the Data API, their secrets and tele
     "rds-data:CommitTransaction",
     "rds-data:ExecuteStatement",
     "rds-data:RollbackTransaction",
+    "secretsmanager:DescribeSecret",
     "secretsmanager:GetSecretValue",
     "ssm:GetParameter",
   ]);
+});
+
+test("generates the origin secret, copies it to the page region, and the API reads it via SSM", () => {
+  template.hasResourceProperties("AWS::SecretsManager::Secret", {
+    Name: "galena/dev/origin-secret",
+    GenerateSecretString: { PasswordLength: 48, ExcludePunctuation: true },
+    ReplicaRegions: [{ Region: stages.dev.pageRegions.primary }],
+  });
+  template.hasResourceProperties("AWS::Lambda::Function", {
+    Timeout: 29,
+    Environment: {
+      Variables: {
+        GLN_ORIGIN_SECRET_PARAM: "/aws/reference/secretsmanager/galena/dev/origin-secret",
+      },
+    },
+  });
 });
 
 test("the API reads its database from Foundation's parameters and its secrets from SSM", () => {
