@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="32" height="32">
 <title>Operational</title>
-<style>@media (prefers-color-scheme: dark) { g { color: #EEF0F3 } }</style>
-<g color="#15171C"><path d="M2.5 7.5 L5.5 10.5 L11.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5"/></g>
+<style>@media (prefers-color-scheme: dark) { g { color: #FAFAFA } }</style>
+<g color="#0A0A0A"><path d="M2.5 7.5 L5.5 10.5 L11.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5"/></g>
 </svg>
