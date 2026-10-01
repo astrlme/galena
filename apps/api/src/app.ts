@@ -5,7 +5,16 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { APIError } from "better-auth/api";
 import { HTTPException } from "hono/http-exception";
 import { v7 } from "uuid";
-import { type Deps, type Env, fail, ORIGIN_HEADER, problemResponse, requireRole } from "./http.ts";
+import { CLIENT_IP_HEADER } from "./auth.ts";
+import {
+  type Deps,
+  type Env,
+  fail,
+  ORIGIN_HEADER,
+  problemResponse,
+  requireRole,
+  viewerAddress,
+} from "./http.ts";
 import { registerComponentRoutes } from "./routes/components.ts";
 import { registerIncidentRoutes } from "./routes/incidents.ts";
 import { registerMaintenanceRoutes } from "./routes/maintenance.ts";
@@ -124,8 +133,15 @@ export function createApp(deps: Deps) {
 
   app.openapi(health, (c) => c.json({ status: "ok" as const }, 200));
 
-  // Better Auth: sign-in, sign-out, sessions, two-factor, GitHub OAuth.
-  app.on(["GET", "POST"], "/auth/*", (c) => auth.handler(c.req.raw));
+  // Better Auth: sign-in, sign-out, sessions, two-factor, GitHub OAuth. Its rate limits key on
+  // the visitor's address, which only we set, from CloudFront's.
+  app.on(["GET", "POST"], "/auth/*", (c) => {
+    const headers = new Headers(c.req.raw.headers);
+    headers.delete(CLIENT_IP_HEADER);
+    const address = viewerAddress(headers);
+    if (address) headers.set(CLIENT_IP_HEADER, address);
+    return auth.handler(new Request(c.req.raw, { headers }));
+  });
 
   app.openapi(setup, async (c) => {
     if (await workspaceExists(db)) {

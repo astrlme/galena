@@ -12,9 +12,17 @@ export type AuthConfig = {
   baseURL: string;
   /** Present once the owner has created a GitHub OAuth App; sign-in with GitHub stays off until then. */
   github?: { clientId: string; clientSecret: string };
+  /**
+   * Limits each visitor's sign-in, two-factor and other auth requests (Better Auth's rules: 3
+   * sign-in attempts per 10 s). On in AWS; counts live in the database, shared by every Lambda.
+   */
+  rateLimit?: boolean;
 };
 
-export function createAuth({ db, secret, baseURL, github }: AuthConfig) {
+/** The visitor's address, which the API sets from CloudFront's before Better Auth reads it. */
+export const CLIENT_IP_HEADER = "x-galena-client-ip";
+
+export function createAuth({ db, secret, baseURL, github, rateLimit = false }: AuthConfig) {
   return betterAuth({
     appName: "Galena",
     secret,
@@ -24,6 +32,8 @@ export function createAuth({ db, secret, baseURL, github }: AuthConfig) {
     emailAndPassword: { enabled: true, minPasswordLength: 12 },
     ...(github ? { socialProviders: { github } } : {}),
     plugins: [twoFactor({ issuer: "Galena" })],
+    rateLimit: { enabled: rateLimit, storage: "database" },
+    advanced: { ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] } },
     databaseHooks: {
       user: {
         create: {

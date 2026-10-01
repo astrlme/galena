@@ -57,6 +57,13 @@
       "when": 1790795882303,
       "tag": "0007_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790888979540,
+      "tag": "0008_rate_limit",
+      "breakpoints": true
     }
   ]
 }

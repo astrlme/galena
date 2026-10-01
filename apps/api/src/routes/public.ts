@@ -14,7 +14,7 @@ import { keyedHash, readLinkToken } from "@galena/integrations/secrets";
 import type { Context } from "hono";
 import { v7 } from "uuid";
 import { z } from "zod";
-import type { App, Deps } from "../http.ts";
+import { type App, type Deps, viewerAddress } from "../http.ts";
 import { dispatch } from "./shared.ts";
 
 // The status page's subscription forms, reached on the page's own origin (its CloudFront sends
@@ -41,12 +41,6 @@ async function readForm(c: Context): Promise<Record<string, string | string[]>> 
 const list = (value: string | string[] | undefined) =>
   value === undefined ? [] : Array.isArray(value) ? value : [value];
 
-/** The visitor's address as CloudFront saw it (`ip:port`), for the per-network limit. */
-function viewer(c: Context): string {
-  const address = c.req.header("cloudfront-viewer-address");
-  return address ? address.slice(0, address.lastIndexOf(":")) : "direct";
-}
-
 export function registerPublicRoutes(app: App, deps: Deps) {
   const { db, keys } = deps;
 
@@ -65,7 +59,7 @@ export function registerPublicRoutes(app: App, deps: Deps) {
       json ? c.json({ status: "check_inbox" }, 202) : c.redirect(page("sent"), 303);
     const { email } = parsed.data;
     const now = new Date();
-    const ipHash = keyedHash(keys, viewer(c));
+    const ipHash = keyedHash(keys, viewerAddress(c.req.raw.headers) ?? "direct");
     const target = await ensurePage(db);
     if (!target) return accepted();
     const ws = target.workspaceId;
