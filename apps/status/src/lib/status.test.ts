@@ -30,14 +30,43 @@ test("each day is a green column; a bad day's state fills its foot, 1 px below t
     { date: "2026-09-28", worst: "operational", downMinutes: 0 },
     { date: "2026-09-29", worst: "partial_outage", downMinutes: 20 },
   ]);
+  // Without minutes (snapshots from before they were kept) the foot's height is the severity's.
   expect(paths).toEqual([
     { className: "m-none", d: "M1.5 26h1v1h-1z" },
-    // The worst state keeps its height (70% for a partial outage), so it reads without colour.
-    { className: "m-major", d: "M6 1h4v26h-4z" },
-    { className: "m-ok", d: "M12 0h4v27h-4zM18 0h4v8h-4z" },
-    { className: "m-partial", d: "M18 9h4v18h-4z" },
+    { className: "m-major", d: "M6 0h4v27h-4z" },
+    { className: "m-ok", d: "M12 0h4v27h-4zM18 0h4v7h-4z" },
+    { className: "m-partial", d: "M18 8h4v19h-4z" },
   ]);
   expect(stripWidth(90)).toBe(538);
+
+  // With minutes, each state's share of the day sets its height (at least 3 px), worst at the
+  // bottom, 1 px apart; a whole day of one state fills the column like a green one.
+  expect(
+    stripPaths([
+      {
+        date: "2026-09-28",
+        worst: "major_outage",
+        downMinutes: 60,
+        minutes: { operational: 1380, major_outage: 60 },
+      },
+      {
+        date: "2026-09-29",
+        worst: "major_outage",
+        downMinutes: 360,
+        minutes: { operational: 720, degraded_performance: 360, major_outage: 360 },
+      },
+      {
+        date: "2026-09-30",
+        worst: "major_outage",
+        downMinutes: 1440,
+        minutes: { major_outage: 1440 },
+      },
+    ]),
+  ).toEqual([
+    { className: "m-major", d: "M0 24h4v3h-4zM6 20h4v7h-4zM12 0h4v27h-4z" },
+    { className: "m-ok", d: "M0 0h4v23h-4zM6 0h4v11h-4z" },
+    { className: "m-degraded", d: "M6 12h4v7h-4z" },
+  ]);
   expect(describeDay({ date: "2026-09-28", worst: "major_outage", downMinutes: 60 })).toBe(
     "Major outage, 60 minutes down",
   );

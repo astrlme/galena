@@ -196,7 +196,7 @@ h3 {
 .strip svg {
   flex: none;
 }
-/* Heights still grow with severity, so the strip reads without colour too. */
+/* A foot's height is its share of the day; its outline and the gap above read without colour. */
 .m-ok {
   fill: var(--operational);
 }
@@ -210,9 +210,7 @@ h3 {
   fill: var(--major);
 }
 .m-maintenance {
-  fill: none;
-  stroke: var(--maintenance);
-  stroke-dasharray: 2 2;
+  fill: var(--maintenance);
 }
 .m-none {
   fill: var(--ash);

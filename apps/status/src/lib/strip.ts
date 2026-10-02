@@ -7,29 +7,61 @@ import {
 } from "@galena/contracts";
 
 // The signal strip: one column per day, 4 px wide with 2 px gaps, in a 28 px row on a 1 px
-// baseline. A day with data is a green column; a worse day fills its foot with its state's
-// colour, taller for worse, and the green resumes 1 px above it, so the height reads without
-// colour too. One path per kind of mark keeps 90 days to a few hundred bytes.
+// baseline. A day with data is a green column. Each worse state it reached takes a foot in its
+// own colour, as tall as its share of the day (at least 3 px, worst at the bottom), and the green
+// resumes 1 px above, so a foot's outline reads without colour too. One path per kind of mark
+// keeps 90 days to a few hundred bytes.
 
 export const MARK = 4;
 export const GAP = 2;
 export const ROW = 28;
 const BASELINE = ROW - 1;
+/** A full column, the whole row above the baseline. */
+const FULL = BASELINE;
+/** The shortest foot, so a few minutes still show. */
+const MIN_FOOT = 3;
 
 type Mark = ComponentStatus | "none";
-/** Height of the foot (share of the row) and the class that colours it. */
-const MARKS: Record<Mark, { height: number; className: string }> = {
-  operational: { height: 0, className: "m-ok" },
-  degraded_performance: { height: 0.45, className: "m-degraded" },
-  partial_outage: { height: 0.7, className: "m-partial" },
-  major_outage: { height: 1, className: "m-major" },
-  under_maintenance: { height: 1, className: "m-maintenance" },
-  none: { height: 0, className: "m-none" },
+/** The class that colours each kind of mark. */
+const CLASSES: Record<Mark, string> = {
+  operational: "m-ok",
+  degraded_performance: "m-degraded",
+  partial_outage: "m-partial",
+  major_outage: "m-major",
+  under_maintenance: "m-maintenance",
+  none: "m-none",
+};
+/** Feet from the bottom up: the worst state lowest. */
+const FEET = [
+  "major_outage",
+  "partial_outage",
+  "degraded_performance",
+  "under_maintenance",
+] as const;
+/** Snapshots from before minutes were kept: the foot's height is the worst state's severity. */
+const SEVERITY_HEIGHT: Record<(typeof FEET)[number], number> = {
+  major_outage: 1,
+  partial_outage: 0.7,
+  degraded_performance: 0.45,
+  under_maintenance: 1,
 };
 
 export const stripWidth = (days: number) => days * (MARK + GAP) - GAP;
 
 const rect = (x: number, y: number, h: number) => `M${x} ${y}h${MARK}v${h}h-${MARK}z`;
+
+/** The feet of one day, bottom up: each state and its height in px. */
+function feet(day: SnapshotDay): Array<[ComponentStatus, number]> {
+  const worst = day.worst;
+  if (worst === null || worst === "operational") return [];
+  if (!day.minutes) return [[worst, Math.round(FULL * SEVERITY_HEIGHT[worst])]];
+  const minutes = day.minutes;
+  const observed = Object.values(minutes).reduce((sum, m) => sum + m, 0);
+  return FEET.flatMap((state): Array<[ComponentStatus, number]> => {
+    const spent = minutes[state] ?? 0;
+    return spent > 0 ? [[state, Math.max(MIN_FOOT, Math.round((FULL * spent) / observed))]] : [];
+  });
+}
 
 /** One `<path>` per kind of mark, oldest day at the left. */
 export function stripPaths(days: readonly SnapshotDay[]): { className: string; d: string }[] {
@@ -37,24 +69,22 @@ export function stripPaths(days: readonly SnapshotDay[]): { className: string; d
   const add = (mark: Mark, segment: string) =>
     byMark.set(mark, [...(byMark.get(mark) ?? []), segment]);
   for (const [i, day] of days.entries()) {
-    const mark: Mark = day.worst ?? "none";
     const x = i * (MARK + GAP);
-    if (mark === "none") {
-      add(mark, `M${x + 1.5} ${BASELINE - 1}h1v1h-1z`); // a 1 px dot on the baseline
+    if (day.worst === null) {
+      add("none", `M${x + 1.5} ${BASELINE - 1}h1v1h-1z`); // a 1 px dot on the baseline
       continue;
     }
-    if (mark === "operational") {
-      add(mark, rect(x, 0, BASELINE));
-      continue;
+    let top = FULL;
+    for (const [state, height] of feet(day)) {
+      const h = Math.min(height, top);
+      if (h <= 0) break;
+      add(state, rect(x, top - h, h));
+      top -= h + 1; // the 1 px gap above each foot
     }
-    const h = Math.round((BASELINE - 1) * MARKS[mark].height);
-    add(mark, rect(x, BASELINE - h, h));
-    // Maintenance is an outline of its own; other days are green above their foot.
-    const green = BASELINE - h - 1;
-    if (mark !== "under_maintenance" && green > 0) add("operational", rect(x, 0, green));
+    if (top > 0) add("operational", rect(x, 0, top));
   }
   return [...byMark].map(([mark, segments]) => ({
-    className: MARKS[mark].className,
+    className: CLASSES[mark],
     d: segments.join(""),
   }));
 }
