@@ -51,8 +51,10 @@ Next to each component, the page shows its uptime over the 90 days:
 uptime = (observed minutes − partial outage minutes − major outage minutes) / observed minutes
 ```
 
-Degraded performance and maintenance count as up. Days without data are left out rather than
-counted as up. A component with no data at all shows "No data".
+Degraded performance and maintenance count as up. Only minutes in which one of the component's
+monitors had a verdict are observed: a component without monitors, or a day before its first
+monitor reported, has no data rather than counting as up. A component with no data at all shows
+"No data" instead of a percentage.
 
 ## How the history is recorded
 
@@ -62,8 +64,8 @@ Galena doesn't add up check results to draw the history. It replays what happene
 2. Once an hour, at five past, a background job replays yesterday and today for every component:
    at each moment a monitor changed state, an incident opened or resolved, or a window started or
    ended, it applies the same rule the live status uses, and adds up the minutes spent in each
-   status.
-3. It saves one row per component per day, then republishes the page.
+   status. Minutes in which no monitor had a verdict are skipped.
+3. It saves one row per component per day it observed, then republishes the page.
 
 Because the same rule decides the live status and the history, the strip can't disagree with what
 the page said at the time. A day's row is replaced each run, so a retried run writes the same

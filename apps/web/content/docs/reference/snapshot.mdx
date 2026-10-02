@@ -61,6 +61,7 @@ nothing from a draft, dismissed or internal incident ever reaches it.
 | `days[].worst` | The worst status held for at least a minute; `null` for a day with no data |
 | `days[].downMinutes` | Minutes in partial or major outage |
 | `days[].minutes` | Whole minutes in each status; statuses never reached are left out |
+| `observed` | Whether a monitor with a verdict, an open published incident, a running window or a manual status speaks for the component now; when `false` the page shows "No data". Absent in older files. |
 | `uptime` | Percent of observed minutes outside an outage over the 90 days, two decimals; `null` with no data |
 
 ## Incident
