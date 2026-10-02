@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 344" role="img" aria-labelledby="fan-out-title fan-out-desc" style="min-width:680px">
+<title id="fan-out-title">Notification fan-out</title>
+<desc id="fan-out-desc">The dispatcher hands an incident or maintenance event to notify.fanout, which writes one delivery row per subscriber or endpoint and starts one send each, by email through SES, to Slack, or to a webhook URL.</desc>
+<defs><marker id="fan-out-head-plain" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="d-head plain"/></marker></defs>
+<path d="M156,52 L264,52" class="d-arrow" marker-end="url(#fan-out-head-plain)"/>
+<path d="M416,52 L524,52" class="d-arrow" marker-end="url(#fan-out-head-plain)"/>
+<path d="M316,80 L316,104 Q316,112 308,112 L112,112 Q104,112 104,120 L104,152" class="d-arrow" marker-end="url(#fan-out-head-plain)"/>
+<path d="M340,80 L340,152" class="d-arrow" marker-end="url(#fan-out-head-plain)"/>
+<path d="M364,80 L364,104 Q364,112 372,112 L568,112 Q576,112 576,120 L576,152" class="d-arrow" marker-end="url(#fan-out-head-plain)"/>
+<path d="M104,208 L104,264" class="d-arrow" marker-end="url(#fan-out-head-plain)"/>
+<path d="M340,208 L340,264" class="d-arrow" marker-end="url(#fan-out-head-plain)"/>
+<path d="M576,208 L576,264" class="d-arrow" marker-end="url(#fan-out-head-plain)"/>
+<rect x="187.5" y="30.0" width="45" height="16" rx="2" class="d-mask"/>
+<text x="210.0" y="41.5" text-anchor="middle" class="d-label">event</text>
+<rect x="424.5" y="30.0" width="91" height="16" rx="2" class="d-mask"/>
+<text x="470.0" y="41.5" text-anchor="middle" class="d-label">one row each</text>
+<rect x="346.0" y="124.0" width="98" height="16" rx="2" class="d-mask"/>
+<text x="352.0" y="135.5" text-anchor="start" class="d-label">one send each</text>
+<rect x="16" y="24" width="140" height="56" rx="6" class="d-mask"/>
+<rect x="16" y="24" width="140" height="56" rx="6" class="d-node"/>
+<text x="86.0" y="48.5" text-anchor="middle" class="d-name">Dispatch</text>
+<text x="86.0" y="66.5" text-anchor="middle" class="d-sub">outbox.dispatch</text>
+<rect x="264" y="24" width="152" height="56" rx="6" class="d-mask"/>
+<rect x="264" y="24" width="152" height="56" rx="6" class="d-node"/>
+<text x="340.0" y="48.5" text-anchor="middle" class="d-name">Fan-out</text>
+<text x="340.0" y="66.5" text-anchor="middle" class="d-sub">notify.fanout</text>
+<rect x="524" y="24" width="140" height="56" rx="6" class="d-mask"/>
+<rect x="524" y="24" width="140" height="56" rx="6" class="d-store"/>
+<text x="594.0" y="48.5" text-anchor="middle" class="d-name">Deliveries</text>
+<text x="594.0" y="66.5" text-anchor="middle" class="d-sub">Aurora</text>
+<rect x="16" y="152" width="176" height="56" rx="6" class="d-mask"/>
+<rect x="16" y="152" width="176" height="56" rx="6" class="d-node"/>
+<text x="104.0" y="176.5" text-anchor="middle" class="d-name">Email</text>
+<text x="104.0" y="194.5" text-anchor="middle" class="d-sub">notify.email</text>
+<rect x="252" y="152" width="176" height="56" rx="6" class="d-mask"/>
+<rect x="252" y="152" width="176" height="56" rx="6" class="d-node"/>
+<text x="340.0" y="176.5" text-anchor="middle" class="d-name">Slack</text>
+<text x="340.0" y="194.5" text-anchor="middle" class="d-sub">notify.slack</text>
+<rect x="488" y="152" width="176" height="56" rx="6" class="d-mask"/>
+<rect x="488" y="152" width="176" height="56" rx="6" class="d-node"/>
+<text x="576.0" y="176.5" text-anchor="middle" class="d-name">Webhook</text>
+<text x="576.0" y="194.5" text-anchor="middle" class="d-sub">notify.webhook</text>
+<rect x="16" y="264" width="176" height="56" rx="6" class="d-mask"/>
+<rect x="16" y="264" width="176" height="56" rx="6" class="d-external"/>
+<text x="104.0" y="288.5" text-anchor="middle" class="d-name">SES</text>
+<text x="104.0" y="306.5" text-anchor="middle" class="d-sub">confirm, notify</text>
+<rect x="252" y="264" width="176" height="56" rx="6" class="d-mask"/>
+<rect x="252" y="264" width="176" height="56" rx="6" class="d-external"/>
+<text x="340.0" y="288.5" text-anchor="middle" class="d-name">Slack channel</text>
+<text x="340.0" y="306.5" text-anchor="middle" class="d-sub">incoming webhook</text>
+<rect x="488" y="264" width="176" height="56" rx="6" class="d-mask"/>
+<rect x="488" y="264" width="176" height="56" rx="6" class="d-external"/>
+<text x="576.0" y="288.5" text-anchor="middle" class="d-name">Your endpoint</text>
+<text x="576.0" y="306.5" text-anchor="middle" class="d-sub">signed POST</text>
+</svg>

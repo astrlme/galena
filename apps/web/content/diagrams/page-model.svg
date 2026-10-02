@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 440" role="img" aria-labelledby="page-model-title page-model-desc" style="min-width:680px">
+<title id="page-model-title">The page&#x27;s data model</title>
+<desc id="page-model-desc">Groups hold components; components have monitors, daily uptime, and many incidents and maintenance windows through join tables; monitors keep each confirmed state change; incidents keep their updates.</desc>
+<defs><marker id="page-model-head-plain" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="d-head plain"/></marker></defs>
+<path d="M184,60 L256,60" class="d-arrow" marker-end="url(#page-model-head-plain)"/>
+<path d="M424,60 L496,60" class="d-arrow" marker-end="url(#page-model-head-plain)"/>
+<path d="M580,108 L580,176" class="d-arrow" marker-end="url(#page-model-head-plain)"/>
+<path d="M340,126 L340,176" class="d-arrow" marker-end="url(#page-model-head-plain)"/>
+<path d="M100,286 L100,332" class="d-arrow" marker-end="url(#page-model-head-plain)"/>
+<path d="M184,220 L212,220 Q220,220 220,212 L220,120 Q220,112 228,112 L256,112" class="d-arrow" marker-end="url(#page-model-head-plain)"/>
+<path d="M424,378.0 L452,378.0 Q460,378.0 460,370.0 L460,120 Q460,112 452,112 L424,112" class="d-arrow" marker-end="url(#page-model-head-plain)"/>
+<rect x="83.0" y="140.0" width="131" height="16" rx="2" class="d-mask"/>
+<text x="208.0" y="151.5" text-anchor="end" class="d-label">incident_component</text>
+<rect x="466.0" y="292.0" width="151" height="16" rx="2" class="d-mask"/>
+<text x="472.0" y="303.5" text-anchor="start" class="d-label">maintenance_component</text>
+<rect x="16" y="16" width="168" height="92" rx="6" class="d-mask"/>
+<rect x="16" y="16" width="168" height="92" rx="6" class="d-node"/>
+<line x1="16" y1="44" x2="184" y2="44" class="d-rule"/>
+<text x="28" y="35" class="d-name">component_group</text>
+<text x="28" y="64" class="d-sub"># id</text>
+<text x="28" y="82" class="d-sub">name</text>
+<text x="28" y="100" class="d-sub">position</text>
+<rect x="256" y="16" width="168" height="110" rx="6" class="d-mask"/>
+<rect x="256" y="16" width="168" height="110" rx="6" class="d-node"/>
+<line x1="256" y1="44" x2="424" y2="44" class="d-rule"/>
+<text x="268" y="35" class="d-name">component</text>
+<text x="268" y="64" class="d-sub"># id</text>
+<text x="268" y="82" class="d-sub">→ group_id</text>
+<text x="268" y="100" class="d-sub">name</text>
+<text x="268" y="118" class="d-sub">manual_status</text>
+<rect x="496" y="16" width="168" height="92" rx="6" class="d-mask"/>
+<rect x="496" y="16" width="168" height="92" rx="6" class="d-node"/>
+<line x1="496" y1="44" x2="664" y2="44" class="d-rule"/>
+<text x="508" y="35" class="d-name">monitor</text>
+<text x="508" y="64" class="d-sub"># id</text>
+<text x="508" y="82" class="d-sub">→ component_id</text>
+<text x="508" y="100" class="d-sub">state, state_seq</text>
+<rect x="16" y="176" width="168" height="110" rx="6" class="d-mask"/>
+<rect x="16" y="176" width="168" height="110" rx="6" class="d-node"/>
+<line x1="16" y1="204" x2="184" y2="204" class="d-rule"/>
+<text x="28" y="195" class="d-name">incident</text>
+<text x="28" y="224" class="d-sub"># id</text>
+<text x="28" y="242" class="d-sub">status, impact</text>
+<text x="28" y="260" class="d-sub">visibility</text>
+<text x="28" y="278" class="d-sub">started, resolved</text>
+<rect x="256" y="176" width="168" height="92" rx="6" class="d-mask"/>
+<rect x="256" y="176" width="168" height="92" rx="6" class="d-node"/>
+<line x1="256" y1="204" x2="424" y2="204" class="d-rule"/>
+<text x="268" y="195" class="d-name">uptime_daily</text>
+<text x="268" y="224" class="d-sub">→ component_id</text>
+<text x="268" y="242" class="d-sub">date</text>
+<text x="268" y="260" class="d-sub">minutes</text>
+<rect x="496" y="176" width="168" height="92" rx="6" class="d-mask"/>
+<rect x="496" y="176" width="168" height="92" rx="6" class="d-node"/>
+<line x1="496" y1="204" x2="664" y2="204" class="d-rule"/>
+<text x="508" y="195" class="d-name">monitor_state_change</text>
+<text x="508" y="224" class="d-sub">→ monitor_id</text>
+<text x="508" y="242" class="d-sub">seq, state</text>
+<text x="508" y="260" class="d-sub">at</text>
+<rect x="16" y="332" width="168" height="92" rx="6" class="d-mask"/>
+<rect x="16" y="332" width="168" height="92" rx="6" class="d-node"/>
+<line x1="16" y1="360" x2="184" y2="360" class="d-rule"/>
+<text x="28" y="351" class="d-name">incident_update</text>
+<text x="28" y="380" class="d-sub">→ incident_id</text>
+<text x="28" y="398" class="d-sub">status</text>
+<text x="28" y="416" class="d-sub">body</text>
+<rect x="256" y="332" width="168" height="92" rx="6" class="d-mask"/>
+<rect x="256" y="332" width="168" height="92" rx="6" class="d-node"/>
+<line x1="256" y1="360" x2="424" y2="360" class="d-rule"/>
+<text x="268" y="351" class="d-name">maintenance</text>
+<text x="268" y="380" class="d-sub"># id</text>
+<text x="268" y="398" class="d-sub">status</text>
+<text x="268" y="416" class="d-sub">starts_at, ends_at</text>
+<text x="196" y="52" text-anchor="middle" class="d-card">1</text>
+<text x="244" y="52" text-anchor="middle" class="d-card">n</text>
+<text x="436" y="52" text-anchor="middle" class="d-card">1</text>
+<text x="484" y="52" text-anchor="middle" class="d-card">n</text>
+<text x="590" y="124" text-anchor="middle" class="d-card">1</text>
+<text x="590" y="172" text-anchor="middle" class="d-card">n</text>
+<text x="350" y="142" text-anchor="middle" class="d-card">1</text>
+<text x="350" y="172" text-anchor="middle" class="d-card">n</text>
+<text x="110" y="302" text-anchor="middle" class="d-card">1</text>
+<text x="110" y="328" text-anchor="middle" class="d-card">n</text>
+</svg>

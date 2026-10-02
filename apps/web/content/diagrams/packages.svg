@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 352" role="img" aria-labelledby="packages-title packages-desc" style="min-width:680px">
+<title id="packages-title">Packages and what they may import</title>
+<desc id="packages-desc">Apps import adapters, adapters import the pure domain core, and core imports only the shared contracts; probe and evaluator never import the database package.</desc>
+<defs></defs>
+<rect x="16" y="16" width="648" height="64" rx="6" class="d-node"/>
+<text x="32" y="53" class="d-name">Apps</text>
+<rect x="144" y="34" width="44" height="28" rx="4" class="d-chip"/>
+<text x="166.0" y="52" text-anchor="middle" class="d-sub">web</text>
+<rect x="200" y="34" width="64" height="28" rx="4" class="d-chip"/>
+<text x="232.0" y="52" text-anchor="middle" class="d-sub">status</text>
+<rect x="276" y="34" width="44" height="28" rx="4" class="d-chip"/>
+<text x="298.0" y="52" text-anchor="middle" class="d-sub">api</text>
+<rect x="332" y="34" width="70" height="28" rx="4" class="d-chip"/>
+<text x="367.0" y="52" text-anchor="middle" class="d-sub">workers</text>
+<rect x="414" y="34" width="57" height="28" rx="4" class="d-chip"/>
+<text x="442.5" y="52" text-anchor="middle" class="d-sub">probe</text>
+<rect x="483" y="34" width="83" height="28" rx="4" class="d-chip"/>
+<text x="524.5" y="52" text-anchor="middle" class="d-sub">evaluator</text>
+<rect x="16" y="92" width="648" height="64" rx="6" class="d-node"/>
+<text x="32" y="129" class="d-name">Adapters</text>
+<rect x="144" y="110" width="37" height="28" rx="4" class="d-chip"/>
+<text x="162.5" y="128" text-anchor="middle" class="d-sub">db</text>
+<rect x="193" y="110" width="103" height="28" rx="4" class="d-chip"/>
+<text x="244.5" y="128" text-anchor="middle" class="d-sub">integrations</text>
+<rect x="308" y="110" width="83" height="28" rx="4" class="d-chip"/>
+<text x="349.5" y="128" text-anchor="middle" class="d-sub">publisher</text>
+<rect x="403" y="110" width="64" height="28" rx="4" class="d-chip"/>
+<text x="435.0" y="128" text-anchor="middle" class="d-sub">emails</text>
+<rect x="16" y="168" width="648" height="64" rx="6" class="d-focal"/>
+<text x="32" y="205" class="d-name">Domain</text>
+<rect x="144" y="186" width="50" height="28" rx="4" class="d-chip"/>
+<text x="169.0" y="204" text-anchor="middle" class="d-sub">core</text>
+<rect x="16" y="244" width="648" height="64" rx="6" class="d-node"/>
+<text x="32" y="281" class="d-name">Shared</text>
+<rect x="144" y="262" width="83" height="28" rx="4" class="d-chip"/>
+<text x="185.5" y="280" text-anchor="middle" class="d-sub">contracts</text>
+<rect x="239" y="262" width="83" height="28" rx="4" class="d-chip"/>
+<text x="280.5" y="280" text-anchor="middle" class="d-sub">ui tokens</text>
+<text x="16" y="336" text-anchor="start" class="d-note">Each layer imports only layers below it. probe and evaluator never import db.</text>
+</svg>

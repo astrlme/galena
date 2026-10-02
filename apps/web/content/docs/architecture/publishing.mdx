@@ -34,6 +34,8 @@ covers has committed. Then `page.publish` for version *v*:
    *F* as published;
 3. triggers `page.rebuild-html` for *F*.
 
+<Diagram name="publishing" />
+
 Every queued run older than *F* then finds its change already out and stops, so a burst of
 changes coalesces into one or two publishes. Taking the version inside the change's transaction
 would race: versions are handed out in time order, commits aren't, and a lower version could
@@ -53,14 +55,7 @@ CloudFront may serve its last good copy for up to a day.
 
 ## Staying up
 
-```text
-visitor ──▶ CloudFront ──▶ primary bucket (eu-west-1)
-                │                │
-                │                │ S3 replication
-                │                ▼
-                └──────────▶ replica bucket (eu-north-1)
-                  on 403 or 5xx from the primary
-```
+<Diagram name="page-failover" />
 
 - The page's buckets live in their own regions, never the home region, so an outage there leaves
   the page serving.

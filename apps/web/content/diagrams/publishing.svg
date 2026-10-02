@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 468" role="img" aria-labelledby="publishing-title publishing-desc" style="min-width:680px">
+<title id="publishing-title">Latest wins</title>
+<desc id="publishing-desc">Two changes trigger publishes for versions 41 and 42; the first run takes version 43, reads both changes, writes the files and records 43, so the run for 42 finds its change already out and stops.</desc>
+<defs><marker id="publishing-head-async" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9" class="d-head async"/></marker><marker id="publishing-head-plain" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="d-head plain"/></marker></defs>
+<line x1="88" y1="68" x2="88" y2="452" class="d-lifeline"/>
+<line x1="264" y1="68" x2="264" y2="452" class="d-lifeline"/>
+<line x1="440" y1="68" x2="440" y2="452" class="d-lifeline"/>
+<line x1="600" y1="68" x2="600" y2="452" class="d-lifeline"/>
+<rect x="260" y="172" width="8" height="184" class="d-activation"/>
+<rect x="260" y="392" width="8" height="28" class="d-activation"/>
+<path d="M92,104 L260,104" class="d-arrow dashed async" marker-end="url(#publishing-head-async)"/>
+<path d="M92,140 L260,140" class="d-arrow dashed async" marker-end="url(#publishing-head-async)"/>
+<path d="M268,184 L436,184" class="d-arrow" marker-end="url(#publishing-head-plain)"/>
+<path d="M436,220 L268,220" class="d-arrow dashed" marker-end="url(#publishing-head-plain)"/>
+<path d="M268,260 L436,260" class="d-arrow" marker-end="url(#publishing-head-plain)"/>
+<path d="M268,300 L596,300" class="d-arrow" marker-end="url(#publishing-head-plain)"/>
+<path d="M268,340 L436,340" class="d-arrow" marker-end="url(#publishing-head-plain)"/>
+<path d="M268,396 L292,396 Q300,396 300,404 L300,408 Q300,416 292,416 L268,416" class="d-arrow" marker-end="url(#publishing-head-plain)"/>
+<rect x="124.0" y="82.0" width="104" height="16" rx="2" class="d-mask"/>
+<text x="176.0" y="93.5" text-anchor="middle" class="d-label">A commits: v41</text>
+<rect x="124.0" y="118.0" width="104" height="16" rx="2" class="d-mask"/>
+<text x="176.0" y="129.5" text-anchor="middle" class="d-label">B commits: v42</text>
+<rect x="300.0" y="162.0" width="104" height="16" rx="2" class="d-mask"/>
+<text x="352.0" y="173.5" text-anchor="middle" class="d-label">take a version</text>
+<rect x="339.5" y="198.0" width="25" height="16" rx="2" class="d-mask"/>
+<text x="352.0" y="209.5" text-anchor="middle" class="d-label">43</text>
+<rect x="306.5" y="238.0" width="91" height="16" rx="2" class="d-mask"/>
+<text x="352.0" y="249.5" text-anchor="middle" class="d-label">read A and B</text>
+<rect x="458.0" y="278.0" width="124" height="16" rx="2" class="d-mask"/>
+<text x="520.0" y="289.5" text-anchor="middle" class="d-label">write files as 43</text>
+<rect x="300.0" y="318.0" width="104" height="16" rx="2" class="d-mask"/>
+<text x="352.0" y="329.5" text-anchor="middle" class="d-label">published = 43</text>
+<rect x="306.0" y="398.0" width="144" height="16" rx="2" class="d-mask"/>
+<text x="312.0" y="409.5" text-anchor="start" class="d-label">v42: 43 is out, stop</text>
+<rect x="24.0" y="16" width="128" height="52" rx="6" class="d-mask"/>
+<rect x="24.0" y="16" width="128" height="52" rx="6" class="d-node"/>
+<text x="88.0" y="38.5" text-anchor="middle" class="d-name">Changes</text>
+<text x="88.0" y="56.5" text-anchor="middle" class="d-sub">API, outbox</text>
+<rect x="200.0" y="16" width="128" height="52" rx="6" class="d-mask"/>
+<rect x="200.0" y="16" width="128" height="52" rx="6" class="d-node"/>
+<text x="264.0" y="38.5" text-anchor="middle" class="d-name">page.publish</text>
+<text x="264.0" y="56.5" text-anchor="middle" class="d-sub">one at a time</text>
+<rect x="376.0" y="16" width="128" height="52" rx="6" class="d-mask"/>
+<rect x="376.0" y="16" width="128" height="52" rx="6" class="d-node"/>
+<text x="440.0" y="46.0" text-anchor="middle" class="d-name">Postgres</text>
+<rect x="536.0" y="16" width="128" height="52" rx="6" class="d-mask"/>
+<rect x="536.0" y="16" width="128" height="52" rx="6" class="d-node"/>
+<text x="600.0" y="38.5" text-anchor="middle" class="d-name">S3</text>
+<text x="600.0" y="56.5" text-anchor="middle" class="d-sub">page bucket</text>
+</svg>

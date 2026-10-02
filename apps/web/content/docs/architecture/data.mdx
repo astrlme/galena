@@ -18,6 +18,8 @@ idle minutes; the maximum is set per stage (`auroraMaxAcu`). It sits in isolated
 reached only through the Data API, authorised by IAM. RDS keeps the master password in Secrets
 Manager and rotates it every 7 days.
 
+<Diagram name="page-model" />
+
 | Area | Tables |
 | --- | --- |
 | Identity | `user`, `session`, `account`, `verification`, `two_factor`, `rate_limit` |

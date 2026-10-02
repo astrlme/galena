@@ -28,10 +28,7 @@ Unsubscribed and suppressed addresses, and disabled endpoints, are skipped.
 
 ## Email subscribers
 
-```
-pending confirmation → active → unsubscribed
-                          ↘ suppressed
-```
+<Diagram name="subscriber-lifecycle" />
 
 - **Subscribing** stores the address as pending and sends a confirmation email. At most one
   confirmation goes to an address every 10 minutes, however often the form is sent, and at most

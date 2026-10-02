@@ -7,6 +7,8 @@ Galena is built around one promise: the status page must stay up when the things
 are down, including Galena itself. So it is split into three paths that share as little as
 possible.
 
+
+<Diagram name="overview" />
 | Path | Runs on | Job | Touches |
 | --- | --- | --- | --- |
 | **Hot path** | Probe Lambdas in three regions, SQS FIFO, an evaluator Lambda, DynamoDB | Check every monitor every minute and work out its state | Never the database |
@@ -55,6 +57,8 @@ infra/          The CDK app
 ```
 
 Dependency rules are enforced by `pnpm check:deps`:
+
+<Diagram name="packages" />
 
 | Package | May import | May not import |
 | --- | --- | --- |
