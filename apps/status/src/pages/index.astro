@@ -75,7 +75,7 @@ const windows = [...s.maintenance.active, ...s.maintenance.upcoming];
                 <span class="num secondary">{c.uptime === null ? "No data" : `${c.uptime.toFixed(2)}%`}</span>
               </span>
             </div>
-            <Strip name={c.name} days={c.days} />
+            <Strip name={c.name} componentId={c.id} days={c.days} incidents={[...s.incidents.active, ...s.incidents.recent]} now={s.publishedAt} />
           </div>
         ))}
       </div>
