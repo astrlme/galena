@@ -5,6 +5,10 @@ import { expect, type Page } from "@playwright/test";
 export const OWNER = { email: "owner@example.com", password: "galena-local-owner" };
 
 export async function expectAccessible(page: Page) {
+  // A dialog fading in has text at partial opacity; check what people read once it has opened.
+  await page.waitForFunction(() =>
+    document.getAnimations().every((a) => a.playState !== "running"),
+  );
   const { violations } = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
     .analyze();
