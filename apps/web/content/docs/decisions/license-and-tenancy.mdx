@@ -5,27 +5,32 @@ description: Why Galena is permissively licensed and deploys one workspace per a
 
 ## Problem
 
-Several open-source status pages use AGPL-3.0, which many companies avoid. Hosting many tenants
-adds isolation, billing and noisy-neighbour work that doesn't help someone running their own copy.
+Galena's main use is running it in your own AWS account, and many companies don't allow AGPL code
+inside. Hosting many tenants adds isolation, billing and noisy-neighbour work that doesn't help
+someone running their own copy.
 
 ## Decision
 
-License under Apache-2.0, which includes an explicit patent grant. Deploy one workspace per
-installation, into the operator's own AWS account. Every table still carries `workspace_id`.
+License under the Apache License 2.0. Deploy one workspace per installation, into the operator's
+own AWS account. Every table still carries `workspace_id`.
 
 ## Alternatives
 
 | Option | Why not |
 | --- | --- |
-| AGPL-3.0 | Discourages adoption and embedding |
-| MIT | No patent grant |
+| MIT | Just as permissive, but with no explicit patent grant and nothing about trademarks |
+| AGPL-3.0 | Many companies avoid it, which works against running Galena in your own account |
+| A source-available license | Not open source, and a barrier to the same adopters |
 | A multi-tenant service | Scope, cost and security surface |
 
 ## Consequences
 
-- No hosted offering to maintain.
-- Adding tenancy later means scoping sign-in and filtering rows, not rewriting the schema. See
-  [Global identity tables](/docs/decisions/identity-tables/).
+- Anyone may use, change and redistribute Galena, in open or closed products, keeping the license
+  and its notices.
+- Contributors grant a patent license for what they contribute.
+- The license grants no rights to the Galena name.
+- No hosted offering to maintain. Adding tenancy later means scoping sign-in and filtering rows,
+  not rewriting the schema. See [Global identity tables](/docs/decisions/identity-tables/).
 
 ## Revisit when
 
