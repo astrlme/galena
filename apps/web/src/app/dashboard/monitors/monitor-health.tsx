@@ -41,10 +41,10 @@ function RegionValue({ result }: { result: Result | undefined }) {
 // One mark per minute, the worst across regions, in the state vocabulary's heights and inks.
 type Mark = "operational" | "degraded" | "partial" | "major" | "none";
 const MARKS: Record<Exclude<Mark, "none">, { height: number; fill: string }> = {
-  operational: { height: 5, fill: "fill-slate" },
-  degraded: { height: 12, fill: "fill-slate" },
-  partial: { height: 19, fill: "fill-graphite" },
-  major: { height: 27, fill: "fill-ink" },
+  operational: { height: 5, fill: "fill-operational" },
+  degraded: { height: 12, fill: "fill-degraded" },
+  partial: { height: 19, fill: "fill-partial" },
+  major: { height: 27, fill: "fill-major" },
 };
 
 function markOf(results: readonly Result[]): Mark {
@@ -81,20 +81,25 @@ function ResultStrip({ results }: { results: readonly Result[] }) {
   const marks = minuteMarks(results);
   const width = MINUTES * 6 - 2;
   return (
-    <figure className="flex flex-col gap-1">
-      <svg role="img" aria-label={describe(marks)} width={width} height={28}>
-        <rect x={0} y={27} width={width} height={1} className="fill-mist" />
-        {marks.map((mark, i) => {
-          const x = i * 6;
-          if (mark === "none") {
-            // biome-ignore lint/suspicious/noArrayIndexKey: one mark per fixed minute slot
-            return <rect key={i} x={x + 1.5} y={26} width={1} height={1} className="fill-ash" />;
-          }
-          const { height, fill } = MARKS[mark];
-          // biome-ignore lint/suspicious/noArrayIndexKey: one mark per fixed minute slot
-          return <rect key={i} x={x} y={27 - height} width={4} height={height} className={fill} />;
-        })}
-      </svg>
+    // Narrower than the strip, the oldest minutes are cropped on the left; the latest stay.
+    <figure className="flex min-w-0 max-w-full flex-col gap-1">
+      <div className="flex justify-end overflow-hidden">
+        <svg role="img" aria-label={describe(marks)} width={width} height={28} className="shrink-0">
+          <rect x={0} y={27} width={width} height={1} className="fill-mist" />
+          {marks.map((mark, i) => {
+            const x = i * 6;
+            if (mark === "none") {
+              // biome-ignore lint/suspicious/noArrayIndexKey: one mark per fixed minute slot
+              return <rect key={i} x={x + 1.5} y={26} width={1} height={1} className="fill-ash" />;
+            }
+            const { height, fill } = MARKS[mark];
+            return (
+              // biome-ignore lint/suspicious/noArrayIndexKey: one mark per fixed minute slot
+              <rect key={i} x={x} y={27 - height} width={4} height={height} className={fill} />
+            );
+          })}
+        </svg>
+      </div>
       <figcaption className="flex justify-between text-[13px] text-slate">
         <span>60 minutes ago</span>
         <span>Latest check</span>
