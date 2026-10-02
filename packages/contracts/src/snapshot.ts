@@ -39,6 +39,11 @@ export const snapshotComponent = z.object({
   name: z.string(),
   description: z.string().nullable(),
   status: z.enum(componentStatuses),
+  /**
+   * Whether anything speaks for the component now: a monitor with a verdict, an open incident, a
+   * running window or a manual status. When false the page shows no data. Absent in older files.
+   */
+  observed: z.boolean().optional(),
   /** Oldest first, up to 90 days ending today. */
   days: z.array(snapshotDay).max(90),
   /** Percent of the observed minutes outside an outage, two decimals; null with no data. */

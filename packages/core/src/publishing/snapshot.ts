@@ -102,19 +102,27 @@ export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
   const dates = stripDates(now);
 
   const components = inputs.components.map((component) => {
+    const monitors = inputs.monitors.filter((m) => m.enabled && m.componentId === component.id);
+    const incidents = inputs.incidents.flatMap((i) =>
+      i.components
+        .filter((c) => c.componentId === component.id)
+        .map((c) => ({ status: i.status, visibility: i.visibility, componentStatus: c.status })),
+    );
+    const inMaintenance = inputs.maintenance.some(
+      (m) => running(m) && m.componentIds.includes(component.id),
+    );
     const status = componentStatus({
       current: component.status,
-      monitors: inputs.monitors.filter((m) => m.enabled && m.componentId === component.id),
-      incidents: inputs.incidents.flatMap((i) =>
-        i.components
-          .filter((c) => c.componentId === component.id)
-          .map((c) => ({ status: i.status, visibility: i.visibility, componentStatus: c.status })),
-      ),
-      inMaintenance: inputs.maintenance.some(
-        (m) => running(m) && m.componentIds.includes(component.id),
-      ),
+      monitors,
+      incidents,
+      inMaintenance,
       manualStatus: component.manualStatus,
     });
+    const observed =
+      monitors.some((m) => m.state !== "unknown") ||
+      incidents.some(isOpenPublished) ||
+      inMaintenance ||
+      component.manualStatus !== null;
     const rows = new Map(
       inputs.uptime.filter((u) => u.componentId === component.id).map((u) => [u.date, u.minutes]),
     );
@@ -123,12 +131,12 @@ export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
       if (!minutes) return { date, ...dayMark({}) };
       return { date, ...dayMark(minutes), minutes: wholeMinutes(minutes) };
     });
-    let observed = 0;
+    let measured = 0;
     let down = 0;
     for (const date of dates) {
       const minutes = rows.get(date);
       if (!minutes) continue;
-      observed += Object.values(minutes).reduce((sum, m) => sum + m, 0);
+      measured += Object.values(minutes).reduce((sum, m) => sum + m, 0);
       down += dayMark(minutes).downMinutes;
     }
     return {
@@ -137,8 +145,9 @@ export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
       name: component.name,
       description: component.description,
       status,
+      observed,
       days,
-      uptime: observed > 0 ? Math.round(((observed - down) / observed) * 10_000) / 100 : null,
+      uptime: measured > 0 ? Math.round(((measured - down) / measured) * 10_000) / 100 : null,
     };
   });
 
