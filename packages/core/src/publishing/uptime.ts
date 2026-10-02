@@ -39,7 +39,9 @@ const covers = (i: Interval, t: number) => i.from <= t && t < i.to;
 
 /**
  * Minutes spent in each status from `from` to `until` (the end of a day, or now for today),
- * applying the same rule as the live status at every moment something changed.
+ * applying the same rule as the live status at every moment something changed. Only minutes in
+ * which some monitor had a verdict count: without one there is nothing measured to report, so
+ * incidents and windows alone add no history.
  */
 export function statusMinutes(
   history: ComponentHistory,
@@ -58,12 +60,14 @@ export function statusMinutes(
   const minutes: Partial<Record<ComponentStatus, number>> = {};
   for (const [k, start] of points.slice(0, -1).entries()) {
     const end = points[k + 1] ?? until;
+    const monitors = history.monitors.map(({ downStatus, changes }) => ({
+      downStatus,
+      state: changes.findLast((c) => c.at <= start)?.state ?? ("unknown" as const),
+    }));
+    if (monitors.every((m) => m.state === "unknown")) continue;
     const status = componentStatus({
       current: "operational",
-      monitors: history.monitors.map(({ downStatus, changes }) => ({
-        downStatus,
-        state: changes.findLast((c) => c.at <= start)?.state ?? "unknown",
-      })),
+      monitors,
       incidents: history.incidents
         .filter((i) => covers(i, start))
         .map((i) => ({
@@ -159,10 +163,11 @@ export function rollupUptime(
         .filter((w) => w.cancelledAt === null && w.componentIds.includes(id))
         .map((w) => ({ from: w.startsAt.getTime(), to: w.endsAt.getTime() })),
     };
-    return [today - DAY, today].map((start) => ({
-      componentId: id,
-      date: new Date(start).toISOString().slice(0, 10),
-      minutes: statusMinutes(history, start, Math.min(start + DAY, now.getTime())),
-    }));
+    // A day nothing was measured has no row, so the strip shows no data for it.
+    return [today - DAY, today].flatMap((start) => {
+      const minutes = statusMinutes(history, start, Math.min(start + DAY, now.getTime()));
+      if (Object.keys(minutes).length === 0) return [];
+      return [{ componentId: id, date: new Date(start).toISOString().slice(0, 10), minutes }];
+    });
   });
 }
