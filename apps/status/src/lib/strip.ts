@@ -1,8 +1,9 @@
 import { type ComponentStatus, componentStatusLabels, type SnapshotDay } from "@galena/contracts";
 
-// The signal strip: one mark per day, 4 px wide with 2 px gaps, bottom-aligned in a 28 px row on
-// a 1 px baseline. More ink, and a taller mark, for a worse day. One path per kind of mark keeps
-// 90 days to a few hundred bytes.
+// The signal strip: one column per day, 4 px wide with 2 px gaps, in a 28 px row on a 1 px
+// baseline. A day with data is a green column; a worse day fills its foot with its state's
+// colour, taller for worse, and the green resumes 1 px above it, so the height reads without
+// colour too. One path per kind of mark keeps 90 days to a few hundred bytes.
 
 export const MARK = 4;
 export const GAP = 2;
@@ -10,9 +11,9 @@ export const ROW = 28;
 const BASELINE = ROW - 1;
 
 type Mark = ComponentStatus | "none";
-/** Height (share of the row) and the class that inks it. */
+/** Height of the foot (share of the row) and the class that colours it. */
 const MARKS: Record<Mark, { height: number; className: string }> = {
-  operational: { height: 0.2, className: "m-ok" },
+  operational: { height: 0, className: "m-ok" },
   degraded_performance: { height: 0.45, className: "m-degraded" },
   partial_outage: { height: 0.7, className: "m-partial" },
   major_outage: { height: 1, className: "m-major" },
@@ -22,21 +23,30 @@ const MARKS: Record<Mark, { height: number; className: string }> = {
 
 export const stripWidth = (days: number) => days * (MARK + GAP) - GAP;
 
+const rect = (x: number, y: number, h: number) => `M${x} ${y}h${MARK}v${h}h-${MARK}z`;
+
 /** One `<path>` per kind of mark, oldest day at the left. */
 export function stripPaths(days: readonly SnapshotDay[]): { className: string; d: string }[] {
   const byMark = new Map<Mark, string[]>();
-  days.forEach((day, i) => {
+  const add = (mark: Mark, segment: string) =>
+    byMark.set(mark, [...(byMark.get(mark) ?? []), segment]);
+  for (const [i, day] of days.entries()) {
     const mark: Mark = day.worst ?? "none";
     const x = i * (MARK + GAP);
-    const segment =
-      mark === "none"
-        ? `M${x + 1.5} ${BASELINE - 1}h1v1h-1z` // a 1 px dot on the baseline
-        : (() => {
-            const h = Math.round((BASELINE - 1) * MARKS[mark].height);
-            return `M${x} ${BASELINE - h}h${MARK}v${h}h-${MARK}z`;
-          })();
-    byMark.set(mark, [...(byMark.get(mark) ?? []), segment]);
-  });
+    if (mark === "none") {
+      add(mark, `M${x + 1.5} ${BASELINE - 1}h1v1h-1z`); // a 1 px dot on the baseline
+      continue;
+    }
+    if (mark === "operational") {
+      add(mark, rect(x, 0, BASELINE));
+      continue;
+    }
+    const h = Math.round((BASELINE - 1) * MARKS[mark].height);
+    add(mark, rect(x, BASELINE - h, h));
+    // Maintenance is an outline of its own; other days are green above their foot.
+    const green = BASELINE - h - 1;
+    if (mark !== "under_maintenance" && green > 0) add("operational", rect(x, 0, green));
+  }
   return [...byMark].map(([mark, segments]) => ({
     className: MARKS[mark].className,
     d: segments.join(""),
