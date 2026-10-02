@@ -96,3 +96,186 @@
     transition: none !important;
   }
 }
+
+/* Docs diagrams: inline SVG whose classes map to the tokens, so each follows the theme. A wide
+   diagram scrolls inside its frame on narrow screens instead of shrinking its text. */
+.diagram {
+  margin-block: 1.75rem;
+  overflow-x: auto;
+}
+.diagram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.diagram text {
+  fill: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+.diagram .d-name {
+  font-weight: 600;
+}
+.diagram .d-sub,
+.diagram .d-label,
+.diagram .d-legend,
+.diagram .d-zone-label {
+  fill: var(--slate);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.diagram .d-note {
+  fill: var(--slate);
+}
+.diagram .d-mask {
+  fill: var(--paper);
+}
+.diagram .d-node {
+  fill: var(--paper);
+  stroke: var(--ink);
+}
+.diagram .d-store {
+  fill: var(--surface);
+  stroke: var(--slate);
+}
+.diagram .d-external {
+  fill: var(--paper);
+  stroke: var(--slate);
+  stroke-dasharray: 4 3;
+}
+.diagram .d-focal {
+  fill: var(--surface);
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.diagram .d-zone {
+  fill: none;
+  stroke: var(--mist);
+  stroke-dasharray: 4 4;
+}
+.diagram .d-rule {
+  stroke: var(--mist);
+}
+.diagram .d-arrow {
+  fill: none;
+  stroke: var(--slate);
+  stroke-width: 1.25;
+}
+.diagram .d-arrow.strong {
+  stroke: var(--ink);
+  stroke-width: 1.75;
+}
+.diagram .d-arrow.dashed {
+  stroke-dasharray: 5 4;
+}
+.diagram .d-head {
+  fill: var(--slate);
+}
+.diagram .d-head.strong {
+  fill: var(--ink);
+}
+.diagram .d-state {
+  fill: var(--paper);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+.diagram .d-dot,
+.diagram .d-event {
+  fill: var(--ink);
+}
+.diagram .d-chip {
+  fill: var(--surface);
+  stroke: var(--mist);
+}
+.diagram .d-axis,
+.diagram .d-drop {
+  stroke: var(--ash);
+}
+.diagram .d-lifeline {
+  stroke: var(--ash);
+  stroke-dasharray: 3 3;
+}
+.diagram .d-activation {
+  fill: var(--surface);
+  stroke: var(--slate);
+}
+.diagram .d-card {
+  fill: var(--slate);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.diagram .d-arrow.async {
+  stroke-dasharray: 5 4;
+}
+.diagram .d-head.async,
+.diagram .d-head.blocked {
+  fill: none;
+  stroke: var(--slate);
+  stroke-width: 1.5;
+}
+.diagram .d-band {
+  fill-opacity: 0.16;
+  stroke-width: 1.25;
+}
+.diagram .d-band.dashed {
+  stroke-dasharray: 4 3;
+}
+.diagram .d-band-text {
+  font-size: 12px;
+  font-weight: 600;
+}
+.diagram .operational {
+  stroke: var(--operational);
+}
+.diagram .degraded {
+  stroke: var(--degraded);
+}
+.diagram .partial {
+  stroke: var(--partial);
+}
+.diagram .major {
+  stroke: var(--major);
+}
+.diagram .maintenance {
+  stroke: var(--maintenance);
+}
+.diagram .d-band.operational {
+  fill: var(--operational);
+}
+.diagram .d-head.operational,
+.diagram text.operational {
+  fill: var(--operational);
+  stroke: none;
+}
+.diagram .d-band.degraded {
+  fill: var(--degraded);
+}
+.diagram .d-head.degraded,
+.diagram text.degraded {
+  fill: var(--degraded);
+  stroke: none;
+}
+.diagram .d-band.partial {
+  fill: var(--partial);
+}
+.diagram .d-head.partial,
+.diagram text.partial {
+  fill: var(--partial);
+  stroke: none;
+}
+.diagram .d-band.major {
+  fill: var(--major);
+}
+.diagram .d-head.major,
+.diagram text.major {
+  fill: var(--major);
+  stroke: none;
+}
+.diagram .d-band.maintenance {
+  fill: var(--maintenance);
+}
+.diagram .d-head.maintenance,
+.diagram text.maintenance {
+  fill: var(--maintenance);
+  stroke: none;
+}
