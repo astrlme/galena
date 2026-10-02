@@ -1,16 +1,18 @@
 {
   "text": "◌︎ Maintenance scheduled: Database upgrade. Scheduled. 1 Oct 2026, 22:00 UTC to 23:00 UTC.",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "◌︎ Maintenance scheduled: Database upgrade"
+      }
+    }
+  ],
   "attachments": [
     {
       "color": "#3B82F6",
       "blocks": [
-        {
-          "type": "header",
-          "text": {
-            "type": "plain_text",
-            "text": "◌︎ Maintenance scheduled: Database upgrade"
-          }
-        },
         {
           "type": "section",
           "text": {

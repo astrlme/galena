@@ -2,7 +2,9 @@ import {
   noticeAffected as affected,
   type ComponentStatus,
   componentStatusLabels,
+  componentStatusSymbols,
   type Notice,
+  noticeAffectedLabel,
   noticeState,
   noticeParagraphs as paragraphs,
   noticeStatusLine as statusLine,
@@ -34,8 +36,9 @@ const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, 
 const text = { fontSize: "16px", lineHeight: "1.55", margin: "0 0 16px" };
 const secondary = { ...text, fontSize: "14px", lineHeight: "1.45", color: light.slate };
 const link = { color: light.ink, textDecoration: "underline" };
-/** A state's light-mode colour: it reads at 4.5:1 on the white background. */
-const stateColour = (state: ComponentStatus) => light[stateTokens[state]];
+/** A state's light-mode colour (4.5:1 on white); information without a state stays grey. */
+const stateColour = (state: ComponentStatus | null) =>
+  state ? light[stateTokens[state]] : light.slate;
 // The one primary action a view may have, inverted.
 const button = {
   display: "inline-block",
@@ -127,7 +130,7 @@ export async function noticeEmail(
       </Text>
       {who && (
         <Text style={text}>
-          {notice.kind.startsWith("maintenance_") ? "Components" : "Affected"}:{" "}
+          {noticeAffectedLabel(notice)}:{" "}
           {notice.components.map((c, i) => (
             <Fragment key={c.id}>
               {i > 0 && ", "}
@@ -136,7 +139,7 @@ export async function noticeEmail(
                 <>
                   {" ("}
                   <span style={{ color: stateColour(c.status) }}>
-                    {componentStatusLabels[c.status]}
+                    {componentStatusSymbols[c.status]} {componentStatusLabels[c.status]}
                   </span>
                   {")"}
                 </>

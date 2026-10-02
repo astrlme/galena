@@ -1,16 +1,18 @@
 {
   "text": "✓︎ Resolved: API. Resolved. Critical impact. Started 30 Sep 2026, 10:00 UTC. Resolved 30 Sep 2026, 14:30 UTC.",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "✓︎ Resolved: API"
+      }
+    }
+  ],
   "attachments": [
     {
       "color": "#22C55E",
       "blocks": [
-        {
-          "type": "header",
-          "text": {
-            "type": "plain_text",
-            "text": "✓︎ Resolved: API"
-          }
-        },
         {
           "type": "section",
           "text": {
