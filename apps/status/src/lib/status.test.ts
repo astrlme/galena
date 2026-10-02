@@ -70,6 +70,9 @@ test("each day is a green column; a bad day's state fills its foot, 1 px below t
   expect(describeDay({ date: "2026-09-28", worst: "major_outage", downMinutes: 60 })).toBe(
     "Major outage, 60 minutes down",
   );
+  expect(describeDay({ date: "2026-09-28", worst: "major_outage", downMinutes: 1 })).toBe(
+    "Major outage, 1 minute down",
+  );
 });
 
 test("a day's popover: minutes per state, then the incidents that touched the component", () => {
