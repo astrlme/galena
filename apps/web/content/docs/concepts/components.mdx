@@ -41,8 +41,9 @@ sources, in this order:
 3. Otherwise the component shows the **worst opinion** among:
    - each attached monitor's state (see [mapping](/docs/concepts/detection/#from-monitor-state-to-component-status)),
    - each open, published incident that names it, with the status the incident gives it.
-4. When nothing has an opinion (no monitors yet, no open incidents), the component keeps the
-   status it had.
+4. When nothing has an opinion, the page shows **No data** for the component: no monitor has a
+   verdict on it (it has none, they are paused, or they haven't reported yet), and no incident,
+   window or manual status speaks for it.
 
 Resolving an incident removes its say at once. Draft, dismissed and internal incidents never
 change a component's status on the page.
