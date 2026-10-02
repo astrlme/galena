@@ -16,6 +16,10 @@ test("a monitor turns down when the endpoint it checks stops answering", async (
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
   await page.goto("/dashboard/monitors/");
+  await page
+    .getByRole("region", { name: "All monitors" })
+    .getByRole("button", { name: "Add monitor" })
+    .click();
   const form = page.getByRole("form", { name: "Add a monitor" });
   await form.getByLabel("Monitor name").fill(name);
   await form.getByLabel("URL").fill(url);

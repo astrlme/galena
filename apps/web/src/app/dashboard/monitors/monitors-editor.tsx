@@ -9,6 +9,7 @@ import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { control, Field } from "../../../components/field.tsx";
+import { Modal } from "../../../components/modal.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { MonitorHealth, useTelemetry } from "./monitor-health.tsx";
@@ -61,8 +62,13 @@ const toInput = ({ id: _, ...input }: Monitor): FormIn => input;
 export function MonitorsEditor() {
   const queryClient = useQueryClient();
   const [problem, setProblem] = useState<string>();
+  const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Monitor>();
   const [deleting, setDeleting] = useState<Monitor>();
+  const closeForm = () => {
+    setAdding(false);
+    setEditing(undefined);
+  };
   const monitors = useQuery({
     queryKey: ["monitors"],
     queryFn: () => unwrap(api.GET("/v1/monitors")),
@@ -80,7 +86,7 @@ export function MonitorsEditor() {
     },
     onError: (error) => setProblem(error.message),
   });
-  /** Whether the call succeeded; a failure shows above the list and the form keeps its values. */
+  /** Whether the call succeeded; a failure shows in the open form, or above the list. */
   const run = (call: () => Promise<unknown>) =>
     new Promise<boolean>((resolve) =>
       change.mutate(call, { onSuccess: () => resolve(true), onError: () => resolve(false) }),
@@ -96,12 +102,17 @@ export function MonitorsEditor() {
     componentList.find((c) => c.id === id)?.name ?? "No component";
 
   const save = async (body: FormOut) => {
-    if (!editing) return run(() => unwrap(api.POST("/v1/monitors", { body: asBody(body) })));
-    const params = { path: { id: editing.id } };
     const saved = await run(() =>
-      unwrap(api.PUT("/v1/monitors/{id}", { params, body: asBody(body) })),
+      editing
+        ? unwrap(
+            api.PUT("/v1/monitors/{id}", {
+              params: { path: { id: editing.id } },
+              body: asBody(body),
+            }),
+          )
+        : unwrap(api.POST("/v1/monitors", { body: asBody(body) })),
     );
-    if (saved) setEditing(undefined);
+    if (saved) closeForm();
     return saved;
   };
   const toggle = (monitor: Monitor) =>
@@ -114,41 +125,57 @@ export function MonitorsEditor() {
       ),
     );
 
+  const formOpen = adding || editing !== undefined;
+  const title = editing ? `Edit ${editing.name}` : "Add a monitor";
+
   return (
     <>
-      <MonitorForm
-        key={editing?.id ?? "new"}
-        editing={editing}
-        components={componentList}
-        onSave={save}
-        onCancel={() => setEditing(undefined)}
-      />
-      <p aria-live="polite" className="mt-4 font-semibold empty:hidden">
-        {problem}
+      <Modal.Root open={formOpen} onClose={closeForm}>
+        <Modal.Title>{title}</Modal.Title>
+        <MonitorForm
+          key={editing?.id ?? "new"}
+          title={title}
+          editing={editing}
+          components={componentList}
+          problem={formOpen ? problem : undefined}
+          onSave={save}
+          onCancel={closeForm}
+        />
+      </Modal.Root>
+      <p aria-live="polite" className="mt-4 font-semibold text-major empty:hidden">
+        {formOpen ? undefined : problem}
       </p>
 
       <section aria-labelledby="monitor-list" className="mt-8">
-        <h2
-          id="monitor-list"
-          className="border-b border-mist pb-2 text-[19px] font-semibold leading-[1.35]"
-        >
-          All monitors
-        </h2>
+        <div className="flex items-center justify-between gap-4">
+          <h2 id="monitor-list" className="text-[19px] font-semibold leading-[1.35]">
+            All monitors
+          </h2>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setProblem(undefined);
+              setAdding(true);
+            }}
+          >
+            Add monitor
+          </Button>
+        </div>
         {telemetry.isError && (
           <p className="py-3 text-[14px]">
             Check results aren't available. {telemetry.error.message}
           </p>
         )}
         {monitors.data.monitors.length === 0 ? (
-          <p className="py-3 text-[14px] text-slate">
+          <p className="mt-4 rounded-xl border border-mist bg-surface p-4 text-[14px] text-slate">
             No monitors yet. Add one to start checking every minute.
           </p>
         ) : (
-          <ul>
+          <ul className="mt-4 rounded-xl border border-mist bg-surface">
             {monitors.data.monitors.map((monitor) => (
               <li
                 key={monitor.id}
-                className="flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist py-2"
+                className="flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist px-4 py-3 last:border-b-0"
               >
                 <div className="flex min-w-0 flex-col">
                   <span className="font-semibold">{monitor.name}</span>
@@ -190,7 +217,6 @@ export function MonitorsEditor() {
           onConfirm={() => {
             const params = { path: { id: deleting.id } };
             void run(() => unwrap(api.DELETE("/v1/monitors/{id}", { params }))); // errors show above
-            if (editing?.id === deleting.id) setEditing(undefined);
             setDeleting(undefined);
           }}
           onClose={() => setDeleting(undefined)}
@@ -201,13 +227,17 @@ export function MonitorsEditor() {
 }
 
 function MonitorForm({
+  title,
   editing,
   components,
+  problem,
   onSave,
   onCancel,
 }: {
+  title: string;
   editing: Monitor | undefined;
   components: Component[];
+  problem: string | undefined;
   onSave: (body: FormOut) => Promise<boolean>;
   onCancel: () => void;
 }) {
@@ -219,16 +249,8 @@ function MonitorForm({
   const submit = form.handleSubmit(async (values) => {
     if (await onSave(values)) form.reset(EMPTY);
   });
-  const title = editing ? `Edit ${editing.name}` : "Add a monitor";
-
   return (
-    <form
-      onSubmit={submit}
-      aria-label={title}
-      className="mt-8 flex max-w-[640px] flex-col gap-4"
-      noValidate
-    >
-      <h2 className="text-[19px] font-semibold leading-[1.35]">{title}</h2>
+    <form onSubmit={submit} aria-label={title} className="mt-6 flex flex-col gap-4" noValidate>
       <Field
         id="monitor-name"
         label="Monitor name"
@@ -305,6 +327,9 @@ function MonitorForm({
           </label>
         ))}
       </fieldset>
+      <p aria-live="polite" className="font-semibold text-major empty:hidden">
+        {problem}
+      </p>
       <div className="flex gap-4">
         <Button type="submit" variant="primary" disabled={isSubmitting}>
           {editing
@@ -315,11 +340,9 @@ function MonitorForm({
               ? "Adding…"
               : "Add monitor"}
         </Button>
-        {editing && (
-          <Button type="button" variant="quiet" onClick={onCancel}>
-            Cancel
-          </Button>
-        )}
+        <Button type="button" variant="quiet" onClick={onCancel}>
+          Cancel
+        </Button>
       </div>
     </form>
   );

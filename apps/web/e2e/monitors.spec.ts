@@ -16,6 +16,8 @@ test("add a monitor, edit it, pause it and delete it after confirming its name",
     .click();
   await expect(page.getByRole("heading", { name: "Monitors", level: 1 })).toBeVisible();
 
+  const list = page.getByRole("region", { name: "All monitors" });
+  await list.getByRole("button", { name: "Add monitor" }).click();
   const form = page.getByRole("form", { name: "Add a monitor" });
   // The default policy states its deadline in words.
   await expect(form.getByRole("radio", { name: /Ask a person first/ })).toBeChecked();
@@ -31,7 +33,7 @@ test("add a monitor, edit it, pause it and delete it after confirming its name",
   await form.getByLabel("URL").fill("https://api.example.com/health");
   await form.getByLabel("Keyword (optional)").fill("ok");
   await form.getByRole("button", { name: "Add monitor" }).click();
-  const list = page.getByRole("region", { name: "All monitors" });
+  await expect(form).toBeHidden();
   // Rows repeat each name for screen readers inside their buttons, so match rows, not text.
   const row = () => list.getByRole("listitem").filter({ hasText: "api.example.com" }).last();
   await expect(row()).toContainText(name);
@@ -46,7 +48,7 @@ test("add a monitor, edit it, pause it and delete it after confirming its name",
   await edit.getByLabel("Monitor name").fill(renamed);
   await edit.getByRole("radio", { name: /Internal only/ }).check();
   await edit.getByRole("button", { name: "Save monitor" }).click();
-  await expect(page.getByRole("form", { name: "Add a monitor" })).toBeVisible();
+  await expect(edit).toBeHidden();
   await expect(row()).toContainText(renamed);
   await expect(row()).toContainText("Internal only.");
 
