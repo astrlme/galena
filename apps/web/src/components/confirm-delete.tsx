@@ -41,7 +41,7 @@ export function ConfirmDelete({
   }, [open, onClose]);
 
   return (
-    <Modal.Root open={open} onClose={() => setOpen(false)}>
+    <Modal.Root kind="dialog" open={open} onClose={() => setOpen(false)}>
       <Modal.Title>
         {verb} {name}?
       </Modal.Title>
