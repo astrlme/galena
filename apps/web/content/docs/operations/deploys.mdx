@@ -1,0 +1,73 @@
+---
+title: Deploys and migrations
+description: How a change reaches AWS and trigger.dev, and how the database schema moves with it.
+---
+
+Galena has two deploy targets that move separately: the **AWS stacks** (everything in `infra/`,
+including the dashboard and the status page template) and the **trigger.dev tasks** (`apps/workers`).
+
+## AWS: the Deploy workflow
+
+The **Deploy** workflow in `.github/workflows/deploy.yml` is started by hand from the Actions tab,
+on `main`. Pressing **Run workflow** is the approval. It:
+
+1. installs dependencies from the lockfile;
+2. builds the dashboard, which the web stack uploads;
+3. signs in to AWS by exchanging GitHub's OIDC token for the deploy role, so no AWS keys are
+   stored in GitHub;
+4. runs `cdk deploy --all`;
+5. smoke-tests the result through CloudFront: the dashboard answers, and signing in as nobody gets
+   a 401, which proves CloudFront, the API and the database are all reachable, even right after
+   Aurora paused.
+
+The deploy role trusts only workflows on `refs/heads/main` of your repository, identified by its
+immutable owner and repository ids, and it can do nothing but assume the CDK bootstrap roles.
+Deploys never overlap: a second run waits for the first.
+
+Deploying from your own machine with `pnpm deploy:dev` works too, with your own credentials.
+
+## Migrations
+
+Schema changes are Drizzle migrations in `packages/db/migrations`:
+
+1. Change the schema in `packages/db/src/schema`.
+2. Run `pnpm db:generate`, review the SQL, and apply it locally with `pnpm db:migrate`.
+3. Commit the migration with the code that needs it.
+
+On deploy, the API stack bundles the migrations into a migration Lambda, and a CDK trigger
+invokes it after the stack updates whenever the bundle changed. It runs through the Data API and
+waits out Aurora resuming. A failing migration fails the deploy.
+
+Rules that keep this safe:
+
+- Migrations only move forward. Never edit one that has been applied anywhere; add a new one.
+- Old code runs against the new schema for a moment during a deploy, so a column is added in one
+  release and relied on in the next, and removed only after nothing reads it.
+- The Data API sends every string parameter as `text`. A Postgres enum column needs an explicit
+  cast in the query, or inserts work locally and fail in AWS; see migration
+  `0003_enum_text_casts`.
+
+## trigger.dev
+
+Tasks deploy with the trigger.dev CLI, from your machine or a workflow of your own:
+
+```bash
+pnpm --filter @galena/workers exec trigger deploy
+```
+
+Deploy the workers after the AWS stacks when a change touches both: a new task may rely on a
+table, a bucket permission or an SSM parameter that the stacks create.
+
+## The end-to-end smoke test
+
+The **Smoke** workflow runs after every successful deploy, once you opt in by setting the
+repository variable `AWS_SMOKE_ROLE_ARN` (the `galena-dev-smoke` stack's `SmokeRoleArn` output)
+and adding a monitor for the smoke target (`TargetUrl`), with the publish policy Internal only
+and no component. It stops the target, waits until every probe region reports it failing and the
+monitor is down, starts it again, waits for recovery, and checks that trigger.dev ran
+`monitor.state-changed` exactly once per transition.
+
+## Rolling back
+
+Run the Deploy workflow on an earlier commit's tree by reverting on `main`. Migrations don't roll
+back: write a new forward migration if the schema has to change back.

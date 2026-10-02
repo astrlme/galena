@@ -1,0 +1,94 @@
+---
+title: Security model
+description: Trust boundaries, how secrets are kept, and what protects each way in.
+---
+
+## Ways in
+
+| Entry | Who | Protected by |
+| --- | --- | --- |
+| Status page | Anyone | Static files only. HSTS, `X-Frame-Options: DENY`, a content security policy with hashed scripts |
+| `/public/*` on the page's domain | Anyone | Subscribe, confirm and unsubscribe only; rate limits; answers that never reveal whether an address is subscribed |
+| Dashboard and `/v1/*` | Members | Session cookies from Better Auth, role checks on every route, a content security policy, CloudFront in front |
+| `/auth/*` | Anyone | Better Auth: password hashing, TOTP two-factor, rate limits stored in the database |
+| API Gateway directly | Nobody | Refused unless a secret header that only CloudFront adds is present |
+| AWS | The deploy role, the worker user, the Lambdas | IAM, each scoped to exactly what it needs |
+
+### The origin secret
+
+The API Lambda sits behind API Gateway, which has a public address of its own. CloudFront adds a
+random header, `x-galena-origin`, to every request it forwards; the value lives in Secrets Manager
+and the API compares it in constant time. Anything that skips CloudFront, including attempts to
+forge the visitor's address, is refused with `403`. Only `/health` answers without it.
+
+### Rate limits
+
+Better Auth limits sign-in and other auth requests per visitor address, with its counters in the
+database so every Lambda container shares them. The address comes from CloudFront's
+`CloudFront-Viewer-Address` header, which a visitor can't set, and reaches the API in a header
+the API sets itself. The subscribe form has its own limits; see [Limits](/docs/reference/limits/).
+
+### Sign-up
+
+Only first-run setup creates an account. After the workspace exists, every attempt to create a
+user is refused in a database hook, whatever route it comes through.
+
+## Outbound requests
+
+Every outbound URL (monitor checks, Slack, webhooks, the canary) passes the SSRF guard:
+
+- only `http://` and `https://`, and no credentials in the URL;
+- the host's addresses are checked before the request, then again as the socket connects, so a
+  name can't be re-pointed at a private address in between (DNS rebinding);
+- loopback, private, link-local (which includes the instance metadata service), carrier-grade
+  NAT, multicast, documentation and other special-purpose ranges are refused, in IPv4 and IPv6,
+  including IPv4 addresses embedded in IPv6 ones;
+- every redirect hop is checked again.
+
+## Secrets and keys
+
+| Secret | Where | Used for |
+| --- | --- | --- |
+| Auth secret | SSM SecureString | Better Auth: signing session cookies and encrypting two-factor secrets |
+| App key | SSM SecureString for the API, a trigger.dev secret for the workers | See below |
+| trigger.dev secret key | SSM SecureString | The API and evaluator starting tasks |
+| Database credentials | Secrets Manager, rotated by RDS every 7 days | The Data API |
+| Origin secret | Secrets Manager, replicated to the page region | CloudFront and the API |
+| Worker access key | trigger.dev's environment | The workers acting in AWS |
+
+The **app key** is 32 random bytes. Galena never uses it directly; it derives a separate key for
+each purpose with HKDF-SHA256, so no key can stand in for another:
+
+| Derived key | Protects |
+| --- | --- |
+| `seal` | Slack webhook URLs and webhook signing secrets, encrypted with AES-256-GCM before they are stored. The API never returns them. |
+| `link` | Confirm and unsubscribe links: an HMAC-SHA256 over the purpose, the subscriber and the time. Nothing about a link is stored. |
+| `hash` | The addresses of visitors who use the subscribe form, kept only as keyed hashes for its rate limits |
+
+Secrets never appear in code, logs, snapshots or error messages. Webhook signing secrets are
+shown once, when the endpoint is created.
+
+## Personal data
+
+- Subscriber email addresses are visible only to admins, and only masked (`a***@example.com`).
+- The subscribe form keeps visitors' IP addresses only as keyed hashes. Better Auth records a
+  member's IP address on each session, and keys its sign-in rate limits by address.
+- The status page and every published file contain public information only: nothing from a
+  draft, dismissed or internal incident.
+
+## Infrastructure
+
+- No NAT gateway and no Lambda in a VPC; Aurora sits in isolated subnets and is reached only
+  through the Data API with IAM.
+- Buckets are private, encrypted, and refuse plain HTTP; CloudFront reads them through origin
+  access control.
+- Every stack passes cdk-nag's AWS Solutions rules, with each exception explained in code.
+- GitHub Actions deploys through OIDC: no AWS keys are stored in GitHub, and the deploy role
+  trusts only `main` of one repository, by its immutable ids.
+- Third-party actions are pinned to commit SHAs, installs use the frozen lockfile, and only
+  `esbuild` may run an install script.
+
+## Reporting a vulnerability
+
+Report privately through the repository's **Security** tab, **Report a vulnerability**. See
+`SECURITY.md` in the repository for what's in scope.
