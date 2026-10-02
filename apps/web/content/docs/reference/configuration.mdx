@@ -1,0 +1,95 @@
+---
+title: Configuration
+description: The stage config, SSM parameters, and every environment variable each app reads.
+---
+
+## Stage config
+
+`infra/config/stages.ts` defines each stage (`dev`, `prod`) and is validated with Zod when CDK
+synthesises.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `stage` | `dev` or `prod` | Names every stack and resource |
+| `homeRegion` | region | The API, database, queue, detection and the workers' AWS access |
+| `probeRegions` | at least 3 regions | Where checks run |
+| `pageRegions.primary`, `.replica` | regions | The status page's buckets; all three of these and `homeRegion` must differ |
+| `pageDomain` | hostname, optional | The page's own domain; adds a certificate stack in us-east-1 |
+| `email.domain`, `email.from` | optional | The SES identity, and the sender, which must be an address at that domain |
+| `github.repository` | `owner/name` | Your fork |
+| `github.oidcSubject` | `repo:owner@id/name@id` | The `sub` prefix of GitHub's OIDC tokens for your fork |
+| `github.deployRef` | `refs/…` | The only ref whose workflows may assume the deploy role |
+| `telemetryCapacity.read`, `.write` | integers | DynamoDB units; stages in one region may not add up to more than 25 each |
+| `auroraMaxAcu` | 1 to 16 | Aurora's capacity ceiling; the floor is 0, so it pauses |
+
+`prod` has no domain or email by default. A `prod` stage also keeps 14 days of database backups
+instead of 1, turns on deletion protection for the database, and keeps the key, database, table
+and config bucket if their stack is ever deleted.
+
+## SSM parameters
+
+See [Data stores](/docs/architecture/data/#ssm-parameters). The three you create by hand are
+`/galena/<stage>/auth-secret`, `/galena/<stage>/app-key` and `/galena/<stage>/trigger-secret-key`.
+
+## API
+
+In AWS, CDK sets these on the Lambda. Locally, `pnpm dev` uses the defaults.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `GLN_STAGE` | `local` | `local`, `dev` or `prod` |
+| `GLN_API_PORT` | `8787` | The local server's port |
+| `GLN_PUBLIC_URL` | `http://localhost:3000` | The dashboard's address, where the API also answers |
+| `GLN_PUBLIC_URL_PARAM` | | In AWS: the SSM parameter holding it |
+| `GLN_DATABASE_URL` | the Docker database | Local Postgres |
+| `GLN_DB_CLUSTER_ARN`, `GLN_DB_SECRET_ARN`, `GLN_DB_NAME` | | In AWS: the Data API |
+| `GLN_AUTH_SECRET` / `GLN_AUTH_SECRET_PARAM` | | The session secret, or its SSM parameter |
+| `GLN_APP_KEY` / `GLN_APP_KEY_PARAM` | a fixed local key | The app key, or its SSM parameter |
+| `TRIGGER_SECRET_KEY` / `GLN_TRIGGER_SECRET_PARAM` | | trigger.dev's secret key, or its SSM parameter |
+| `GLN_ORIGIN_SECRET_PARAM` | | In AWS: the secret header CloudFront adds |
+| `GLN_TELEMETRY_TABLE` | `telemetry` | The DynamoDB table |
+| `GLN_DYNAMODB_ENDPOINT` | | Locally, DynamoDB Local |
+| `GLN_PROBE_REGIONS` | | The probe regions, comma-separated |
+| `GLN_ALLOW_LOOPBACK` | `false` | Lets monitors reach loopback addresses; only honoured when the stage is `local` |
+| `GLN_GITHUB_CLIENT_ID`, `GLN_GITHUB_CLIENT_SECRET` | | GitHub sign-in, off when unset |
+
+## Probe
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `GLN_HOME_REGION` | | Where the config bucket and queue are |
+| `GLN_CONFIG_BUCKET`, `GLN_CONFIG_KEY` | key `monitors.json` | The monitors file |
+| `GLN_QUEUE_URL` | | The check results queue |
+| `GLN_CANARY_URL` | `https://checkip.amazonaws.com/` | The canary check |
+
+## Evaluator
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `GLN_TELEMETRY_TABLE` | | The DynamoDB table |
+| `GLN_CONFIG_BUCKET`, `GLN_CONFIG_KEY` | key `monitors.json` | For each monitor's detection settings and maintenance windows |
+| `GLN_PROBE_REGIONS` | | The probe regions, comma-separated |
+| `GLN_TRIGGER_SECRET_PARAM` | | trigger.dev's secret key in SSM |
+
+## Workers
+
+Set in the trigger.dev project's environment; see
+[Self-hosting](/docs/getting-started/self-hosting/#deploy-the-workers). Locally, from
+`apps/workers/.env`.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `GLN_TRIGGER_PROJECT_REF` | | The trigger.dev project (`proj_…`) |
+| `GLN_DATABASE_URL` | the Docker database | Local Postgres |
+| `GLN_DB_CLUSTER_ARN`, `GLN_DB_SECRET_ARN`, `GLN_DB_NAME` | name `galena` | In AWS: the Data API; both ARNs or neither |
+| `GLN_HOME_REGION` | `eu-central-1` | The Data API's and config bucket's region |
+| `GLN_CONFIG_BUCKET`, `GLN_CONFIG_KEY` | | Where `monitors.json` goes; unset, to `GLN_CONFIG_DIR` |
+| `GLN_CONFIG_DIR` | `.local/config` | Local `monitors.json` |
+| `GLN_PAGE_BUCKET`, `GLN_PAGE_REGION` | region `eu-west-1` | The primary page bucket; unset, files go to `GLN_PAGE_DIR` |
+| `GLN_PAGE_DIR` | `.local/pages` | Local page files |
+| `GLN_PAGE_URL` | `http://localhost:4321` | The page's address, for links in feeds and email |
+| `GLN_APP_KEY` | a fixed local key | Required with the Data API; the same value as the API's |
+| `GLN_EMAIL_FROM` | | Sends through SES as this address; unset, to `GLN_MAIL_DIR` |
+| `GLN_SES_CONFIGURATION_SET` | `galena-dev` | The SES configuration set |
+| `GLN_MAIL_DIR` | `.local/mail` | Local email |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | | The worker access user's key |
