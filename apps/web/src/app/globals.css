@@ -47,3 +47,18 @@
     transform: scale(0.94);
   }
 }
+
+/* vaul slides its drawer for 0.5 s; hold it to the dialog's 220 ms, and to nothing under
+   reduced motion. */
+[data-vaul-drawer],
+[data-vaul-overlay] {
+  animation-duration: 220ms !important;
+  transition-duration: 220ms !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-vaul-drawer],
+  [data-vaul-overlay] {
+    animation-duration: 0s !important;
+    transition: none !important;
+  }
+}

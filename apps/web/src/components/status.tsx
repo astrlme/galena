@@ -62,7 +62,7 @@ function Glyph({ status }: { status: ComponentStatus | null }) {
 const TONE: Record<ComponentStatus, string> = {
   operational: "text-operational",
   degraded_performance: "text-degraded",
-  partial_outage: "text-partial",
+  partial_outage: "font-semibold text-partial",
   major_outage: "border-major bg-major font-semibold text-paper",
   under_maintenance: "text-maintenance",
 };

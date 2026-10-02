@@ -21,7 +21,7 @@ export const IMPACT_LABELS: Record<IncidentImpact, string> = {
   critical: "Critical impact",
 };
 
-// Impact is drawn with ink, never colour: a heavier rule and title for a bigger impact.
+// A bigger impact gets a heavier rule in its state's colour, and a heavier title.
 export const IMPACT_RULE: Record<IncidentImpact, string> = {
   none: "pl-4",
   minor: "border-l-2 border-degraded pl-3",

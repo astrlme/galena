@@ -146,7 +146,13 @@ export function SubscribersEditor() {
         )}
       </section>
 
-      <Modal.Root open={adding} onClose={() => setAdding(false)}>
+      <Modal.Root
+        open={adding}
+        onClose={() => setAdding(false)}
+        // A secret that isn't shown again closes only on Done.
+        closeOnOverlayClick={!secret}
+        closeOnEsc={!secret}
+      >
         {secret ? (
           <>
             <Modal.Title>Signing secret for {secret.name}</Modal.Title>
