@@ -42,8 +42,8 @@ const features = [
   },
   {
     title: "Runs in your AWS account",
-    body: "Deployed with the CDK from a GitHub workflow, with no NAT gateway and nothing polling the database: a few dollars a month at rest.",
-    href: "/docs/operations/cost/",
+    body: "Deployed with the CDK from a GitHub workflow, with no NAT gateway and nothing polling the database.",
+    href: "/docs/getting-started/self-hosting/",
   },
 ];
 
