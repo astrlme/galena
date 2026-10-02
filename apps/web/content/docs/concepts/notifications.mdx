@@ -1,0 +1,81 @@
+---
+title: Notifications
+description: Email subscribers, Slack and webhook endpoints, who hears about what, and how each send is delivered once.
+---
+
+Galena tells people about incidents and maintenance through three channels:
+
+| Channel | Who adds it | What it is |
+| --- | --- | --- |
+| Email | Visitors, from the page's **Subscribe** button | A **subscriber**: one address, double opt-in |
+| Slack | An admin, in **Subscribers** | An **endpoint**: a Slack incoming webhook URL |
+| Webhook | An admin, in **Subscribers** | An **endpoint**: your URL, sent signed JSON |
+
+Each subscriber and endpoint can follow chosen components. One that chose none hears about
+everything.
+
+## What reaches whom
+
+| Event | Announced |
+| --- | --- |
+| Incident created, updated, resolved | Only while the incident is published. A draft published later is announced as new. |
+| Maintenance scheduled | When first scheduled; later edits are not announced again |
+| Maintenance started, completed, cancelled | Always |
+
+An event naming components reaches the subscribers and endpoints that follow at least one of
+them, plus those that follow everything. An event naming no components reaches everyone.
+Unsubscribed and suppressed addresses, and disabled endpoints, are skipped.
+
+## Email subscribers
+
+```
+pending confirmation → active → unsubscribed
+                          ↘ suppressed
+```
+
+- **Subscribing** stores the address as pending and sends a confirmation email. At most one
+  confirmation goes to an address every 10 minutes, however often the form is sent, and at most
+  200 an hour across the page.
+- **Confirming** happens on a page with a button, never on the link's GET alone, so mail scanners
+  that open links can't confirm anyone. Links work for 7 days; pending addresses expire after
+  that. Subscribing again starts over.
+- **Unsubscribing** takes one click from any email, and mail clients that support one-click
+  unsubscribe headers show their own button. Unsubscribe links don't expire.
+- **Suppressed**: when SES reports a hard bounce or a complaint, the address is suppressed for
+  good. Subscribing again doesn't revive it; an admin can remove it.
+
+Confirm and unsubscribe links carry signed tokens, so nothing about them is stored. In the
+dashboard, admins see addresses masked: `a***@example.com`.
+
+## Endpoints
+
+**Slack** endpoints post a message with the incident or window's title, status, affected
+components and the latest update, with a colour bar for the state, to the channel the incoming
+webhook belongs to.
+
+**Webhook** endpoints receive a signed JSON `POST` that follows
+[Standard Webhooks](https://www.standardwebhooks.com/), so any of its libraries can verify it.
+Galena shows the signing secret once, when you create the endpoint. See
+[Webhooks](/docs/guides/webhooks/) and the [payload reference](/docs/reference/webhooks/).
+
+Slack URLs and webhook secrets are encrypted at rest and never returned by the API after saving.
+An endpoint whose delivery fails is marked **failing** in the dashboard; it keeps receiving new
+events.
+
+## Deliveries
+
+Every send is a **delivery**: one row per event and target, made before anything is sent.
+
+| Status | Meaning |
+| --- | --- |
+| Pending | Waiting to be sent, or being retried |
+| Sent | The provider accepted it |
+| Failed | Retries ran out |
+| Skipped | The target stopped qualifying before the send, such as an unsubscribe in between |
+
+Because the row is unique per event and target, a retried fan-out finds the existing row and
+sends nothing twice. Emails are retried up to 5 times within about a minute; Slack and webhook
+deliveries up to 5 times with backoff from 5 seconds to 10 minutes. Only 429 and 5xx answers,
+and network errors, are retried; any other answer, or an address the SSRF guard refuses, fails
+the delivery at once and marks the endpoint failing. The next successful send marks it active
+again.

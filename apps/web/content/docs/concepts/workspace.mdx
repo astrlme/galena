@@ -1,0 +1,37 @@
+---
+title: Workspace and roles
+description: One deployment, one workspace, and the four roles its members can hold.
+---
+
+A Galena deployment serves one organisation. Everything it holds belongs to a single
+**workspace**: components, monitors, incidents, maintenance windows, subscribers and the status
+page. First-run setup creates the workspace and its owner; after that, sign-up is closed.
+
+The database still carries a `workspace_id` on every table, so a later version can host several
+workspaces without reshaping the data. Sign-in identities (users, sessions and accounts) are the
+exception: they link to a workspace through their membership.
+
+## Roles
+
+Each member holds one role. Every role includes everything the roles below it can do.
+
+| Role | Can |
+| --- | --- |
+| Owner | Everything an admin can. Created by first-run setup. |
+| Admin | Manage email subscribers, Slack and webhook endpoints. Subscriber addresses are personal data and endpoints hold credentials, so these need admin. |
+| Editor | Create and change components, groups, monitors, incidents and maintenance windows. |
+| Viewer | Read everything in the dashboard. |
+
+The API enforces roles on every request; the dashboard only hides what you can't use.
+
+<Callout>
+Inviting members, changing roles and workspace settings arrive with the Settings section. Until
+then a deployment has its owner only. See the [roadmap](/docs/roadmap/).
+</Callout>
+
+## The status page
+
+Each workspace publishes one public status page. It shows every component, in the order and
+groups you set in the dashboard, under the workspace's name. See
+[Status and uptime](/docs/concepts/status-and-uptime/) for what it shows and
+[Publishing](/docs/architecture/publishing/) for how it gets there.

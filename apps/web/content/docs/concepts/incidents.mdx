@@ -1,0 +1,89 @@
+---
+title: Incidents
+description: Status, impact, affected components, updates and visibility.
+---
+
+An **incident** is a customer-facing account of something going wrong: a title, an impact, the
+components it affects, and a timeline of updates that ends when it is resolved.
+
+## Status
+
+Every update carries a status, and the incident takes the status of its latest update.
+
+| Status | Meaning | Next |
+| --- | --- | --- |
+| Investigating | Something is wrong and you are looking | Identified, Monitoring, Resolved |
+| Identified | You know the cause and are fixing it | Monitoring, Resolved |
+| Monitoring | A fix is out and you are watching it | Investigating (it came back), Resolved |
+| Resolved | It's over | Postmortem |
+| Postmortem | The write-up is published | (final) |
+
+An update may keep the same status: a fresh estimate while still investigating is an update too.
+Galena refuses any other move with a message naming the allowed ones. A new incident can start in
+any status but Postmortem, including Resolved, to record something that is already over.
+
+The time the incident first entered Resolved is kept, through a later postmortem.
+
+## Impact
+
+| Impact | The page's overall status, at least |
+| --- | --- |
+| None | unchanged |
+| Minor | Some systems degraded |
+| Major | Partial outage |
+| Critical | Major outage |
+
+Impact sets the headline of the page while the incident is open, alongside the status of every
+component. See [Status and uptime](/docs/concepts/status-and-uptime/#the-pages-overall-status).
+
+## Affected components
+
+An incident names up to 100 components, each with the status the incident gives it: Operational,
+Degraded performance, Partial outage or Major outage. Maintenance is not among them: only
+maintenance windows set it. While the incident is open and published, each named component shows
+the worse of that status and what its monitors say.
+
+An update can change the impact and the affected components; when it leaves them out, they stay.
+
+## Updates
+
+Updates are append-only Markdown, up to 5,000 characters. Galena refuses:
+
+- HTML tags (the page formats the Markdown, and sanitises it again when rendering);
+- links that don't start with `https://`, `http://` or `mailto:`;
+- unfilled `{placeholders}`.
+
+The dashboard starts each update from a template for its status, with placeholders such as
+`{symptom}` and `{nextUpdate}`, so a person under pressure only fills in facts. For example,
+Investigating starts as:
+
+> We're seeing \{symptom\} on \{component\} from \{regions\}. We're investigating and will update
+> by \{nextUpdate\}.
+
+## Visibility
+
+Visibility is separate from status:
+
+| Visibility | Meaning |
+| --- | --- |
+| Published | On the status page and announced to subscribers |
+| Draft | In the dashboard only, waiting to be published |
+| Dismissed | A draft nobody published; kept for the record |
+| Internal | Never published |
+
+Incidents you post from the dashboard are published at once. Drafts, dismissed and internal
+incidents exist for incidents Galena will draft from monitors and alerts (see the
+[roadmap](/docs/roadmap/)); they never change the page or notify anyone.
+
+## On the page
+
+Open incidents sit at the top of the status page under "Active incidents", with their latest
+update. Incidents from the last 14 days are listed under "Past incidents" below the components.
+Each incident has its own page with the full timeline, and appears in the RSS and Atom feeds,
+dated by its latest update so feed readers show it again when it moves.
+
+## Who is told
+
+Subscribers hear about a published incident when it is created, on each update, and when it is
+resolved, if it names a component they chose (or they chose none). See
+[Notifications](/docs/concepts/notifications/).

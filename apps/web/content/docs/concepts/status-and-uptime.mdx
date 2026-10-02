@@ -1,0 +1,77 @@
+---
+title: Status and uptime
+description: The page's headline, each component's status, the 90-day history and the uptime figure.
+---
+
+## The page's overall status
+
+The headline at the top of the status page is the worst of every component's status and every
+open, published incident's impact:
+
+| Headline | When any component is | or an open incident's impact is |
+| --- | --- | --- |
+| Major outage | Major outage | Critical |
+| Partial outage | Partial outage | Major |
+| Some systems degraded | Degraded performance | Minor |
+| All systems operational | otherwise | |
+
+Components under maintenance don't change the headline. Draft, dismissed and internal incidents
+never do. The value is published as Statuspage's `status.indicator` (`critical`, `major`,
+`minor`, `none`), and the page's favicon and [badge](/docs/guides/badge-and-feeds/) show it too.
+
+Every status on the page is shown as a label and a glyph together, never by colour alone:
+
+| Status | Glyph |
+| --- | --- |
+| Operational | ✓ |
+| Degraded performance | ∿ |
+| Partial outage | ▲ |
+| Major outage | ✕ |
+| Maintenance | ◌ |
+| No data | ○ |
+
+## The 90-day history
+
+Each component has a strip of 90 days, oldest on the left, by UTC day. A day with no data is a
+single dot on the baseline. Otherwise each day is a full-height bar, coloured by how the day was spent:
+
+- the bar is green for the time the component was operational;
+- each worse status the component spent at least a minute in stacks at the foot of the bar, worst
+  at the bottom, its height its share of the observed minutes. A short outage stays visible: a
+  partial or major outage foot is at least 8 px tall, degraded or maintenance at least 3 px.
+
+Pointing at, or tabbing to, a day shows its date, the minutes spent in each status, and the
+incidents that touched it.
+
+## The uptime figure
+
+Next to each component, the page shows its uptime over the 90 days:
+
+```
+uptime = (observed minutes − partial outage minutes − major outage minutes) / observed minutes
+```
+
+Degraded performance and maintenance count as up. Days without data are left out rather than
+counted as up. A component with no data at all shows "No data".
+
+## How the history is recorded
+
+Galena doesn't add up check results to draw the history. It replays what happened:
+
+1. Each monitor's confirmed state changes are kept in the database.
+2. Once an hour, at five past, a background job replays yesterday and today for every component:
+   at each moment a monitor changed state, an incident opened or resolved, or a window started or
+   ended, it applies the same rule the live status uses, and adds up the minutes spent in each
+   status.
+3. It saves one row per component per day, then republishes the page.
+
+Because the same rule decides the live status and the history, the strip can't disagree with what
+the page said at the time. A day's row is replaced each run, so a retried run writes the same
+numbers.
+
+## Freshness
+
+The page says when its data was published: "Updated 14:02 UTC". An open page checks
+`snapshot.json` every 30 seconds and updates its headline and component statuses in place,
+announcing the change to screen readers. Since the hourly job republishes the page, a page that
+hasn't been confirmed for two hours says so: "Status not confirmed since 12:05 UTC".
