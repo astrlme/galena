@@ -3,7 +3,7 @@ import { Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
 import { stages } from "../config/stages.ts";
-import { PageCertificateStack, PageReplicaStack, StatusPageStack } from "../stacks/status-page.ts";
+import { CertificateStack, PageReplicaStack, StatusPageStack } from "../stacks/status-page.ts";
 
 const app = new App();
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
@@ -12,7 +12,7 @@ const replica = new PageReplicaStack(app, "Replica", {
   env: { region: "eu-north-1", account },
   config: stages.dev,
 });
-const certificateStack = new PageCertificateStack(app, "Certificate", {
+const certificateStack = new CertificateStack(app, "Certificate", {
   env: { region: "us-east-1", account },
   domain: "status.astrl.me",
   crossRegionReferences: true,

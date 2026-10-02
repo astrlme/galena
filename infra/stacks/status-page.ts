@@ -95,7 +95,7 @@ export class PageReplicaStack extends Stack {
 }
 
 /** CloudFront takes certificates only from us-east-1. Validated by a CNAME at the DNS host. */
-export class PageCertificateStack extends Stack {
+export class CertificateStack extends Stack {
   readonly certificate: ICertificate;
 
   constructor(scope: Construct, id: string, props: StackProps & { domain: string }) {
