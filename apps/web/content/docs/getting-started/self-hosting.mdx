@@ -28,6 +28,7 @@ example; replace its values with yours:
 | `pageRegions` | The status page's primary and replica regions. The config refuses either one sharing a region with `homeRegion`. |
 | `github.repository`, `github.oidcSubject` | Your fork. The subject has the form `repo:<owner>@<owner id>/<repo>@<repo id>`; `gh api repos/<owner>/<repo>` shows both ids. |
 | `pageDomain` | Optional: the status page's own hostname, for example `status.example.com`. |
+| `webDomain` | Optional: the dashboard's own hostname, for example `galena.example.com`. Without it, the dashboard is on its CloudFront address. |
 | `email` | Optional: the domain and address notification email is sent from. Without it, email subscriptions are off. |
 | `telemetryCapacity` | DynamoDB read and write units. Stages in one account share the free tier of 25 each; the config refuses a split that goes over. |
 
@@ -115,6 +116,7 @@ The first run creates, among others:
 - `galena-dev-probe-<region>` in each probe region, and `galena-dev-detection` (the evaluator).
 - `galena-dev-api` and `galena-dev-web` (the dashboard on CloudFront).
 - `galena-dev-page`, `galena-dev-page-replica` and, with a domain, `galena-dev-page-certificate`.
+- `galena-dev-web-certificate`, when `webDomain` is set.
 - `galena-dev-worker-access`: the IAM user trigger.dev uses.
 - `galena-dev-email`, when `email` is set.
 - `galena-dev-smoke`, on the `dev` stage only: an endpoint the end-to-end Smoke workflow takes
@@ -155,11 +157,13 @@ sending email as your SES identity.
 
 ### Point DNS at it
 
-With a `pageDomain`:
+With a `pageDomain` or a `webDomain`, for each:
 
-1. Add the certificate's validation CNAME (shown in ACM in `us-east-1`).
-2. Add a CNAME from your page domain to the status page's CloudFront domain. With Cloudflare,
-   set both records to DNS only.
+1. Add the certificate's validation CNAME (shown in ACM in `us-east-1`) while the first deploy
+   waits for it.
+2. Add a CNAME from the domain to its CloudFront distribution's domain: the status page's
+   `DistributionDomain` output, or the dashboard's distribution. With Cloudflare, set the
+   records to DNS only.
 
 With `email`:
 
@@ -173,8 +177,8 @@ With `email`:
 
 ### Create the owner
 
-The dashboard's address is the `galena-dev-web` stack's `DashboardUrl` output; the API answers on
-the same origin. First-run setup has no screen yet, so create the workspace and its owner with
+The dashboard's address is the `galena-dev-web` stack's `DashboardUrl` output: your `webDomain`, or
+the CloudFront address without one. The API answers on the same origin. First-run setup has no screen yet, so create the workspace and its owner with
 one request:
 
 ```bash
