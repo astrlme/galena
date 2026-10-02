@@ -1,0 +1,12 @@
+{
+  "title": "Guides",
+  "pages": [
+    "monitors",
+    "incidents",
+    "maintenance",
+    "email-subscribers",
+    "slack",
+    "webhooks",
+    "badge-and-feeds"
+  ]
+}

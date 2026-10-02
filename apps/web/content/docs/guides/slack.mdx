@@ -1,0 +1,54 @@
+---
+title: Slack
+description: Post incident and maintenance updates to a Slack channel.
+---
+
+Galena posts to Slack through an **incoming webhook**: a URL that posts into one channel. It
+needs no Slack app install beyond creating the webhook.
+
+<Steps>
+<Step>
+
+### Create the incoming webhook
+
+In Slack, create an app for your workspace (or use an existing one), turn on **Incoming
+Webhooks**, and add a webhook for the channel. Copy its URL; it starts with
+`https://hooks.slack.com/`.
+
+</Step>
+<Step>
+
+### Add it to Galena
+
+In **Subscribers**, choose **Add destination**, pick **Slack incoming webhook**, give it a name
+(such as the channel), paste the URL, and optionally choose the components it follows.
+
+Galena encrypts the URL as soon as it's saved and never shows it again.
+
+</Step>
+<Step>
+
+### Send a test
+
+**Send test** posts a "Test notification" to the channel and shows what Slack answered.
+
+</Step>
+</Steps>
+
+## What a message looks like
+
+Each message has a header with the incident or window's title, then a colour bar in the state's
+colour holding:
+
+- for incidents: the status, impact, affected components with their statuses, and when it
+  started;
+- for maintenance: the status, components, start and end;
+- the latest update or the window's message;
+- a button to read the incident or see the status page.
+
+The state is always written out and marked with its glyph, so it reads without the colour.
+
+## When Slack refuses
+
+A revoked or deleted webhook answers with an error. The delivery fails at once and the
+destination is marked **Failing since** that time. Delete it and add a new webhook.

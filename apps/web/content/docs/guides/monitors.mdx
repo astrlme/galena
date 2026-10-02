@@ -1,0 +1,78 @@
+---
+title: Add a monitor
+description: Watch an endpoint from three regions and let it drive a component's status.
+---
+
+<Steps>
+<Step>
+
+### Pick the URL
+
+Choose an address that fails when your users would notice. A health endpoint that checks its own
+dependencies is ideal; a static file served by a CDN usually says nothing about your service.
+
+The URL must be public: the probes refuse private and loopback addresses. During local
+development, see [watching a local service](/docs/getting-started/local-development/#watching-a-local-service).
+
+</Step>
+<Step>
+
+### Add it
+
+In **Monitors**, choose **Add monitor** and fill in:
+
+- **Monitor name**: what your team calls it, such as "API health".
+- **URL**: `https://api.example.com/health`.
+- **Method**: `GET`, or `HEAD` for endpoints that are slow to send a body. A `HEAD` check can't
+  look for a keyword.
+- **Keyword** (optional): the check fails when the response doesn't contain this text. Use it
+  when an error page can still answer 200.
+- **Component**: the component this monitor speaks for. Leave it empty to watch without changing
+  the page.
+- **When it goes down**: Major outage, or Partial outage for a monitor that covers only part of
+  the component.
+- **Publish policy**: see [Monitors and checks](/docs/concepts/monitors/#publish-policy).
+
+</Step>
+<Step>
+
+### Watch the first results
+
+Within a minute or two, the monitor's row shows the latest check from each region and a strip of
+the last hour. Its state starts as **Unknown** and settles once enough regions agree.
+
+</Step>
+</Steps>
+
+## Pausing
+
+**Pause** stops the checks without deleting the monitor or its history. While paused, the
+monitor has no say in its component's status. **Resume** starts the checks again.
+
+## Tuning
+
+The dashboard sets the common fields. Accepted status codes, the timeout, redirects and
+[detection settings](/docs/concepts/detection/#settings) are set through the API. `PUT` replaces
+every field, so send the whole monitor:
+
+```bash
+curl -X PUT "$URL/v1/monitors/$ID" -b cookies.txt \
+  -H 'content-type: application/json' -d '{
+  "name": "API health",
+  "componentId": "0199…",
+  "http": {
+    "url": "https://api.example.com/health",
+    "method": "GET",
+    "expectedStatus": [200, 204],
+    "timeoutMs": 5000,
+    "followRedirects": false
+  },
+  "publishPolicy": "approve",
+  "downStatus": "major_outage",
+  "detection": { "degradedLatencyMs": 1500, "stableMinutes": 10 },
+  "enabled": true
+}'
+```
+
+Detection fields you leave out take their defaults. See the [API reference](/docs/reference/api/)
+for signing in from a script.

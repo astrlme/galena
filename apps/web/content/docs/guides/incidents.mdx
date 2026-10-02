@@ -1,0 +1,60 @@
+---
+title: Run an incident
+description: Publish an incident, keep it updated, and resolve it.
+---
+
+<Steps>
+<Step>
+
+### Publish it
+
+In **Incidents**, choose **Publish incident**:
+
+- **Title**: what people see first, such as "Elevated API errors". Say what's broken, not why.
+- **Impact**: None, Minor, Major or Critical. It sets the page's headline at least to the
+  matching level while the incident is open.
+- **Affected components**, each with the status the incident gives it.
+- **Status**: usually Investigating.
+- **Message**: starts from the template for the status. Replace every `{placeholder}`; Galena
+  refuses the update until you do.
+
+Publishing puts the incident on the page within seconds and notifies subscribers who follow an
+affected component.
+
+</Step>
+<Step>
+
+### Keep it updated
+
+Open the incident and **Post update**. Each update has a status and a message, and may change the
+impact and the affected components. Post again even when nothing changed: a fresh "still
+investigating, next update by 14:30 UTC" tells people you haven't forgotten them.
+
+</Step>
+<Step>
+
+### Resolve it
+
+Post an update with the status **Resolved**. The incident's components stop being affected at
+once, and the incident moves to "Past incidents" on the page.
+
+</Step>
+</Steps>
+
+## Writing updates
+
+- Lead with what people experience, then what you are doing, then when you'll update next.
+- Use UTC times, as the page does.
+- Markdown works: links, lists, emphasis. HTML doesn't, and links must be `https://`, `http://`
+  or `mailto:`.
+- An incident that came back after Monitoring returns to Investigating; there's no need for a new
+  incident.
+
+## Postmortems
+
+After resolving, post one more update with the status **Postmortem** and the write-up as its
+message. It appears on the incident's page and is announced like any update.
+
+## Backfilling
+
+To record an outage that is already over, publish the incident with the status **Resolved**.
