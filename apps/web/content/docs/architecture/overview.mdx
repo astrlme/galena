@@ -80,7 +80,7 @@ ports, so the same rules run in Lambda, in trigger.dev, in tests and in the repl
 | `galena-<stage>-probe-<region>` | Each probe region | The probe Lambda and its every-minute schedule |
 | `galena-<stage>-detection` | Home | The evaluator |
 | `galena-<stage>-api` | Home | The API Lambda, HTTP API, the migration Lambda, the origin secret |
-| `galena-<stage>-web` | Home | The dashboard's bucket and CloudFront distribution |
+| `galena-<stage>-web`, `-web-certificate` | Home, us-east-1 | The dashboard's bucket, CloudFront distribution and, with a domain, its certificate |
 | `galena-<stage>-worker-access` | Home | The IAM user trigger.dev acts as |
 | `galena-<stage>-email` | Home | SES identity, configuration set and bounce handling |
 | `galena-<stage>-page`, `-page-replica`, `-page-certificate` | Page regions, us-east-1 | Page buckets, CloudFront, certificate |

@@ -15,6 +15,7 @@ synthesises.
 | `probeRegions` | at least 3 regions | Where checks run |
 | `pageRegions.primary`, `.replica` | regions | The status page's buckets; all three of these and `homeRegion` must differ |
 | `pageDomain` | hostname, optional | The page's own domain; adds a certificate stack in us-east-1 |
+| `webDomain` | hostname, optional | The dashboard's own domain; adds a certificate stack in us-east-1 and becomes the public URL |
 | `email.domain`, `email.from` | optional | The SES identity, and the sender, which must be an address at that domain |
 | `github.repository` | `owner/name` | Your fork |
 | `github.oidcSubject` | `repo:owner@id/name@id` | The `sub` prefix of GitHub's OIDC tokens for your fork |
