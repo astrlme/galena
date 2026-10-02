@@ -52,6 +52,7 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
     createRoute({
       method: "get",
       path: "/v1/monitors",
+      tags: ["Monitors"],
       summary: "Monitors, oldest first",
       middleware: [viewer],
       responses: { 200: json(z.object({ monitors: z.array(monitorView) }), "Every monitor") },
@@ -66,6 +67,7 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
     createRoute({
       method: "get",
       path: "/v1/monitors/telemetry",
+      tags: ["Monitors"],
       summary: "Each monitor's state and its results from the last 60 minutes",
       description: "Reads telemetry only; poll it while the monitors page is open.",
       middleware: [viewer],
@@ -98,6 +100,7 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
     createRoute({
       method: "post",
       path: "/v1/monitors",
+      tags: ["Monitors"],
       summary: "Add a monitor; probes pick it up with the next config publish",
       middleware: [editor],
       request: jsonBody(monitorInput),
@@ -123,6 +126,7 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
     createRoute({
       method: "put",
       path: "/v1/monitors/{id}",
+      tags: ["Monitors"],
       summary: "Replace a monitor's settings",
       description: "Send every field; omitted optional fields fall back to their defaults.",
       middleware: [editor],
@@ -147,6 +151,7 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
     createRoute({
       method: "delete",
       path: "/v1/monitors/{id}",
+      tags: ["Monitors"],
       summary: "Delete a monitor; probes stop checking it with the next config publish",
       middleware: [editor],
       request: { params: z.object({ id: monitorId }) },

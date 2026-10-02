@@ -4,6 +4,32 @@
     "title": "Galena API",
     "version": "0.0.0"
   },
+  "tags": [
+    {
+      "name": "Workspace",
+      "description": "Health, first-run setup and the signed-in member."
+    },
+    {
+      "name": "Components",
+      "description": "Components and groups, in the order the page shows them."
+    },
+    {
+      "name": "Monitors",
+      "description": "HTTP monitors, their settings and their latest results."
+    },
+    {
+      "name": "Incidents",
+      "description": "Incidents and their updates."
+    },
+    {
+      "name": "Maintenance",
+      "description": "Scheduled maintenance windows."
+    },
+    {
+      "name": "Notifications",
+      "description": "Slack and webhook endpoints, and email subscribers."
+    }
+  ],
   "components": {
     "schemas": {},
     "parameters": {}
@@ -11,6 +37,9 @@
   "paths": {
     "/health": {
       "get": {
+        "tags": [
+          "Workspace"
+        ],
         "summary": "Liveness",
         "description": "Answers without touching the database, so health checks never wake Aurora.",
         "responses": {
@@ -40,6 +69,9 @@
     },
     "/v1/setup": {
       "post": {
+        "tags": [
+          "Workspace"
+        ],
         "summary": "First-run setup",
         "description": "Creates the workspace and its owner, then signs the owner in. Works once per deployment.",
         "requestBody": {
@@ -106,6 +138,9 @@
     },
     "/v1/me": {
       "get": {
+        "tags": [
+          "Workspace"
+        ],
         "summary": "The signed-in member",
         "responses": {
           "200": {
@@ -143,6 +178,9 @@
     },
     "/v1/components": {
       "get": {
+        "tags": [
+          "Components"
+        ],
         "summary": "Components and their groups, in page order",
         "responses": {
           "200": {
@@ -236,6 +274,9 @@
         }
       },
       "post": {
+        "tags": [
+          "Components"
+        ],
         "summary": "Add a component at the end of the list",
         "requestBody": {
           "required": true,
@@ -332,6 +373,9 @@
     },
     "/v1/components/{id}": {
       "patch": {
+        "tags": [
+          "Components"
+        ],
         "summary": "Rename, describe or regroup a component",
         "parameters": [
           {
@@ -432,6 +476,9 @@
         }
       },
       "delete": {
+        "tags": [
+          "Components"
+        ],
         "summary": "Delete a component from every page",
         "parameters": [
           {
@@ -453,6 +500,9 @@
     },
     "/v1/components/order": {
       "put": {
+        "tags": [
+          "Components"
+        ],
         "summary": "Set the order of every component",
         "requestBody": {
           "required": true,
@@ -486,6 +536,9 @@
     },
     "/v1/component-groups": {
       "post": {
+        "tags": [
+          "Components"
+        ],
         "summary": "Add a group at the end of the list",
         "requestBody": {
           "required": true,
@@ -540,6 +593,9 @@
     },
     "/v1/component-groups/{id}": {
       "patch": {
+        "tags": [
+          "Components"
+        ],
         "summary": "Rename a group",
         "parameters": [
           {
@@ -603,6 +659,9 @@
         }
       },
       "delete": {
+        "tags": [
+          "Components"
+        ],
         "summary": "Delete a group; its components stay, ungrouped",
         "parameters": [
           {
@@ -624,6 +683,9 @@
     },
     "/v1/component-groups/order": {
       "put": {
+        "tags": [
+          "Components"
+        ],
         "summary": "Set the order of every group",
         "requestBody": {
           "required": true,
@@ -657,6 +719,9 @@
     },
     "/v1/monitors": {
       "get": {
+        "tags": [
+          "Monitors"
+        ],
         "summary": "Monitors, oldest first",
         "responses": {
           "200": {
@@ -837,6 +902,9 @@
         }
       },
       "post": {
+        "tags": [
+          "Monitors"
+        ],
         "summary": "Add a monitor; probes pick it up with the next config publish",
         "requestBody": {
           "required": true,
@@ -1167,6 +1235,9 @@
     },
     "/v1/monitors/telemetry": {
       "get": {
+        "tags": [
+          "Monitors"
+        ],
         "summary": "Each monitor's state and its results from the last 60 minutes",
         "description": "Reads telemetry only; poll it while the monitors page is open.",
         "responses": {
@@ -1287,6 +1358,9 @@
     },
     "/v1/monitors/{id}": {
       "put": {
+        "tags": [
+          "Monitors"
+        ],
         "summary": "Replace a monitor's settings",
         "description": "Send every field; omitted optional fields fall back to their defaults.",
         "parameters": [
@@ -1627,6 +1701,9 @@
         }
       },
       "delete": {
+        "tags": [
+          "Monitors"
+        ],
         "summary": "Delete a monitor; probes stop checking it with the next config publish",
         "parameters": [
           {
@@ -1648,6 +1725,9 @@
     },
     "/v1/incidents": {
       "get": {
+        "tags": [
+          "Incidents"
+        ],
         "summary": "Open incidents, or recently resolved ones; newest first",
         "parameters": [
           {
@@ -1786,6 +1866,9 @@
         }
       },
       "post": {
+        "tags": [
+          "Incidents"
+        ],
         "summary": "Publish an incident with its first update",
         "requestBody": {
           "required": true,
@@ -2010,6 +2093,9 @@
     },
     "/v1/incidents/{id}": {
       "get": {
+        "tags": [
+          "Incidents"
+        ],
         "summary": "One incident with its updates, newest first",
         "parameters": [
           {
@@ -2171,6 +2257,9 @@
     },
     "/v1/incidents/{id}/updates": {
       "post": {
+        "tags": [
+          "Incidents"
+        ],
         "summary": "Post an update; its status moves the incident along its lifecycle",
         "description": "Impact and components change only when they are sent.",
         "parameters": [
@@ -2399,6 +2488,9 @@
     },
     "/v1/maintenances": {
       "get": {
+        "tags": [
+          "Maintenance"
+        ],
         "summary": "Maintenance windows, newest start first",
         "responses": {
           "200": {
@@ -2478,6 +2570,9 @@
         }
       },
       "post": {
+        "tags": [
+          "Maintenance"
+        ],
         "summary": "Schedule a window; it starts and completes on its own",
         "requestBody": {
           "required": true,
@@ -2593,6 +2688,9 @@
     },
     "/v1/maintenances/{id}": {
       "get": {
+        "tags": [
+          "Maintenance"
+        ],
         "summary": "One maintenance window",
         "parameters": [
           {
@@ -2672,6 +2770,9 @@
         }
       },
       "put": {
+        "tags": [
+          "Maintenance"
+        ],
         "summary": "Change a window that hasn't completed",
         "description": "Send every field. The window's run is replaced to match the new times.",
         "parameters": [
@@ -2799,6 +2900,9 @@
     },
     "/v1/maintenances/{id}/cancel": {
       "post": {
+        "tags": [
+          "Maintenance"
+        ],
         "summary": "Cancel a window before it starts",
         "parameters": [
           {
@@ -2880,6 +2984,9 @@
     },
     "/v1/webhook-endpoints": {
       "get": {
+        "tags": [
+          "Notifications"
+        ],
         "summary": "Slack and webhook endpoints, oldest first",
         "responses": {
           "200": {
@@ -2949,6 +3056,9 @@
         }
       },
       "post": {
+        "tags": [
+          "Notifications"
+        ],
         "summary": "Add a Slack incoming webhook or an outgoing webhook",
         "description": "An outgoing webhook's signing secret is in this answer only.",
         "requestBody": {
@@ -3076,6 +3186,9 @@
     },
     "/v1/webhook-endpoints/{id}": {
       "delete": {
+        "tags": [
+          "Notifications"
+        ],
         "summary": "Remove an endpoint",
         "parameters": [
           {
@@ -3097,6 +3210,9 @@
     },
     "/v1/webhook-endpoints/{id}/test": {
       "post": {
+        "tags": [
+          "Notifications"
+        ],
         "summary": "Send a test message",
         "description": "Posts a sample notice now and says what the endpoint answered.",
         "parameters": [
@@ -3142,6 +3258,9 @@
     },
     "/v1/subscribers": {
       "get": {
+        "tags": [
+          "Notifications"
+        ],
         "summary": "Email subscribers, newest first",
         "responses": {
           "200": {
@@ -3198,6 +3317,9 @@
     },
     "/v1/subscribers/{id}": {
       "delete": {
+        "tags": [
+          "Notifications"
+        ],
         "summary": "Remove a subscriber",
         "description": "Deletes the address; it can subscribe again, even after a bounce.",
         "parameters": [

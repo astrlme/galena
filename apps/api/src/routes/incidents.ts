@@ -100,6 +100,7 @@ export function registerIncidentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "get",
       path: "/v1/incidents",
+      tags: ["Incidents"],
       summary: "Open incidents, or recently resolved ones; newest first",
       middleware: [viewer],
       request: { query: z.object({ state: z.enum(["open", "resolved"]).default("open") }) },
@@ -116,6 +117,7 @@ export function registerIncidentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "get",
       path: "/v1/incidents/{id}",
+      tags: ["Incidents"],
       summary: "One incident with its updates, newest first",
       middleware: [viewer],
       request: { params: z.object({ id: incidentId }) },
@@ -132,6 +134,7 @@ export function registerIncidentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "post",
       path: "/v1/incidents",
+      tags: ["Incidents"],
       summary: "Publish an incident with its first update",
       middleware: [editor],
       request: jsonBody(incidentCreate),
@@ -179,6 +182,7 @@ export function registerIncidentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "post",
       path: "/v1/incidents/{id}/updates",
+      tags: ["Incidents"],
       summary: "Post an update; its status moves the incident along its lifecycle",
       description: "Impact and components change only when they are sent.",
       middleware: [editor],

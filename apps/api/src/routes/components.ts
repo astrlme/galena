@@ -56,6 +56,7 @@ export function registerComponentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "get",
       path: "/v1/components",
+      tags: ["Components"],
       summary: "Components and their groups, in page order",
       middleware: [viewer],
       responses: {
@@ -82,6 +83,7 @@ export function registerComponentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "post",
       path: "/v1/components",
+      tags: ["Components"],
       summary: "Add a component at the end of the list",
       middleware: [editor],
       request: jsonBody(componentInput),
@@ -110,6 +112,7 @@ export function registerComponentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "patch",
       path: "/v1/components/{id}",
+      tags: ["Components"],
       summary: "Rename, describe or regroup a component",
       middleware: [editor],
       request: { params: z.object({ id: componentId }), ...jsonBody(componentPatch) },
@@ -139,6 +142,7 @@ export function registerComponentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "delete",
       path: "/v1/components/{id}",
+      tags: ["Components"],
       summary: "Delete a component from every page",
       middleware: [editor],
       request: { params: z.object({ id: componentId }) },
@@ -161,6 +165,7 @@ export function registerComponentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "put",
       path: "/v1/components/order",
+      tags: ["Components"],
       summary: "Set the order of every component",
       middleware: [editor],
       request: jsonBody(reorderInput),
@@ -186,6 +191,7 @@ export function registerComponentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "post",
       path: "/v1/component-groups",
+      tags: ["Components"],
       summary: "Add a group at the end of the list",
       middleware: [editor],
       request: jsonBody(componentGroupInput),
@@ -213,6 +219,7 @@ export function registerComponentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "patch",
       path: "/v1/component-groups/{id}",
+      tags: ["Components"],
       summary: "Rename a group",
       middleware: [editor],
       request: { params: z.object({ id: componentGroupId }), ...jsonBody(componentGroupInput) },
@@ -235,6 +242,7 @@ export function registerComponentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "delete",
       path: "/v1/component-groups/{id}",
+      tags: ["Components"],
       summary: "Delete a group; its components stay, ungrouped",
       middleware: [editor],
       request: { params: z.object({ id: componentGroupId }) },
@@ -257,6 +265,7 @@ export function registerComponentRoutes(app: App, deps: Deps) {
     createRoute({
       method: "put",
       path: "/v1/component-groups/order",
+      tags: ["Components"],
       summary: "Set the order of every group",
       middleware: [editor],
       request: jsonBody(reorderInput),

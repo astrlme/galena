@@ -27,11 +27,20 @@ export { type Deps, problemResponse, requireRole } from "./http.ts";
 export const openApiConfig = {
   openapi: "3.1.0",
   info: { title: "Galena API", version: "0.0.0" },
-} as const;
+  tags: [
+    { name: "Workspace", description: "Health, first-run setup and the signed-in member." },
+    { name: "Components", description: "Components and groups, in the order the page shows them." },
+    { name: "Monitors", description: "HTTP monitors, their settings and their latest results." },
+    { name: "Incidents", description: "Incidents and their updates." },
+    { name: "Maintenance", description: "Scheduled maintenance windows." },
+    { name: "Notifications", description: "Slack and webhook endpoints, and email subscribers." },
+  ],
+};
 
 const health = createRoute({
   method: "get",
   path: "/health",
+  tags: ["Workspace"],
   summary: "Liveness",
   description: "Answers without touching the database, so health checks never wake Aurora.",
   responses: {
@@ -45,6 +54,7 @@ const health = createRoute({
 const setup = createRoute({
   method: "post",
   path: "/v1/setup",
+  tags: ["Workspace"],
   summary: "First-run setup",
   description:
     "Creates the workspace and its owner, then signs the owner in. Works once per deployment.",
@@ -75,6 +85,7 @@ const setup = createRoute({
 const me = createRoute({
   method: "get",
   path: "/v1/me",
+  tags: ["Workspace"],
   summary: "The signed-in member",
   responses: {
     200: {
