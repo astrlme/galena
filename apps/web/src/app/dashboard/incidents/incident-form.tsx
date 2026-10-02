@@ -37,11 +37,15 @@ const OPENING = ["investigating", "identified", "monitoring", "resolved"] as con
 
 export function IncidentForm({
   components,
+  problem,
   onPublish,
+  onCancel,
 }: {
   components: { id: string; name: string }[];
+  problem: string | undefined;
   /** Resolves to whether it was published; the form keeps its values if not. */
   onPublish: (incident: NewIncident) => Promise<boolean>;
+  onCancel: () => void;
 }) {
   const [affected, setAffected] = useState<Affected[]>([]);
   const form = useForm<FormIn, unknown, NewIncident>({
@@ -61,10 +65,9 @@ export function IncidentForm({
     <form
       onSubmit={submit}
       aria-label="Publish an incident"
-      className="mt-8 flex max-w-[640px] flex-col gap-4"
+      className="mt-6 flex flex-col gap-4"
       noValidate
     >
-      <h2 className="text-[19px] font-semibold leading-[1.35]">Publish an incident</h2>
       <Field
         id="incident-title"
         label="Title"
@@ -107,9 +110,15 @@ export function IncidentForm({
         error={errors.body?.message}
         registration={form.register("body")}
       />
-      <div>
+      <p aria-live="polite" className="font-semibold text-major empty:hidden">
+        {problem}
+      </p>
+      <div className="flex gap-4">
         <Button type="submit" variant="primary" disabled={isSubmitting}>
           {isSubmitting ? "Publishing…" : "Publish incident"}
+        </Button>
+        <Button type="button" variant="quiet" onClick={onCancel}>
+          Cancel
         </Button>
       </div>
     </form>

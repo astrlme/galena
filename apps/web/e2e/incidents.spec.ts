@@ -13,6 +13,10 @@ test("publish an incident, post an update, resolve it", async ({ page }, testInf
     .click();
   await expect(page.getByRole("heading", { name: "Incidents", level: 1 })).toBeVisible();
 
+  await page
+    .getByRole("region", { name: "Open incidents" })
+    .getByRole("button", { name: "Publish incident" })
+    .click();
   const form = page.getByRole("form", { name: "Publish an incident" });
   await form.getByLabel("Title").fill(title);
   await form.getByRole("radio", { name: /Major impact/ }).check();

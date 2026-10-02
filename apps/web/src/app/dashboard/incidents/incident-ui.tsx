@@ -24,9 +24,9 @@ export const IMPACT_LABELS: Record<IncidentImpact, string> = {
 // Impact is drawn with ink, never colour: a heavier rule and title for a bigger impact.
 export const IMPACT_RULE: Record<IncidentImpact, string> = {
   none: "pl-4",
-  minor: "border-l border-graphite pl-3",
-  major: "border-l-2 border-ink pl-3",
-  critical: "border-l-4 border-ink pl-3",
+  minor: "border-l-2 border-degraded pl-3",
+  major: "border-l-[3px] border-partial pl-3",
+  critical: "border-l-4 border-major pl-3",
 };
 export const IMPACT_TITLE: Record<IncidentImpact, string> = {
   none: "font-normal",

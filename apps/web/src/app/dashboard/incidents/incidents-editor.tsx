@@ -3,7 +3,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
+import { Button } from "../../../components/button.tsx";
+import { Modal } from "../../../components/modal.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { IncidentForm, type NewIncident } from "./incident-form.tsx";
@@ -19,6 +21,7 @@ export function IncidentsEditor() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [problem, setProblem] = useState<string>();
+  const [publishing, setPublishing] = useState(false);
   const open = useQuery({ queryKey: ["incidents", "open"], queryFn: list("open") });
   const resolved = useQuery({ queryKey: ["incidents", "resolved"], queryFn: list("resolved") });
   const components = useQuery({
@@ -46,17 +49,28 @@ export function IncidentsEditor() {
     }
   };
 
-  const section = (id: string, title: string, empty: string, incidents: Summary[]) => (
+  const section = (
+    id: string,
+    title: string,
+    empty: string,
+    incidents: Summary[],
+    action?: ReactNode,
+  ) => (
     <section aria-labelledby={id} className="mt-8">
-      <h2 id={id} className="border-b border-mist pb-2 text-[19px] font-semibold leading-[1.35]">
-        {title}
-      </h2>
+      <div className="flex items-center justify-between gap-4">
+        <h2 id={id} className="text-[19px] font-semibold leading-[1.35]">
+          {title}
+        </h2>
+        {action}
+      </div>
       {incidents.length === 0 ? (
-        <p className="py-3 text-[14px] text-slate">{empty}</p>
+        <p className="mt-4 rounded-xl border border-mist bg-surface p-4 text-[14px] text-slate">
+          {empty}
+        </p>
       ) : (
-        <ul>
+        <ul className="mt-4 rounded-xl border border-mist bg-surface">
           {incidents.map((incident) => (
-            <li key={incident.id} className="border-b border-mist py-3">
+            <li key={incident.id} className="border-b border-mist px-4 py-3 last:border-b-0">
               <div className={`flex flex-col gap-1 ${IMPACT_RULE[incident.impact]}`}>
                 <Link
                   href={`/dashboard/incidents/view/?id=${incident.id}`}
@@ -87,11 +101,25 @@ export function IncidentsEditor() {
         "Open incidents",
         "No open incidents. Publish one when something is wrong.",
         open.data?.incidents ?? [],
+        <Button
+          variant="primary"
+          onClick={() => {
+            setProblem(undefined);
+            setPublishing(true);
+          }}
+        >
+          Publish incident
+        </Button>,
       )}
-      <IncidentForm components={all} onPublish={publish} />
-      <p aria-live="polite" className="mt-4 font-semibold empty:hidden">
-        {problem}
-      </p>
+      <Modal.Root open={publishing} onClose={() => setPublishing(false)}>
+        <Modal.Title>Publish an incident</Modal.Title>
+        <IncidentForm
+          components={all}
+          problem={problem}
+          onPublish={publish}
+          onCancel={() => setPublishing(false)}
+        />
+      </Modal.Root>
       {section(
         "resolved-incidents",
         "Resolved",
