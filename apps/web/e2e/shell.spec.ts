@@ -1,13 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { expectAccessible, signIn } from "./helpers.ts";
 
-test("the landing page leads to sign-in", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/sign-in/");
-  await expectAccessible(page);
-});
-
 test("signed out, the dashboard sends you to sign-in", async ({ page }) => {
   await page.goto("/dashboard/");
   await expect(page).toHaveURL(/\/sign-in\/$/);

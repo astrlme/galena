@@ -37,6 +37,8 @@ export default defineConfig({
       command: "pnpm --filter @galena/web dev",
       url: "http://localhost:3000",
       reuseExistingServer: !process.env.CI,
+      // The project's own site, so the landing page is there to test.
+      env: { GLN_SITE: "project" },
     },
   ],
 });
