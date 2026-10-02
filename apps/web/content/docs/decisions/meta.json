@@ -1,7 +1,6 @@
 {
   "title": "Design decisions",
   "pages": [
-    "index",
     "lambda-and-trigger-dev",
     "static-status-page",
     "two-data-stores",

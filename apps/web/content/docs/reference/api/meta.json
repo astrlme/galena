@@ -1,12 +1,4 @@
 {
   "title": "API",
-  "pages": [
-    "index",
-    "workspace",
-    "components",
-    "monitors",
-    "incidents",
-    "maintenance",
-    "notifications"
-  ]
+  "pages": ["workspace", "components", "monitors", "incidents", "maintenance", "notifications"]
 }
