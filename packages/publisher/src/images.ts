@@ -8,9 +8,12 @@ const FONT = 'font-family="Verdana,DejaVu Sans,sans-serif" font-size="11"';
 /** Verdana's average advance at 11 px; the badge sizes itself from it. */
 const CHAR = 6.6;
 
-/** A state's colour in light or dark mode; no data is grey, at a strength text can sit on. */
-const stateColour = (state: GlyphState, mode: typeof light | typeof dark) =>
-  state === "no_data" ? mode.slate : mode[stateTokens[state]];
+/** A state's colour in light or dark mode; no data is grey (`noData`). */
+const stateColour = (
+  state: GlyphState,
+  mode: typeof light | typeof dark,
+  noData: "ash" | "slate" = "ash",
+) => (state === "no_data" ? mode[noData] : mode[stateTokens[state]]);
 
 /**
  * `badge.svg`: "status" in white on ink, then the page's glyph and label in white on the state's
@@ -22,7 +25,8 @@ export function badgeSvg(indicator: PageIndicator): string {
   const left = 46;
   const right = Math.ceil(28 + label.length * CHAR);
   const width = left + right;
-  const state = stateColour(pageIndicatorStates[indicator], light);
+  // White text needs slate's strength for no data.
+  const state = stateColour(pageIndicatorStates[indicator], light, "slate");
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="20" role="img" aria-label="status: ${xml(label)}">`,
     `<title>status: ${xml(label)}</title>`,
