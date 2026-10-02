@@ -127,6 +127,38 @@ test("builds a valid snapshot of what is public right now", () => {
   expect(built.groups).toEqual([{ id: core, name: "Core", componentIds: [api] }]);
 });
 
+test("a component nothing reports on is not observed, so the page can say no data", () => {
+  const docs = componentId.parse("01920000-0000-7000-8000-000000000099");
+  const built = buildSnapshot(
+    {
+      ...inputs,
+      components: [
+        ...inputs.components,
+        {
+          id: docs,
+          workspaceId: ws,
+          groupId: null,
+          name: "Docs",
+          description: null,
+          position: 2,
+          status: "operational",
+          manualStatus: null,
+        },
+      ],
+      monitors: [
+        ...inputs.monitors,
+        // A monitor with no verdict yet says nothing either.
+        { componentId: docs, state: "unknown", downStatus: "major_outage", enabled: true },
+      ],
+    },
+    fixedClock(NOW),
+  );
+  const observed = Object.fromEntries(built.components.map((c) => [c.name, c.observed]));
+  // API has a reporting monitor; Web's monitor is paused but a running window speaks for it.
+  expect(observed).toEqual({ Web: true, API: true, Docs: false });
+  expect(built.components.find((c) => c.id === docs)).toMatchObject({ uptime: null });
+});
+
 test("draws 90 days, ending today, from the daily rollups", () => {
   const api = buildSnapshot(inputs, fixedClock(NOW)).components[1];
   expect(api?.days).toHaveLength(90);
