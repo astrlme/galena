@@ -9,6 +9,7 @@ import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { control, Field } from "../../../components/field.tsx";
+import { Modal } from "../../../components/modal.tsx";
 import { StatusLabel } from "../../../components/status.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
@@ -32,6 +33,7 @@ export function ComponentsEditor() {
   const queryClient = useQueryClient();
   const [problem, setProblem] = useState<string>();
   const [deleting, setDeleting] = useState<Deleting>();
+  const [creating, setCreating] = useState<"group" | "component">();
   const listing = useQuery({
     queryKey: ["components"],
     queryFn: () => unwrap(api.GET("/v1/components")),
@@ -81,13 +83,15 @@ export function ComponentsEditor() {
 
   const list = (items: Item[]) =>
     items.length === 0 ? (
-      <p className="py-3 text-[14px] text-slate">No components here yet.</p>
+      <p className="mt-4 rounded-xl border border-mist bg-surface p-4 text-[14px] text-slate">
+        No components here yet.
+      </p>
     ) : (
-      <ul>
+      <ul className="mt-4 rounded-xl border border-mist bg-surface">
         {items.map((item, index) => (
           <li
             key={item.id}
-            className="flex min-h-[44px] items-center gap-4 border-b border-mist py-2"
+            className="flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist px-4 py-2 last:border-b-0"
           >
             <div className="flex flex-col">
               <span className="font-semibold">{item.name}</span>
@@ -125,22 +129,62 @@ export function ComponentsEditor() {
 
   return (
     <>
-      <div className="mt-8 grid gap-8 md:grid-cols-2">
-        <GroupForm
-          onCreate={(body) => run(() => unwrap(api.POST("/v1/component-groups", { body })))}
-        />
-        <ComponentForm
-          groups={groups}
-          onCreate={(body) => run(() => unwrap(api.POST("/v1/components", { body })))}
-        />
+      <div className="mt-8 flex gap-2">
+        <Button
+          onClick={() => {
+            setProblem(undefined);
+            setCreating("group");
+          }}
+        >
+          Add group
+        </Button>
+        <Button
+          variant="primary"
+          onClick={() => {
+            setProblem(undefined);
+            setCreating("component");
+          }}
+        >
+          Add component
+        </Button>
       </div>
-      <p aria-live="polite" className="mt-4 font-semibold empty:hidden">
-        {problem}
+      <p aria-live="polite" className="mt-4 font-semibold text-major empty:hidden">
+        {creating ? undefined : problem}
       </p>
+      <Modal.Root open={creating !== undefined} onClose={() => setCreating(undefined)}>
+        {creating === "group" ? (
+          <>
+            <Modal.Title>New group</Modal.Title>
+            <GroupForm
+              problem={problem}
+              onCancel={() => setCreating(undefined)}
+              onCreate={async (body) => {
+                const done = await run(() => unwrap(api.POST("/v1/component-groups", { body })));
+                if (done) setCreating(undefined);
+                return done;
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <Modal.Title>New component</Modal.Title>
+            <ComponentForm
+              groups={groups}
+              problem={problem}
+              onCancel={() => setCreating(undefined)}
+              onCreate={async (body) => {
+                const done = await run(() => unwrap(api.POST("/v1/components", { body })));
+                if (done) setCreating(undefined);
+                return done;
+              }}
+            />
+          </>
+        )}
+      </Modal.Root>
 
       {groups.map((group, index) => (
         <section key={group.id} aria-labelledby={`group-${group.id}`} className="mt-8">
-          <div className="flex items-center gap-4 border-b border-mist pb-2">
+          <div className="flex items-center gap-4">
             <h2 id={`group-${group.id}`} className="text-[19px] font-semibold leading-[1.35]">
               {group.name}
             </h2>
@@ -167,10 +211,7 @@ export function ComponentsEditor() {
         </section>
       ))}
       <section aria-labelledby="ungrouped" className="mt-8">
-        <h2
-          id="ungrouped"
-          className="border-b border-mist pb-2 text-[19px] font-semibold leading-[1.35]"
-        >
+        <h2 id="ungrouped" className="text-[19px] font-semibold leading-[1.35]">
           Not in a group
         </h2>
         {list(components.filter((c) => c.groupId === null))}
@@ -196,7 +237,15 @@ export function ComponentsEditor() {
   );
 }
 
-function GroupForm({ onCreate }: { onCreate: (body: ComponentGroupInput) => Promise<boolean> }) {
+function GroupForm({
+  problem,
+  onCreate,
+  onCancel,
+}: {
+  problem: string | undefined;
+  onCreate: (body: ComponentGroupInput) => Promise<boolean>;
+  onCancel: () => void;
+}) {
   const form = useForm<ComponentGroupInput>({
     resolver: zodResolver(componentGroupInput),
     defaultValues: { name: "" },
@@ -205,7 +254,7 @@ function GroupForm({ onCreate }: { onCreate: (body: ComponentGroupInput) => Prom
     if (await onCreate(values)) form.reset();
   });
   return (
-    <form onSubmit={submit} aria-label="New group" className="flex flex-col gap-4" noValidate>
+    <form onSubmit={submit} aria-label="New group" className="mt-6 flex flex-col gap-4" noValidate>
       <Field
         id="group-name"
         label="Group name"
@@ -213,9 +262,15 @@ function GroupForm({ onCreate }: { onCreate: (body: ComponentGroupInput) => Prom
         error={form.formState.errors.name?.message}
         {...form.register("name")}
       />
-      <div>
-        <Button type="submit" disabled={form.formState.isSubmitting}>
+      <p aria-live="polite" className="font-semibold text-major empty:hidden">
+        {problem}
+      </p>
+      <div className="flex gap-4">
+        <Button type="submit" variant="primary" disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting ? "Adding…" : "Add group"}
+        </Button>
+        <Button type="button" variant="quiet" onClick={onCancel}>
+          Cancel
         </Button>
       </div>
     </form>
@@ -227,10 +282,14 @@ type ComponentFormOut = z.output<typeof componentInput>;
 
 function ComponentForm({
   groups,
+  problem,
   onCreate,
+  onCancel,
 }: {
   groups: Group[];
+  problem: string | undefined;
   onCreate: (body: ComponentFormOut) => Promise<boolean>;
+  onCancel: () => void;
 }) {
   const form = useForm<ComponentFormIn, unknown, ComponentFormOut>({
     resolver: zodResolver(componentInput),
@@ -240,7 +299,12 @@ function ComponentForm({
     if (await onCreate(values)) form.reset();
   });
   return (
-    <form onSubmit={submit} aria-label="New component" className="flex flex-col gap-4" noValidate>
+    <form
+      onSubmit={submit}
+      aria-label="New component"
+      className="mt-6 flex flex-col gap-4"
+      noValidate
+    >
       <Field
         id="component-name"
         label="Component name"
@@ -270,9 +334,15 @@ function ComponentForm({
           ))}
         </select>
       </div>
-      <div>
+      <p aria-live="polite" className="font-semibold text-major empty:hidden">
+        {problem}
+      </p>
+      <div className="flex gap-4">
         <Button type="submit" variant="primary" disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting ? "Adding…" : "Add component"}
+        </Button>
+        <Button type="button" variant="quiet" onClick={onCancel}>
+          Cancel
         </Button>
       </div>
     </form>

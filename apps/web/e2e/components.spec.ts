@@ -17,17 +17,23 @@ test("create a group, add components, reorder them and delete one after confirmi
     .click();
   await expect(page.getByRole("heading", { name: "Components", level: 1 })).toBeVisible();
 
-  await page.getByLabel("Group name").fill(group);
   await page.getByRole("button", { name: "Add group" }).click();
+  const newGroup = page.getByRole("form", { name: "New group" });
+  await newGroup.getByLabel("Group name").fill(group);
+  await newGroup.getByRole("button", { name: "Add group" }).click();
+  await expect(newGroup).toBeHidden();
   const section = page.getByRole("region", { name: group });
   await expect(section).toBeVisible();
 
   // Rows repeat each name for screen readers inside their buttons, so match rows, not text.
   const rows = section.getByRole("listitem");
   for (const name of [first, second]) {
-    await page.getByLabel("Component name").fill(name);
-    await page.getByLabel("Group", { exact: true }).selectOption({ label: group });
     await page.getByRole("button", { name: "Add component" }).click();
+    const newComponent = page.getByRole("form", { name: "New component" });
+    await newComponent.getByLabel("Component name").fill(name);
+    await newComponent.getByLabel("Group", { exact: true }).selectOption({ label: group });
+    await newComponent.getByRole("button", { name: "Add component" }).click();
+    await expect(newComponent).toBeHidden();
     await expect(rows.filter({ hasText: name })).toHaveCount(1);
   }
   await expect(rows).toHaveText([new RegExp(first), new RegExp(second)]);
