@@ -14,10 +14,40 @@ const DAY = 86_400_000;
 const DAY0 = Date.parse("2026-09-29T00:00:00.000Z");
 const at = (h: number, m = 0) => DAY0 + h * 3_600_000 + m * 60_000;
 const none: ComponentHistory = { monitors: [], incidents: [], maintenance: [] };
+/** One monitor that has reported up since before the day began. */
+const watched: ComponentHistory = {
+  ...none,
+  monitors: [{ downStatus: "major_outage", changes: [{ at: at(0) - DAY, state: "up" }] }],
+};
 
 describe("statusMinutes", () => {
-  test("a component nothing has an opinion about is operational all day", () => {
-    expect(statusMinutes(none, DAY0, DAY0 + DAY)).toEqual({ operational: 1440 });
+  test("a component no monitor reports on has no minutes at all", () => {
+    expect(statusMinutes(none, DAY0, DAY0 + DAY)).toEqual({});
+  });
+
+  test("incidents and windows without a reporting monitor add no history", () => {
+    const history: ComponentHistory = {
+      ...none,
+      incidents: [{ from: at(2), to: at(3), status: "major_outage" }],
+      maintenance: [{ from: at(5), to: at(6) }],
+    };
+    expect(statusMinutes(history, DAY0, DAY0 + DAY)).toEqual({});
+  });
+
+  test("minutes before a monitor's first verdict are not observed", () => {
+    const history: ComponentHistory = {
+      ...none,
+      monitors: [
+        {
+          downStatus: "major_outage",
+          changes: [
+            { at: at(0) - DAY, state: "unknown" },
+            { at: at(6), state: "up" },
+          ],
+        },
+      ],
+    };
+    expect(statusMinutes(history, DAY0, DAY0 + DAY)).toEqual({ operational: 1080 });
   });
 
   test("a monitor's down spell counts in its downStatus, the rest operational", () => {
@@ -54,7 +84,7 @@ describe("statusMinutes", () => {
   });
 
   test("today counts only up to now", () => {
-    expect(statusMinutes(none, DAY0, at(6))).toEqual({ operational: 360 });
+    expect(statusMinutes(watched, DAY0, at(6))).toEqual({ operational: 360 });
   });
 });
 
@@ -103,7 +133,7 @@ describe("dayMark", () => {
           };
           const minutes = statusMinutes(history, DAY0, DAY0 + DAY);
           const total = Object.values(minutes).reduce((sum, m) => sum + m, 0);
-          expect(total).toBeCloseTo(1440);
+          expect(total).toBeLessThanOrEqual(1440 + 1e-9);
           const { worst } = dayMark(minutes);
           for (const [status, spent] of Object.entries(minutes) as [ComponentStatus, number][]) {
             if (spent >= 1 && worst) {
@@ -120,21 +150,28 @@ describe("dayMark", () => {
 describe("rollupUptime", () => {
   const api = componentId.parse("01920000-0000-7000-8000-000000000011");
   const web = componentId.parse("01920000-0000-7000-8000-000000000012");
+  const docs = componentId.parse("01920000-0000-7000-8000-000000000013");
   const probe = monitorId.parse("01920000-0000-7000-8000-000000000021");
+  const webProbe = monitorId.parse("01920000-0000-7000-8000-000000000022");
   const now = new Date(at(12));
   const inputs: RollupInputs = {
-    components: [{ id: api }, { id: web }],
-    monitors: [{ id: probe, componentId: api, downStatus: "major_outage" }],
+    // `docs` has no monitor, so it gets no history.
+    components: [{ id: api }, { id: web }, { id: docs }],
+    monitors: [
+      { id: probe, componentId: api, downStatus: "major_outage" },
+      { id: webProbe, componentId: web, downStatus: "major_outage" },
+    ],
     transitions: [
       { monitorId: probe, state: "up", at: new Date(at(0) - 3 * DAY) },
       { monitorId: probe, state: "down", at: new Date(at(-1)) },
       { monitorId: probe, state: "up", at: new Date(at(0, 30)) },
+      { monitorId: webProbe, state: "up", at: new Date(at(0) - 3 * DAY) },
     ],
     incidents: [],
     maintenance: [],
   };
 
-  test("covers yesterday whole and today up to now, for every component", () => {
+  test("covers yesterday whole and today up to now, for every monitored component", () => {
     expect(rollupUptime(inputs, now)).toEqual([
       { componentId: api, date: "2026-09-28", minutes: { operational: 1380, major_outage: 60 } },
       { componentId: api, date: "2026-09-29", minutes: { major_outage: 30, operational: 690 } },
