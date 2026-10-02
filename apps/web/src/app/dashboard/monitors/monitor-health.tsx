@@ -101,7 +101,10 @@ function ResultStrip({ results }: { results: readonly Result[] }) {
         </svg>
       </div>
       <figcaption className="flex justify-between text-[13px] text-slate">
-        <span>60 minutes ago</span>
+        <span>
+          <span className="hidden sm:inline">60 minutes ago</span>
+          <span className="sm:hidden">Earlier</span>
+        </span>
         <span>Latest check</span>
       </figcaption>
     </figure>

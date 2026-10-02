@@ -17,10 +17,18 @@ import { createPortal } from "react-dom";
 import { Drawer } from "vaul";
 
 // The modal from astrl.me: a centred dialog from 640 px, a vaul bottom drawer below that. Both
-// trap focus and lock the page's scroll; they fade and scale (or slide) in 220 ms, and under
-// reduced motion the animations take 1 ms, so closing still ends.
+// trap focus and lock the page's scroll; they fade and scale (or slide) in 220 ms. Under reduced
+// motion the dialog's animations take 1 ms rather than none, so `animationend` still closes it.
 
-type ModalContextValue = { onClose: () => void; titleId: string; descriptionId: string };
+type ModalContextValue = {
+  onClose: () => void;
+  titleId: string;
+  descriptionId: string;
+  /** In the drawer the title is vaul's, which names the drawer for assistive tech. */
+  drawer: boolean;
+  /** A description registers itself, so `aria-describedby` never points at nothing. */
+  setDescribed: (described: boolean) => void;
+};
 const ModalContext = createContext<ModalContextValue | null>(null);
 
 function useModalContext(): ModalContextValue {
@@ -104,7 +112,7 @@ function ModalPortal({
   open: boolean;
   onClose: () => void;
   titleId: string;
-  descriptionId: string;
+  descriptionId: string | undefined;
   children: ReactNode;
   closeOnOverlayClick: boolean;
   closeOnEsc: boolean;
@@ -174,12 +182,20 @@ function ModalRoot({
 }) {
   const titleId = useId();
   const descriptionId = useId();
+  const [described, setDescribed] = useState(false);
   const isMobile = useIsMobile();
   // What was shown stays while the modal animates closed.
   const [snapshot, setSnapshot] = useState<ReactNode>(children);
   if (open && snapshot !== children) setSnapshot(children);
   const stableChildren = open ? children : snapshot;
-  const ctx: ModalContextValue = { onClose, titleId, descriptionId };
+  const ctx: ModalContextValue = {
+    onClose,
+    titleId,
+    descriptionId,
+    drawer: isMobile,
+    setDescribed,
+  };
+  const describedBy = described ? descriptionId : undefined;
 
   if (isMobile) {
     return (
@@ -193,11 +209,10 @@ function ModalRoot({
             <Drawer.Overlay className={SCRIM} />
             <Drawer.Content
               aria-labelledby={titleId}
-              aria-describedby={descriptionId}
+              aria-describedby={describedBy}
               className="fixed right-0 bottom-0 left-0 z-50 flex h-auto max-h-[96%] flex-col overflow-y-auto rounded-t-3xl border-mist border-t bg-surface px-6 pt-4 pb-10 text-ink outline-none"
             >
               <Drawer.Handle className="mx-auto mb-5 h-1 w-10 rounded-full bg-ash" />
-              <Drawer.Title className="sr-only">Dialog</Drawer.Title>
               {stableChildren}
             </Drawer.Content>
           </Drawer.Portal>
@@ -211,7 +226,7 @@ function ModalRoot({
         open={open}
         onClose={onClose}
         titleId={titleId}
-        descriptionId={descriptionId}
+        descriptionId={describedBy}
         closeOnOverlayClick={closeOnOverlayClick}
         closeOnEsc={closeOnEsc}
       >
@@ -222,9 +237,14 @@ function ModalRoot({
 }
 
 function ModalTitle({ children, className = "" }: { children: ReactNode; className?: string }) {
-  const { titleId } = useModalContext();
-  return (
-    <h2 id={titleId} className={`font-semibold text-[19px] leading-[1.35] ${className}`}>
+  const { titleId, drawer } = useModalContext();
+  const style = `font-semibold text-[19px] leading-[1.35] ${className}`;
+  return drawer ? (
+    <Drawer.Title id={titleId} className={style}>
+      {children}
+    </Drawer.Title>
+  ) : (
+    <h2 id={titleId} className={style}>
       {children}
     </h2>
   );
@@ -237,7 +257,11 @@ function ModalDescription({
   children: ReactNode;
   className?: string;
 }) {
-  const { descriptionId } = useModalContext();
+  const { descriptionId, setDescribed } = useModalContext();
+  useEffect(() => {
+    setDescribed(true);
+    return () => setDescribed(false);
+  }, [setDescribed]);
   return (
     <p id={descriptionId} className={`mt-2 text-[16px] leading-[1.55] ${className}`}>
       {children}

@@ -61,7 +61,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           className="flex w-full shrink-0 flex-col gap-4 border-mist border-b p-4 md:w-[240px] md:gap-8 md:border-r md:border-b-0 md:p-6"
         >
           <Wordmark />
-          <ul className="-mx-1 flex gap-1 overflow-x-auto px-1 md:mx-0 md:flex-col md:px-0">
+          <ul className="-mx-1 flex gap-1 overflow-x-auto px-1 py-1 md:mx-0 md:flex-col md:p-0">
             {nav.map((item) => {
               const current = pathname === item.href;
               return (

@@ -18,7 +18,7 @@ test("create a group, add components, reorder them and delete one after confirmi
   await expect(page.getByRole("heading", { name: "Components", level: 1 })).toBeVisible();
 
   await page.getByRole("button", { name: "Add group" }).click();
-  const newGroup = page.getByRole("form", { name: "New group" });
+  const newGroup = page.getByRole("form", { name: "Add a group" });
   await newGroup.getByLabel("Group name").fill(group);
   await newGroup.getByRole("button", { name: "Add group" }).click();
   await expect(newGroup).toBeHidden();
@@ -29,7 +29,7 @@ test("create a group, add components, reorder them and delete one after confirmi
   const rows = section.getByRole("listitem");
   for (const name of [first, second]) {
     await page.getByRole("button", { name: "Add component" }).click();
-    const newComponent = page.getByRole("form", { name: "New component" });
+    const newComponent = page.getByRole("form", { name: "Add a component" });
     await newComponent.getByLabel("Component name").fill(name);
     await newComponent.getByLabel("Group", { exact: true }).selectOption({ label: group });
     await newComponent.getByRole("button", { name: "Add component" }).click();

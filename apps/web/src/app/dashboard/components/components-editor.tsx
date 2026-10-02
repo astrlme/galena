@@ -154,7 +154,7 @@ export function ComponentsEditor() {
       <Modal.Root open={creating !== undefined} onClose={() => setCreating(undefined)}>
         {creating === "group" ? (
           <>
-            <Modal.Title>New group</Modal.Title>
+            <Modal.Title>Add a group</Modal.Title>
             <GroupForm
               problem={problem}
               onCancel={() => setCreating(undefined)}
@@ -167,7 +167,7 @@ export function ComponentsEditor() {
           </>
         ) : (
           <>
-            <Modal.Title>New component</Modal.Title>
+            <Modal.Title>Add a component</Modal.Title>
             <ComponentForm
               groups={groups}
               problem={problem}
@@ -254,7 +254,12 @@ function GroupForm({
     if (await onCreate(values)) form.reset();
   });
   return (
-    <form onSubmit={submit} aria-label="New group" className="mt-6 flex flex-col gap-4" noValidate>
+    <form
+      onSubmit={submit}
+      aria-label="Add a group"
+      className="mt-6 flex flex-col gap-4"
+      noValidate
+    >
       <Field
         id="group-name"
         label="Group name"
@@ -301,7 +306,7 @@ function ComponentForm({
   return (
     <form
       onSubmit={submit}
-      aria-label="New component"
+      aria-label="Add a component"
       className="mt-6 flex flex-col gap-4"
       noValidate
     >

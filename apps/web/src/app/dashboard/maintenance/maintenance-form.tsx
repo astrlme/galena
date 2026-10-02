@@ -127,7 +127,7 @@ export function MaintenanceForm({
           {label}
         </Button>
         <Button type="button" variant="quiet" onClick={onCancel}>
-          {editing ? "Stop editing" : "Close"}
+          Cancel
         </Button>
       </div>
     </form>
