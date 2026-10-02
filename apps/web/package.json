@@ -8,6 +8,7 @@
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test",
+    "check:links": "node scripts/check-links.mjs",
     "generate:api": "openapi-typescript ../api/openapi.json --output src/lib/api-schema.ts",
     "test": "vitest run"
   },
