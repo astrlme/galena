@@ -54,13 +54,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen">
+      {/* A sidebar from 768 px; above the content, with a row of links that scrolls, below. */}
+      <div className="flex min-h-screen flex-col md:flex-row">
         <nav
           aria-label="Dashboard"
-          className="flex w-[240px] shrink-0 flex-col gap-8 border-r border-mist p-6"
+          className="flex w-full shrink-0 flex-col gap-4 border-mist border-b p-4 md:w-[240px] md:gap-8 md:border-r md:border-b-0 md:p-6"
         >
           <Wordmark />
-          <ul className="flex flex-col gap-1">
+          <ul className="-mx-1 flex gap-1 overflow-x-auto px-1 md:mx-0 md:flex-col md:px-0">
             {nav.map((item) => {
               const current = pathname === item.href;
               return (
@@ -68,7 +69,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   <Link
                     href={item.href}
                     aria-current={current ? "page" : undefined}
-                    className={`block rounded-[4px] px-2 py-1 ${current ? "bg-mist font-semibold" : "text-graphite hover:underline"}`}
+                    className={`block whitespace-nowrap rounded-[6px] px-3 py-1.5 transition-colors duration-[120ms] motion-reduce:transition-none ${current ? "bg-mist font-semibold" : "text-graphite hover:bg-surface hover:text-ink"}`}
                   >
                     {item.title}
                   </Link>
@@ -76,14 +77,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               );
             })}
           </ul>
-          <div className="mt-auto flex flex-col gap-2 text-[14px]">
+          <div className="flex items-center justify-between gap-2 text-[14px] md:mt-auto md:flex-col md:items-start">
             <span className="text-slate">{me.email}</span>
             <Button variant="quiet" className="justify-start px-0" onClick={signOut}>
               Sign out
             </Button>
           </div>
         </nav>
-        <main className="w-full max-w-[1080px] p-8">{children}</main>
+        <main className="w-full max-w-[1080px] p-4 md:p-8">{children}</main>
       </div>
     </QueryClientProvider>
   );
