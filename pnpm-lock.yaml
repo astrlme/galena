@@ -226,12 +226,6 @@ importers:
 
   apps/web:
     dependencies:
-      '@fontsource-variable/atkinson-hyperlegible-mono':
-        specifier: ^5.3.0
-        version: 5.3.0
-      '@fontsource-variable/atkinson-hyperlegible-next':
-        specifier: ^5.3.0
-        version: 5.3.0
       '@galena/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -1728,9 +1722,6 @@ packages:
 
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
-
-  '@fontsource-variable/atkinson-hyperlegible-mono@5.3.0':
-    resolution: {integrity: sha512-0IbthhO18EEpLe69h+cmrsxCkl4yk80gMk+fAN3+9M5zQvoR1JlkzoJRR6U9/UXLYpVBGEXu+Md2LO8TIp30dw==}
 
   '@fontsource-variable/atkinson-hyperlegible-next@5.3.0':
     resolution: {integrity: sha512-UnLzNUy1RWoLDfydAatP4NaRm99X/WbQEph7q/PymJnCFIOOwKOx3pBmp5ys8trO0dM+CKGuJgeZP9fAR4mQpA==}
@@ -8203,8 +8194,6 @@ snapshots:
       react-dom: 19.3.0(react@19.3.0)
 
   '@floating-ui/utils@0.2.12': {}
-
-  '@fontsource-variable/atkinson-hyperlegible-mono@5.3.0': {}
 
   '@fontsource-variable/atkinson-hyperlegible-next@5.3.0': {}
 
