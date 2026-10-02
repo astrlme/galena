@@ -17,6 +17,8 @@ test("schedule a window, change it, then cancel it after confirming its name", a
     .click();
   await expect(page.getByRole("heading", { name: "Maintenance", level: 1 })).toBeVisible();
 
+  const upcoming = page.getByRole("region", { name: "Upcoming and running" });
+  await upcoming.getByRole("button", { name: "Schedule window" }).click();
   const form = page.getByRole("form", { name: "Schedule a window" });
   await form.getByLabel("Title").fill(title);
   await form.getByLabel("Starts (UTC)").fill(utc(2));
@@ -28,7 +30,7 @@ test("schedule a window, change it, then cancel it after confirming its name", a
 
   await form.getByLabel("Ends (UTC)").fill(utc(3));
   await form.getByRole("button", { name: "Schedule window" }).click();
-  const upcoming = page.getByRole("region", { name: "Upcoming and running" });
+  await expect(form).toBeHidden();
   const row = upcoming.getByRole("listitem").filter({ hasText: title });
   await expect(row).toContainText("Scheduled.");
   await expect(row).toContainText("API.");
@@ -38,7 +40,7 @@ test("schedule a window, change it, then cancel it after confirming its name", a
   const edit = page.getByRole("form", { name: `Edit ${title}` });
   await edit.getByLabel("Ends (UTC)").fill(utc(4));
   await edit.getByRole("button", { name: "Save window" }).click();
-  await expect(page.getByRole("form", { name: "Schedule a window" })).toBeVisible();
+  await expect(edit).toBeHidden();
 
   await row.getByRole("button", { name: `Cancel ${title}` }).click();
   const dialog = page.getByRole("dialog", { name: `Cancel ${title}?` });

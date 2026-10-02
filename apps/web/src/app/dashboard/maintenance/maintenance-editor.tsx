@@ -1,9 +1,10 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
+import { Modal } from "../../../components/modal.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import { Time } from "../incidents/incident-ui.tsx";
 import { MaintenanceForm, type Window, type WindowInput } from "./maintenance-form.tsx";
@@ -19,6 +20,7 @@ const small = "px-2 py-1 text-[14px]";
 export function MaintenanceEditor() {
   const queryClient = useQueryClient();
   const [problem, setProblem] = useState<string>();
+  const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Window>();
   const [cancelling, setCancelling] = useState<Window>();
   const windows = useQuery({
@@ -51,29 +53,48 @@ export function MaintenanceEditor() {
   const list = windows.data?.maintenances ?? [];
   const nameOf = (id: string) => all.find((c) => c.id === id)?.name ?? "A deleted component";
 
+  const closeForm = () => {
+    setAdding(false);
+    setEditing(undefined);
+  };
   const save = async (input: WindowInput) => {
-    if (!editing) return run(() => unwrap(api.POST("/v1/maintenances", { body: input })));
-    const params = { path: { id: editing.id } };
     const saved = await run(() =>
-      unwrap(api.PUT("/v1/maintenances/{id}", { params, body: input })),
+      editing
+        ? unwrap(
+            api.PUT("/v1/maintenances/{id}", { params: { path: { id: editing.id } }, body: input }),
+          )
+        : unwrap(api.POST("/v1/maintenances", { body: input })),
     );
-    if (saved) setEditing(undefined);
+    if (saved) closeForm();
     return saved;
   };
+  const formOpen = adding || editing !== undefined;
+  const formTitle = editing ? `Edit ${editing.title}` : "Schedule a window";
 
-  const section = (id: string, title: string, empty: string, shown: Window[]) => (
+  const section = (
+    id: string,
+    title: string,
+    empty: string,
+    shown: Window[],
+    action?: ReactNode,
+  ) => (
     <section aria-labelledby={id} className="mt-8">
-      <h2 id={id} className="border-b border-mist pb-2 text-[19px] font-semibold leading-[1.35]">
-        {title}
-      </h2>
+      <div className="flex items-center justify-between gap-4">
+        <h2 id={id} className="text-[19px] font-semibold leading-[1.35]">
+          {title}
+        </h2>
+        {action}
+      </div>
       {shown.length === 0 ? (
-        <p className="py-3 text-[14px] text-slate">{empty}</p>
+        <p className="mt-4 rounded-xl border border-mist bg-surface p-4 text-[14px] text-slate">
+          {empty}
+        </p>
       ) : (
-        <ul>
+        <ul className="mt-4 rounded-xl border border-mist bg-surface">
           {shown.map((w) => (
             <li
               key={w.id}
-              className="flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist py-3"
+              className="flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist px-4 py-3 last:border-b-0"
             >
               <div className="flex min-w-0 flex-col gap-1">
                 <span className="font-semibold">{w.title}</span>
@@ -108,22 +129,36 @@ export function MaintenanceEditor() {
 
   return (
     <>
+      <p aria-live="polite" className="mt-4 font-semibold text-major empty:hidden">
+        {formOpen ? undefined : problem}
+      </p>
       {section(
         "upcoming-windows",
         "Upcoming and running",
         "Nothing scheduled. Schedule a window before planned work.",
         list.filter((w) => w.status !== "completed"),
+        <Button
+          variant="primary"
+          onClick={() => {
+            setProblem(undefined);
+            setAdding(true);
+          }}
+        >
+          Schedule window
+        </Button>,
       )}
-      <MaintenanceForm
-        key={editing?.id ?? "new"}
-        editing={editing}
-        components={all}
-        onSave={save}
-        onCancel={() => setEditing(undefined)}
-      />
-      <p aria-live="polite" className="mt-4 font-semibold empty:hidden">
-        {problem}
-      </p>
+      <Modal.Root open={formOpen} onClose={closeForm}>
+        <Modal.Title>{formTitle}</Modal.Title>
+        <MaintenanceForm
+          key={editing?.id ?? "new"}
+          title={formTitle}
+          editing={editing}
+          components={all}
+          problem={formOpen ? problem : undefined}
+          onSave={save}
+          onCancel={closeForm}
+        />
+      </Modal.Root>
       {section(
         "past-windows",
         "Past",
@@ -141,7 +176,6 @@ export function MaintenanceEditor() {
             const params = { path: { id: cancelling.id } };
             // Errors show above the list.
             void run(() => unwrap(api.POST("/v1/maintenances/{id}/cancel", { params })));
-            if (editing?.id === cancelling.id) setEditing(undefined);
             setCancelling(undefined);
           }}
           onClose={() => setCancelling(undefined)}
