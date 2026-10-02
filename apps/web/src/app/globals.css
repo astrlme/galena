@@ -3,6 +3,7 @@
 @import "@galena/ui/tokens.css";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
+@import "fumadocs-openapi/css/preset.css";
 
 /* Fumadocs' colours, mapped to ours in both modes (the tokens switch with data-theme or the
    reader's system): its callouts take the state colours. */
