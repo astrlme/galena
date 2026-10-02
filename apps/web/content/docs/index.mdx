@@ -27,6 +27,8 @@ dollars a month at rest.
 
 Galena is three paths that fail independently.
 
+<Diagram name="overview" />
+
 | Path | What runs | What it does |
 | --- | --- | --- |
 | Hot path | Probe Lambdas in three regions, an SQS FIFO queue, an evaluator Lambda, DynamoDB | Checks every monitor every minute and works out each monitor's state |

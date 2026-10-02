@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 312" role="img" aria-labelledby="subscriber-lifecycle-title subscriber-lifecycle-desc" style="min-width:680px">
+<title id="subscriber-lifecycle-title">An email subscriber&#x27;s states</title>
+<desc id="subscriber-lifecycle-desc">A new address is pending until its owner confirms it, then active until they unsubscribe or SES reports a hard bounce or complaint; an unconfirmed link expires after 7 days, and subscribing again starts over.</desc>
+<defs><marker id="subscriber-lifecycle-head-plain" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="d-head plain"/></marker></defs>
+<path d="M21,116 L40,116" class="d-arrow" marker-end="url(#subscriber-lifecycle-head-plain)"/>
+<path d="M176,116 L272,116" class="d-arrow" marker-end="url(#subscriber-lifecycle-head-plain)"/>
+<path d="M408,116 L504,116" class="d-arrow" marker-end="url(#subscriber-lifecycle-head-plain)"/>
+<path d="M572,88 L572,56 Q572,48 564,48 L116,48 Q108,48 108,56 L108,88" class="d-arrow" marker-end="url(#subscriber-lifecycle-head-plain)"/>
+<path d="M340,144 L340,232" class="d-arrow" marker-end="url(#subscriber-lifecycle-head-plain)"/>
+<path d="M108,144 L108,232" class="d-arrow" marker-end="url(#subscriber-lifecycle-head-plain)"/>
+<rect x="195.0" y="94.0" width="58" height="16" rx="2" class="d-mask"/>
+<text x="224.0" y="105.5" text-anchor="middle" class="d-label">confirm</text>
+<rect x="413.5" y="94.0" width="85" height="16" rx="2" class="d-mask"/>
+<text x="456.0" y="105.5" text-anchor="middle" class="d-label">unsubscribe</text>
+<rect x="284.5" y="26.0" width="111" height="16" rx="2" class="d-mask"/>
+<text x="340.0" y="37.5" text-anchor="middle" class="d-label">subscribe again</text>
+<rect x="346.0" y="180.0" width="137" height="16" rx="2" class="d-mask"/>
+<text x="352.0" y="191.5" text-anchor="start" class="d-label">bounce or complaint</text>
+<rect x="114.0" y="180.0" width="52" height="16" rx="2" class="d-mask"/>
+<text x="120.0" y="191.5" text-anchor="start" class="d-label">7 days</text>
+<circle cx="16" cy="116" r="5" class="d-dot"/>
+<rect x="40" y="88" width="136" height="56" rx="8" class="d-mask"/>
+<rect x="40" y="88" width="136" height="56" rx="8" class="d-state"/>
+<text x="108.0" y="112.5" text-anchor="middle" class="d-name">Pending</text>
+<text x="108.0" y="130.5" text-anchor="middle" class="d-sub">confirmation sent</text>
+<rect x="272" y="88" width="136" height="56" rx="8" class="d-mask"/>
+<rect x="272" y="88" width="136" height="56" rx="8" class="d-state"/>
+<text x="340.0" y="112.5" text-anchor="middle" class="d-name">Active</text>
+<text x="340.0" y="130.5" text-anchor="middle" class="d-sub">gets updates</text>
+<rect x="504" y="88" width="136" height="56" rx="8" class="d-mask"/>
+<rect x="504" y="88" width="136" height="56" rx="8" class="d-state"/>
+<text x="572.0" y="112.5" text-anchor="middle" class="d-name">Unsubscribed</text>
+<text x="572.0" y="130.5" text-anchor="middle" class="d-sub">gets nothing</text>
+<rect x="272" y="232" width="136" height="56" rx="8" class="d-mask"/>
+<rect x="272" y="232" width="136" height="56" rx="8" class="d-state"/>
+<text x="340.0" y="256.5" text-anchor="middle" class="d-name">Suppressed</text>
+<text x="340.0" y="274.5" text-anchor="middle" class="d-sub">for good</text>
+<rect x="40" y="232" width="136" height="56" rx="8" class="d-mask"/>
+<rect x="40" y="232" width="136" height="56" rx="8" class="d-external"/>
+<text x="108.0" y="256.5" text-anchor="middle" class="d-name">Link expired</text>
+<text x="108.0" y="274.5" text-anchor="middle" class="d-sub">subscribe again</text>
+</svg>

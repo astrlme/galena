@@ -27,6 +27,8 @@ transaction that writes:
 2. an audit log entry;
 3. an **outbox** row describing the event, such as `incident.updated` or `monitor.changed`.
 
+<Diagram name="outbox" />
+
 After the commit, the API triggers the `outbox.dispatch` task with the key `outbox:{outboxId}`.
 Triggering after the commit means the dispatcher never sees a change that could still roll back;
 writing the row inside the transaction means no committed change can lose its event.
@@ -78,6 +80,8 @@ trigger.dev tasks run on trigger.dev's machines, not in AWS. They reach AWS only
 `galena-<stage>-worker-access` IAM user, whose policy allows exactly what the tasks need.
 
 ## Notification fan-out
+
+<Diagram name="fan-out" />
 
 `notify.fanout` decides who hears about an event (see
 [Notifications](/docs/concepts/notifications/)), builds one notice, creates one **delivery** row

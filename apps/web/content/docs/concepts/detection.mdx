@@ -50,6 +50,8 @@ endpoint show as degraded.
 
 ## Step 4: the state moves
 
+<Diagram name="monitor-states" />
+
 | State | Meaning | Moves to |
 | --- | --- | --- |
 | `unknown` | Not enough evidence yet | `up`, `degraded` or `down` once the regions agree |
@@ -100,6 +102,8 @@ A component with several monitors shows the worst of them, combined with its ope
 ## How long it takes
 
 With the default settings and three probe regions, for an endpoint that fails hard everywhere:
+
+<Diagram name="detection-timeline" />
 
 1. Each region checks once a minute. The second failed check makes a region failing.
 2. When two regions are failing, the monitor is `down`: about two minutes after the endpoint

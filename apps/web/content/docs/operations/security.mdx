@@ -5,6 +5,8 @@ description: Trust boundaries, how secrets are kept, and what protects each way 
 
 ## Ways in
 
+<Diagram name="trust" />
+
 | Entry | Who | Protected by |
 | --- | --- | --- |
 | Status page | Anyone | Static files only. HSTS, `X-Frame-Options: DENY`, a content security policy with hashed scripts |
@@ -58,6 +60,8 @@ Every outbound URL (monitor checks, Slack, webhooks, the canary) passes the SSRF
 
 The **app key** is 32 random bytes. Galena never uses it directly; it derives a separate key for
 each purpose with HKDF-SHA256, so no key can stand in for another:
+
+<Diagram name="keys" />
 
 | Derived key | Protects |
 | --- | --- |

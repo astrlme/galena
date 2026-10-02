@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 336" role="img" aria-labelledby="keys-title keys-desc" style="min-width:680px">
+<title id="keys-title">One app key, three derived keys</title>
+<desc id="keys-desc">The 32-byte app key is never used directly: HKDF-SHA256 derives a seal key for stored credentials, a link key for confirm and unsubscribe links, and a hash key for visitor addresses.</desc>
+<defs><marker id="keys-head-plain" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="d-head plain"/></marker></defs>
+<path d="M316,72 L316,96 Q316,104 308,104 L124,104 Q116,104 116,112 L116,136" class="d-arrow" marker-end="url(#keys-head-plain)"/>
+<path d="M340,72 L340,136" class="d-arrow" marker-end="url(#keys-head-plain)"/>
+<path d="M364,72 L364,96 Q364,104 372,104 L556,104 Q564,104 564,112 L564,136" class="d-arrow" marker-end="url(#keys-head-plain)"/>
+<path d="M116,192 L116,240" class="d-arrow" marker-end="url(#keys-head-plain)"/>
+<path d="M340,192 L340,240" class="d-arrow" marker-end="url(#keys-head-plain)"/>
+<path d="M564,192 L564,240" class="d-arrow" marker-end="url(#keys-head-plain)"/>
+<rect x="248" y="16" width="184" height="56" rx="6" class="d-mask"/>
+<rect x="248" y="16" width="184" height="56" rx="6" class="d-focal"/>
+<text x="340.0" y="40.5" text-anchor="middle" class="d-name">App key</text>
+<text x="340.0" y="58.5" text-anchor="middle" class="d-sub">32 bytes, HKDF-SHA256</text>
+<rect x="16" y="136" width="200" height="56" rx="6" class="d-mask"/>
+<rect x="16" y="136" width="200" height="56" rx="6" class="d-node"/>
+<text x="116.0" y="160.5" text-anchor="middle" class="d-name">seal</text>
+<text x="116.0" y="178.5" text-anchor="middle" class="d-sub">AES-256-GCM</text>
+<rect x="240" y="136" width="200" height="56" rx="6" class="d-mask"/>
+<rect x="240" y="136" width="200" height="56" rx="6" class="d-node"/>
+<text x="340.0" y="160.5" text-anchor="middle" class="d-name">link</text>
+<text x="340.0" y="178.5" text-anchor="middle" class="d-sub">HMAC-SHA256</text>
+<rect x="464" y="136" width="200" height="56" rx="6" class="d-mask"/>
+<rect x="464" y="136" width="200" height="56" rx="6" class="d-node"/>
+<text x="564.0" y="160.5" text-anchor="middle" class="d-name">hash</text>
+<text x="564.0" y="178.5" text-anchor="middle" class="d-sub">HMAC-SHA256</text>
+<rect x="16" y="240" width="200" height="72" rx="6" class="d-mask"/>
+<rect x="16" y="240" width="200" height="72" rx="6" class="d-store"/>
+<text x="116.0" y="264.0" text-anchor="middle" class="d-name">Slack URLs,</text>
+<text x="116.0" y="281.0" text-anchor="middle" class="d-name">webhook secrets</text>
+<text x="116.0" y="299.0" text-anchor="middle" class="d-sub">stored sealed</text>
+<rect x="240" y="240" width="200" height="72" rx="6" class="d-mask"/>
+<rect x="240" y="240" width="200" height="72" rx="6" class="d-store"/>
+<text x="340.0" y="264.0" text-anchor="middle" class="d-name">Confirm and</text>
+<text x="340.0" y="281.0" text-anchor="middle" class="d-name">unsubscribe links</text>
+<text x="340.0" y="299.0" text-anchor="middle" class="d-sub">nothing stored</text>
+<rect x="464" y="240" width="200" height="72" rx="6" class="d-mask"/>
+<rect x="464" y="240" width="200" height="72" rx="6" class="d-store"/>
+<text x="564.0" y="264.0" text-anchor="middle" class="d-name">Subscribe form</text>
+<text x="564.0" y="281.0" text-anchor="middle" class="d-name">addresses</text>
+<text x="564.0" y="299.0" text-anchor="middle" class="d-sub">rate limits</text>
+</svg>

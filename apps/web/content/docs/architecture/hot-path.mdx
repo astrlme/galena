@@ -7,6 +7,8 @@ The hot path runs every minute for every monitor, so it is built to be cheap, is
 idempotent. It never reads or writes Aurora, and it only calls trigger.dev when a monitor's state
 actually changes.
 
+<Diagram name="hot-path" />
+
 ## 1. Schedule
 
 In each probe region, EventBridge Scheduler invokes the probe Lambda once a minute (Node 24,
