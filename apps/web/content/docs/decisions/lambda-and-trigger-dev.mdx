@@ -1,0 +1,40 @@
+---
+title: Probes on Lambda, workflows on trigger.dev
+description: Why checks and workflows run on two different platforms.
+---
+
+## Problem
+
+Checks run every minute, for every monitor, in every probe region: 25 monitors in 3 regions is
+about 3.2 million checks a month, each a few seconds of mostly waiting on the network. Workflows
+are the opposite: rare, long-lived (minutes to days), and in need of retries, durable timers and,
+later, human approval.
+
+## Decision
+
+Probes and the evaluator run on AWS Lambda, scheduled by EventBridge Scheduler. trigger.dev runs
+everything event-driven, long-lived or retry-heavy: publishing, notifications, maintenance
+windows and schedules. The evaluator calls trigger.dev only when a monitor's state changes, never
+per check.
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| Everything on trigger.dev | Per-run pricing at per-minute frequency, and no control over where checks run |
+| Everything on Lambda and Step Functions | Much more infrastructure code for waits, retries and approvals, and weaker local development |
+| A separate probe binary on another cloud | Another cloud and language, with no measured need |
+
+## Consequences
+
+- Two environments to run and observe.
+- The workers run outside AWS, so they act through an IAM user with an access key scoped to
+  exactly what they need.
+- Self-hosters need a trigger.dev account as well as AWS: a second vendor and bill. Self-hosting
+  trigger.dev is the way out if that becomes a blocker.
+- `packages/core` reaches trigger.dev only through a `WorkflowEngine` port, so the domain doesn't
+  depend on it.
+
+## Revisit when
+
+A deployment runs around 2,000 monitors, or trigger.dev's pricing or limits change materially.

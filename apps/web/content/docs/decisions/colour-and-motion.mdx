@@ -1,0 +1,44 @@
+---
+title: Status colours and calm motion
+description: Why the page uses colour for states only, never alone, and moves only when you do.
+---
+
+## Problem
+
+People read status pages on phones, during incidents, and some of them can't tell red from green.
+An earlier all-greyscale design was too plain: readers expect state colours on a status page.
+
+## Decision
+
+- Backgrounds are pure white in light mode and pure black in dark mode, with a neutral grey ramp
+  for text, borders and surfaces.
+- Five state colours, in the conventional order: green operational, yellow degraded, orange
+  partial outage, red major outage, blue maintenance. Each has a light and a dark value that passes
+  WCAG contrast on its background: 4.5:1 where it colours text, 3:1 for marks. A unit test checks
+  every pair.
+- Colour is added, never relied on: every state keeps its text label and its glyph.
+- Only states are coloured. Links, buttons and chrome stay neutral, and the brand mark is ink on
+  paper.
+- Motion happens only in response to the person (hover, press, opening a dialog or drawer), lasts
+  at most 250 ms, and stops entirely under reduced motion. Nothing loops, pulses or flashes, and
+  nothing on the status page moves by itself.
+- Dialogs are centred on wide screens and become a bottom sheet with drag-to-close on phones.
+- The same rules reach every surface: the status page, the dashboard, the docs, emails, Slack, the
+  badge and the favicons.
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| Greyscale only | Too plain, and against what readers expect |
+| One accent colour with grey states | Readers expect state colours |
+| Colour without labels and glyphs | Fails colour-blind readers and WCAG 1.4.1 |
+
+## Consequences
+
+Tokens, the status page, the dashboard, emails, Slack messages, the badge and favicons change
+together. Slack buttons stay neutral; colour goes to the message's bar and text.
+
+## Revisit when
+
+Contrast or colour-blindness testing shows a state is misread.

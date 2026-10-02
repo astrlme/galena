@@ -1,0 +1,36 @@
+---
+title: A static page in its own regions
+description: Why the status page is files on S3, in regions the rest of Galena doesn't use.
+---
+
+## Problem
+
+A status page has to stay up when the service it describes is down. During the large S3 outage of
+February 2017, AWS couldn't update its own health dashboard, because the dashboard depended on S3.
+A server-rendered page shares fate with its API, its database and its region.
+
+## Decision
+
+The page is a projection: HTML and JSON files on S3, served by CloudFront. The bucket is in a
+different region from the API and the database, replicates to a second region, and CloudFront
+fails over between them. Files carry `stale-if-error=86400`, so CloudFront can keep serving the
+last good copy. Visitors never cause compute to run.
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| Server-side rendering on Lambda | Shares fate with Lambda and, through it, the database |
+| Incremental static regeneration | The same fate-sharing, plus revalidation to manage |
+| A third-party static host | Leaves AWS, and splits infrastructure and billing |
+
+## Consequences
+
+- How fresh the page is depends on publishing; see [Data first, HTML second](/docs/decisions/two-speed-publishing/).
+- The public page can't be personalised.
+- If the home region fails, the page keeps serving but can't be changed. A break-glass command
+  that writes a banner straight to both buckets with local credentials is planned.
+
+## Revisit when
+
+Something is needed that static files can't do, such as content per viewer on a public page.

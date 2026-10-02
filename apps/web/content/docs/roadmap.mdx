@@ -1,0 +1,53 @@
+---
+title: Roadmap
+description: What's built, what's next, and what comes after the first release.
+---
+
+Galena has no release yet. Everything elsewhere in these docs describes what works today; this
+page is the only place that describes what doesn't yet.
+
+## Next: autopilot
+
+- **Incidents drafted from monitors.** When a monitor goes down, Galena attaches it to an open
+  incident or drafts a new one, following the monitor's publish policy: publish automatically,
+  ask a person first (and publish after 10 minutes if still down), or keep it internal. Flapping
+  monitors and maintenance windows don't draft anything.
+- **Approvals in Slack and in the dashboard.** A Slack app with an approval card and an
+  `/incident` command, and the same card in the dashboard.
+- **Resolve-watch.** A recovering monitor posts a Monitoring update, resolves the incident once
+  it has been stable, and reopens it if it fails again.
+- **Outbox safeguards.** A delayed backstop and an hourly sweep, so an event survives trigger.dev
+  being unreachable at the moment of a change.
+- **A live demo** where anyone can break a demo API and watch detection, approval and the page
+  update.
+
+## Then: ecosystem
+
+- **Alert ingest.** Generic JSON and Alertmanager webhooks, routed to components by label, with
+  one draft per alert group.
+- **Statuspage-compatible files.** `/api/v2/*.json` on the status page, with the same field names
+  and values as Atlassian Statuspage, so existing tools and widgets keep working.
+- **Webhook endpoints, fully.** A delivery log, replay, a longer retry schedule and automatic
+  disabling after three days of failures.
+- **API keys.** Scoped `read`, `write` and `admin` keys for scripts.
+- **Settings.** Inviting members, changing roles, turning on two-factor, and GitHub sign-in in the
+  dashboard.
+
+## Version 1.0
+
+- An internal status page that needs a signed-in session.
+- A security pass with a written threat model.
+- Metrics, alarms and an external dead-man's switch.
+- Load tests of the status page.
+- A self-hosting guide tested by someone who has never seen the project.
+
+## After 1.0
+
+- More monitor types: TCP, DNS, certificate and domain expiry, heartbeats.
+- Discord and Microsoft Teams.
+- A GitHub App: deploys and merged pull requests on incident timelines.
+- Importing from Statuspage.
+- iCal for maintenance, and a JSON feed.
+- Grafana, CloudWatch and Sentry as alert sources.
+- Checks more often than once a minute.
+- A TypeScript SDK and a CLI.

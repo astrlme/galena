@@ -1,0 +1,35 @@
+---
+title: DynamoDB for telemetry, Postgres for the domain
+description: Why check results and the domain live in different databases.
+---
+
+## Problem
+
+Check results are write-heavy (millions a month), read only by key and time, and disposable
+after 90 days. The domain (components, incidents, subscribers) is relational, small, and needs
+transactions and constraints. Aurora Serverless v2 can pause at zero capacity, but only if
+nothing touches it.
+
+## Decision
+
+Raw results and each monitor's detection state live in one DynamoDB table, provisioned inside
+the always-free allowance, with a 90-day expiry and no point-in-time recovery. Postgres holds the
+domain, every confirmed state change, and daily uptime. The hot path never touches Postgres.
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| Everything in Postgres, partitioned | Keeps Aurora awake every minute, and needs connection handling from Lambda |
+| A time-series database | A new service to learn and pay for, with little benefit at this size |
+
+## Consequences
+
+- Two data models. The page's history comes from confirmed state changes in Postgres, rolled up
+  hourly, not from raw results.
+- Concurrent evaluations of one monitor are guarded by a version on its state item.
+
+## Revisit when
+
+Ad-hoc analytics over raw results are needed, or writes outgrow the free allowance by a wide
+margin.

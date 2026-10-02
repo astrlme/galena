@@ -1,0 +1,48 @@
+---
+title: Quorum, hysteresis and an approval gate
+description: Why detection waits for agreement, and why monitor-drafted incidents will wait for a person.
+---
+
+## Problem
+
+A false public incident damages trust more than one that is slightly late. Single-region blips,
+network trouble on the probe's side, and flapping endpoints are all common.
+
+## Decision
+
+- A region is failing after 2 failed checks in a row, and healthy again after 3 passing ones.
+- A monitor is down when at least 2 trustworthy regions are failing. Regions whose canary fails,
+  or that go silent, don't vote.
+- More than 4 state changes in 30 minutes marks a monitor flapping, which holds it still until
+  it settles.
+- Incidents drafted from monitors will follow each monitor's publish policy. The default,
+  "ask a person first", waits 10 minutes for someone to approve, then publishes if the monitor is
+  still down. Because the name suggests nothing goes out without a person, the policy picker and
+  every approval say that deadline in words.
+
+All of these are per-monitor settings. See [Detection](/docs/concepts/detection/).
+
+<Callout>
+Detection is built as described. Drafting incidents from monitors, and the approval that goes
+with it, are not built yet: today a monitor changes its component's status, and a person posts
+the incident.
+</Callout>
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| Any region failing | Noisy |
+| Every region failing | Misses regional outages |
+| Publish everything automatically | False positives go public |
+| Never publish automatically | Slow at night; the approval timeout fails open instead |
+
+## Consequences
+
+- With 60-second checks, the fastest detection is about two minutes.
+- The replay harness, which runs recorded results through the detection code, is the regression
+  test for every change to these rules.
+
+## Revisit when
+
+Replay data shows missed or late detections, or people need detection faster than a minute.

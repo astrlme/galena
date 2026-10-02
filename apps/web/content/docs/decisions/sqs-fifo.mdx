@@ -1,0 +1,36 @@
+---
+title: SQS FIFO grouped by monitor
+description: Why check results travel through one ordered queue.
+---
+
+## Problem
+
+Results for one monitor arrive from several regions at nearly the same moment. Evaluating them
+concurrently risks lost updates and duplicate transitions. A probe may also send the same result
+twice.
+
+## Decision
+
+One SQS FIFO queue in the home region. The message group is the monitor's id, so each monitor's
+results are evaluated one at a time, in order. The deduplication id is
+`{monitorId}#{region}#{epochMinute}`, with the minute taken from the scheduler's scheduled time,
+so a repeated send within five minutes is dropped. The monitor's state item also carries a
+version that every write is conditional on, as a second guard.
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| A standard queue and DynamoDB locks | More code and more ways to fail |
+| Kinesis | Shards to manage and pay for, for no benefit at this size |
+| Probes write to DynamoDB directly | Detection would run in every region separately |
+
+## Consequences
+
+- FIFO throughput limits apply; they are far above what a deployment needs.
+- A message that keeps failing blocks its monitor's group until it moves to the dead-letter queue,
+  after five attempts.
+
+## Revisit when
+
+Sustained throughput approaches FIFO limits.

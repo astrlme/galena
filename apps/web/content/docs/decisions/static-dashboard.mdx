@@ -1,0 +1,39 @@
+---
+title: A static dashboard
+description: Why the dashboard, docs and landing page are a Next.js static export.
+---
+
+## Problem
+
+The dashboard gets all of its data from the API through a typed client and never touches the
+database, so server rendering and server actions would have nothing to do. Running Next.js on
+Lambda would mean an experimental construct, a function with cold starts, and more to operate.
+
+## Decision
+
+Build `apps/web` with `output: "export"` and serve it from S3 behind CloudFront. The same
+distribution forwards `/auth/*` and `/v1/*` to the API, so the dashboard and the API share an
+origin: first-party cookies and no CORS. The landing page and docs are rendered at build time;
+dashboard pages render in the browser.
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| Next.js on Lambda | An experimental construct, a function and cold starts, for server features nothing uses |
+| An adapter relying on Next.js internals | Breaks on upgrades |
+| A plain single-page app | The landing page and docs lose pre-rendering |
+| Containers behind a load balancer | Load balancer and NAT costs for a low-traffic dashboard |
+
+## Consequences
+
+- No middleware, server actions or server rendering. Sign-in redirects happen in the browser, and
+  the API is the only place that enforces access.
+- Dashboard routes with ids take them from a query parameter (`/incidents/view?id=…`), because a
+  static export needs every path at build time.
+- There's no web compute to run, pay for or keep warm.
+
+## Revisit when
+
+The dashboard needs something only a server can do, such as server-rendered pages for signed-in
+members.
