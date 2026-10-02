@@ -1,0 +1,14 @@
+{
+  "pages": [
+    "index",
+    "getting-started",
+    "concepts",
+    "guides",
+    "architecture",
+    "reference",
+    "operations",
+    "decisions",
+    "roadmap",
+    "contributing"
+  ]
+}

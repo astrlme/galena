@@ -1,0 +1,48 @@
+---
+title: First steps
+description: From an empty workspace to a status page that tells people when something breaks.
+---
+
+<Steps>
+<Step>
+
+### Add components
+
+**Components** are what your users care about: "API", "Dashboard", "Webhooks". Add them in
+**Components**, group related ones (a group shows as a heading on the page), and move them up or
+down into the order your page should show. See [Components and the page](/docs/concepts/components/).
+
+</Step>
+<Step>
+
+### Add monitors
+
+In **Monitors**, add an HTTP monitor for each public endpoint and attach it to a component. Three
+regions check it every minute, and when two agree it is down, its component's status changes and
+the page republishes within seconds. See [Add a monitor](/docs/guides/monitors/).
+
+</Step>
+<Step>
+
+### Connect notifications
+
+In **Subscribers**, add a Slack incoming webhook for your team's channel, or an outgoing webhook
+for your own systems. Visitors subscribe to email themselves from the page's **Subscribe**
+button. See [Email subscribers](/docs/guides/email-subscribers/) and [Slack](/docs/guides/slack/).
+
+</Step>
+<Step>
+
+### Post your first incident
+
+When something goes wrong, open **Incidents**, choose **Publish incident**, pick the affected
+components and their status, and write the first update. Subscribers hear about it, and the page
+shows it at the top. See [Run an incident](/docs/guides/incidents/).
+
+</Step>
+</Steps>
+
+<Callout title="Two-factor">
+Sign-in asks for a TOTP code on any account that has two-factor on, but the screen to turn it on
+arrives with the Settings section. See the [roadmap](/docs/roadmap/).
+</Callout>

@@ -3,5 +3,60 @@ title: Introduction
 description: An open-source status page you deploy into your own AWS account.
 ---
 
-Galena checks your services every minute from three AWS regions, drafts incidents for a person to
-approve, and publishes a static status page that keeps serving when everything else is down.
+Galena checks your services every minute from three AWS regions, decides when something is
+really down, and publishes a static status page that keeps serving when everything else is not.
+It runs in your own AWS account, alongside trigger.dev for background work, and costs a few
+dollars a month at rest.
+
+## What it does
+
+- **Checks** every HTTP monitor once a minute from three probe regions, with DNS, connect, TLS
+  and time-to-first-byte timings for each check.
+- **Decides** a monitor is down only when enough regions agree, and never on a single failed
+  check. A region whose own network looks broken leaves the vote, and a monitor that keeps
+  flipping is marked flapping instead of paging people every minute.
+- **Publishes** a status page as static files on S3 and CloudFront, in a region of its own, with
+  a copy in a second region. Visitors never reach the API or the database, so the page stays up
+  when they are down.
+- **Tells people** by email (double opt-in, one-click unsubscribe), Slack and signed webhooks
+  when an incident or maintenance window is posted.
+- **Lets your team** run incidents and maintenance from a dashboard with roles and two-factor
+  sign-in.
+
+## How it fits together
+
+Galena is three paths that fail independently.
+
+| Path | What runs | What it does |
+| --- | --- | --- |
+| Hot path | Probe Lambdas in three regions, an SQS FIFO queue, an evaluator Lambda, DynamoDB | Checks every monitor every minute and works out each monitor's state |
+| Cold path | The API on Lambda, Aurora Serverless v2, trigger.dev tasks | Incidents, maintenance, notifications, and publishing the page |
+| Read path | S3 and CloudFront in a separate region | Serves the status page and its data files |
+
+A visitor's request only ever touches the read path. If the API, the database and trigger.dev
+are all down at once, the last published page still serves.
+
+<Cards>
+  <Card title="Run it locally" href="/docs/getting-started/local-development/" />
+  <Card title="Deploy to AWS" href="/docs/getting-started/self-hosting/" />
+  <Card title="How detection works" href="/docs/concepts/detection/" />
+  <Card title="Architecture" href="/docs/architecture/overview/" />
+</Cards>
+
+## What works today
+
+Galena is in active development and has no release yet. Working now:
+
+- Sign-in with email and password, TOTP two-factor at sign-in, first-run owner setup, and roles.
+- Components and groups, HTTP monitors with per-region results, and detection across regions.
+- Incidents with updates and impact, and maintenance windows that start and finish on their own.
+- The static status page with a 90-day history per component, incident pages, RSS and Atom
+  feeds, a status badge and state favicons.
+- Email subscribers, Slack incoming webhooks and signed outgoing webhooks.
+
+Drafting incidents automatically from monitors, approvals in Slack, alert ingest, a
+Statuspage-compatible API, settings, invites and GitHub sign-in are next. See the [roadmap](/docs/roadmap/).
+
+## License
+
+Galena is open source under the Apache License 2.0.
