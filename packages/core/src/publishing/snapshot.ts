@@ -17,7 +17,7 @@ import type {
   Maintenance,
 } from "../ports.ts";
 import { componentStatus, isOpenPublished, pageIndicator } from "../status/aggregate.ts";
-import { dayMark } from "./uptime.ts";
+import { dayMark, wholeMinutes } from "./uptime.ts";
 
 const DAY = 86_400_000;
 const STRIP_DAYS = 90;
@@ -118,7 +118,11 @@ export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
     const rows = new Map(
       inputs.uptime.filter((u) => u.componentId === component.id).map((u) => [u.date, u.minutes]),
     );
-    const days = dates.map((date): SnapshotDay => ({ date, ...dayMark(rows.get(date) ?? {}) }));
+    const days = dates.map((date): SnapshotDay => {
+      const minutes = rows.get(date);
+      if (!minutes) return { date, ...dayMark({}) };
+      return { date, ...dayMark(minutes), minutes: wholeMinutes(minutes) };
+    });
     let observed = 0;
     let down = 0;
     for (const date of dates) {

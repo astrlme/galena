@@ -131,9 +131,15 @@ test("draws 90 days, ending today, from the daily rollups", () => {
   const api = buildSnapshot(inputs, fixedClock(NOW)).components[1];
   expect(api?.days).toHaveLength(90);
   expect(api?.days.at(0)).toEqual({ date: "2026-07-02", worst: null, downMinutes: 0 });
+  // Each day carries its whole minutes per state, for the strip's popover.
   expect(api?.days.slice(-2)).toEqual([
-    { date: "2026-09-28", worst: "partial_outage", downMinutes: 60 },
-    { date: "2026-09-29", worst: "operational", downMinutes: 0 },
+    {
+      date: "2026-09-28",
+      worst: "partial_outage",
+      downMinutes: 60,
+      minutes: { operational: 1380, partial_outage: 60 },
+    },
+    { date: "2026-09-29", worst: "operational", downMinutes: 0, minutes: { operational: 720 } },
   ]);
   // 60 minutes down out of 2160 observed.
   expect(api?.uptime).toBe(97.22);

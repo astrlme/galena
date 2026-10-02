@@ -28,6 +28,8 @@ export const snapshotDay = z.object({
   worst: z.enum(componentStatuses).nullable(),
   /** Minutes in partial or major outage. Maintenance never counts as downtime. */
   downMinutes: z.int().min(0).max(1440),
+  /** Whole minutes in each state that day; states it never reached are left out. */
+  minutes: z.partialRecord(z.enum(componentStatuses), z.int().min(1).max(1440)).optional(),
 });
 export type SnapshotDay = z.infer<typeof snapshotDay>;
 
