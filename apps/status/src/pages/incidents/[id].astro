@@ -64,7 +64,7 @@ const { incident, pageName, names } = Astro.props;
 
   <section aria-labelledby="updates">
     <h2 id="updates">Updates</h2>
-    <ol class="updates">
+    <ol class="timeline">
       {incident.updates.map((u) => (
         <li>
           <p><strong>{incidentStatusLabels[u.status]}</strong> <span class="secondary"><time datetime={u.createdAt}>{utcDateTime(u.createdAt)}</time></span></p>
