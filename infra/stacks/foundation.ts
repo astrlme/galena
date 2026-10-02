@@ -1,7 +1,6 @@
 import { Duration, RemovalPolicy, Stack, type StackProps, Validations } from "aws-cdk-lib";
 import { AttributeType, BillingMode, Table } from "aws-cdk-lib/aws-dynamodb";
 import { SubnetType, Vpc } from "aws-cdk-lib/aws-ec2";
-import { Key } from "aws-cdk-lib/aws-kms";
 import {
   AuroraPostgresEngineVersion,
   type CfnDBCluster,
@@ -17,12 +16,11 @@ import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
 
 /**
- * The home region's stateful core: KMS key, an isolated VPC for Aurora, the telemetry table,
- * the check-results queue and the private config bucket. No NAT gateway and no Lambda in
+ * The home region's stateful core: an isolated VPC for Aurora, the telemetry table, the
+ * check-results queue and the private config bucket. No NAT gateway and no Lambda in
  * the VPC: everything reaches Aurora through the Data API.
  */
 export class FoundationStack extends Stack {
-  readonly key: Key;
   readonly database: DatabaseCluster;
   /** The RDS-managed master secret the Data API authenticates with. */
   readonly databaseSecretArn: string;
@@ -36,13 +34,6 @@ export class FoundationStack extends Stack {
     const { stage, telemetryCapacity, auroraMaxAcu } = props.config;
     const isProd = stage === "prod";
     const dataRemoval = isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY;
-
-    // Envelope encryption for integration credentials.
-    this.key = new Key(this, "Key", {
-      alias: `galena/${stage}`,
-      enableKeyRotation: true,
-      removalPolicy: dataRemoval,
-    });
 
     const vpc = new Vpc(this, "Vpc", {
       maxAzs: 2, // Aurora needs subnets in two AZs
@@ -152,7 +143,6 @@ export class FoundationStack extends Stack {
       "check-results-queue-url": this.checkResults.queueUrl,
       "check-results-queue-arn": this.checkResults.queueArn,
       "config-bucket": this.config.bucketName,
-      "kms-key-arn": this.key.keyArn,
     };
     for (const [name, value] of Object.entries(parameters)) {
       new StringParameter(this, `Param-${name}`, {
