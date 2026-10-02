@@ -5,6 +5,7 @@ import {
   type SnapshotDay,
   type SnapshotIncident,
 } from "@galena/contracts";
+import { unit } from "./format.ts";
 
 // The signal strip: one column per day, 4 px wide with 2 px gaps, in a 28 px row on a 1 px
 // baseline. A day with data is a green column. Each worse state it reached takes a foot in its
@@ -100,7 +101,7 @@ export function stripPaths(days: readonly SnapshotDay[]): { className: string; d
 export function describeDay(day: SnapshotDay): string {
   if (day.worst === null) return "No data";
   const label = componentStatusLabels[day.worst];
-  return day.downMinutes > 0 ? `${label}, ${day.downMinutes} minutes down` : label;
+  return day.downMinutes > 0 ? `${label}, ${unit(day.downMinutes, "minute")} down` : label;
 }
 
 /** What a day's popover shows, compact enough to travel in the page's HTML. */

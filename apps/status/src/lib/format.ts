@@ -19,9 +19,11 @@ export const utcDay = (iso: string) => {
 export const utcDateTime = (iso: string) => `${utcDay(iso)}, ${utcTime(iso)}`;
 
 /** "42 minutes", "1 hour", "2 hours 5 minutes", "3 days 4 hours" */
+/** "1 minute", "42 minutes". */
+export const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
 export function duration(fromIso: string, toIso: string): string {
   const minutes = Math.max(1, Math.round((Date.parse(toIso) - Date.parse(fromIso)) / 60_000));
-  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
   if (minutes < 60) return unit(minutes, "minute");
   const hours = Math.floor(minutes / 60);
   if (hours < 24)
