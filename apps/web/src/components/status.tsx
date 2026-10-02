@@ -9,7 +9,7 @@ const LABELS: Record<ComponentStatus, string> = {
   under_maintenance: "Maintenance",
 };
 
-function Glyph({ status }: { status: ComponentStatus | null }) {
+export function Glyph({ status }: { status: ComponentStatus | null }) {
   const common = {
     width: 14,
     height: 14,
