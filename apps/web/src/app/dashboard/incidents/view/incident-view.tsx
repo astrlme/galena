@@ -19,7 +19,6 @@ import {
   ComponentPicker,
   componentNames,
   IMPACT_LABELS,
-  IMPACT_RULE,
   IMPACT_TITLE,
   STATUS_LABELS,
   select,
@@ -58,7 +57,7 @@ export function IncidentView() {
       <Link href="/dashboard/incidents/" className="text-[14px] underline-offset-2 hover:underline">
         All incidents
       </Link>
-      <div className={`mt-4 flex flex-col gap-2 ${IMPACT_RULE[shown.impact]}`}>
+      <div className="mt-4 flex flex-col gap-2">
         <h1 className={`text-[24px] leading-[1.25] ${IMPACT_TITLE[shown.impact]}`}>
           {shown.title}
         </h1>

@@ -9,7 +9,7 @@ import { Modal } from "../../../components/modal.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { IncidentForm, type NewIncident } from "./incident-form.tsx";
-import { IMPACT_LABELS, IMPACT_RULE, IMPACT_TITLE, STATUS_LABELS, Time } from "./incident-ui.tsx";
+import { IMPACT_LABELS, IMPACT_TITLE, STATUS_LABELS, Time } from "./incident-ui.tsx";
 
 type Summary =
   paths["/v1/incidents"]["get"]["responses"][200]["content"]["application/json"]["incidents"][number];
@@ -71,7 +71,7 @@ export function IncidentsEditor() {
         <ul className="mt-4 rounded-xl border border-mist bg-surface">
           {incidents.map((incident) => (
             <li key={incident.id} className="border-b border-mist px-4 py-3 last:border-b-0">
-              <div className={`flex flex-col gap-1 ${IMPACT_RULE[incident.impact]}`}>
+              <div className="flex flex-col gap-1">
                 <Link
                   href={`/dashboard/incidents/view/?id=${incident.id}`}
                   className={`text-[16px] underline-offset-2 hover:underline ${IMPACT_TITLE[incident.impact]}`}
