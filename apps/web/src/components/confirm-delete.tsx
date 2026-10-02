@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "./button.tsx";
 import { Field } from "./field.tsx";
+import { Modal } from "./modal.tsx";
+
+/** How long the modal takes to close before the caller unmounts it. */
+const CLOSE_MS = 220;
 
 /**
- * Destructive action: an explicit verb and a dialog that asks for the name.
- * A native <dialog> traps focus and closes on Escape; it opens without motion.
+ * Destructive action: an explicit verb and a dialog that asks for the name. A centred dialog,
+ * or a bottom drawer on phones; Escape, the scrim and Cancel close it.
  */
 export function ConfirmDelete({
   kind,
@@ -27,23 +31,21 @@ export function ConfirmDelete({
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
+  const [open, setOpen] = useState(true);
   const [typed, setTyped] = useState("");
-
-  useEffect(() => dialog.current?.showModal(), []);
+  // The caller unmounts this once the closing animation has run.
+  useEffect(() => {
+    if (open) return;
+    const timer = setTimeout(onClose, CLOSE_MS);
+    return () => clearTimeout(timer);
+  }, [open, onClose]);
 
   return (
-    <dialog
-      ref={dialog}
-      aria-labelledby={titleId}
-      onClose={onClose}
-      className="m-auto max-w-[480px] rounded-[8px] border border-mist bg-surface p-6 text-ink backdrop:bg-ink/40"
-    >
-      <h2 id={titleId} className="text-[19px] font-semibold leading-[1.35]">
+    <Modal.Root open={open} onClose={() => setOpen(false)}>
+      <Modal.Title>
         {verb} {name}?
-      </h2>
-      <p className="mt-2 text-[16px] leading-[1.55]">{consequence}</p>
+      </Modal.Title>
+      <Modal.Description>{consequence}</Modal.Description>
       <form
         className="mt-6 flex flex-col gap-6"
         onSubmit={(event) => {
@@ -60,14 +62,14 @@ export function ConfirmDelete({
           autoComplete="off"
         />
         <div className="flex gap-4">
-          <Button type="submit" disabled={typed !== name}>
+          <Button type="submit" variant="danger" disabled={typed !== name}>
             {verb} {kind}
           </Button>
-          <Button type="button" variant="quiet" onClick={() => dialog.current?.close()}>
+          <Button type="button" variant="quiet" onClick={() => setOpen(false)}>
             {verb === "Cancel" ? `Keep the ${kind}` : "Cancel"}
           </Button>
         </div>
       </form>
-    </dialog>
+    </Modal.Root>
   );
 }
