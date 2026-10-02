@@ -1,0 +1,13 @@
+{
+  "title": "Concepts",
+  "pages": [
+    "workspace",
+    "components",
+    "monitors",
+    "detection",
+    "incidents",
+    "maintenance",
+    "status-and-uptime",
+    "notifications"
+  ]
+}

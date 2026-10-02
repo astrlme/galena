@@ -1,0 +1,47 @@
+---
+title: Maintenance
+description: Scheduled windows that start and complete on their own.
+---
+
+A **maintenance window** announces planned work: a title, a message, a start and end time, and
+the components it covers.
+
+## Lifecycle
+
+| Status | When |
+| --- | --- |
+| Scheduled | From creation until `startsAt` |
+| In progress | From `startsAt` until `endsAt` |
+| Verifying | Never entered automatically; it exists for Statuspage compatibility |
+| Completed | From `endsAt`, or at once when cancelled |
+
+A window runs itself. When you schedule it, Galena starts a background run that sleeps until
+`startsAt`, moves the window to In progress, sleeps until `endsAt` and completes it. Nobody has to
+be awake for either.
+
+## Changing and cancelling
+
+- **Edit** a window any time until it completes: times, title, message and components. Each edit
+  bumps the window's version; a run waiting on an older version wakes, sees it was superseded,
+  and stops, while a new run follows the new times.
+- **Cancel** a window only before it starts. It completes at once and subscribers hear it was
+  cancelled. To end a running window early, edit its end time.
+
+## What it changes
+
+While a window is in progress:
+
+- each covered component shows **Maintenance** on the page, whatever its monitors say;
+- monitors attached to those components keep running, but their transitions are recorded as
+  suppressed, and nothing customer-facing follows from them;
+- the page lists the window under "Maintenance", with its status, times and components, from
+  the moment it is scheduled until it completes.
+
+Minutes spent in maintenance count as up in the uptime figure, and show on the history strip
+only on days when nothing worse happened.
+
+## Who is told
+
+Subscribers who chose an affected component (or none) hear when a window is first scheduled,
+when it starts, when it completes, and when it is cancelled. Edits to a scheduled window are not
+announced again.

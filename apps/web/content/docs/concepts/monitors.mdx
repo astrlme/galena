@@ -1,0 +1,90 @@
+---
+title: Monitors and checks
+description: What a monitor checks, what one check records, and the settings that shape both.
+---
+
+A **monitor** is an automated check of one URL. Every minute, a probe in each probe region runs
+it once. A monitor may be attached to a component; detection then drives that component's
+status. A monitor without a component is still checked and shown in the dashboard, but never
+changes the page.
+
+Galena has HTTP monitors today. TCP, DNS, certificate expiry and heartbeat monitors are on the
+[roadmap](/docs/roadmap/).
+
+## What an HTTP check does
+
+1. Sends a `GET` (or `HEAD`) to the URL from a fresh connection, as the user agent
+   `Galena-Probe (+https://github.com/astrlme/galena)`.
+2. Follows up to 5 redirects, unless redirects are turned off.
+3. Passes when the final status is one you accept (any 2xx by default) and, when you set a
+   keyword, the first megabyte of the body contains it.
+4. Gives up after the timeout, 10 seconds by default.
+
+Every address is checked by the SSRF guard twice: before the request, and again for each address
+DNS returns as the socket connects. Private, loopback, link-local, carrier-grade NAT,
+documentation and other special-purpose ranges are refused, in IPv4 and IPv6, on every redirect
+hop. A check aimed at one fails with `blocked_by_guard`. See [Security model](/docs/operations/security/).
+
+## Settings
+
+| Setting | Default | In the dashboard |
+| --- | --- | --- |
+| Name | | Yes |
+| URL (`http://` or `https://`, no credentials in it) | | Yes |
+| Method: `GET` or `HEAD` | `GET` | Yes |
+| Keyword the body must contain (`GET` only) | none | Yes |
+| Component | none | Yes |
+| Down status: what the component shows while the monitor is down | Major outage | Yes |
+| Publish policy | Ask a person first | Yes |
+| Paused | no | Yes |
+| Accepted status codes, up to 20 | any 2xx | API |
+| Timeout, 1 to 10 seconds | 10 s | API |
+| Follow redirects | yes | API |
+| Detection settings | see [Detection](/docs/concepts/detection/#settings) | API |
+
+Settings marked API are set with `PUT /v1/monitors/{id}`; see the [API reference](/docs/reference/api/).
+
+### Publish policy
+
+Each monitor carries a publish policy for incidents it will draft on its own:
+
+| Policy | Meaning |
+| --- | --- |
+| Ask a person first (`approve`) | The draft waits 10 minutes for a person, then publishes if the monitor is still down. |
+| Publish automatically (`auto`) | The draft publishes as soon as the monitor is down. |
+| Internal only (`internal_only`) | The draft stays in the dashboard. Nothing reaches the page or subscribers. |
+
+<Callout type="warn">
+Galena stores the policy today, but drafting incidents from monitors is not built yet: a monitor
+going down changes its component's status and republishes the page, and a person posts the
+incident. See the [roadmap](/docs/roadmap/).
+</Callout>
+
+## Check results
+
+One probe's outcome for one monitor in one minute is a **check result**:
+
+| Field | Meaning |
+| --- | --- |
+| `region` | The probe region that ran it |
+| `scheduledAt` | The minute the scheduler fired; results are de-duplicated on it |
+| `status` | `up`, `down` or `error` (the probe failed, not the target) |
+| `httpStatus` | The final response's status code, if one arrived |
+| `latencyMs` | Total time |
+| `phases` | DNS, connect, TLS (`null` for `http://`), time to first byte, and total, in ms |
+| `error` | Why it failed: a code and a message |
+
+| Error code | Meaning |
+| --- | --- |
+| `timeout` | No complete answer within the timeout |
+| `dns_failed` | The name didn't resolve |
+| `connection_failed` | The connection was refused or reset |
+| `tls_failed` | The TLS handshake or certificate failed |
+| `http_status` | A status code you don't accept, or more than 5 redirects |
+| `keyword_missing` | The body didn't contain the keyword |
+| `blocked_by_guard` | The SSRF guard refused an address |
+| `probe_failed` | The probe itself broke |
+
+The dashboard shows each monitor's last hour per region. Results stay in DynamoDB for 90 days.
+The page's history is built from something smaller: each monitor's confirmed state changes, kept
+in the database. See [Detection](/docs/concepts/detection/).

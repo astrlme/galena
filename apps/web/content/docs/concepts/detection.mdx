@@ -1,0 +1,130 @@
+---
+title: Detection
+description: How Galena decides a monitor is up, slow, down, recovering or flapping, and why one failed check never pages anyone.
+---
+
+Detection turns a stream of check results from three regions into one confirmed **monitor
+state**. The rules are built so that one slow network, one broken probe region or one flaky
+endpoint never changes the status page on its own.
+
+All of it is one pure function in `packages/core`. The evaluator runs it on every result, the
+replay harness (`pnpm replay`) runs it on recorded results, and property tests check it, so all
+three exercise exactly the same code.
+
+## Step 1: each region forms a verdict
+
+Each probe region keeps its own streak for each monitor:
+
+- After `failThreshold` failed checks in a row (default **2**), the region's verdict is
+  **failing**.
+- After `recoverThreshold` passing checks in a row (default **3**), it is **healthy** again.
+- In between, the verdict stays what it was.
+
+A result with status `error` means the probe broke, not your endpoint. It moves no streak and
+doesn't count as hearing from the region.
+
+## Step 2: only trustworthy regions vote
+
+A region votes only when all three hold:
+
+- it has a verdict;
+- it reported within the last `staleAfterIntervals` minutes (default **3**);
+- its **canary** is passing. Before checking anything, each probe run checks a well-known
+  endpoint (`https://checkip.amazonaws.com/` by default). A region whose canary fails can't be
+  trusted about anyone's endpoint, so it leaves every monitor's vote until its canary passes 3
+  times in a row.
+
+When fewer regions can vote than the `quorum` (default **2**), the monitor keeps its state: no
+evidence is not evidence of an outage.
+
+## Step 3: the regions agree on a signal
+
+| Signal | When |
+| --- | --- |
+| Failing | At least `quorum` voting regions are failing |
+| Slow | Not failing, and more than half of the voting regions have been slower than `degradedLatencyMs` for 3 checks in a row |
+| OK | Anything else |
+
+Slowness is off by default (`degradedLatencyMs` is `null`). Set a threshold to let a slow
+endpoint show as degraded.
+
+## Step 4: the state moves
+
+| State | Meaning | Moves to |
+| --- | --- | --- |
+| `unknown` | Not enough evidence yet | `up`, `degraded` or `down` once the regions agree |
+| `up` | Passing | `degraded` when slow, `down` when failing |
+| `degraded` | Passing, but slow | `up` when fast again, `down` when failing |
+| `down` | Failing in at least a quorum of regions | `recovering` once that is no longer true |
+| `recovering` | Passing again, not yet trusted | `up` after `stableMinutes` (default **15**) without failing, `down` if it fails again |
+| `flapping` | Changing too often to trust | see below |
+
+Each move is a **transition**, numbered per monitor. Transitions are the only thing the hot path
+sends onward: the evaluator writes every result to DynamoDB, and only a transition triggers the
+`monitor.state-changed` task, which records it and republishes the page. A steady monitor costs
+nothing beyond its checks.
+
+## Flapping
+
+A monitor that keeps changing state would otherwise notify people every few minutes. When more
+than `flapMaxTransitions` (default **4**) transitions land within `flapWindowMinutes` (default
+**30**), the monitor becomes `flapping` instead. Leaving `unknown` doesn't count: it only means
+detection started.
+
+A flapping monitor leaves only by holding steady:
+
+- not failing for `flapWindowMinutes` takes it to `up`;
+- failing for `stableMinutes` takes it to `down`, so a real outage can't hide behind flap
+  damping for long.
+
+## Maintenance
+
+Inside a maintenance window that names the monitor's component, transitions still happen and are
+recorded, but they are marked **suppressed**: nothing customer-facing may follow from them. The
+component shows Maintenance for the window's length anyway.
+
+## From monitor state to component status
+
+| Monitor state | Component status |
+| --- | --- |
+| `unknown` | No opinion: the component keeps its status |
+| `up` | Operational |
+| `degraded` | Degraded performance |
+| `down` | The monitor's down status: Major outage (default) or Partial outage |
+| `recovering` | Operational |
+| `flapping` | Degraded performance |
+
+A component with several monitors shows the worst of them, combined with its open incidents. See
+[Components](/docs/concepts/components/#where-a-components-status-comes-from).
+
+## How long it takes
+
+With the default settings and three probe regions, for an endpoint that fails hard everywhere:
+
+1. Each region checks once a minute. The second failed check makes a region failing.
+2. When two regions are failing, the monitor is `down`: about two minutes after the endpoint
+   broke, plus up to a minute until the next check.
+3. The page republishes within seconds of the transition.
+
+When the endpoint comes back, three passing checks make a region healthy. Once fewer than two
+regions are failing, the monitor is `recovering`, and the component shows Operational again. After
+15 more minutes without failing, the monitor is `up`.
+
+## Settings
+
+Every monitor can tune detection through the API (`PUT /v1/monitors/{id}`, field `detection`).
+The defaults suit most HTTP endpoints.
+
+| Setting | Default | Range | Meaning |
+| --- | --- | --- | --- |
+| `failThreshold` | 2 | 1 to 10 | Failed checks in a row before a region is failing |
+| `recoverThreshold` | 3 | 1 to 10 | Passing checks in a row before a region is healthy |
+| `quorum` | 2 | 1 to 5 | Failing regions needed for `down` |
+| `degradedLatencyMs` | `null` (off) | 50 to 60000 | Latency above which a check counts as slow |
+| `staleAfterIntervals` | 3 | 1 to 10 | Minutes of silence before a region stops voting |
+| `flapWindowMinutes` | 30 | 5 to 240 | The window in which transitions are counted |
+| `flapMaxTransitions` | 4 | 2 to 20 | More transitions than this in the window means flapping |
+| `stableMinutes` | 15 | 1 to 240 | Steady time before `recovering` becomes `up`, or `flapping` becomes `down` |
+
+A quorum of 1 makes one region enough to call an outage. It is there for testing; on a real
+endpoint, a single region's network trouble would then reach your status page.

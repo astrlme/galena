@@ -1,0 +1,51 @@
+---
+title: Components and groups
+description: The things your users care about, and where their status comes from.
+---
+
+A **component** is something your users recognise and care about: "API", "Dashboard",
+"Webhooks", "EU region". It is what the status page lists, what incidents and maintenance
+windows name, and what subscribers can choose to hear about.
+
+Components describe your product from the outside. A database or a queue is usually not a
+component; the feature that breaks when it fails is.
+
+## Groups
+
+A **group** puts related components under one heading on the page, such as "Europe" and "North
+America". Components and groups each have an order, and the page follows it. Move them up or
+down in **Components** in the dashboard.
+
+A component can sit outside any group. Deleting a group keeps its components and moves them out
+of it.
+
+## Where a component's status comes from
+
+A component has one of five statuses:
+
+| Status | Label on the page |
+| --- | --- |
+| `operational` | Operational |
+| `degraded_performance` | Degraded performance |
+| `partial_outage` | Partial outage |
+| `major_outage` | Major outage |
+| `under_maintenance` | Maintenance |
+
+The values are the same as Atlassian Statuspage's. Galena works the status out from four
+sources, in this order:
+
+1. **A manual status**, when one is set, wins over everything else.
+2. **An active maintenance window** that names the component shows Maintenance.
+3. Otherwise the component shows the **worst opinion** among:
+   - each attached monitor's state (see [mapping](/docs/concepts/detection/#from-monitor-state-to-component-status)),
+   - each open, published incident that names it, with the status the incident gives it.
+4. When nothing has an opinion (no monitors yet, no open incidents), the component keeps the
+   status it had.
+
+Resolving an incident removes its say at once. Draft, dismissed and internal incidents never
+change a component's status on the page.
+
+<Callout>
+A manual status is part of the data model and the computation, but the dashboard can't set one
+yet.
+</Callout>
