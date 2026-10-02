@@ -13,11 +13,12 @@ const statementsOf = (rolePrefix: string) =>
     .filter((p) => p.Properties.Roles.some((r: { Ref: string }) => r.Ref.startsWith(rolePrefix)))
     .flatMap((p) => p.Properties.PolicyDocument.Statement);
 
-test("the target is a public Function URL on a Lambda outside any VPC", () => {
+test("the target is a public Function URL on a Lambda outside any VPC, stopped between runs", () => {
   template.hasResourceProperties("AWS::Lambda::Url", { AuthType: "NONE" });
   template.hasResourceProperties("AWS::Lambda::Function", {
     Runtime: "nodejs24.x",
     Architectures: ["arm64"],
+    ReservedConcurrentExecutions: 0,
   });
   for (const fn of Object.values(template.findResources("AWS::Lambda::Function"))) {
     expect(fn.Properties.VpcConfig).toBeUndefined();

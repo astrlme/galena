@@ -67,6 +67,10 @@ and no component. It stops the target, waits until every probe region reports it
 monitor is down, starts it again, waits for recovery, and checks that trigger.dev ran
 `monitor.state-changed` exactly once per transition.
 
+The target is public, because the probes must reach it, so it stays stopped between runs: it
+answers 429 and its monitor shows down in the dashboard. Left running, anyone could flood it and
+use up the Lambda concurrency that the API and the evaluator share in the home region.
+
 ## Rolling back
 
 Run the Deploy workflow on an earlier commit's tree by reverting on `main`. Migrations don't roll
