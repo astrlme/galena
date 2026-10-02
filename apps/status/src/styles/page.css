@@ -290,8 +290,55 @@ h3 {
 footer {
   margin-top: 48px;
   display: flex;
+  justify-content: space-between;
   gap: 16px;
   font-size: 14px;
+}
+
+/* Secondary buttons: Copy in the feeds dialog. */
+.copy-row button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--mist);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+.copy-row button:hover {
+  border-color: var(--slate);
+}
+.feed {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.feed label {
+  font-weight: 600;
+}
+.copy-row {
+  display: flex;
+  gap: 8px;
+}
+.copy-row input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--mist);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .copy-row button {
+    transition: none;
+  }
 }
 
 /* The strip for keyboards and pointers: a cursor over the day and a popover with its words. */

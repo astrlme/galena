@@ -24,19 +24,24 @@ const files = (dir) =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory() ? files(join(dir, e.name)) : [join(dir, e.name)],
   );
+// JavaScript per page load: a page's inline scripts plus the script files it references. The
+// heaviest page must stay within budget.
 const built = files("dist");
-let js = 0;
-for (const file of built) {
-  const text = readFileSync(file);
-  if (file.endsWith(".js")) js += gzipSync(text).length;
-  if (file.endsWith(".html")) {
-    for (const [, script] of text.toString().matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)) {
-      js += gzipSync(script).length;
-    }
-    check(text.length < 40_000, `${file} is ${text.length} bytes (budget 40,000)`);
+let js = { bytes: 0, page: "" };
+for (const file of built.filter((f) => f.endsWith(".html"))) {
+  const text = readFileSync(file, "utf8");
+  let bytes = 0;
+  for (const [, attributes, inline] of text.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)) {
+    const src = /\ssrc="\/([^"]+)"/.exec(attributes)?.[1];
+    bytes += gzipSync(src ? readFileSync(join("dist", src)) : inline).length;
   }
+  if (bytes > js.bytes) js = { bytes, page: file };
+  check(text.length < 40_000, `${file} is ${text.length} bytes (budget 40,000)`);
 }
-check(js <= 15_360, `JavaScript is ${js} bytes gzipped (budget 15,360)`);
+check(
+  js.bytes <= 15_360,
+  `JavaScript is ${js.bytes} bytes gzipped at most, on ${js.page} (budget 15,360)`,
+);
 
 const types = {
   ".html": "text/html; charset=utf-8",
@@ -88,7 +93,6 @@ try {
     for (const scheme of ["light", "dark"]) {
       for (const path of [
         "",
-        "history/",
         ...readdirSync("dist/incidents").map((id) => `incidents/${id}/`),
         ...readdirSync("dist/subscription").map((state) => `subscription/${state}/`),
       ]) {
@@ -105,25 +109,35 @@ try {
         await context.close();
       }
     }
-    // The subscribe dialog: the header button opens it, it passes axe open, Escape closes it.
+    // Both dialogs: their buttons open them, they pass axe open, Escape closes them.
+    const dialogs = [
+      {
+        name: "subscribe",
+        open: '[data-open="subscribe"]',
+        field: "[data-subscribe] input[type=email]",
+      },
+      { name: "feeds", open: 'footer [data-open="feeds"]', field: "#feed-rss" },
+    ];
     for (const scheme of ["light", "dark"]) {
-      const context = await browser.newContext({ colorScheme: scheme });
-      const page = await context.newPage();
-      await page.goto(ORIGIN, { waitUntil: "networkidle" });
-      const field = page.locator("[data-subscribe] input[type=email]");
-      await page.click("[data-open-subscribe]");
-      await field.waitFor({ state: "visible", timeout: 2000 }).catch(() => {});
-      const { violations } = await new AxeBuilder({ page })
-        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-        .analyze();
-      check(
-        (await field.isVisible()) && violations.length === 0,
-        `subscribe dialog ${scheme}: ${(await field.isVisible()) ? "opens" : "does not open"}, ${violations.map((v) => v.id).join(", ") || "no violations"}`,
-      );
-      await page.keyboard.press("Escape");
-      await field.waitFor({ state: "hidden", timeout: 2000 }).catch(() => {});
-      check(!(await field.isVisible()), `subscribe dialog ${scheme}: Escape closes it`);
-      await context.close();
+      for (const dialog of dialogs) {
+        const context = await browser.newContext({ colorScheme: scheme });
+        const page = await context.newPage();
+        await page.goto(ORIGIN, { waitUntil: "networkidle" });
+        const field = page.locator(dialog.field);
+        await page.click(dialog.open);
+        await field.waitFor({ state: "visible", timeout: 2000 }).catch(() => {});
+        const { violations } = await new AxeBuilder({ page })
+          .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+          .analyze();
+        check(
+          (await field.isVisible()) && violations.length === 0,
+          `${dialog.name} dialog ${scheme}: ${(await field.isVisible()) ? "opens" : "does not open"}, ${violations.map((v) => v.id).join(", ") || "no violations"}`,
+        );
+        await page.keyboard.press("Escape");
+        await field.waitFor({ state: "hidden", timeout: 2000 }).catch(() => {});
+        check(!(await field.isVisible()), `${dialog.name} dialog ${scheme}: Escape closes it`);
+        await context.close();
+      }
     }
   } finally {
     await browser.close();

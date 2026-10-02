@@ -2,6 +2,7 @@
 import "@fontsource-variable/atkinson-hyperlegible-next";
 import "virtual:galena/tokens.css";
 import "../styles/page.css";
+import { readSnapshot } from "../lib/snapshot.ts";
 
 interface Props {
   title: string;
@@ -12,6 +13,11 @@ interface Props {
   publishedAt?: string;
 }
 const { title, description, pageName, snapshotVersion, publishedAt } = Astro.props;
+const pageUrl = readSnapshot().page.url;
+const feeds = [
+  { id: "feed-rss", name: "RSS", url: new URL("/feed.rss", pageUrl).href },
+  { id: "feed-atom", name: "Atom", url: new URL("/feed.atom", pageUrl).href },
+];
 ---
 
 <!doctype html>
@@ -36,14 +42,38 @@ const { title, description, pageName, snapshotVersion, publishedAt } = Astro.pro
             ></path>
           </svg>{pageName} status
         </a>
-        <a href="/#subscribe" class="subscribe-link" data-open-subscribe>Subscribe</a>
+        <a href="/#subscribe" class="subscribe-link" data-open="subscribe">Subscribe</a>
       </header>
       <slot />
       <footer>
-        <a href="/history/">Past incidents</a>
-        <a href="/feed.rss">RSS</a>
-        <a href="/feed.atom">Atom</a>
+        <a href="#feeds" data-open="feeds">Feeds</a>
+        <a href="https://github.com/astrlme/galena">Powered by Galena</a>
       </footer>
+      <!-- Like the subscribe dialog: a dialog with JavaScript, a plain section at the end without. -->
+      <dialog id="feeds" class="sheet" aria-labelledby="feeds-title">
+        <div class="sheet-grip" data-grip aria-hidden="true"><span class="sheet-handle"></span></div>
+        <div class="sheet-head">
+          <h2 id="feeds-title">Follow in a feed reader</h2>
+          <button type="button" class="sheet-close" data-close aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+          </button>
+        </div>
+        <p class="secondary">Incidents, newest first, from the last 14 days.</p>
+        {feeds.map((feed) => (
+          <div class="feed">
+            <label for={feed.id}>{feed.name}</label>
+            <div class="copy-row">
+              <input id={feed.id} type="text" readonly value={feed.url} />
+              <button type="button" data-copy={feed.id} data-name={feed.name}>Copy<span class="sr-only"> the {feed.name} address</span></button>
+            </div>
+          </div>
+        ))}
+        <p class="secondary" role="status" data-copied></p>
+      </dialog>
     </main>
+    <script>
+      import "../scripts/sheet.ts";
+      import "../scripts/feeds.ts";
+    </script>
   </body>
 </html>
