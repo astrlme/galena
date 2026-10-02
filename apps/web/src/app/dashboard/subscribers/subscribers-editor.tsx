@@ -9,6 +9,7 @@ import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { control, Field } from "../../../components/field.tsx";
+import { Modal } from "../../../components/modal.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { Time } from "../incidents/incident-ui.tsx";
@@ -26,12 +27,16 @@ const STATE: Record<Subscriber["state"], string> = {
 };
 const KIND: Record<Endpoint["kind"], string> = { slack: "Slack", webhook: "Webhook" };
 const small = "px-2 py-1 text-[14px]";
-const heading = "border-b border-mist pb-2 text-[19px] font-semibold leading-[1.35]";
-const row = "flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist py-3";
+const heading = "text-[19px] font-semibold leading-[1.35]";
+const card = "mt-4 rounded-xl border border-mist bg-surface";
+const empty = `${card} p-4 text-[14px] text-slate`;
+const row =
+  "flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist px-4 py-3 last:border-b-0";
 
 export function SubscribersEditor() {
   const queryClient = useQueryClient();
   const [problem, setProblem] = useState<string>();
+  const [adding, setAdding] = useState(false);
   const [secret, setSecret] = useState<{ name: string; value: string }>();
   const [tested, setTested] = useState<{ id: string; detail: string }>();
   const [removing, setRemoving] = useState<{ endpoint?: Endpoint; subscriber?: Subscriber }>({});
@@ -79,16 +84,31 @@ export function SubscribersEditor() {
 
   return (
     <>
+      <p aria-live="polite" className="mt-4 font-semibold text-major empty:hidden">
+        {adding ? undefined : problem}
+      </p>
       <section aria-labelledby="destinations" className="mt-8">
-        <h2 id="destinations" className={heading}>
-          Slack and webhooks
-        </h2>
+        <div className="flex items-center justify-between gap-4">
+          <h2 id="destinations" className={heading}>
+            Slack and webhooks
+          </h2>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setProblem(undefined);
+              setSecret(undefined);
+              setAdding(true);
+            }}
+          >
+            Add destination
+          </Button>
+        </div>
         {endpoints.data?.length === 0 ? (
-          <p className="py-3 text-[14px] text-slate">
+          <p className={empty}>
             None yet. Add a Slack channel's incoming webhook, or a URL to receive signed webhooks.
           </p>
         ) : (
-          <ul>
+          <ul className={card}>
             {endpoints.data?.map((e) => (
               <li key={e.id} className={row}>
                 <div className="flex min-w-0 flex-col gap-1">
@@ -126,45 +146,66 @@ export function SubscribersEditor() {
         )}
       </section>
 
-      {secret && (
-        <div className="mt-6 max-w-[640px] border border-ink p-4" role="status">
-          <p className="font-semibold">Signing secret for {secret.name}</p>
-          <p className="mt-2 break-all font-mono text-[14px]">{secret.value}</p>
-          <p className="mt-2 text-[14px] text-slate">
-            Copy it now: it isn't shown again. Your receiver checks each webhook's signature with
-            it, using any Standard Webhooks library.
-          </p>
-        </div>
-      )}
-
-      <DestinationForm
-        components={all}
-        onSave={(input) =>
-          new Promise<boolean>((resolve) =>
-            change.mutate(
-              async () => {
-                const created = await unwrap(api.POST("/v1/webhook-endpoints", { body: input }));
-                setSecret(created.secret ? { name: input.name, value: created.secret } : undefined);
-              },
-              { onSuccess: () => resolve(true), onError: () => resolve(false) },
-            ),
-          )
-        }
-      />
-      <p aria-live="polite" className="mt-4 font-semibold empty:hidden">
-        {problem}
-      </p>
+      <Modal.Root open={adding} onClose={() => setAdding(false)}>
+        {secret ? (
+          <>
+            <Modal.Title>Signing secret for {secret.name}</Modal.Title>
+            <div role="status" className="mt-4 flex flex-col gap-2">
+              <p className="sr-only">Signing secret for {secret.name}</p>
+              <p className="break-all rounded-[6px] border border-mist bg-paper p-3 font-mono text-[14px]">
+                {secret.value}
+              </p>
+              <p className="text-[14px] text-slate">
+                Copy it now: it isn't shown again. Your receiver checks each webhook's signature
+                with it, using any Standard Webhooks library.
+              </p>
+            </div>
+            <div className="mt-6">
+              <Button variant="primary" onClick={() => setAdding(false)}>
+                Done
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <Modal.Title>Add a destination</Modal.Title>
+            <DestinationForm
+              components={all}
+              problem={adding ? problem : undefined}
+              onCancel={() => setAdding(false)}
+              onSave={(input) =>
+                new Promise<boolean>((resolve) =>
+                  change.mutate(
+                    async () => {
+                      const created = await unwrap(
+                        api.POST("/v1/webhook-endpoints", { body: input }),
+                      );
+                      // A webhook's secret is shown once, here; a Slack channel needs none.
+                      if (created.secret) {
+                        setSecret({ name: input.name, value: created.secret });
+                      } else {
+                        setAdding(false);
+                      }
+                    },
+                    { onSuccess: () => resolve(true), onError: () => resolve(false) },
+                  ),
+                )
+              }
+            />
+          </>
+        )}
+      </Modal.Root>
 
       <section aria-labelledby="email-subscribers" className="mt-8">
         <h2 id="email-subscribers" className={heading}>
           Email
         </h2>
         {subscribers.data?.length === 0 ? (
-          <p className="py-3 text-[14px] text-slate">
-            Nobody yet. People subscribe with the form at the bottom of the status page.
+          <p className={empty}>
+            Nobody yet. People subscribe from the Subscribe button on the status page.
           </p>
         ) : (
-          <ul>
+          <ul className={card}>
             {subscribers.data?.map((s) => (
               <li key={s.id} className={row}>
                 <div className="flex min-w-0 flex-col gap-1">
@@ -219,10 +260,14 @@ type Input = Omit<z.output<typeof endpointInput>, "componentIds"> & { componentI
 
 function DestinationForm({
   components,
+  problem,
   onSave,
+  onCancel,
 }: {
   components: { id: string; name: string }[];
+  problem: string | undefined;
   onSave: (input: Input) => Promise<boolean>;
+  onCancel: () => void;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const form = useForm<z.input<typeof endpointInput>, unknown, z.output<typeof endpointInput>>({
@@ -244,10 +289,9 @@ function DestinationForm({
     <form
       onSubmit={submit}
       aria-label="Add a destination"
-      className="mt-8 flex max-w-[640px] flex-col gap-4"
+      className="mt-6 flex flex-col gap-4"
       noValidate
     >
-      <h2 className="text-[19px] font-semibold leading-[1.35]">Add a destination</h2>
       <div className="flex flex-col gap-1">
         <label htmlFor="destination-kind" className="text-[14px] font-semibold">
           Kind
@@ -296,9 +340,15 @@ function DestinationForm({
           ))}
         </fieldset>
       )}
-      <div>
+      <p aria-live="polite" className="font-semibold text-major empty:hidden">
+        {problem}
+      </p>
+      <div className="flex gap-4">
         <Button type="submit" variant="primary" disabled={isSubmitting}>
           {isSubmitting ? "Adding…" : "Add destination"}
+        </Button>
+        <Button type="button" variant="quiet" onClick={onCancel}>
+          Cancel
         </Button>
       </div>
     </form>
