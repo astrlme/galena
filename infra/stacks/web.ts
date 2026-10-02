@@ -13,6 +13,7 @@ import {
   Validations,
 } from "aws-cdk-lib";
 import type { HttpApi } from "aws-cdk-lib/aws-apigatewayv2";
+import type { ICertificate } from "aws-cdk-lib/aws-certificatemanager";
 import {
   AllowedMethods,
   CachePolicy,
@@ -28,6 +29,7 @@ import {
   OriginRequestPolicy,
   OriginRequestQueryStringBehavior,
   ResponseHeadersPolicy,
+  SecurityPolicyProtocol,
   ViewerProtocolPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
 import { HttpOrigin, S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
@@ -57,6 +59,8 @@ export class WebStack extends Stack {
     props: StackProps & {
       config: StageConfig;
       api: HttpApi;
+      /** For `config.webDomain`, from a stack in us-east-1. */
+      certificate?: ICertificate;
       /** The static export to upload; tests pass a fixture. */
       siteDir?: string;
     },
@@ -136,8 +140,16 @@ export class WebStack extends Stack {
 
     // No custom error pages: CloudFront applies them to every behaviour and would turn the API's
     // JSON 403 and 404 problems into HTML.
+    const domain = props.certificate ? props.config.webDomain : undefined;
     const distribution = new Distribution(this, "Distribution", {
       comment: `Galena ${props.config.stage} dashboard`,
+      ...(props.certificate && domain
+        ? {
+            domainNames: [domain],
+            certificate: props.certificate,
+            minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021,
+          }
+        : {}),
       defaultBehavior: {
         origin: S3BucketOrigin.withOriginAccessControl(site),
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -174,13 +186,13 @@ export class WebStack extends Stack {
       ],
       [
         "AwsSolutions-CFR4",
-        "The default CloudFront certificate cannot pin TLS 1.2; a custom domain does.",
+        "Without a custom domain the default CloudFront certificate cannot pin TLS 1.2; with one it does.",
       ],
     ] as const) {
       Validations.of(id === "AwsSolutions-S1" ? site : distribution).acknowledge({ id, reason });
     }
 
-    const dashboardUrl = `https://${distribution.distributionDomainName}`;
+    const dashboardUrl = `https://${domain ?? distribution.distributionDomainName}`;
     // The API reads this at cold start: it is where people sign in and where cookies belong.
     new StringParameter(this, "PublicUrl", {
       parameterName: `/galena/${props.config.stage}/public-url`,

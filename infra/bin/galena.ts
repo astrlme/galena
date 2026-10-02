@@ -39,7 +39,19 @@ new DetectionStack(app, `galena-${config.stage}-detection`, { env, config });
 // Only dev runs the deployed smoke test.
 if (config.stage === "dev") new SmokeStack(app, `galena-${config.stage}-smoke`, { env, config });
 const api = new ApiStack(app, `galena-${config.stage}-api`, { env, config });
-new WebStack(app, `galena-${config.stage}-web`, { env, config, api: api.api });
+const webCertificate = config.webDomain
+  ? new CertificateStack(app, `galena-${config.stage}-web-certificate`, {
+      env: inRegion("us-east-1"),
+      domain: config.webDomain,
+      crossRegionReferences: true,
+    }).certificate
+  : undefined;
+new WebStack(app, `galena-${config.stage}-web`, {
+  env,
+  config,
+  api: api.api,
+  ...(webCertificate ? { certificate: webCertificate, crossRegionReferences: true } : {}),
+});
 new WorkerAccessStack(app, `galena-${config.stage}-worker-access`, { env, config });
 if (config.email) {
   new EmailStack(app, `galena-${config.stage}-email`, {

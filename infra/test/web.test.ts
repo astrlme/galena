@@ -7,6 +7,7 @@ import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
 import { stages } from "../config/stages.ts";
 import { ApiStack } from "../stacks/api.ts";
+import { CertificateStack } from "../stacks/status-page.ts";
 import { indexRewrite, WebStack } from "../stacks/web.ts";
 
 const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
@@ -113,6 +114,35 @@ test("publishes the dashboard URL for the API to read at cold start", () => {
 
 test("passes cdk-nag AwsSolutions", () => {
   expect(() => app.synth()).not.toThrow();
+});
+
+test("with a certificate, answers on the stage's domain over TLS 1.2 and publishes that URL", () => {
+  const withDomain = new App({ context: { "aws:cdk:bundling-stacks": [] } });
+  Validations.of(withDomain).addPlugins(new AwsSolutionsChecks(withDomain));
+  const { certificate } = new CertificateStack(withDomain, "Certificate", {
+    env: { ...env, region: "us-east-1" },
+    domain: "galena.example.com",
+    crossRegionReferences: true,
+  });
+  const domainApi = new ApiStack(withDomain, "Api", { env, config: stages.dev });
+  const stack = new WebStack(withDomain, "Web", {
+    env,
+    config: { ...stages.dev, webDomain: "galena.example.com" },
+    api: domainApi.api,
+    certificate,
+    crossRegionReferences: true,
+    siteDir,
+  });
+  const domainTemplate = Template.fromStack(stack);
+  const config = Object.values(domainTemplate.findResources("AWS::CloudFront::Distribution"))[0]
+    ?.Properties.DistributionConfig;
+  expect(config.Aliases).toEqual(["galena.example.com"]);
+  expect(config.ViewerCertificate.MinimumProtocolVersion).toBe("TLSv1.2_2021");
+  domainTemplate.hasResourceProperties("AWS::SSM::Parameter", {
+    Name: "/galena/dev/public-url",
+    Value: "https://galena.example.com",
+  });
+  expect(() => withDomain.synth()).not.toThrow();
 });
 
 test.each([

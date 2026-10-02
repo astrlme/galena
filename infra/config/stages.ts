@@ -14,6 +14,12 @@ export const stageSchema = z
       .string()
       .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)
       .optional(),
+    // The dashboard's own name (with the docs and, on the project's site, the landing page); its
+    // certificate is validated by a CNAME at the DNS host, like the page's.
+    webDomain: z
+      .string()
+      .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)
+      .optional(),
     // Where notification email comes from: an SES identity for `domain`, verified by DKIM
     // CNAMEs at the DNS host, sending as `from`.
     email: z
@@ -69,6 +75,7 @@ export const stages = {
     ...common,
     stage: "dev",
     pageDomain: "status.astrl.me",
+    webDomain: "galena.astrl.me",
     email: { domain: "mail.astrl.me", from: "status@mail.astrl.me" },
     telemetryCapacity: { read: 5, write: 5 },
     auroraMaxAcu: 2,
