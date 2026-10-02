@@ -122,8 +122,12 @@ for (const strip of document.querySelectorAll<HTMLElement>("[data-strip]")) {
     cursor?.setAttribute("hidden", "");
   };
 
-  // A click focuses the strip too; only keyboard focus (focus-visible) outlines a day.
-  strip.addEventListener("focus", () => show(index, strip.matches(":focus-visible")));
+  // A click focuses the strip too, but only keyboard focus (focus-visible) opens the popover
+  // and keeps it open; a pointer's popover follows the pointer and closes when it leaves.
+  const keyboardFocus = () => document.activeElement === strip && strip.matches(":focus-visible");
+  strip.addEventListener("focus", () => {
+    if (keyboardFocus()) show(index, true);
+  });
   strip.addEventListener("blur", hide);
   strip.addEventListener("keydown", (event) => {
     const moves: Record<string, number> = {
@@ -142,7 +146,7 @@ for (const strip of document.querySelectorAll<HTMLElement>("[data-strip]")) {
     show(Math.floor((event.clientX - box.left) / STEP), false);
   });
   svg?.addEventListener("pointerleave", () => {
-    if (document.activeElement !== strip) hide();
+    if (!keyboardFocus()) hide();
   });
   strip.setAttribute(
     "aria-label",
