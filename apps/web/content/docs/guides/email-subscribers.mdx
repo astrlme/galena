@@ -1,0 +1,40 @@
+---
+title: Email subscribers
+description: Let visitors subscribe to incident and maintenance emails.
+---
+
+Email subscriptions need SES. Set `email` in your stage config and finish the DNS and production
+access steps in [Self-hosting](/docs/getting-started/self-hosting/#point-dns-at-it).
+
+<Callout type="warn">
+Without `GLN_EMAIL_FROM` the workers write emails to a local folder instead of sending them. That
+is what you want in development (`apps/workers/.local/mail/`), but in a deployment without email
+the page still shows **Subscribe**, and confirmations go nowhere.
+</Callout>
+
+## What a visitor sees
+
+1. **Subscribe** on the status page opens a dialog (a bottom sheet on phones) asking for an email
+   address. With more than one component, "Only some components" lets them pick.
+2. They get an email with a confirmation link. The link opens a page on your status page with a
+   **Confirm** button; nothing is confirmed until they press it, so mail scanners that open links
+   can't subscribe anyone.
+3. From then on they get an email for every incident and maintenance event that touches what they
+   follow. Each email has a plain-text part, a link to the incident, and a one-click unsubscribe
+   link. Mail clients that support one-click unsubscribe show their own button too.
+
+Without JavaScript, the form is a plain section at the foot of the page and still works.
+
+## Limits that protect inboxes
+
+- One confirmation email per address every 10 minutes, however often the form is sent.
+- At most 200 confirmation emails an hour across the page.
+- Unconfirmed addresses expire after 7 days.
+- An address that hard-bounces or complains is suppressed for good: SES stops sending to it, and
+  subscribing again does nothing.
+
+## Managing subscribers
+
+**Subscribers → Email** lists every address, masked (`a***@example.com`), with its state, what it
+follows and when it subscribed. Admins can delete an address; it stops getting email at once.
+The dashboard never shows a full address, and there is no export.

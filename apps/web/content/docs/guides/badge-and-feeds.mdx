@@ -1,0 +1,43 @@
+---
+title: Badge and feeds
+description: Show your status in a README or site, and follow incidents in a feed reader.
+---
+
+Every publish writes these files next to the status page. They are static, so they keep serving
+when the rest of Galena is down.
+
+| File | What it is |
+| --- | --- |
+| `/badge.svg` | A badge reading "status" and the page's headline, in its state's colour, with its glyph |
+| `/favicon.svg` | The page's favicon: the headline's glyph |
+| `/feed.rss`, `/feed.atom` | Open incidents and those from the last 14 days |
+| `/snapshot.json` | Everything the page shows, as JSON (see [Snapshot](/docs/reference/snapshot/)) |
+
+Data files are cached for 2 seconds, and CloudFront may serve the last good copy for a day when
+the buckets can't answer.
+
+## The badge
+
+```md
+[![Status](https://status.example.com/badge.svg)](https://status.example.com)
+```
+
+```html
+<a href="https://status.example.com">
+  <img src="https://status.example.com/badge.svg" alt="Status" height="20" />
+</a>
+```
+
+The badge's text names the state ("All systems operational", "Major outage"), and screen readers
+read its title, so it never relies on colour.
+
+## Feeds
+
+Point a feed reader, or Slack's RSS app, at `/feed.rss` or `/feed.atom`. Each incident is one
+entry linking to its page, dated by its latest update, so readers show it again whenever it
+moves. Maintenance windows aren't in the feeds.
+
+## For scripts
+
+To read the current status from a script, fetch `/snapshot.json` and read `indicator` (`none`,
+`minor`, `major`, `critical`) or each component's `status`. It's the same file the page reads.

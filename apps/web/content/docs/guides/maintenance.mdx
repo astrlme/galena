@@ -1,0 +1,44 @@
+---
+title: Schedule maintenance
+description: Announce planned work that starts and completes on its own.
+---
+
+<Steps>
+<Step>
+
+### Schedule the window
+
+In **Maintenance**, choose **Schedule window**:
+
+- **Title**: what people see, such as "Database upgrade".
+- **Starts (UTC)** and **Ends (UTC)**: the window must end after it starts. Allow some slack at
+  the end; finishing early is better news than overrunning.
+- **Message**: what will happen and what people may notice.
+- **Components under maintenance**.
+
+Subscribers following those components hear about it at once.
+
+</Step>
+<Step>
+
+### Let it run
+
+At the start time, the window moves to In progress, its components show Maintenance, and
+subscribers are told. At the end time it completes, the components return to what their monitors
+and incidents say, and subscribers are told again. You don't need to do anything.
+
+</Step>
+</Steps>
+
+## Changing plans
+
+- **Edit** a window any time before it completes. To end a running window early, set its end
+  time to now; to extend it, move the end later.
+- **Cancel** a window that hasn't started. It completes at once and subscribers hear it was
+  cancelled.
+
+## When it goes wrong
+
+Monitors keep checking during a window, but their transitions are recorded as suppressed. If the
+work causes a real outage, extend the window or publish an incident: the window only covers what
+you announced.

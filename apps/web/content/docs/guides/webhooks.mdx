@@ -1,0 +1,142 @@
+---
+title: Webhooks
+description: Receive signed JSON for every incident and maintenance event, and verify it.
+---
+
+Outgoing webhooks send a JSON `POST` to your URL for every incident and maintenance event the
+endpoint follows. They follow [Standard Webhooks](https://www.standardwebhooks.com/), so any of
+its libraries can verify them, or the short functions below.
+
+<Steps>
+<Step>
+
+### Add the endpoint
+
+In **Subscribers**, choose **Add destination**, pick **Webhook**, name it, enter an `https://`
+URL, and optionally choose the components it follows.
+
+</Step>
+<Step>
+
+### Copy the signing secret
+
+Galena shows the signing secret once, starting with `whsec_`. Store it with your receiver's
+secrets. If you lose it, delete the endpoint and add it again.
+
+</Step>
+<Step>
+
+### Send a test
+
+**Send test** posts a sample `incident.created` event titled "Test notification", signed like
+any other, with a `webhook-id` starting with `test_`. The dashboard shows the status code your
+receiver answered.
+
+</Step>
+</Steps>
+
+## What arrives
+
+```http
+POST /galena HTTP/1.1
+content-type: application/json
+user-agent: Galena-Webhooks/1 (+https://github.com/astrlme/galena)
+webhook-id: 0199a6c2-7d1e-7c3a-9f1b-2b4c5d6e7f80
+webhook-timestamp: 1790932443
+webhook-signature: v1,<base64 HMAC-SHA256>
+
+{"type":"incident.created","timestamp":"2026-10-02T09:14:03.120Z","data":{…}}
+```
+
+The body's `type` is one of `incident.created`, `incident.updated`, `incident.resolved`,
+`maintenance.scheduled`, `maintenance.started`, `maintenance.completed` and
+`maintenance.cancelled`. See the [payload reference](/docs/reference/webhooks/) for every field.
+
+## Verify the signature
+
+The signature is HMAC-SHA256 over `webhook-id`, `webhook-timestamp` and the raw body joined by
+dots, keyed with the base64 bytes after `whsec_`. Verify against the body exactly as received:
+parsing and re-serialising the JSON changes it.
+
+<Tabs items={["Node", "Python"]}>
+<Tab value="Node">
+
+```js
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+const TOLERANCE_SECONDS = 5 * 60;
+
+/** True when `body` (the raw request body, as received) was signed with `secret`. */
+export function verifyWebhook(secret, headers, body) {
+  const id = headers["webhook-id"];
+  const timestamp = headers["webhook-timestamp"];
+  const signatures = headers["webhook-signature"];
+  if (!id || !timestamp || !signatures) return false;
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > TOLERANCE_SECONDS) return false;
+
+  const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
+  const expected = createHmac("sha256", key).update(`${id}.${timestamp}.${body}`).digest();
+  return signatures.split(" ").some((entry) => {
+    const [version, value] = entry.split(",");
+    if (version !== "v1" || !value) return false;
+    const given = Buffer.from(value, "base64");
+    return given.length === expected.length && timingSafeEqual(given, expected);
+  });
+}
+```
+
+With Express, read the raw body with `express.raw({ type: "application/json" })` and pass
+`req.body.toString("utf8")`.
+
+</Tab>
+<Tab value="Python">
+
+```python
+import base64
+import hashlib
+import hmac
+import time
+
+TOLERANCE_SECONDS = 5 * 60
+
+
+def verify_webhook(secret: str, headers, body: bytes) -> bool:
+    """True when body (the raw request body) was signed with secret."""
+    msg_id = headers.get("webhook-id")
+    timestamp = headers.get("webhook-timestamp")
+    signatures = headers.get("webhook-signature")
+    if not (msg_id and timestamp and signatures):
+        return False
+    if abs(time.time() - int(timestamp)) > TOLERANCE_SECONDS:
+        return False
+
+    key = base64.b64decode(secret.removeprefix("whsec_"))
+    signed = f"{msg_id}.{timestamp}.".encode() + body
+    expected = base64.b64encode(hmac.new(key, signed, hashlib.sha256).digest()).decode()
+    return any(
+        hmac.compare_digest(value, expected)
+        for version, _, value in (s.partition(",") for s in signatures.split())
+        if version == "v1"
+    )
+```
+
+With Flask, pass `request.headers` and `request.get_data()`.
+
+</Tab>
+</Tabs>
+
+Reject a request that fails verification with a 401. Refusing timestamps more than five minutes
+off stops an attacker from replaying a captured request later.
+
+## Answer quickly, de-duplicate
+
+- Answer with any 2xx within 8 seconds, then do slow work afterwards. Galena gives up waiting
+  after that and retries.
+- A 429 or 5xx answer, or no answer, is retried up to 5 times with backoff from 5 seconds to 10
+  minutes. Any other answer fails the delivery at once.
+- `webhook-id` stays the same across retries of one delivery. Store the ids you've handled and
+  skip repeats.
+- Deliveries can arrive out of order. Use `data.occurredAt` to keep the latest state.
+
+A delivery that fails marks the endpoint **Failing since** that time in the dashboard; it keeps
+receiving new events, and the next success marks it active again.
