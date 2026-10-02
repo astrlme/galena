@@ -1,7 +1,9 @@
 "use client";
 
+import { Minus } from "lucide-react";
 import {
   type ButtonHTMLAttributes,
+  type CSSProperties,
   createContext,
   type ReactNode,
   type RefObject,
@@ -19,6 +21,10 @@ import { Drawer } from "vaul";
 // The modal from astrl.me: a centred dialog from 640 px, a vaul bottom drawer below that. Both
 // trap focus and lock the page's scroll; they fade and scale (or slide) in 220 ms. Under reduced
 // motion the dialog's animations take 1 ms rather than none, so `animationend` still closes it.
+// A form opens as a sheet instead: from 640 px a vaul drawer from the right, with Minimize, which
+// closes it and leaves what was typed in the form's draft.
+
+type Kind = "sheet" | "dialog";
 
 type ModalContextValue = {
   onClose: () => void;
@@ -26,6 +32,8 @@ type ModalContextValue = {
   descriptionId: string;
   /** In the drawer the title is vaul's, which names the drawer for assistive tech. */
   drawer: boolean;
+  /** A sheet's title leaves room for Minimize. */
+  sheet: boolean;
   /** A description registers itself, so `aria-describedby` never points at nothing. */
   setDescribed: (described: boolean) => void;
 };
@@ -99,6 +107,13 @@ function useScrollLock(enabled: boolean): void {
 }
 
 const SCRIM = "fixed inset-0 z-50 bg-scrim/60 backdrop-blur-sm";
+const BOTTOM =
+  "fixed right-0 bottom-0 left-0 z-50 flex h-auto max-h-[96%] flex-col overflow-y-auto rounded-t-3xl border-mist border-t bg-surface px-6 pt-4 pb-10 text-ink outline-none";
+// Floats 8 px off the edges; vaul starts it that much further out so it slides in from off-screen.
+const SIDE =
+  "fixed inset-y-2 right-2 z-50 flex w-[480px] flex-col overflow-y-auto rounded-2xl border border-mist bg-surface p-6 text-ink shadow-2xl outline-none";
+const SIDE_START = { "--initial-transform": "calc(100% + 8px)" } as CSSProperties;
+const FIELD = "form :is(input, select, textarea):not([disabled])";
 
 function ModalPortal({
   open,
@@ -167,16 +182,33 @@ function ModalPortal({
   );
 }
 
+function Minimize() {
+  const { onClose } = useModalContext();
+  return (
+    <button
+      type="button"
+      onClick={onClose}
+      className="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-[6px] px-2 py-1 text-[14px] text-graphite transition-colors duration-[120ms] hover:bg-mist hover:text-ink motion-reduce:transition-none"
+    >
+      <Minus aria-hidden="true" size={16} strokeWidth={1.5} />
+      Minimize
+    </button>
+  );
+}
+
 function ModalRoot({
   open,
   onClose,
   children,
+  kind = "sheet",
   closeOnOverlayClick = true,
   closeOnEsc = true,
 }: {
   open: boolean;
   onClose: () => void;
   children: ReactNode;
+  /** A form opens as a sheet; a confirmation, or anything read once, as a dialog. */
+  kind?: Kind;
   closeOnOverlayClick?: boolean;
   closeOnEsc?: boolean;
 }) {
@@ -184,6 +216,9 @@ function ModalRoot({
   const descriptionId = useId();
   const [described, setDescribed] = useState(false);
   const isMobile = useIsMobile();
+  const sheet = kind === "sheet";
+  const side = sheet && !isMobile;
+  const contentRef = useRef<HTMLDivElement>(null);
   // What was shown stays while the modal animates closed.
   const [snapshot, setSnapshot] = useState<ReactNode>(children);
   if (open && snapshot !== children) setSnapshot(children);
@@ -192,27 +227,38 @@ function ModalRoot({
     onClose,
     titleId,
     descriptionId,
-    drawer: isMobile,
+    drawer: isMobile || side,
+    sheet,
     setDescribed,
   };
   const describedBy = described ? descriptionId : undefined;
 
-  if (isMobile) {
+  if (isMobile || side) {
     return (
       <ModalContext.Provider value={ctx}>
         <Drawer.Root
           open={open}
           onOpenChange={(o) => !o && onClose()}
           dismissible={closeOnOverlayClick}
+          direction={side ? "right" : "bottom"}
         >
           <Drawer.Portal>
             <Drawer.Overlay className={SCRIM} />
             <Drawer.Content
+              ref={contentRef}
               aria-labelledby={titleId}
               aria-describedby={describedBy}
-              className="fixed right-0 bottom-0 left-0 z-50 flex h-auto max-h-[96%] flex-col overflow-y-auto rounded-t-3xl border-mist border-t bg-surface px-6 pt-4 pb-10 text-ink outline-none"
+              // The first field, as the dialog does; on a phone that would raise the keyboard.
+              onOpenAutoFocus={(e) => {
+                if (!side) return;
+                e.preventDefault();
+                contentRef.current?.querySelector<HTMLElement>(FIELD)?.focus();
+              }}
+              style={side ? SIDE_START : undefined}
+              className={side ? SIDE : BOTTOM}
             >
-              <Drawer.Handle className="mx-auto mb-5 h-1 w-10 rounded-full bg-ash" />
+              {!side && <Drawer.Handle className="mb-5" />}
+              {sheet && <Minimize />}
               {stableChildren}
             </Drawer.Content>
           </Drawer.Portal>
@@ -237,8 +283,8 @@ function ModalRoot({
 }
 
 function ModalTitle({ children, className = "" }: { children: ReactNode; className?: string }) {
-  const { titleId, drawer } = useModalContext();
-  const style = `font-semibold text-[19px] leading-[1.35] ${className}`;
+  const { titleId, drawer, sheet } = useModalContext();
+  const style = `font-semibold text-[19px] leading-[1.35] ${sheet ? "pr-28" : ""} ${className}`;
   return drawer ? (
     <Drawer.Title id={titleId} className={style}>
       {children}

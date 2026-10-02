@@ -91,6 +91,15 @@
   /* biome-ignore lint/complexity/noImportantStyles: vaul injects its styles after ours */
   transition-duration: 220ms !important;
 }
+/* vaul's handle is a light grey of its own, and its styles outrank our utilities: draw it with
+   the theme's tokens. */
+[data-vaul-drawer] [data-vaul-handle] {
+  width: 40px;
+  height: 4px;
+  flex-shrink: 0;
+  opacity: 1;
+  background: var(--ash);
+}
 @media (prefers-reduced-motion: reduce) {
   [data-vaul-drawer],
   [data-vaul-overlay] {
