@@ -135,16 +135,13 @@ export default function Home() {
           <p className="mt-4 max-w-[64ch] text-[16px] leading-[1.6] text-slate">
             Galena is in active development and has no release yet. Detection, the static page,
             incidents, maintenance and notifications work today; incidents drafted from monitors,
-            approvals in Slack and alert ingest are next. Galena's own status page runs on it.
+            approvals in Slack and alert ingest are next.
           </p>
-          <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2">
+          <p className="mt-6">
             <Link href="/docs/roadmap/" className="underline">
               Roadmap
             </Link>
-            <a href="https://status.astrl.me" className="underline">
-              status.astrl.me
-            </a>
-          </div>
+          </p>
         </section>
       </main>
       <footer className="border-t border-mist">
