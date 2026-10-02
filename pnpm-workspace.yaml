@@ -12,3 +12,6 @@ overrides:
   # The trigger.dev SDK's socket client pins ws 8.11, which has DoS and memory-disclosure fixes
   # since; the 8.x API it uses is unchanged.
   engine.io-client>ws: ^8.21.0
+  # MDX's hast-util-to-estree passes `reactCompat`, which style-to-js only has from 1.1; its
+  # `^1.0.0` range otherwise resolves to 1.0.0 and code blocks fail to compile.
+  style-to-js: ^1.1.21
