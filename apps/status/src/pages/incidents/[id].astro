@@ -41,7 +41,7 @@ const { incident, pageName, names } = Astro.props;
 
 <Page title={`${incident.title}: ${pageName} status`} description={`${incidentStatusLabels[incident.status]}. ${incident.title}.`} pageName={pageName}>
   <article class={`incident hero impact-${incident.impact}`}>
-    <h1 class="headline"><Glyph name={pageIndicatorStates[incident.impact]} class="" />{incident.title}</h1>
+    <h1 class="headline">{incident.impact !== "none" && <Glyph name={pageIndicatorStates[incident.impact]} class="" />}{incident.title}</h1>
     <p class="secondary">
       {incidentStatusLabels[incident.status]}. {incidentImpactLabels[incident.impact]}. Started <time datetime={incident.startedAt}>{utcDateTime(incident.startedAt)}</time>{incident.resolvedAt ? `, resolved after ${duration(incident.startedAt, incident.resolvedAt)}.` : "."}
     </p>

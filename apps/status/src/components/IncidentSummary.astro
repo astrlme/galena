@@ -22,7 +22,7 @@ const preview =
 <article class:list={["incident", `impact-${incident.impact}`, { card }]}>
   <div class="incident-title">
     <span class="label">
-      <Glyph name={pageIndicatorStates[incident.impact]} />
+      {incident.impact !== "none" && <Glyph name={pageIndicatorStates[incident.impact]} />}
       <a href={`/incidents/${incident.id}/`}>{incident.title}</a>
     </span>
     {incident.impact !== "none" && <span class="secondary">{incidentImpactLabels[incident.impact]}</span>}
