@@ -1,0 +1,58 @@
+---
+title: Limits
+description: Every fixed limit in Galena, in one place.
+---
+
+## Content
+
+| What | Limit |
+| --- | --- |
+| Component and group names | 100 characters |
+| Component description | 500 characters |
+| Monitor name | 100 characters |
+| Monitor keyword | 200 characters |
+| Accepted status codes per monitor | 20 |
+| Incident and window titles | 200 characters |
+| Update and window messages | 5,000 characters |
+| Components per incident, window, subscriber or endpoint | 100 |
+| Endpoint name | 100 characters |
+| Endpoint URL | 2,000 characters, `https://` only |
+
+## Checks
+
+| What | Limit |
+| --- | --- |
+| Check interval | 1 minute |
+| Timeout | 1 to 10 seconds, default 10 |
+| Redirects followed | 5 |
+| Body read for a keyword | the first 1 MiB |
+| Checks run at once in one probe run | 50 |
+| Probe run time | 50 seconds |
+| Check results kept | 90 days |
+| Monitors, with the default DynamoDB capacity | about 50 on `dev`, about 200 on `prod`, across three regions |
+
+A probe run that waits on many slow targets at once can run out of its 50 seconds: 50 checks at a
+time, each allowed up to 10 seconds. Above roughly 200 monitors that becomes a real risk during a
+wide outage. Splitting a region's monitors across several runs is not built yet.
+
+## Rates
+
+| What | Limit |
+| --- | --- |
+| API requests | 50 a second, bursts of 100 |
+| Sign-in attempts | rate limited per visitor address |
+| Subscribe form | 10 sign-ups per visitor address an hour; one confirmation email per address every 10 minutes; 200 confirmation emails an hour in total |
+| Webhook and Slack sends | 8-second timeout; 5 attempts |
+| Email sends | 5 attempts |
+
+Past a subscribe limit, the form answers exactly as if it had worked, so it never reveals whether
+an address is subscribed.
+
+## History
+
+| What | Kept |
+| --- | --- |
+| Days on the strip and in the uptime figure | 90 |
+| Past incidents on the page and in the feeds | resolved in the last 14 days |
+| Confirmation links | 7 days |
+| Unsubscribe links | for good |

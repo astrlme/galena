@@ -1,0 +1,85 @@
+---
+title: API
+description: Base URL, signing in, roles and errors for the Galena API.
+---
+
+The dashboard is built on the same API you can call. Everything it does, you can do from a
+script. The pages in this section are generated from the API's OpenAPI document, which the
+deployment also serves at `/openapi.json`.
+
+## Base URL
+
+The API answers on the dashboard's own address, under `/v1/*` (data) and `/auth/*` (sign-in).
+With the dashboard at `https://d1234example.cloudfront.net`, the components endpoint is
+`https://d1234example.cloudfront.net/v1/components`.
+
+Calling the API Gateway address directly is refused with `403 not_through_cloudfront`: only
+CloudFront adds the header the API checks.
+
+## Signing in
+
+Requests are authorised by the session cookie the dashboard uses. Sign in once and keep the
+cookie:
+
+```bash
+URL=https://d1234example.cloudfront.net
+curl -c cookies.txt -X POST "$URL/auth/sign-in/email" \
+  -H "origin: $URL" -H 'content-type: application/json' \
+  -d '{"email":"you@example.com","password":"…"}'
+
+curl -b cookies.txt "$URL/v1/components"
+```
+
+Sign-in needs the `origin` header to match the dashboard's address. An account with two-factor
+on answers `{"twoFactorRedirect": true}`; finish with
+`POST /auth/two-factor/verify-totp` and `{"code":"123456"}`, sending the same cookie jar.
+
+Sign-in attempts are rate limited per visitor address.
+
+<Callout>
+API keys for scripts are on the [roadmap](/docs/roadmap/). Until then, sign in as a member with the
+role the script needs.
+</Callout>
+
+## Roles
+
+| Endpoints | Reading | Changing |
+| --- | --- | --- |
+| Components, groups, monitors, incidents, maintenance | Viewer | Editor |
+| Webhook endpoints, subscribers | Admin | Admin |
+
+See [Workspace and roles](/docs/concepts/workspace/).
+
+## Errors
+
+Errors follow [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) as
+`application/problem+json`, with a stable `code` to branch on:
+
+```json
+{
+  "type": "about:blank",
+  "status": 404,
+  "code": "not_found",
+  "title": "Incident not found",
+  "detail": "No incident has that id in this workspace. Reload the page and try again."
+}
+```
+
+| Status | Typical codes |
+| --- | --- |
+| 400 | `validation_failed`: the body or a parameter doesn't match the schema; `detail` names each field |
+| 401 | `unauthenticated`: not signed in |
+| 403 | `forbidden`: the member's role is too low; or `not_through_cloudfront` |
+| 404 | `not_found`: nothing with that id in this workspace |
+| 409 | A conflict with the current state, such as `already_set_up`, `order_mismatch` or `illegal_transition` |
+| 422 | A rule refused the content, such as `unfilled_placeholder` or `html_not_allowed` |
+| 429 | Rate limited |
+
+## Conventions
+
+- JSON in and out, camelCase field names.
+- Times are ISO 8601 in UTC.
+- ids are UUID v7.
+- `PUT` replaces a resource with every field; `PATCH` changes only the fields sent.
+- The first request after Aurora has paused can take around 15 seconds. Use a client timeout of
+  at least 20 seconds.

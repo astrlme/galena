@@ -1,0 +1,87 @@
+---
+title: snapshot.json
+description: The status page's read model, published as a public file.
+---
+
+`/snapshot.json` holds everything the status page shows. The page, its feeds, badge and favicons
+are all derived from it, and open pages poll it every 30 seconds. It contains public data only:
+nothing from a draft, dismissed or internal incident ever reaches it.
+
+```json
+{
+  "version": 1,
+  "snapshotVersion": 412,
+  "publishedAt": "2026-10-02T09:41:14.380Z",
+  "page": { "slug": "status", "name": "Acme", "url": "https://status.example.com" },
+  "indicator": "major",
+  "groups": [
+    { "id": "0199…", "name": "Europe", "componentIds": ["0199…", "0199…"] }
+  ],
+  "components": [
+    {
+      "id": "0199…",
+      "groupId": "0199…",
+      "name": "API",
+      "description": null,
+      "status": "partial_outage",
+      "days": [
+        { "date": "2026-10-01", "worst": "operational", "downMinutes": 0, "minutes": { "operational": 1440 } },
+        { "date": "2026-10-02", "worst": "partial_outage", "downMinutes": 27, "minutes": { "operational": 554, "partial_outage": 27 } }
+      ],
+      "uptime": 99.98
+    }
+  ],
+  "incidents": { "active": [], "recent": [] },
+  "maintenance": { "active": [], "upcoming": [] }
+}
+```
+
+## Top level
+
+| Field | Meaning |
+| --- | --- |
+| `version` | The file format, `1` |
+| `snapshotVersion` | Increases with every publish; a newer file never loses to an older one |
+| `publishedAt` | When this file was published |
+| `page` | The page's slug, name and address |
+| `indicator` | The headline: `none`, `minor`, `major` or `critical`, as Statuspage's `status.indicator` |
+| `groups` | Component groups in page order, each with its components' ids |
+| `components` | Every component, in page order |
+| `incidents.active` | Published incidents not yet resolved, newest first |
+| `incidents.recent` | Incidents resolved in the last 14 days, newest first |
+| `maintenance.active` | Windows in progress |
+| `maintenance.upcoming` | Windows not started yet, soonest first; cancelled windows never appear |
+
+## Component
+
+| Field | Meaning |
+| --- | --- |
+| `status` | `operational`, `degraded_performance`, `partial_outage`, `major_outage` or `under_maintenance` |
+| `days` | Up to 90 UTC days, oldest first, ending today |
+| `days[].worst` | The worst status held for at least a minute; `null` for a day with no data |
+| `days[].downMinutes` | Minutes in partial or major outage |
+| `days[].minutes` | Whole minutes in each status; statuses never reached are left out |
+| `uptime` | Percent of observed minutes outside an outage over the 90 days, two decimals; `null` with no data |
+
+## Incident
+
+| Field | Meaning |
+| --- | --- |
+| `id`, `title` | |
+| `status` | `investigating`, `identified`, `monitoring`, `resolved` or `postmortem` |
+| `impact` | `none`, `minor`, `major` or `critical` |
+| `startedAt`, `resolvedAt`, `updatedAt` | `resolvedAt` is `null` while open; `updatedAt` is the latest update's time |
+| `components` | `{ componentId, status }` for each affected component |
+| `updates` | `{ id, status, body, createdAt }`, newest first; `body` is Markdown |
+
+## Maintenance window
+
+| Field | Meaning |
+| --- | --- |
+| `id`, `title`, `body` | `body` is the window's message |
+| `status` | `scheduled`, `in_progress`, `verifying` or `completed` |
+| `startsAt`, `endsAt` | |
+| `componentIds` | The components under maintenance |
+
+The file is served with `Cache-Control: public, max-age=2`. Fields may be added; ignore ones you
+don't know.

@@ -1,0 +1,73 @@
+---
+title: Webhook payloads
+description: Headers and body of every outgoing webhook.
+---
+
+See [Webhooks](/docs/guides/webhooks/) for adding an endpoint and verifying signatures.
+
+## Headers
+
+| Header | Value |
+| --- | --- |
+| `content-type` | `application/json` |
+| `user-agent` | `Galena-Webhooks/1 (+https://github.com/astrlme/galena)` |
+| `webhook-id` | The delivery's id; the same on every retry of one delivery. Test sends start with `test_`. |
+| `webhook-timestamp` | When this attempt was signed, in Unix seconds |
+| `webhook-signature` | `v1,` and the base64 HMAC-SHA256 of `{webhook-id}.{webhook-timestamp}.{body}` |
+
+## Body
+
+```json
+{
+  "type": "incident.updated",
+  "timestamp": "2026-10-02T09:41:12.004Z",
+  "data": {
+    "kind": "incident_updated",
+    "eventId": "0199a6d9-2c41-7e0b-8d3a-6f2e1c9b4a70",
+    "page": { "name": "Acme", "url": "https://status.example.com" },
+    "title": "Elevated API errors",
+    "status": "identified",
+    "impact": "major",
+    "components": [
+      { "id": "0199a1f0-5b2e-7a44-9c1d-3e8f7a6b5c40", "name": "API", "status": "partial_outage" }
+    ],
+    "body": "We found the cause: a bad deploy. We're rolling it back. Next update by 10:00 UTC.",
+    "startsAt": "2026-10-02T09:14:03.120Z",
+    "endsAt": null,
+    "occurredAt": "2026-10-02T09:41:12.004Z",
+    "url": "https://status.example.com/incidents/0199a6c2-7d1e-7c3a-9f1b-2b4c5d6e7f80/"
+  }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `type` | The event, with a dot: see the table below |
+| `timestamp` | When the change happened, the same as `data.occurredAt` |
+| `data.kind` | The event, with an underscore |
+| `data.eventId` | The event's id; one event can reach many endpoints |
+| `data.page` | The status page's name and address |
+| `data.title` | The incident's or the window's title |
+| `data.status` | The incident's status (`investigating`, `identified`, `monitoring`, `resolved`, `postmortem`) or the window's (`scheduled`, `in_progress`, `verifying`, `completed`) |
+| `data.impact` | `none`, `minor`, `major` or `critical`; `null` for maintenance |
+| `data.components` | Each affected component's id, name and the status the incident gives it; the status is `null` for maintenance |
+| `data.body` | The latest update, or the window's message, in the page's Markdown |
+| `data.startsAt` | When the incident started, or when the window starts |
+| `data.endsAt` | When the incident resolved, or when the window ends; `null` while an incident is open |
+| `data.occurredAt` | When this change happened |
+| `data.url` | The incident's page, or the status page for maintenance |
+
+## Event types
+
+| `type` | Sent when |
+| --- | --- |
+| `incident.created` | A published incident is created, or a draft is published |
+| `incident.updated` | An update is posted that doesn't resolve it |
+| `incident.resolved` | The incident is resolved |
+| `maintenance.scheduled` | A window is first scheduled |
+| `maintenance.started` | A window starts |
+| `maintenance.completed` | A window ends |
+| `maintenance.cancelled` | A window is cancelled before it starts |
+
+New fields may be added to `data`; ignore fields you don't know. Values are snake_case and match
+Atlassian Statuspage's where Statuspage defines them.

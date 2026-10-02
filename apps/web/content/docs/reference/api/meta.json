@@ -1,0 +1,12 @@
+{
+  "title": "API",
+  "pages": [
+    "index",
+    "workspace",
+    "components",
+    "monitors",
+    "incidents",
+    "maintenance",
+    "notifications"
+  ]
+}

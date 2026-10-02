@@ -1,0 +1,55 @@
+---
+title: Events and keys
+description: Every event Galena passes between its parts, and the key that makes each one safe to repeat.
+---
+
+Anything in Galena that can be retried carries a deterministic key, so a retry, a redelivery or a
+second trigger finds the work already done. This page lists every event and its key.
+
+## Envelope
+
+Events between the API, the evaluator and the workers share one envelope:
+
+```ts
+type EventEnvelope<Type extends string, Data> = {
+  id: string;          // UUID v7; also the correlation id from probe to delivery
+  type: Type;
+  occurredAt: string;  // ISO 8601, UTC
+  workspaceId: string;
+  data: Data;
+};
+```
+
+## Catalogue
+
+| Event | From | To | Key |
+| --- | --- | --- | --- |
+| Check result | Probe | Evaluator, over SQS FIFO in group `{monitorId}` | `{monitorId}#{region}#{epochMinute}` |
+| Canary result | Probe | Evaluator, in group `canary#{region}` | `canary#{region}#{epochMinute}` |
+| `monitor.transitioned` | Evaluator | `monitor.state-changed` | `mon:{monitorId}:{transitionSeq}` |
+| `incident.created`, `.updated`, `.resolved` | API, through the outbox | `page.publish`, `notify.fanout` | `outbox:{outboxId}` |
+| `maintenance.scheduled`, `.started`, `.completed`, `.cancelled` | API and `maintenance.lifecycle`, through the outbox | `maintenance.lifecycle`, `monitors.json`, `page.publish`, `notify.fanout` | `outbox:{outboxId}` |
+| `monitor.changed` | API, through the outbox | `monitors.json` | `outbox:{outboxId}` |
+| `component.changed`, `component_group.changed` | API, through the outbox | `page.publish` | `outbox:{outboxId}` |
+| `subscriber.requested` | API (`/public/subscribe`), through the outbox | `notify.email` (the confirmation) | `outbox:{outboxId}` |
+
+## Task keys
+
+| Task | Key | Meaning |
+| --- | --- | --- |
+| `outbox.dispatch` | `outbox:{outboxId}` | One dispatch per outbox row |
+| `page.publish` | `pub:{snapshotVersion}` | One publish per version; older versions stop early |
+| `page.rebuild-html` | `html:{snapshotVersion}` | One HTML build per published version |
+| `notify.fanout` | `fan:{eventId}` | One fan-out per event |
+| `notify.email`, `notify.slack`, `notify.webhook` | `send:{eventId}:{subscriberId or endpointId}` | One send per event and target, backed by a unique delivery row |
+| `maintenance.lifecycle` | `mnt:{maintenanceId}:{version}` | One run per version of a window; an edit starts a new one |
+
+## Change events
+
+`*.changed` events carry what happened and to what:
+
+```json
+{ "action": "updated", "ids": ["0199…"] }
+```
+
+`action` is one of `created`, `updated`, `deleted` or `reordered`.
