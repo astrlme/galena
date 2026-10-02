@@ -1,0 +1,36 @@
+---
+title: The Data API, no NAT
+description: Why nothing in Galena connects to the database over the network.
+---
+
+## Problem
+
+A Lambda inside a VPC needs a NAT gateway to reach the internet, which costs more each month than
+the rest of an idle deployment, and a connection pooler. RDS Proxy has a constant minimum charge
+and keeps Aurora from pausing. The workers run outside AWS entirely.
+
+## Decision
+
+Turn on the RDS Data API. Lambdas stay outside the VPC; the API, the migrations and the workers
+use Drizzle's Data API driver over HTTPS, authorised by IAM. The VPC has isolated subnets only.
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| VPC Lambdas, NAT and RDS Proxy | Cost, and Aurora can no longer pause |
+| A public database endpoint | Security |
+| Workers call the API instead of the database | An extra hop and duplicated logic |
+
+## Consequences
+
+- Data API calls are slower than a pooled connection, so statements are batched where possible.
+- The Data API sends every string parameter as `text`, so enum columns need explicit casts.
+- The workers hold a long-lived IAM access key scoped to the cluster, its secret, the buckets and
+  SES, rotated quarterly. trigger.dev's private networking is the upgrade path.
+- Locally, the same code runs on node-postgres against Docker.
+
+## Revisit when
+
+API latency from Data API calls becomes noticeable (around 300 ms at p95), or a compliance need
+rules out access keys.

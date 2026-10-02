@@ -1,0 +1,42 @@
+---
+title: Data first, HTML second
+description: Why the page publishes its data files and its HTML separately.
+---
+
+## Problem
+
+Readers need to see a change within seconds. A full static build takes seconds to tens of
+seconds, and mustn't run once per keystroke of an incident update.
+
+## Decision
+
+- `page.publish` writes `snapshot.json`, the feeds, the badge and the favicons in well under a
+  second. Files are cached for 2 seconds, so no invalidation is needed.
+- Open pages poll `snapshot.json` every 30 seconds and update in place.
+- `page.rebuild-html` runs `astro build` one at a time, and the newest snapshot wins.
+- Versions come from a Postgres sequence, taken only after the change has committed, and both
+  tasks stop early when a newer version is already out.
+- The hourly uptime rollup republishes, so the page's "Updated" time is at most about an hour old
+  while everything is healthy.
+
+See [Publishing](/docs/architecture/publishing/).
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| Rebuild the HTML on every change | Slow and wasteful under bursts |
+| WebSockets or server-sent events | Need always-on compute, which shares fate with the rest |
+| Render only in the browser | Bad for readers without JavaScript, for search engines and for accessibility |
+
+## Consequences
+
+- For a few seconds the HTML may lag the data. Readers with JavaScript see the data; the page says
+  so when its data is more than two hours old.
+- Each HTML build renders every page. The snapshot holds 14 days of incidents, so that's a handful
+  of pages. Astro's incremental builds, with a cache kept between runs, are the next step when
+  builds grow.
+
+## Revisit when
+
+Astro can render pages directly inside the publish task.

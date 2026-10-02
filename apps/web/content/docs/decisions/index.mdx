@@ -1,0 +1,23 @@
+---
+title: Design decisions
+description: The choices that shape Galena, what was weighed, and when to revisit them.
+---
+
+Each page records one decision: the problem, what was chosen, the alternatives, what it costs,
+and what would make it worth revisiting. Where something decided is not built yet, the page says
+so.
+
+| Decision | In short |
+| --- | --- |
+| [Probes on Lambda, workflows on trigger.dev](/docs/decisions/lambda-and-trigger-dev/) | Per-minute checks are cheap on Lambda; long, retrying workflows suit trigger.dev |
+| [A static page in its own regions](/docs/decisions/static-status-page/) | The page must outlive the service it reports on |
+| [DynamoDB for telemetry, Postgres for the domain](/docs/decisions/two-data-stores/) | Millions of disposable writes, and a small relational core that can sleep |
+| [The Data API, no NAT](/docs/decisions/data-api/) | No VPC Lambdas, no NAT gateway, a database that pauses |
+| [SQS FIFO grouped by monitor](/docs/decisions/sqs-fifo/) | Ordered, de-duplicated results per monitor |
+| [Quorum, hysteresis and an approval gate](/docs/decisions/detection/) | A false public incident costs more than a slightly late one |
+| [A transactional outbox](/docs/decisions/outbox/) | No committed change loses its event, and nothing polls the database |
+| [Data first, HTML second](/docs/decisions/two-speed-publishing/) | Changes visible in seconds without a build per keystroke |
+| [A static dashboard](/docs/decisions/static-dashboard/) | No web compute to run or keep warm |
+| [Apache-2.0, single tenant](/docs/decisions/license-and-tenancy/) | Easy to adopt; one workspace per deployment, ready for more |
+| [Global identity tables](/docs/decisions/identity-tables/) | People are global; workspaces are joined through membership |
+| [Status colours and calm motion](/docs/decisions/colour-and-motion/) | Colour adds meaning, never carries it alone |

@@ -1,0 +1,34 @@
+---
+title: Global identity tables
+description: Why users and sessions carry no workspace, while everything else does.
+---
+
+## Problem
+
+Every table keeps `workspace_id` so tenancy can come later without a schema rewrite. Better Auth
+owns the identity tables: `user`, `session`, `account` and `verification`. In multi-tenant
+systems a person is a global identity who joins workspaces through a membership. A
+`workspace_id` on `user` would tie each person to exactly one workspace, the opposite of being
+ready for tenancy.
+
+## Decision
+
+`user`, `session`, `account`, `verification`, and per-user plugin tables such as `two_factor`,
+carry no `workspace_id`. A person belongs to a workspace through `member` (workspace, user,
+role). Every other table keeps `workspace_id`.
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| `workspace_id` on the identity tables too | One workspace per person for good, hooks to fill it on every sign-up, and a migration the day tenancy arrives |
+
+## Consequences
+
+Authorisation always goes through `member`: a session proves who someone is, and the membership
+says what they may do in a workspace.
+
+## Revisit when
+
+Better Auth's organisation plugin replaces `member`, or a tenant needs its users isolated from
+others.

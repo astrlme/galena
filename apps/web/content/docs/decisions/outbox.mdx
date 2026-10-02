@@ -1,0 +1,46 @@
+---
+title: A transactional outbox
+description: Why every change writes its own event, and why nothing polls for them.
+---
+
+## Problem
+
+The API commits a change to Postgres, then starts work on trigger.dev. If the process dies
+between the two, the event is lost, and the page and subscribers never hear about the change.
+
+The usual fix, a sweeper that polls an outbox table every minute, would keep Aurora awake around
+the clock. Aurora only pauses after five idle minutes, so a minute-by-minute poll would make the
+database the largest cost of the deployment.
+
+## Decision
+
+Write an `outbox` row in the same transaction as the change, then trigger `outbox.dispatch` for
+it after the commit, keyed `outbox:{id}`. The dispatcher hands the event to its consumers and
+marks the row dispatched; consumers are idempotent.
+
+Two more safeguards are planned and not built yet:
+
+- **A backstop.** The row's id is generated in the application, so before the transaction the
+  API can also trigger a dispatch delayed by one minute, which finds the row already handled, or
+  missing if the transaction rolled back.
+- **An hourly sweep** of rows still pending after five minutes, at the same minute as the other
+  hourly job, covering trigger.dev being unreachable when the change was written.
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| Trigger after commit, no outbox | Loses events on crashes |
+| A sweeper polling every minute | Keeps Aurora awake |
+| Change data capture from Postgres | Heavy at this size, and not available through the Data API |
+
+## Consequences
+
+- Every consumer must be safe to run twice; they are, through their keys.
+- Today, if trigger.dev is unreachable when a change is saved, the change is kept but its event
+  stays pending until the change is saved again.
+
+## Revisit when
+
+Event volume makes extra runs per change expensive, or the hour-long worst case of the sweep is
+too slow.

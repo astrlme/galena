@@ -1,0 +1,58 @@
+---
+title: Contributing
+description: Set up, the checks every change passes, and the rules the code keeps.
+---
+
+Start with [Local development](/docs/getting-started/local-development/) to get everything
+running.
+
+## Checks
+
+| Command | What it runs |
+| --- | --- |
+| `pnpm check` | Biome, TypeScript, unit tests and dependency rules. Run it before every commit. |
+| `pnpm test:int` | Integration tests against Postgres and DynamoDB Local in Testcontainers |
+| `pnpm test:e2e` | Playwright and axe against local dev, in light and dark |
+| `pnpm check:page` | The status page's JavaScript and HTML budgets, Lighthouse and axe |
+| `pnpm replay` | The detection rules against recorded check results |
+| `pnpm infra:synth` | CDK synth with cdk-nag |
+
+## Ground rules
+
+These hold the design together. A change that needs to break one starts with a discussion.
+
+- **The status page is static.** Visitors only ever load files from S3. The subscribe form is the
+  one request that reaches the API, and it fails gracefully.
+- **The hot path stays isolated.** `apps/probe` and `apps/evaluator` never touch Postgres, and
+  call trigger.dev only when a monitor changes state.
+- **Everything retryable is idempotent.** Every trigger, send and write that can repeat carries a
+  deterministic key; see [Events and keys](/docs/reference/events/).
+- **`packages/core` is pure.** No I/O, no clock, no environment: pass ports in. Write its tests
+  first, with fast-check for state machines. Detection changes also update the replay fixtures.
+- **No NAT gateway and no Lambda in a VPC.** Aurora is reached through the RDS Data API.
+- **Secrets never appear** in code, logs or error messages, and every outbound URL passes the
+  SSRF guard in `packages/integrations/src/net/ssrf.ts`.
+- **States are never shown by colour alone.** Every state has its label and glyph. Colours come
+  only from the tokens in `packages/ui/src/tokens.css`. Motion only responds to the person, lasts
+  at most 250 ms, and stops under reduced motion.
+- **`/api/v2/*.json` stays Statuspage-compatible**, once it exists: same field names, same values.
+
+## Code
+
+- TypeScript everywhere, ESM, Node 24.
+- Enums are `const` arrays of snake_case values, matching Statuspage where it defines them.
+- Expected failures in `packages/core` return a result with a code; only bugs throw.
+- API errors are RFC 9457 problem details with a stable `code`.
+- A deliberate shortcut is marked in code with a `// Known limit:` comment saying what it doesn't
+  handle.
+
+## Commits and pull requests
+
+- Conventional Commits with the package as scope: `feat(evaluator): add flap damping`.
+- Small commits; a body only when the reason isn't clear from the subject.
+- One pull request per area of change, saying what changed and how you checked it.
+
+## Security
+
+Report vulnerabilities privately through the repository's **Security** tab; see
+[Security model](/docs/operations/security/#reporting-a-vulnerability).

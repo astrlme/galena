@@ -1,0 +1,18 @@
+{
+  "title": "Design decisions",
+  "pages": [
+    "index",
+    "lambda-and-trigger-dev",
+    "static-status-page",
+    "two-data-stores",
+    "data-api",
+    "sqs-fifo",
+    "detection",
+    "outbox",
+    "two-speed-publishing",
+    "static-dashboard",
+    "license-and-tenancy",
+    "identity-tables",
+    "colour-and-motion"
+  ]
+}
