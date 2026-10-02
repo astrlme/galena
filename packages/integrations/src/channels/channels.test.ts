@@ -57,10 +57,10 @@ describe("slackMessage", () => {
 
   test("leads with the glyph and state, escapes markup, and keeps buttons unstyled", () => {
     const message = slackMessage(incident);
-    const [{ color, blocks }] = message.attachments;
+    const [{ color }] = message.attachments;
     // The bar takes the state's colour; the words still say it.
     expect(color).toBe("#EF4444");
-    expect(blocks[0]).toEqual({
+    expect(message.blocks[0]).toEqual({
       type: "header",
       text: { type: "plain_text", text: "✕︎ Major outage: API" },
     });
@@ -71,8 +71,9 @@ describe("slackMessage", () => {
   test("stays within Slack's limits for a very long update", () => {
     const message = slackMessage({ ...incident, title: "x".repeat(400), body: "y".repeat(10_000) });
     const [{ blocks }] = message.attachments;
-    expect(blocks.length).toBeLessThanOrEqual(50);
-    const [header, body] = blocks;
+    expect(message.blocks.length + blocks.length).toBeLessThanOrEqual(50);
+    const [header] = message.blocks;
+    const [body] = blocks;
     expect(header?.type === "header" && header.text.text.length).toBeLessThanOrEqual(150);
     expect(body?.type === "section" && body.text?.text.length).toBeLessThanOrEqual(3_000);
   });

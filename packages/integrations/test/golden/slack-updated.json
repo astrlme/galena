@@ -1,16 +1,18 @@
 {
   "text": "✕︎ Major outage: API. Monitoring. Critical impact. Started 30 Sep 2026, 10:00 UTC.",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "✕︎ Major outage: API"
+      }
+    }
+  ],
   "attachments": [
     {
       "color": "#EF4444",
       "blocks": [
-        {
-          "type": "header",
-          "text": {
-            "type": "plain_text",
-            "text": "✕︎ Major outage: API"
-          }
-        },
         {
           "type": "section",
           "text": {

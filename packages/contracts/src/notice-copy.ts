@@ -33,16 +33,18 @@ const names = (n: Notice) => n.components.map((c) => c.name).join(", ");
 
 /**
  * The state a notice is drawn in: an open incident's worst component state (or what its impact
- * stands for), operational once resolved or completed, maintenance otherwise.
+ * stands for), operational once resolved or completed, maintenance otherwise. `null` for an open
+ * incident with no impact and no component state: it is information, not an outage.
  */
-export function noticeState(n: Notice): ComponentStatus {
+export function noticeState(n: Notice): ComponentStatus | null {
   switch (n.kind) {
     case "incident_created":
     case "incident_updated": {
       const states = n.components.flatMap((c) => (c.status ? [c.status] : []));
       const order = Object.keys(componentStatusLabels);
       const worst = states.sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
-      return worst ?? pageIndicatorStates[n.impact ?? "none"];
+      if (worst) return worst;
+      return n.impact && n.impact !== "none" ? pageIndicatorStates[n.impact] : null;
     }
     case "incident_resolved":
     case "maintenance_completed":
@@ -59,7 +61,9 @@ export function noticeSubject(n: Notice): string {
     case "incident_created":
     case "incident_updated": {
       const state = noticeState(n);
-      return `${componentStatusSymbols[state]} ${componentStatusLabels[state]}: ${about}`;
+      return state
+        ? `${componentStatusSymbols[state]} ${componentStatusLabels[state]}: ${about}`
+        : `Update: ${about}`;
     }
     case "incident_resolved":
       return `${componentStatusSymbols.operational} Resolved: ${about}`;
@@ -86,13 +90,16 @@ export function noticeStatusLine(n: Notice): string {
   return `${status}. ${impact}. Started ${utcDateTime(n.startsAt)}.${resolved}`;
 }
 
+/** What the list of components is called: "Affected" for incidents, "Components" otherwise. */
+export const noticeAffectedLabel = (n: Notice) => (isMaintenance(n) ? "Components" : "Affected");
+
 /** Who is affected: "Affected: API (Partial outage), Web (Degraded performance)". */
 export function noticeAffected(n: Notice): string | null {
   if (n.components.length === 0) return null;
   const parts = n.components.map((c) =>
     c.status ? `${c.name} (${componentStatusLabels[c.status]})` : c.name,
   );
-  return `${isMaintenance(n) ? "Components" : "Affected"}: ${parts.join(", ")}`;
+  return `${noticeAffectedLabel(n)}: ${parts.join(", ")}`;
 }
 
 /** The update or the window's message, as paragraphs. */

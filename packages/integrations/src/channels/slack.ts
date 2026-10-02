@@ -12,9 +12,9 @@ import {
 } from "@galena/contracts";
 import { embed, stateTokens } from "@galena/ui/tokens";
 
-// A notice as a Slack incoming-webhook message (Block Kit) inside an attachment, for the colour
-// bar in the state's colour. Glyph and words still carry the state, and the one button has no
-// style (Slack's primary is green, danger red).
+// A notice as a Slack incoming-webhook message (Block Kit): the header on top, the rest in an
+// attachment for the colour bar in the state's colour. Glyph and words still carry the state, and
+// the one button has no style (Slack's primary is green, danger red).
 
 type Text = { type: "plain_text" | "mrkdwn"; text: string };
 type Block =
@@ -22,7 +22,11 @@ type Block =
   | { type: "section"; text?: Text; fields?: Text[] }
   | { type: "actions"; elements: Array<{ type: "button"; text: Text; url: string }> }
   | { type: "context"; elements: Text[] };
-export type SlackMessage = { text: string; attachments: [{ color: string; blocks: Block[] }] };
+export type SlackMessage = {
+  text: string;
+  blocks: Block[];
+  attachments: [{ color: string; blocks: Block[] }];
+};
 
 // Slack's limits: header 150 characters, section text 3,000, field 2,000.
 const cut = (text: string, max: number) =>
@@ -38,6 +42,7 @@ const hhmm = (iso: string) => utcDateTime(iso).split(", ")[1] ?? iso;
 
 export function slackMessage(notice: Notice): SlackMessage {
   const maintenance = notice.kind.startsWith("maintenance_");
+  const state = noticeState(notice);
   const subject = noticeSubject(notice);
   const components =
     notice.components
@@ -64,13 +69,14 @@ export function slackMessage(notice: Notice): SlackMessage {
     ...noticeParagraphs(notice).map(escapeMrkdwn),
   ].join("\n\n");
   return {
-    // What notifications and screen readers show.
+    // What notifications and screen readers show; with blocks present Slack doesn't print it.
     text: cut(`${subject}. ${noticeStatusLine(notice)}`, 3_000),
+    blocks: [{ type: "header", text: { type: "plain_text", text: cut(subject, 150) } }],
     attachments: [
       {
-        color: embed[stateTokens[noticeState(notice)]],
+        // Information without a state takes the informational colour.
+        color: state ? embed[stateTokens[state]] : embed.degraded,
         blocks: [
-          { type: "header", text: { type: "plain_text", text: cut(subject, 150) } },
           { type: "section", text: { type: "mrkdwn", text: cut(body, 3_000) } },
           { type: "section", fields },
           {
