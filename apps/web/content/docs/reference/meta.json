@@ -1,4 +1,4 @@
 {
   "title": "Reference",
-  "pages": ["api", "webhooks", "snapshot", "events", "configuration", "commands", "limits"]
+  "pages": ["api", "webhooks", "snapshot", "events", "configuration", "limits"]
 }
