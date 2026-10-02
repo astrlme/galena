@@ -32,13 +32,17 @@ export type WindowInput = Omit<z.output<typeof schema>, "componentIds"> & {
 const toMinute = (iso: string) => iso.slice(0, 16);
 
 export function MaintenanceForm({
+  title,
   editing,
   components,
+  problem,
   onSave,
   onCancel,
 }: {
+  title: string;
   editing: Window | undefined;
   components: { id: string; name: string }[];
+  problem: string | undefined;
   onSave: (input: WindowInput) => Promise<boolean>;
   onCancel: () => void;
 }) {
@@ -61,7 +65,6 @@ export function MaintenanceForm({
       setSelected([]);
     }
   });
-  const title = editing ? `Edit ${editing.title}` : "Schedule a window";
   const toggle = (id: string, on: boolean) =>
     setSelected((now) => (on ? [...now, id] : now.filter((c) => c !== id)));
   const label = editing
@@ -73,13 +76,7 @@ export function MaintenanceForm({
       : "Schedule window";
 
   return (
-    <form
-      onSubmit={submit}
-      aria-label={title}
-      className="mt-8 flex max-w-[640px] flex-col gap-4"
-      noValidate
-    >
-      <h2 className="text-[19px] font-semibold leading-[1.35]">{title}</h2>
+    <form onSubmit={submit} aria-label={title} className="mt-6 flex flex-col gap-4" noValidate>
       <Field
         id="window-title"
         label="Title"
@@ -122,15 +119,16 @@ export function MaintenanceForm({
         error={errors.body?.message}
         registration={form.register("body")}
       />
+      <p aria-live="polite" className="font-semibold text-major empty:hidden">
+        {problem}
+      </p>
       <div className="flex gap-4">
         <Button type="submit" variant="primary" disabled={isSubmitting}>
           {label}
         </Button>
-        {editing && (
-          <Button type="button" variant="quiet" onClick={onCancel}>
-            Stop editing
-          </Button>
-        )}
+        <Button type="button" variant="quiet" onClick={onCancel}>
+          {editing ? "Stop editing" : "Close"}
+        </Button>
       </div>
     </form>
   );
