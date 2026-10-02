@@ -15,6 +15,10 @@ test("add a webhook destination, see its secret once, then delete it after confi
   await expect(page.getByRole("heading", { name: "Subscribers", level: 1 })).toBeVisible();
   await expect(page.getByRole("region", { name: "Email" })).toBeVisible();
 
+  await page
+    .getByRole("region", { name: "Slack and webhooks" })
+    .getByRole("button", { name: "Add destination" })
+    .click();
   const form = page.getByRole("form", { name: "Add a destination" });
   // A Slack destination must be Slack's own address.
   await form.getByLabel("Name").fill(name);
@@ -29,6 +33,8 @@ test("add a webhook destination, see its secret once, then delete it after confi
   const secret = page.getByRole("status").filter({ hasText: `Signing secret for ${name}` });
   await expect(secret).toContainText("whsec_");
   await expectAccessible(page);
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(secret).toBeHidden();
 
   const row = page
     .getByRole("region", { name: "Slack and webhooks" })
