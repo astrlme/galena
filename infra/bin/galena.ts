@@ -8,7 +8,7 @@ import { EmailStack } from "../stacks/email.ts";
 import { FoundationStack } from "../stacks/foundation.ts";
 import { ProbeStack } from "../stacks/probe.ts";
 import { SmokeStack } from "../stacks/smoke.ts";
-import { PageCertificateStack, PageReplicaStack, StatusPageStack } from "../stacks/status-page.ts";
+import { CertificateStack, PageReplicaStack, StatusPageStack } from "../stacks/status-page.ts";
 import { WebStack } from "../stacks/web.ts";
 import { WorkerAccessStack } from "../stacks/worker-access.ts";
 
@@ -53,7 +53,7 @@ const replica = new PageReplicaStack(app, `galena-${config.stage}-page-replica`,
   config,
 });
 const certificate = config.pageDomain
-  ? new PageCertificateStack(app, `galena-${config.stage}-page-certificate`, {
+  ? new CertificateStack(app, `galena-${config.stage}-page-certificate`, {
       env: inRegion("us-east-1"),
       domain: config.pageDomain,
       crossRegionReferences: true,
