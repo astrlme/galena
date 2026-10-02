@@ -2,6 +2,11 @@
 // on phones), stays on the page and says what happened in place; when the API can't be reached it
 // says so instead of showing an error page.
 
+// The form is a plain section until this runs; motion starts a frame later, so the section
+// turns into a closed dialog without fading.
+document.documentElement.classList.add("js");
+requestAnimationFrame(() => document.documentElement.classList.add("motion"));
+
 const sheet = document.querySelector<HTMLDialogElement>("[data-subscribe-sheet]");
 const form = document.querySelector<HTMLFormElement>("[data-subscribe]");
 const status = form?.querySelector<HTMLElement>("[data-subscribe-status]");

@@ -412,11 +412,12 @@ footer {
   cursor: pointer;
 }
 
-/* The header's Subscribe: a quiet bordered button. */
+/* The header's Subscribe: a secondary button. */
 .subscribe-link {
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
+  background: var(--surface);
   border: 1px solid var(--mist);
   border-radius: 6px;
   padding: 6px 12px;
@@ -426,9 +427,10 @@ footer {
   border-color: var(--slate);
 }
 
-/* The subscribe dialog: centred from 640 px, a bottom sheet below, fading or sliding in
-   220 ms when opened; nothing moves under reduced motion. */
-.sheet {
+/* The subscribe dialog, once its script runs (html.js): centred from 640 px, a bottom sheet
+   below, fading or sliding in 220 ms when opened (html.motion, a frame later, so the switch from
+   section to closed dialog never fades); nothing moves under reduced motion. */
+html.js .sheet {
   width: min(448px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   padding: 0 24px 24px;
@@ -438,18 +440,20 @@ footer {
   color: var(--ink);
   opacity: 0;
   transform: scale(0.94);
+}
+html.motion .sheet {
   transition:
     opacity 220ms ease,
     transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
     overlay 220ms allow-discrete,
     display 220ms allow-discrete;
 }
-.sheet[open] {
+html.js .sheet[open] {
   opacity: 1;
   transform: none;
 }
 @starting-style {
-  .sheet[open] {
+  html.js .sheet[open] {
     opacity: 0;
     transform: scale(0.94);
   }
@@ -458,6 +462,8 @@ footer {
   background: color-mix(in srgb, var(--scrim) 60%, transparent);
   backdrop-filter: blur(4px);
   opacity: 0;
+}
+html.motion .sheet::backdrop {
   transition:
     opacity 220ms ease,
     overlay 220ms allow-discrete,
@@ -501,12 +507,13 @@ footer {
 .sheet-close:hover {
   color: var(--ink);
 }
+/* Lucide's x at 16 px with a 1.5 px stroke (2.25 units on its 24-unit grid). */
 .sheet-close svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 @media (max-width: 639px) {
-  .sheet {
+  html.js .sheet {
     width: 100%;
     max-width: none;
     margin: auto 0 0;
@@ -516,11 +523,11 @@ footer {
     opacity: 1;
     transform: translateY(100%);
   }
-  .sheet[open] {
+  html.js .sheet[open] {
     transform: none;
   }
   @starting-style {
-    .sheet[open] {
+    html.js .sheet[open] {
       transform: translateY(100%);
     }
   }
@@ -540,36 +547,33 @@ footer {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sheet,
-  .sheet::backdrop,
+  html.motion .sheet,
+  html.motion .sheet::backdrop,
   .subscribe-link,
   .subscribe input[type="email"] {
     transition: none;
   }
 }
-/* Without JavaScript the dialog is never opened: show it as a plain section at the end. */
-@media (scripting: none) {
-  .sheet {
-    display: block;
-    position: static;
-    width: auto;
-    max-width: none;
-    max-height: none;
-    margin: 48px 0 0;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: none;
-    opacity: 1;
-    transform: none;
-  }
-  .sheet-grip,
-  .sheet-close {
-    display: none;
-  }
-  .sheet-head h2 {
-    width: 100%;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--mist);
-  }
+/* Until the script runs, the dialog is a plain section at the end of the page. */
+html:not(.js) .sheet {
+  display: block;
+  position: static;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  margin: 48px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+}
+html:not(.js) .sheet-grip,
+html:not(.js) .sheet-close {
+  display: none;
+}
+html:not(.js) .sheet-head h2 {
+  width: 100%;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--mist);
 }
