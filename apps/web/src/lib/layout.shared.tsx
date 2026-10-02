@@ -5,6 +5,7 @@ import { Wordmark } from "../components/wordmark.tsx";
 export function baseOptions(): BaseLayoutProps {
   return {
     nav: { title: <Wordmark size={20} /> },
-    githubUrl: "https://github.com/astrlme/galena",
+    // A text link: Fumadocs' GitHub icon is an unnamed image to screen readers.
+    links: [{ text: "GitHub", url: "https://github.com/astrlme/galena", external: true }],
   };
 }
