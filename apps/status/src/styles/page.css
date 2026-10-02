@@ -115,6 +115,9 @@ time {
 [data-state="no_data"] {
   color: var(--ash);
 }
+.state-label:has(> [data-state="no_data"]) {
+  color: var(--slate);
+}
 
 section {
   margin-top: 48px;
