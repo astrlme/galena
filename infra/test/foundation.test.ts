@@ -105,7 +105,6 @@ test("publishes the identifiers other stacks and the workers read", () => {
       "config-bucket",
       "database-cluster-arn",
       "database-secret-arn",
-      "kms-key-arn",
       "telemetry-table",
     ].map((name) => `/galena/dev/${name}`),
   );
@@ -114,12 +113,7 @@ test("publishes the identifiers other stacks and the workers read", () => {
 test("prod keeps its data when the stack goes; dev does not", () => {
   const policies = (template: Template, type: string) =>
     Object.values(template.findResources(type)).map((r) => r.DeletionPolicy);
-  for (const type of [
-    "AWS::RDS::DBCluster",
-    "AWS::DynamoDB::Table",
-    "AWS::KMS::Key",
-    "AWS::S3::Bucket",
-  ]) {
+  for (const type of ["AWS::RDS::DBCluster", "AWS::DynamoDB::Table", "AWS::S3::Bucket"]) {
     expect(policies(prod.template, type)).toEqual(["Retain"]);
     expect(policies(dev.template, type)).toEqual(["Delete"]);
   }

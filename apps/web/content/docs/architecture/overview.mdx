@@ -76,7 +76,7 @@ ports, so the same rules run in Lambda, in trigger.dev, in tests and in the repl
 | Stack | Region | Holds |
 | --- | --- | --- |
 | `galena-<stage>-ci-access` | Home | GitHub's OIDC provider and the deploy role |
-| `galena-<stage>-foundation` | Home | KMS key, VPC with isolated subnets only, Aurora, DynamoDB, the SQS FIFO queue and its dead-letter queue, the config bucket, SSM parameters |
+| `galena-<stage>-foundation` | Home | VPC with isolated subnets only, Aurora, DynamoDB, the SQS FIFO queue and its dead-letter queue, the config bucket, SSM parameters |
 | `galena-<stage>-probe-<region>` | Each probe region | The probe Lambda and its every-minute schedule |
 | `galena-<stage>-detection` | Home | The evaluator |
 | `galena-<stage>-api` | Home | The API Lambda, HTTP API, the migration Lambda, the origin secret |
