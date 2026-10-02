@@ -1,0 +1,87 @@
+---
+title: Cold path
+description: How a change in the dashboard becomes a published page and a notification, exactly once.
+---
+
+The cold path handles everything people do and everything that follows a state change. It is
+built on two rules: **every change is recorded in the same transaction as the event that
+announces it**, and **everything that can run twice carries a deterministic key**.
+
+## The API
+
+The API is Hono on one Lambda behind an API Gateway HTTP API, throttled at 50 requests a second
+with bursts of 100. The dashboard reaches it on its own origin: the dashboard's CloudFront
+distribution forwards `/auth/*` and `/v1/*` to it, so cookies are first-party and there is no
+CORS. A secret header that only CloudFront adds keeps the API from being called directly.
+
+Requests are validated with the same Zod schemas the dashboard uses, and errors follow RFC 9457
+(`application/problem+json`) with a stable `code`. Domain rules live in `packages/core`; the API
+calls them through repositories in `packages/db`.
+
+## Domain writes and the outbox
+
+Every change (an incident update, a new monitor, a reordered group) runs in one database
+transaction that writes:
+
+1. the change itself;
+2. an audit log entry;
+3. an **outbox** row describing the event, such as `incident.updated` or `monitor.changed`.
+
+After the commit, the API triggers the `outbox.dispatch` task with the key `outbox:{outboxId}`.
+Triggering after the commit means the dispatcher never sees a change that could still roll back;
+writing the row inside the transaction means no committed change can lose its event.
+
+The dispatcher reads the row, does what the event needs, and marks it dispatched:
+
+| Event | Dispatch does |
+| --- | --- |
+| `monitor.changed` | Rewrites `monitors.json` for the probes |
+| `maintenance.*` | Starts or replaces the window's lifecycle run, rewrites `monitors.json`, publishes, notifies |
+| `incident.*` | Publishes, notifies |
+| `component.changed`, `component_group.changed` | Publishes |
+| `subscriber.requested` | Sends the confirmation email |
+
+Dispatch runs one at a time. Each run rebuilds `monitors.json` from the database, so the newest
+committed state is always written last.
+
+<Callout>
+If trigger.dev is unreachable at the moment of the trigger, the request still succeeds and the row
+stays pending, but nothing dispatches it later yet. An hourly sweep of pending rows is planned.
+</Callout>
+
+## Why nothing polls the database
+
+Aurora Serverless v2 pauses after five idle minutes and costs nothing for compute while paused. A
+dispatcher that polled the outbox every minute would keep it awake around the clock. So the cold
+path is event-driven: the API triggers dispatch directly, and the only scheduled job that reads
+Aurora is the hourly uptime rollup, at five past the hour.
+
+The first query after a pause can take around 15 seconds, and the Data API fails fast with
+`DatabaseResumingException` meanwhile. The database client retries that error for up to 30
+seconds, and the dashboard explains the wait after 10.
+
+## Tasks
+
+| Task | Started by | Runs | Idempotency key |
+| --- | --- | --- | --- |
+| `monitor.state-changed` | The evaluator, on a transition | Records the transition, republishes unless suppressed | `mon:{monitorId}:{transitionSeq}` |
+| `outbox.dispatch` | The API, after each commit | One at a time | `outbox:{outboxId}` |
+| `page.publish` | Dispatch, state changes, the rollup | One at a time; latest wins | `pub:{snapshotVersion}` |
+| `page.rebuild-html` | Each publish | One at a time; latest wins | `html:{snapshotVersion}` |
+| `notify.fanout` | Dispatch, for incident and maintenance events | | `fan:{eventId}` |
+| `notify.email` | Fan-out, and subscription requests | Up to 5 attempts | `send:{eventId}:{subscriberId}` |
+| `notify.slack`, `notify.webhook` | Fan-out | Up to 5 attempts, 10 at a time per channel | `send:{eventId}:{endpointId}` |
+| `maintenance.lifecycle` | Dispatch, when a window is scheduled or edited | Sleeps until start and end | `mnt:{maintenanceId}:{version}` |
+| `rollup.uptime` | Cron, five past every hour | Replays yesterday and today, then publishes | |
+
+trigger.dev tasks run on trigger.dev's machines, not in AWS. They reach AWS only as the
+`galena-<stage>-worker-access` IAM user, whose policy allows exactly what the tasks need.
+
+## Notification fan-out
+
+`notify.fanout` decides who hears about an event (see
+[Notifications](/docs/concepts/notifications/)), builds one notice, creates one **delivery** row
+per target, and triggers one send per row. Each row is unique on (event, target), so a re-run of
+the fan-out finds the rows already there and sends nothing twice. A send checks that its target
+still qualifies (still subscribed, endpoint not disabled) before sending, and records the result
+on its row.

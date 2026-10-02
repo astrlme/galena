@@ -1,0 +1,91 @@
+---
+title: Overview
+description: Three paths that fail independently, and the apps and packages that make them.
+---
+
+Galena is built around one promise: the status page must stay up when the things it reports on
+are down, including Galena itself. So it is split into three paths that share as little as
+possible.
+
+| Path | Runs on | Job | Touches |
+| --- | --- | --- | --- |
+| **Hot path** | Probe Lambdas in three regions, SQS FIFO, an evaluator Lambda, DynamoDB | Check every monitor every minute and work out its state | Never the database |
+| **Cold path** | The API on Lambda, Aurora Serverless v2, trigger.dev tasks | Incidents, maintenance, notifications, publishing | Woken only by people and by state changes |
+| **Read path** | S3 and CloudFront in two regions of their own | Serve the status page and its data files | Only files |
+
+A visitor's request only ever reaches the read path. If the API, the database and trigger.dev are
+all down at once, the last published page still serves. The page's subscribe form is the one
+exception, and it fails gracefully.
+
+## Regions
+
+A deployment uses a **home region** for the API, the database, detection and the workers' AWS
+access, at least three **probe regions**, and a **primary and replica region** for the page. The
+config refuses a page region that is also the home region. The defaults are all in Europe:
+
+| Role | Region |
+| --- | --- |
+| Home | eu-central-1 (Frankfurt) |
+| Probes | eu-west-1 (Ireland), eu-west-3 (Paris), eu-north-1 (Stockholm) |
+| Page | eu-west-1 primary, eu-north-1 replica |
+| CloudFront certificates | us-east-1 |
+
+Pick a home region where the services you watch don't run. If the home region fails with them,
+detection stops, but the page keeps serving its last snapshot from its own regions.
+
+## Repository
+
+```text
+apps/
+  web/          Next.js static export: landing, docs, dashboard
+  status/       Astro: the status page, built to static files
+  api/          Hono on Lambda (a Node server locally)
+  probe/        Lambda: runs checks in each probe region
+  evaluator/    Lambda: reads check results, runs detection
+  workers/      trigger.dev tasks
+packages/
+  contracts/    Zod schemas, enums and events shared by everything
+  core/         Pure domain logic: detection, lifecycles, status, uptime
+  db/           Drizzle schema, migrations and repositories
+  integrations/ The SSRF guard, the HTTP check, Slack and webhook senders, sealing keys
+  publisher/    snapshot files, feeds, badge and favicons
+  emails/       React Email templates
+  ui/           Design tokens
+infra/          The CDK app
+```
+
+Dependency rules are enforced by `pnpm check:deps`:
+
+| Package | May import | May not import |
+| --- | --- | --- |
+| `contracts` | zod | any other workspace package |
+| `core` | contracts | db, integrations, the AWS SDK, any I/O |
+| `probe`, `evaluator` | contracts, core, the network and config parts of integrations | db, publisher, emails |
+| `status` | contracts, publisher types, ui tokens | the API client, db, workers |
+| any app | any package | another app |
+
+`packages/core` is pure: no I/O, no clock, no environment. Time and storage come in through
+ports, so the same rules run in Lambda, in trigger.dev, in tests and in the replay harness.
+
+## Stacks
+
+| Stack | Region | Holds |
+| --- | --- | --- |
+| `galena-<stage>-ci-access` | Home | GitHub's OIDC provider and the deploy role |
+| `galena-<stage>-foundation` | Home | KMS key, VPC with isolated subnets only, Aurora, DynamoDB, the SQS FIFO queue and its dead-letter queue, the config bucket, SSM parameters |
+| `galena-<stage>-probe-<region>` | Each probe region | The probe Lambda and its every-minute schedule |
+| `galena-<stage>-detection` | Home | The evaluator |
+| `galena-<stage>-api` | Home | The API Lambda, HTTP API, the migration Lambda, the origin secret |
+| `galena-<stage>-web` | Home | The dashboard's bucket and CloudFront distribution |
+| `galena-<stage>-worker-access` | Home | The IAM user trigger.dev acts as |
+| `galena-<stage>-email` | Home | SES identity, configuration set and bounce handling |
+| `galena-<stage>-page`, `-page-replica`, `-page-certificate` | Page regions, us-east-1 | Page buckets, CloudFront, certificate |
+
+Every stack passes cdk-nag's AWS Solutions rules; each exception carries its reason in code.
+
+## No NAT, no Lambda in a VPC
+
+Aurora lives in isolated subnets with no route to the internet. Nothing reaches it over the
+network: the API, the migrations, the bounce handler and the workers all use the **RDS Data
+API**, an HTTPS endpoint authorised by IAM. No Lambda runs in the VPC, and there's no NAT gateway,
+which would cost more than the rest of an idle deployment together.
