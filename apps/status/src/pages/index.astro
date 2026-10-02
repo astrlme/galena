@@ -7,9 +7,10 @@ import {
 } from "@galena/contracts";
 import Glyph from "../components/Glyph.astro";
 import IncidentSummary from "../components/IncidentSummary.astro";
+import PastIncident from "../components/PastIncident.astro";
 import Strip from "../components/Strip.astro";
 import Page from "../layouts/Page.astro";
-import { duration, utcDateTime, utcDay, utcTime } from "../lib/format.ts";
+import { utcDateTime, utcTime } from "../lib/format.ts";
 import { rowLabel, rowState } from "../lib/row.ts";
 import { readSnapshot } from "../lib/snapshot.ts";
 
@@ -28,6 +29,9 @@ const groups = s.groups.map((g) => ({
   components: g.componentIds.flatMap((id) => byId.get(id) ?? []),
 }));
 const windows = [...s.maintenance.active, ...s.maintenance.upcoming];
+// The latest few past incidents; the rest open in place.
+const pastShown = s.incidents.recent.slice(0, 5);
+const pastMore = s.incidents.recent.slice(5);
 ---
 
 <Page title={`${s.page.name} status`} description={`${headline}. The current status of ${s.page.name}.`} pageName={s.page.name} snapshotVersion={s.snapshotVersion} publishedAt={s.publishedAt}>
@@ -87,17 +91,19 @@ const windows = [...s.maintenance.active, ...s.maintenance.upcoming];
     {s.incidents.recent.length === 0 ? (
       <p class="secondary">No incidents in the last 14 days.</p>
     ) : (
-      <ol class="past">
-        {s.incidents.recent.map((i) => (
-          <li>
-            <time datetime={i.startedAt}>{utcDay(i.startedAt)}</time>
-            <span>
-              <a href={`/incidents/${i.id}/`}>{i.title}</a>
-              {i.resolvedAt && <span class="secondary"><br />Resolved after {duration(i.startedAt, i.resolvedAt)}</span>}
-            </span>
-          </li>
-        ))}
-      </ol>
+      <>
+        <ol class="past">
+          {pastShown.map((i) => <PastIncident incident={i} />)}
+        </ol>
+        {pastMore.length > 0 && (
+          <details class="more">
+            <summary>Show {pastMore.length} more</summary>
+            <ol class="past">
+              {pastMore.map((i) => <PastIncident incident={i} />)}
+            </ol>
+          </details>
+        )}
+      </>
     )}
   </section>
 
