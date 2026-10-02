@@ -23,16 +23,19 @@ test("times and durations read the same everywhere", () => {
   expect(duration("2026-09-12T14:00:00.000Z", "2026-09-15T18:00:00.000Z")).toBe("3 days 4 hours");
 });
 
-test("the strip draws one path per kind of mark, 6 px apart", () => {
+test("each day is a green column; a bad day's state fills its foot, 1 px below the green", () => {
   const paths = stripPaths([
-    { date: "2026-09-27", worst: null, downMinutes: 0 },
-    { date: "2026-09-28", worst: "major_outage", downMinutes: 60 },
-    { date: "2026-09-29", worst: "operational", downMinutes: 0 },
+    { date: "2026-09-26", worst: null, downMinutes: 0 },
+    { date: "2026-09-27", worst: "major_outage", downMinutes: 60 },
+    { date: "2026-09-28", worst: "operational", downMinutes: 0 },
+    { date: "2026-09-29", worst: "partial_outage", downMinutes: 20 },
   ]);
   expect(paths).toEqual([
     { className: "m-none", d: "M1.5 26h1v1h-1z" },
+    // The worst state keeps its height (70% for a partial outage), so it reads without colour.
     { className: "m-major", d: "M6 1h4v26h-4z" },
-    { className: "m-ok", d: "M12 22h4v5h-4z" },
+    { className: "m-ok", d: "M12 0h4v27h-4zM18 0h4v8h-4z" },
+    { className: "m-partial", d: "M18 9h4v18h-4z" },
   ]);
   expect(stripWidth(90)).toBe(538);
   expect(describeDay({ date: "2026-09-28", worst: "major_outage", downMinutes: 60 })).toBe(
