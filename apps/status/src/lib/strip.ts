@@ -8,9 +8,9 @@ import {
 
 // The signal strip: one column per day, 4 px wide with 2 px gaps, in a 28 px row on a 1 px
 // baseline. A day with data is a green column. Each worse state it reached takes a foot in its
-// own colour, as tall as its share of the day (at least 3 px, worst at the bottom), and the green
-// resumes 1 px above, so a foot's outline reads without colour too. One path per kind of mark
-// keeps 90 days to a few hundred bytes.
+// own colour, as tall as its share of the day (at least 8 px for an outage, 3 px otherwise; worst
+// at the bottom), and the green resumes 1 px above, so a foot's outline reads without colour
+// too. One path per kind of mark keeps 90 days to a few hundred bytes.
 
 export const MARK = 4;
 export const GAP = 2;
@@ -18,8 +18,14 @@ export const ROW = 28;
 const BASELINE = ROW - 1;
 /** A full column, the whole row above the baseline. */
 const FULL = BASELINE;
-/** The shortest foot, so a few minutes still show. */
-const MIN_FOOT = 3;
+/** The shortest foot, so a few minutes still show; an outage is never easy to miss. */
+const MIN_FOOT: Record<ComponentStatus, number> = {
+  operational: 0,
+  degraded_performance: 3,
+  under_maintenance: 3,
+  partial_outage: 8,
+  major_outage: 8,
+};
 
 type Mark = ComponentStatus | "none";
 /** The class that colours each kind of mark. */
@@ -59,7 +65,8 @@ function feet(day: SnapshotDay): Array<[ComponentStatus, number]> {
   const observed = Object.values(minutes).reduce((sum, m) => sum + m, 0);
   return FEET.flatMap((state): Array<[ComponentStatus, number]> => {
     const spent = minutes[state] ?? 0;
-    return spent > 0 ? [[state, Math.max(MIN_FOOT, Math.round((FULL * spent) / observed))]] : [];
+    const share = Math.round((FULL * spent) / observed);
+    return spent > 0 ? [[state, Math.max(MIN_FOOT[state], share)]] : [];
   });
 }
 

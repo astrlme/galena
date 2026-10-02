@@ -39,8 +39,8 @@ test("each day is a green column; a bad day's state fills its foot, 1 px below t
   ]);
   expect(stripWidth(90)).toBe(538);
 
-  // With minutes, each state's share of the day sets its height (at least 3 px), worst at the
-  // bottom, 1 px apart; a whole day of one state fills the column like a green one.
+  // With minutes, each state's share of the day sets its height, worst at the bottom, 1 px
+  // apart: at least 8 px for an outage, 3 px otherwise; a whole day of one state fills the column.
   expect(
     stripPaths([
       {
@@ -63,9 +63,9 @@ test("each day is a green column; a bad day's state fills its foot, 1 px below t
       },
     ]),
   ).toEqual([
-    { className: "m-major", d: "M0 24h4v3h-4zM6 20h4v7h-4zM12 0h4v27h-4z" },
-    { className: "m-ok", d: "M0 0h4v23h-4zM6 0h4v11h-4z" },
-    { className: "m-degraded", d: "M6 12h4v7h-4z" },
+    { className: "m-major", d: "M0 19h4v8h-4zM6 19h4v8h-4zM12 0h4v27h-4z" },
+    { className: "m-ok", d: "M0 0h4v18h-4zM6 0h4v10h-4z" },
+    { className: "m-degraded", d: "M6 11h4v7h-4z" },
   ]);
   expect(describeDay({ date: "2026-09-28", worst: "major_outage", downMinutes: 60 })).toBe(
     "Major outage, 60 minutes down",
