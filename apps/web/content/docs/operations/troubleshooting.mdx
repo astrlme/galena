@@ -1,0 +1,70 @@
+---
+title: Troubleshooting
+description: What to check when something doesn't happen.
+---
+
+Most problems show up in one of three places: the trigger.dev dashboard (every task run, its
+payload and its logs), CloudWatch Logs for the Lambdas (one log group each, kept a month), and
+the dashboard's own error messages, which name what to do.
+
+## The first request is slow
+
+Aurora pauses after five idle minutes. The first request afterwards waits about 15 seconds while
+it resumes; the dashboard says so after 10 seconds. This is expected and is what keeps an idle
+deployment cheap. Scripts calling the API should allow at least 20 seconds.
+
+## The page didn't update
+
+1. In trigger.dev, find the `outbox.dispatch` run for the change. If there is none, the API
+   couldn't reach trigger.dev when you saved: the API's log says `outbox.dispatch was not
+   triggered`. The change is saved but its event is still pending; save the change again to
+   publish.
+2. Check the `page.publish` run that followed. `superseded` means a newer publish already covered
+   the change.
+3. Check `page.rebuild-html` for the HTML. The data files (`snapshot.json`) land first, so an open
+   page updates within 30 seconds even before the HTML does.
+
+## A monitor isn't being checked
+
+- Is it paused? Paused monitors leave `monitors.json`.
+- After adding or changing a monitor, `outbox.dispatch` rewrites `monitors.json`; the probes pick
+  it up on their next run.
+- The probes' log groups (`galena-<stage>-probe-<region>`) show each run; a check aimed at a
+  private address fails with `blocked_by_guard`.
+
+## A monitor stays Unknown
+
+Detection waits until at least `quorum` regions have a verdict, which takes a couple of checks
+per region. A monitor that stays unknown longer usually has regions that only return `error`
+(the probe failing, not the target), or a region excluded because its canary fails. The
+dashboard's per-region results show which.
+
+## A monitor shows Flapping
+
+It changed state more than four times in 30 minutes. It leaves flapping once it stays up for 30
+minutes, or down for 15. If the endpoint really is unstable, that is the truth; if the checks are
+too strict, give it a longer timeout or a higher `failThreshold`.
+
+## Emails don't arrive
+
+- Until AWS grants SES production access, SES only sends to addresses verified in SES.
+- Without `GLN_EMAIL_FROM` in the workers' environment, emails are written to a local folder
+  instead of sent.
+- An address that bounced or complained is suppressed for good; the dashboard shows "Stopped: the
+  address bounced or reported spam".
+- Check the `notify.email` run and its delivery row's `last_error`.
+
+## A webhook endpoint shows Failing
+
+Its last delivery failed: the dashboard shows since when. **Send test** shows what the receiver
+answers now. A 4xx other than 429 is not retried; fix the receiver, then send a test.
+
+## The page says "Status not confirmed"
+
+The page hasn't been republished for two hours, though the hourly rollup should republish it.
+Check the `rollup.uptime` schedule and its runs in trigger.dev, and the workers' AWS access key.
+
+## `403 not_through_cloudfront`
+
+The API only answers requests that came through CloudFront. Call it on the dashboard's address,
+not the API Gateway URL.
