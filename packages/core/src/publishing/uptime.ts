@@ -95,6 +95,17 @@ export function dayMark(minutes: Partial<Record<ComponentStatus, number>>): {
   return { worst, downMinutes: Math.floor(down) };
 }
 
+/** Whole minutes per state, leaving out states held for less than a minute. */
+export function wholeMinutes(
+  minutes: Partial<Record<ComponentStatus, number>>,
+): Partial<Record<ComponentStatus, number>> {
+  return Object.fromEntries(
+    Object.entries(minutes).flatMap(([status, spent]) =>
+      spent >= 1 ? [[status, Math.floor(spent)]] : [],
+    ),
+  );
+}
+
 /** What the hourly rollup reads: enough to replay yesterday and today for every component. */
 export type RollupInputs = {
   components: ReadonlyArray<{ id: ComponentId }>;
