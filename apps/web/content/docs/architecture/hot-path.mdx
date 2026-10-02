@@ -1,0 +1,70 @@
+---
+title: Hot path
+description: From a scheduled check in three regions to a confirmed state change, without touching the database.
+---
+
+The hot path runs every minute for every monitor, so it is built to be cheap, isolated and
+idempotent. It never reads or writes Aurora, and it only calls trigger.dev when a monitor's state
+actually changes.
+
+## 1. Schedule
+
+In each probe region, EventBridge Scheduler invokes the probe Lambda once a minute (Node 24,
+arm64, 256 MB, 50-second timeout). Every enabled monitor is checked once per invocation.
+
+## 2. Config
+
+The probe reads `monitors.json` from the private config bucket in the home region, cached in
+memory by ETag. The file lists enabled monitors and their unfinished maintenance windows, and is
+rewritten by the cold path after every monitor or maintenance change. The probe never sees the
+database.
+
+## 3. Check
+
+First the **canary**: a check of `https://checkip.amazonaws.com/` that tells whether this region's
+own network works. Then each monitor, over `node:http` on a fresh connection, through the SSRF
+guard, timing DNS, connect, TLS and time to first byte from socket events. There's no HTTP client
+dependency.
+
+## 4. Report
+
+Each result becomes one message on an SQS FIFO queue in the home region, sent in batches of 10:
+
+| Message | Group | Deduplication id |
+| --- | --- | --- |
+| Check result | `{monitorId}` | `{monitorId}#{region}#{epochMinute}` |
+| Canary | `canary#{region}` | `canary#{region}#{epochMinute}` |
+
+`epochMinute` comes from the scheduler's scheduled time, not the clock when sending, so a slow or
+retried run keeps its minute and SQS drops the duplicate. Grouping by monitor keeps each
+monitor's results in order.
+
+## 5. Evaluate
+
+The evaluator Lambda reads the queue in batches of 10 and reports failures per message, so one bad
+message doesn't redeliver the batch. For each result it:
+
+1. writes the raw result to DynamoDB, kept for 90 days;
+2. reads the monitor's state item, runs [detection](/docs/concepts/detection/), and writes the
+   new state back only if the item's `version` is still the one it read, so two concurrent
+   deliveries can't both win;
+3. skips results at or before the last minute already applied for that region, so a
+   redelivery changes nothing;
+4. on a transition, triggers the `monitor.state-changed` task with the idempotency key
+   `mon:{monitorId}:{transitionSeq}`.
+
+A transition is first stored as **pending** on the state item, then triggered. If triggering
+fails, the next delivery for that monitor triggers it again, and the idempotency key makes the
+repeat harmless.
+
+Canary results update a per-region health item; a failing canary excludes the region from every
+monitor's vote until it passes three times in a row.
+
+Messages that fail five times go to a dead-letter queue.
+
+## Capacity
+
+DynamoDB is provisioned to stay inside the always-free tier of 25 write units per account and
+region. Each check costs two writes (the result and the state), so the default `dev` split of
+5 units and `prod` split of 20 units hold roughly 50 and 200 monitors across three regions.
+`infra/config/stages.ts` refuses splits that add up to more than the free tier.

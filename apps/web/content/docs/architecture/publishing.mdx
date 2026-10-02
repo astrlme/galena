@@ -1,0 +1,80 @@
+---
+title: Publishing
+description: How the status page is written to S3 in two layers, and why it keeps serving.
+---
+
+The status page is static files on S3 behind CloudFront. Nothing on it calls the API, the
+database or trigger.dev when someone loads it. Publishing writes new files; reading only reads
+them.
+
+## Two layers, two speeds
+
+| Layer | Written by | Files |
+| --- | --- | --- |
+| Data | `page.publish` | `snapshot.json`, `feed.rss`, `feed.atom`, `badge.svg`, `favicon.svg` and per-state favicons |
+| HTML | `page.rebuild-html` | The Astro build: the page, incident pages, past incidents, subscription pages |
+
+`snapshot.json` is the page's whole read model: the headline, every component with its status,
+90 days of history and uptime, open and recent incidents with their updates, and maintenance
+windows. Every other file is derived from it, including the HTML: `page.rebuild-html` runs
+`astro build` against the newest `snapshot.json` inside the task's container and uploads the
+result.
+
+The data layer lands within seconds of a change; the HTML follows a few seconds later. Open pages
+poll `snapshot.json` every 30 seconds and update in place, so readers see a change as soon as the
+data layer lands. Readers without JavaScript, and crawlers, get it with the HTML.
+
+## Latest wins
+
+Publishes are numbered from a Postgres sequence. A version is taken only after the change it
+covers has committed. Then `page.publish` for version *v*:
+
+1. exits if the page's published version is already *v* or higher;
+2. otherwise takes a fresh version *F*, reads the database, writes the files as *F*, and records
+   *F* as published;
+3. triggers `page.rebuild-html` for *F*.
+
+Every queued run older than *F* then finds its change already out and stops, so a burst of
+changes coalesces into one or two publishes. Taking the version inside the change's transaction
+would race: versions are handed out in time order, commits aren't, and a lower version could
+commit after a higher one was published.
+
+The HTML layer works the same way with its own recorded version.
+
+## Caching
+
+| Files | `Cache-Control` |
+| --- | --- |
+| Page files | `public, max-age=2, stale-if-error=86400` |
+| Hashed assets under `_astro/` | `public, max-age=31536000, immutable` |
+
+A publish shows within two seconds at every edge with no invalidations. When the origin fails,
+CloudFront may serve its last good copy for up to a day.
+
+## Staying up
+
+```text
+visitor ──▶ CloudFront ──▶ primary bucket (eu-west-1)
+                │                │
+                │                │ S3 replication
+                │                ▼
+                └──────────▶ replica bucket (eu-north-1)
+                  on 403 or 5xx from the primary
+```
+
+- The page's buckets live in their own regions, never the home region, so an outage there leaves
+  the page serving.
+- S3 replication copies every file from the primary bucket to the replica. CloudFront reads both
+  through an origin group and fails over to the replica when the primary answers 403 or a 5xx.
+- Both buckets are private; CloudFront reads them through origin access control.
+- The page's distribution sends HSTS for a year, `X-Frame-Options: DENY`, and a content security
+  policy. Astro pins the page's scripts and styles by hash.
+
+The only part of the page that reaches the API is the subscribe form, which posts to `/public/*`
+on the page's own domain; CloudFront forwards those paths to the API without caching. If the API
+is down, the form says so and the rest of the page is unaffected.
+
+## The hourly republish
+
+The uptime rollup republishes the page every hour. That keeps the history current and lets the
+page's "Updated" time be trusted: a page that hasn't been confirmed for two hours says so.

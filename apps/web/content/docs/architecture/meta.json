@@ -1,0 +1,4 @@
+{
+  "title": "Architecture",
+  "pages": ["overview", "hot-path", "cold-path", "publishing", "data"]
+}

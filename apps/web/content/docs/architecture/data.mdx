@@ -1,0 +1,73 @@
+---
+title: Data stores
+description: What lives in Aurora, DynamoDB, S3 and SSM, and why each is where it is.
+---
+
+| Store | Holds | Written by | Read by |
+| --- | --- | --- | --- |
+| Aurora Serverless v2 (Postgres 16) | The domain: everything people create, and every confirmed state change | The API, the workers | The API, the workers |
+| DynamoDB `telemetry` | Check results and detection state | The evaluator | The evaluator, the API (for the dashboard) |
+| S3 config bucket | `monitors.json` | The workers | The probes |
+| S3 page buckets | The published status page | The workers (primary); S3 replication (replica) | CloudFront |
+| SSM Parameter Store | Secrets and resource identifiers | You, and CDK | The API, CDK, you |
+
+## Aurora
+
+Aurora is the source of truth. It runs with a minimum of 0 capacity units and pauses after five
+idle minutes; the maximum is set per stage (`auroraMaxAcu`). It sits in isolated subnets and is
+reached only through the Data API, authorised by IAM. RDS keeps the master password in Secrets
+Manager and rotates it every 7 days.
+
+| Area | Tables |
+| --- | --- |
+| Identity | `user`, `session`, `account`, `verification`, `two_factor`, `rate_limit` |
+| Workspace | `workspace`, `member`, `audit_log` |
+| Page | `page`, `component_group`, `component`, `page_component` |
+| Monitors | `monitor`, `monitor_state_change`, `uptime_daily` |
+| Incidents | `incident`, `incident_update`, `incident_component`, `timeline_event` |
+| Maintenance | `maintenance`, `maintenance_component` |
+| Notifications | `subscriber`, `webhook_endpoint`, `delivery` |
+| Events | `outbox` |
+
+Conventions:
+
+- ids are UUID v7, generated in the application;
+- columns are snake_case, with `created_at` and `updated_at` on every table;
+- every table but the identity tables carries `workspace_id`;
+- incidents and maintenance windows are soft-deleted, for the record;
+- `monitor` holds each monitor's last confirmed state and its sequence number, which only moves
+  forward; `monitor_state_change` keeps each transition once, unique on monitor and sequence;
+- `uptime_daily` holds the minutes spent in each status, per component per UTC day.
+
+Migrations live in `packages/db/migrations` and run on every deploy from a Lambda in the API
+stack.
+
+## DynamoDB
+
+One table, `telemetry`, provisioned inside the always-free tier and without point-in-time
+recovery: everything in it can be rebuilt by checking again.
+
+| Item | Partition key | Sort key | Holds |
+| --- | --- | --- | --- |
+| Check result | `MON#<monitorId>` | `R#<scheduledAt>#<region>` | Status, latency, phases, error; expires after 90 days |
+| Monitor state | `MON#<monitorId>` | `STATE` | The detection state, a `version` every write is conditional on, the last minute applied per region, and transitions not yet confirmed as triggered |
+| Region health | `REGION#<region>` | `HEALTH` | Whether the region is excluded, and its run of canary passes |
+
+## S3
+
+| Bucket | Notes |
+| --- | --- |
+| Config | Private. One file, `monitors.json`: enabled monitors and their unfinished maintenance windows, sorted so the same state always writes the same bytes. |
+| Page primary | Private, read by CloudFront. Files under `pages/<slug>/`. Versioned for replication; old versions expire after a day. |
+| Page replica | The same, in a second region, filled by replication. |
+| Dashboard | Private, read by CloudFront. The Next.js static export. |
+
+## SSM parameters
+
+Under `/galena/<stage>/`:
+
+| Parameter | Kind | Set by |
+| --- | --- | --- |
+| `auth-secret`, `app-key`, `trigger-secret-key` | SecureString | You, once |
+| `public-url` | String | The web stack: the dashboard's address |
+| `database-cluster-arn`, `database-secret-arn`, `telemetry-table`, `check-results-queue-url`, `check-results-queue-arn`, `config-bucket`, `kms-key-arn` | String | The foundation stack |
