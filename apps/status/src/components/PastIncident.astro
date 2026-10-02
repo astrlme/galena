@@ -1,0 +1,17 @@
+---
+import type { SnapshotIncident } from "@galena/contracts";
+import { duration, utcDay } from "../lib/format.ts";
+
+interface Props {
+  incident: SnapshotIncident;
+}
+const { incident: i } = Astro.props;
+---
+
+<li>
+  <time datetime={i.startedAt}>{utcDay(i.startedAt)}</time>
+  <span>
+    <a href={`/incidents/${i.id}/`}>{i.title}</a>
+    {i.resolvedAt && <span class="secondary"><br />Resolved after {duration(i.startedAt, i.resolvedAt)}</span>}
+  </span>
+</li>

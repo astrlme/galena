@@ -295,7 +295,18 @@ footer {
   font-size: 14px;
 }
 
-/* Secondary buttons: Copy in the feeds dialog. */
+/* Past incidents beyond the first few open in place; the button goes once they show. */
+.more summary {
+  display: inline-block;
+  margin-top: 16px;
+  list-style: none;
+}
+.more summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Secondary buttons: Show more, and Copy in the feeds dialog. */
+.more summary,
 .copy-row button {
   font: inherit;
   font-size: 14px;
@@ -308,6 +319,7 @@ footer {
   cursor: pointer;
   transition: border-color 120ms ease;
 }
+.more summary:hover,
 .copy-row button:hover {
   border-color: var(--slate);
 }
@@ -336,6 +348,7 @@ footer {
   padding: 6px 12px;
 }
 @media (prefers-reduced-motion: reduce) {
+  .more summary,
   .copy-row button {
     transition: none;
   }
@@ -650,4 +663,9 @@ html:not(.js) .sheet-head h2 {
   width: 100%;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--mist);
+}
+
+/* Past incidents: the Show more button goes once the rest are open. */
+.more[open] summary {
+  display: none;
 }
