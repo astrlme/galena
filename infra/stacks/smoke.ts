@@ -39,6 +39,10 @@ export class SmokeStack extends Stack {
       ),
       role: targetRole,
       logGroup,
+      // Stopped (it answers 429) except while the Smoke workflow runs. The home region's Lambdas
+      // share one concurrency pool, so a public target left running could be flooded until the
+      // API and the evaluator are throttled.
+      reservedConcurrentExecutions: 0,
     });
     // Public on purpose: the probes check it like any other monitored URL.
     const url = target.addFunctionUrl({ authType: FunctionUrlAuthType.NONE });

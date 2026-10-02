@@ -48,8 +48,9 @@ wait_for() {
 
 echo "Monitor $monitor checks $url from $regions."
 started=$(date +%s)
-# A run that was cut short may have left the target stopped.
+# The target stays stopped between runs: start it, and stop it again however this run ends.
 aws lambda delete-function-concurrency --function-name "$target"
+trap 'aws lambda put-function-concurrency --function-name "$target" --reserved-concurrent-executions 0 > /dev/null' EXIT
 wait_for "up|recovering" 10
 read -r _ before <<<"$(state)"
 
@@ -71,7 +72,6 @@ for attempt in 1 2 3 4 5 6 7 8 9; do
   if [ "$failing" = "$regions" ]; then break; fi
   if [ "$attempt" = 9 ]; then
     echo "Failing results came from [$failing], expected every probe region [$regions]."
-    aws lambda delete-function-concurrency --function-name "$target"
     exit 1
   fi
   sleep 15
