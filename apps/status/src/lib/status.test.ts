@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { duration, utcDateTime } from "./format.ts";
 import { renderMarkdown } from "./markdown.ts";
+import { rowLabel, rowState } from "./row.ts";
 import { dayDetail, describeDay, stripPaths, stripWidth } from "./strip.ts";
 
 test("markdown: a safe subset, with everything else escaped", () => {
@@ -120,4 +121,11 @@ test("a day's popover: minutes per state, then the incidents that touched the co
   expect(dayDetail({ date: "2026-07-01", worst: null, downMinutes: 0 }, [], api, "x")).toBe(
     undefined,
   );
+});
+
+test("a component nothing reports on shows no data; older snapshots read as observed", () => {
+  expect(rowState({ status: "operational", observed: false })).toBe("no_data");
+  expect(rowLabel({ status: "operational", observed: false })).toBe("No data");
+  expect(rowState({ status: "partial_outage", observed: true })).toBe("partial_outage");
+  expect(rowLabel({ status: "partial_outage" })).toBe("Partial outage");
 });

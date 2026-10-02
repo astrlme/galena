@@ -1,6 +1,5 @@
 ---
 import {
-  componentStatusLabels,
   maintenanceStatusLabels,
   pageIndicatorLabels,
   pageIndicatorStates,
@@ -11,6 +10,7 @@ import IncidentSummary from "../components/IncidentSummary.astro";
 import Strip from "../components/Strip.astro";
 import Page from "../layouts/Page.astro";
 import { duration, utcDateTime, utcDay, utcTime } from "../lib/format.ts";
+import { rowLabel, rowState } from "../lib/row.ts";
 import { readSnapshot } from "../lib/snapshot.ts";
 
 const s = readSnapshot();
@@ -71,7 +71,7 @@ const windows = [...s.maintenance.active, ...s.maintenance.upcoming];
             <div class="component-row">
               <span>{c.name}</span>
               <span class="state">
-                <span class="label state-label"><Glyph name={c.status} data-live-glyph /><span data-live-status>{componentStatusLabels[c.status]}</span></span>
+                <span class="label state-label"><Glyph name={rowState(c)} data-live-glyph /><span data-live-status>{rowLabel(c)}</span></span>
                 <span class="num secondary">{c.uptime === null ? "No data" : `${c.uptime.toFixed(2)}%`}</span>
               </span>
             </div>

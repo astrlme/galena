@@ -1,10 +1,7 @@
 import type { Snapshot } from "@galena/contracts";
-import {
-  componentStatusLabels,
-  pageIndicatorLabels,
-  pageIndicatorStates,
-} from "@galena/contracts/copy";
+import { pageIndicatorLabels, pageIndicatorStates } from "@galena/contracts/copy";
 import { type GlyphName, glyphs } from "@galena/ui/tokens";
+import { rowLabel, rowState } from "../lib/row.ts";
 
 // Keeps an open page current: polls snapshot.json every 30 s and swaps what changed in place,
 // with no transition, announcing it through a polite live region. The HTML catches up with the
@@ -45,8 +42,8 @@ function apply(s: Snapshot) {
     const row = document.querySelector(`[data-component="${c.id}"]`);
     if (!row) continue;
     const label = row.querySelector("[data-live-status]");
-    if (label) label.textContent = componentStatusLabels[c.status];
-    setGlyph(row.querySelector("[data-live-glyph]"), c.status);
+    if (label) label.textContent = rowLabel(c);
+    setGlyph(row.querySelector("[data-live-glyph]"), rowState(c));
   }
   const notice = document.querySelector<HTMLElement>("[data-live-incidents]");
   const shown = new Set((notice?.dataset.ids ?? "").split(",").filter(Boolean));
