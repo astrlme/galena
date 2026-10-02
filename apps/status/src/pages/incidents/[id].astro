@@ -16,12 +16,13 @@ import { renderMarkdown } from "../../lib/markdown.ts";
 import { readSnapshot } from "../../lib/snapshot.ts";
 
 // Incremental builds: an incident page re-renders only when its cacheKey changes, so the key
-// covers everything the page shows: the incident itself, and the page-wide names it prints.
+// covers everything the page shows: the incident itself, and the page-wide name, address (the
+// feeds dialog) and component names it prints.
 export const getStaticPaths = (() => {
   const s = readSnapshot();
   const names = Object.fromEntries(s.components.map((c) => [c.id, c.name]));
   const pageWide = createHash("sha256")
-    .update(JSON.stringify([s.page.name, names]))
+    .update(JSON.stringify([s.page.name, s.page.url, names]))
     .digest("hex")
     .slice(0, 16);
   return [...s.incidents.active, ...s.incidents.recent].map((incident) => ({
