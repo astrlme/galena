@@ -1,0 +1,195 @@
+---
+title: Self-hosting on AWS
+description: Deploy Galena into your own AWS account, from an empty account to a live status page.
+---
+
+Galena deploys with the AWS CDK from a GitHub Actions workflow that signs in to AWS with OIDC, so
+no AWS keys are stored in GitHub. Background work runs on trigger.dev, which reaches your
+account through one narrowly scoped IAM user.
+
+<Callout title="Before you start">
+You need an AWS account that holds nothing but Galena, a GitHub fork of the repository, a
+trigger.dev account, and a domain whose DNS you control (the examples use Cloudflare). Plan on
+about an hour, plus a day for AWS to approve SES production access.
+</Callout>
+
+<Steps>
+<Step>
+
+### Choose regions and names
+
+Edit `infra/config/stages.ts`. The `dev` stage there is the maintainer's deployment and a worked
+example; replace its values with yours:
+
+| Setting | Meaning |
+| --- | --- |
+| `homeRegion` | Where the API, the database, detection and trigger.dev's AWS access live. Pick a region where your own services do not run, so an outage there does not take Galena down with them. |
+| `probeRegions` | At least three regions that run checks. Detection needs two of them to agree. |
+| `pageRegions` | The status page's primary and replica regions. The config refuses either one sharing a region with `homeRegion`. |
+| `github.repository`, `github.oidcSubject` | Your fork. The subject has the form `repo:<owner>@<owner id>/<repo>@<repo id>`; `gh api repos/<owner>/<repo>` shows both ids. |
+| `pageDomain` | Optional: the status page's own hostname, for example `status.example.com`. |
+| `email` | Optional: the domain and address notification email is sent from. Without it, email subscriptions are off. |
+| `telemetryCapacity` | DynamoDB read and write units. Stages in one account share the free tier of 25 each; the config refuses a split that goes over. |
+
+</Step>
+<Step>
+
+### Prepare the account
+
+1. Sign in as root once, turn on MFA, and stop using root.
+2. Create an IAM Identity Center user with administrator access for the first deploy, and sign
+   in with `aws configure sso`.
+3. Set a monthly budget with email alerts. The maintainer's deployment costs about $1.50 a month
+   at rest (see [Cost](/docs/operations/cost/)).
+4. Bootstrap the CDK in every region the stage uses, plus `us-east-1` for CloudFront
+   certificates:
+
+```bash
+pnpm install
+pnpm --filter @galena/infra exec cdk bootstrap -c stage=dev \
+  aws://ACCOUNT/eu-central-1 aws://ACCOUNT/eu-west-1 aws://ACCOUNT/eu-west-3 \
+  aws://ACCOUNT/eu-north-1 aws://ACCOUNT/us-east-1
+```
+
+</Step>
+<Step>
+
+### Create the deploy role
+
+Deploy the CI stack once from your machine:
+
+```bash
+pnpm --filter @galena/infra exec cdk deploy galena-dev-ci-access -c stage=dev
+```
+
+It creates GitHub's OIDC provider and the role `galena-dev-github-deploy`. Only workflows on
+`refs/heads/main` of your fork can assume it, and it can do nothing but assume the CDK bootstrap
+roles. Add its ARN to your fork as the repository variable `AWS_DEPLOY_ROLE_ARN` (Settings,
+Secrets and variables, Actions, Variables).
+
+</Step>
+<Step>
+
+### Store the secrets
+
+Three SecureString parameters in the home region, made once and never printed:
+
+| Parameter | Value |
+| --- | --- |
+| `/galena/dev/auth-secret` | Signs session cookies and encrypts two-factor secrets. 32 random bytes or more. |
+| `/galena/dev/app-key` | Exactly 32 random bytes, base64. Seals stored credentials such as Slack URLs and webhook signing secrets, and signs confirmation and unsubscribe links. |
+| `/galena/dev/trigger-secret-key` | Your trigger.dev project's production secret key (`tr_prod_…`). |
+
+```bash
+aws ssm put-parameter --name /galena/dev/auth-secret --type SecureString \
+  --value "$(openssl rand -hex 32)"
+aws ssm put-parameter --name /galena/dev/app-key --type SecureString \
+  --value "$(openssl rand -base64 32)"
+aws ssm put-parameter --name /galena/dev/trigger-secret-key --type SecureString \
+  --value "tr_prod_…"
+```
+
+The API reads them when a Lambda container starts. Keep the app key: the workers need the same
+value, and a new key makes stored Slack URLs, webhook secrets and old subscription links
+unreadable.
+
+</Step>
+<Step>
+
+### Deploy
+
+In your fork, open Actions, choose **Deploy**, and run it on `main`. It builds the dashboard,
+deploys every stack with `cdk deploy --all`, and ends with a smoke test that signs in as nobody
+and expects a 401 through CloudFront, which proves CloudFront, the API and the database all
+answer. The API stack runs the database migrations as part of the deploy.
+
+<Callout type="warn">
+The workflow deploys the `dev` stage and signs in to `eu-central-1`. If your home region differs,
+change `aws-region` in `.github/workflows/deploy.yml` too.
+</Callout>
+
+The first run creates, among others:
+
+- `galena-dev-foundation`: the VPC (isolated subnets only), Aurora Serverless v2, DynamoDB,
+  the SQS FIFO queue and the config bucket.
+- `galena-dev-probe-<region>` in each probe region, and `galena-dev-detection` (the evaluator).
+- `galena-dev-api` and `galena-dev-web` (the dashboard on CloudFront).
+- `galena-dev-page`, `galena-dev-page-replica` and, with a domain, `galena-dev-page-certificate`.
+- `galena-dev-worker-access`: the IAM user trigger.dev uses.
+- `galena-dev-email`, when `email` is set.
+- `galena-dev-smoke`, on the `dev` stage only: an endpoint the end-to-end Smoke workflow takes
+  down and brings back to prove detection and publishing work in AWS.
+
+</Step>
+<Step>
+
+### Deploy the workers
+
+Create an access key for the IAM user `galena-dev-worker-access` and add these environment
+variables to your trigger.dev project's production environment:
+
+| Variable | Value |
+| --- | --- |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | The worker access key (secret) |
+| `GLN_HOME_REGION` | Your home region |
+| `GLN_DB_CLUSTER_ARN`, `GLN_DB_SECRET_ARN` | From SSM: `/galena/dev/database-cluster-arn` and `/galena/dev/database-secret-arn` |
+| `GLN_CONFIG_BUCKET` | From SSM: `/galena/dev/config-bucket` |
+| `GLN_PAGE_BUCKET`, `GLN_PAGE_REGION` | The primary page bucket and its region |
+| `GLN_PAGE_URL` | Where the status page is reached, for links in feeds and email |
+| `GLN_APP_KEY` | The same value as `/galena/dev/app-key` (secret) |
+| `GLN_EMAIL_FROM`, `GLN_SES_CONFIGURATION_SET` | The `from` address and `galena-dev`, when email is on |
+| `GLN_TRIGGER_PROJECT_REF` | Your project ref |
+
+Then deploy the tasks:
+
+```bash
+pnpm --filter @galena/workers exec trigger deploy
+```
+
+Rotate the access key every three months. Its policy reaches only the Data API on the cluster,
+the database secret, `monitors.json` in the config bucket, the page bucket's `pages/` prefix, and
+sending email as your SES identity.
+
+</Step>
+<Step>
+
+### Point DNS at it
+
+With a `pageDomain`:
+
+1. Add the certificate's validation CNAME (shown in ACM in `us-east-1`).
+2. Add a CNAME from your page domain to the status page's CloudFront domain. With Cloudflare,
+   set both records to DNS only.
+
+With `email`:
+
+1. Add the records the `galena-dev-email` stack prints as outputs: three DKIM CNAMEs, the MX and
+   SPF records for the MAIL FROM domain, and a DMARC record.
+2. Request SES production access in the home region. Until AWS approves it, SES only sends to
+   addresses you have verified.
+
+</Step>
+<Step>
+
+### Create the owner
+
+The dashboard's address is the `galena-dev-web` stack's `DashboardUrl` output; the API answers on
+the same origin. First-run setup has no screen yet, so create the workspace and its owner with
+one request:
+
+```bash
+URL=https://d1234example.cloudfront.net
+curl -X POST "$URL/v1/setup" -H 'content-type: application/json' -d '{
+  "workspaceName": "Acme",
+  "name": "Your name",
+  "email": "you@example.com",
+  "password": "at least twelve characters"
+}'
+```
+
+It works once. After that, sign-up is closed, and you sign in at `$URL/sign-in/`.
+
+</Step>
+</Steps>
+
+Next: [first steps](/docs/getting-started/first-steps/) in the dashboard.

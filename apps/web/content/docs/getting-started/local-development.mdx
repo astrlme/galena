@@ -1,0 +1,84 @@
+---
+title: Local development
+description: Run the dashboard, API, status page and a simulated hot path on your machine.
+---
+
+Everything but trigger.dev runs locally with one command. You need Node 24, pnpm 11 (Corepack
+picks the version in `package.json`) and Docker.
+
+<Steps>
+<Step>
+
+### Install and start
+
+```bash
+git clone https://github.com/astrlme/galena.git
+cd galena
+pnpm install
+pnpm dev
+```
+
+`pnpm dev` starts Postgres 16 and DynamoDB Local in Docker, applies the migrations, seeds a
+workspace, then runs every app:
+
+| Port | What |
+| --- | --- |
+| 3000 | The dashboard (Next.js) |
+| 4321 | The status page (Astro), built from a fixture snapshot |
+| 8787 | The API (Hono on Node) |
+
+It also runs the hot path in one process: each minute, three simulated probe regions check
+every enabled monitor, and the evaluator writes results and state to DynamoDB Local, where the
+dashboard reads them.
+
+</Step>
+<Step>
+
+### Sign in
+
+Open [localhost:3000](http://localhost:3000/sign-in/) and sign in as `owner@example.com` with the
+password `galena-local-owner`. The seed refuses any database but the local one, so this account
+never exists anywhere else.
+
+</Step>
+<Step>
+
+### Optional: background work
+
+Publishing the page, emails, Slack and webhooks run as trigger.dev tasks. Without a trigger.dev
+project, changes are saved and wait in the outbox. To run them:
+
+1. Create a project at [trigger.dev](https://trigger.dev) and put its ref in
+   `apps/workers/.env` as `GLN_TRIGGER_PROJECT_REF=proj_…`.
+2. Put the project's development secret key in `apps/api/.env` as `TRIGGER_SECRET_KEY=…`.
+3. Run `pnpm trigger:dev` in a second terminal.
+
+Locally, the workers write to disk instead of AWS:
+
+| What | Where |
+| --- | --- |
+| Published page files | `apps/workers/.local/pages/` |
+| `monitors.json` | `apps/workers/.local/config/` |
+| Emails | `apps/workers/.local/mail/`, one `.txt` and one `.html` per email |
+
+</Step>
+</Steps>
+
+## Watching a local service
+
+The SSRF guard refuses private and loopback addresses everywhere. To point a monitor at a
+server on your own machine during development, start the API and the hot path with
+`GLN_ALLOW_LOOPBACK=1`. Every stage other than `local` ignores the switch.
+
+## Checks
+
+| Command | What it runs |
+| --- | --- |
+| `pnpm check` | Biome, TypeScript, unit tests and the dependency rules |
+| `pnpm test:int` | Integration tests against Postgres and DynamoDB Local in Testcontainers |
+| `pnpm test:e2e` | Playwright with axe against local dev, in light and dark |
+| `pnpm check:page` | The status page's JavaScript and HTML budgets, Lighthouse and axe |
+| `pnpm replay` | The detection rules against recorded check results |
+| `pnpm infra:synth` | CDK synth with cdk-nag |
+
+See [Commands](/docs/reference/commands/) for the full list.
