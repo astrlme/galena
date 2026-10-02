@@ -1,6 +1,35 @@
 @import "@fontsource-variable/atkinson-hyperlegible-next";
 @import "@fontsource-variable/atkinson-hyperlegible-mono";
 @import "@galena/ui/tokens.css";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+/* Fumadocs' colours, mapped to ours in both modes (the tokens switch with data-theme or the
+   reader's system): its callouts take the state colours. */
+:root,
+.dark {
+  --color-fd-background: var(--paper);
+  --color-fd-foreground: var(--ink);
+  --color-fd-muted: var(--surface);
+  --color-fd-muted-foreground: var(--slate);
+  --color-fd-popover: var(--surface);
+  --color-fd-popover-foreground: var(--ink);
+  --color-fd-card: var(--surface);
+  --color-fd-card-foreground: var(--ink);
+  --color-fd-border: var(--mist);
+  --color-fd-primary: var(--ink);
+  --color-fd-primary-foreground: var(--paper);
+  --color-fd-secondary: var(--surface);
+  --color-fd-secondary-foreground: var(--ink);
+  --color-fd-accent: var(--mist);
+  --color-fd-accent-foreground: var(--ink);
+  --color-fd-ring: var(--ink);
+  --color-fd-info: var(--maintenance);
+  --color-fd-warning: var(--degraded);
+  --color-fd-error: var(--major);
+  --color-fd-success: var(--operational);
+  --color-fd-idea: var(--partial);
+}
 
 @layer base {
   /* Always visible on keyboard focus. */
@@ -52,13 +81,17 @@
    reduced motion. */
 [data-vaul-drawer],
 [data-vaul-overlay] {
+  /* biome-ignore lint/complexity/noImportantStyles: vaul injects its styles after ours */
   animation-duration: 220ms !important;
+  /* biome-ignore lint/complexity/noImportantStyles: vaul injects its styles after ours */
   transition-duration: 220ms !important;
 }
 @media (prefers-reduced-motion: reduce) {
   [data-vaul-drawer],
   [data-vaul-overlay] {
+    /* biome-ignore lint/complexity/noImportantStyles: vaul injects its styles after ours */
     animation-duration: 0s !important;
+    /* biome-ignore lint/complexity/noImportantStyles: vaul injects its styles after ours */
     transition: none !important;
   }
 }

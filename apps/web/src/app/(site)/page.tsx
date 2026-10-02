@@ -1,5 +1,5 @@
-import { ButtonLink } from "../components/button.tsx";
-import { Wordmark } from "../components/wordmark.tsx";
+import { ButtonLink } from "../../components/button.tsx";
+import { Wordmark } from "../../components/wordmark.tsx";
 
 export default function Home() {
   return (

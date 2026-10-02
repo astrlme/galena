@@ -1,3 +1,4 @@
+import { createMDX } from "fumadocs-mdx/next";
 import type { NextConfig } from "next";
 
 // Where `next dev` forwards API calls. In AWS, CloudFront does this on the same origin.
@@ -17,4 +18,5 @@ const config: NextConfig = {
     : {}),
 };
 
-export default config;
+// The docs under /docs are MDX in content/docs, compiled at build time.
+export default createMDX()(config);
