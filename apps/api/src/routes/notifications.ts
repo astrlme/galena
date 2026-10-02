@@ -57,6 +57,7 @@ export function registerNotificationRoutes(app: App, deps: Deps) {
     createRoute({
       method: "get",
       path: "/v1/webhook-endpoints",
+      tags: ["Notifications"],
       summary: "Slack and webhook endpoints, oldest first",
       middleware: [admin],
       responses: { 200: json(z.array(endpointView), "Endpoints, without their URLs or secrets") },
@@ -71,6 +72,7 @@ export function registerNotificationRoutes(app: App, deps: Deps) {
     createRoute({
       method: "post",
       path: "/v1/webhook-endpoints",
+      tags: ["Notifications"],
       summary: "Add a Slack incoming webhook or an outgoing webhook",
       description: "An outgoing webhook's signing secret is in this answer only.",
       middleware: [admin],
@@ -124,6 +126,7 @@ export function registerNotificationRoutes(app: App, deps: Deps) {
     createRoute({
       method: "delete",
       path: "/v1/webhook-endpoints/{id}",
+      tags: ["Notifications"],
       summary: "Remove an endpoint",
       middleware: [admin],
       request: { params: idParam },
@@ -147,6 +150,7 @@ export function registerNotificationRoutes(app: App, deps: Deps) {
     createRoute({
       method: "post",
       path: "/v1/webhook-endpoints/{id}/test",
+      tags: ["Notifications"],
       summary: "Send a test message",
       description: "Posts a sample notice now and says what the endpoint answered.",
       middleware: [admin],
@@ -219,6 +223,7 @@ export function registerNotificationRoutes(app: App, deps: Deps) {
     createRoute({
       method: "get",
       path: "/v1/subscribers",
+      tags: ["Notifications"],
       summary: "Email subscribers, newest first",
       middleware: [admin],
       responses: { 200: json(z.array(subscriberView), "Subscribers, with masked addresses") },
@@ -242,6 +247,7 @@ export function registerNotificationRoutes(app: App, deps: Deps) {
     createRoute({
       method: "delete",
       path: "/v1/subscribers/{id}",
+      tags: ["Notifications"],
       summary: "Remove a subscriber",
       description: "Deletes the address; it can subscribe again, even after a bounce.",
       middleware: [admin],

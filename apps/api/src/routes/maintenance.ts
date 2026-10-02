@@ -96,6 +96,7 @@ export function registerMaintenanceRoutes(app: App, deps: Deps) {
     createRoute({
       method: "get",
       path: "/v1/maintenances",
+      tags: ["Maintenance"],
       summary: "Maintenance windows, newest start first",
       middleware: [viewer],
       responses: { 200: json(z.object({ maintenances: z.array(maintenanceView) }), "Windows") },
@@ -110,6 +111,7 @@ export function registerMaintenanceRoutes(app: App, deps: Deps) {
     createRoute({
       method: "get",
       path: "/v1/maintenances/{id}",
+      tags: ["Maintenance"],
       summary: "One maintenance window",
       middleware: [viewer],
       request: { params: z.object({ id: maintenanceId }) },
@@ -125,6 +127,7 @@ export function registerMaintenanceRoutes(app: App, deps: Deps) {
     createRoute({
       method: "post",
       path: "/v1/maintenances",
+      tags: ["Maintenance"],
       summary: "Schedule a window; it starts and completes on its own",
       middleware: [editor],
       request: jsonBody(maintenanceInput),
@@ -155,6 +158,7 @@ export function registerMaintenanceRoutes(app: App, deps: Deps) {
     createRoute({
       method: "put",
       path: "/v1/maintenances/{id}",
+      tags: ["Maintenance"],
       summary: "Change a window that hasn't completed",
       description: "Send every field. The window's run is replaced to match the new times.",
       middleware: [editor],
@@ -188,6 +192,7 @@ export function registerMaintenanceRoutes(app: App, deps: Deps) {
     createRoute({
       method: "post",
       path: "/v1/maintenances/{id}/cancel",
+      tags: ["Maintenance"],
       summary: "Cancel a window before it starts",
       middleware: [editor],
       request: { params: z.object({ id: maintenanceId }) },
