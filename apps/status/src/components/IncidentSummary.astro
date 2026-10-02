@@ -5,6 +5,7 @@ import {
   pageIndicatorStates,
   type SnapshotIncident,
 } from "@galena/contracts";
+import { utcDateTime } from "../lib/format.ts";
 import Glyph from "./Glyph.astro";
 
 interface Props {
@@ -13,10 +14,11 @@ interface Props {
   card?: boolean;
 }
 const { incident, card = false } = Astro.props;
-const latest = incident.updates[0];
-// The first sentence or so of the latest update; the incident page has the rest.
-const preview =
-  latest && latest.body.length > 160 ? `${latest.body.slice(0, 157).trimEnd()}…` : latest?.body;
+// The latest few updates, each cut to a sentence or so; the incident page has the rest.
+const SHOWN = 3;
+const shown = incident.updates.slice(0, SHOWN);
+const earlier = incident.updates.length - shown.length;
+const preview = (body: string) => (body.length > 160 ? `${body.slice(0, 157).trimEnd()}…` : body);
 ---
 
 <article class:list={["incident", `impact-${incident.impact}`, { card }]}>
@@ -27,5 +29,17 @@ const preview =
     </span>
     {incident.impact !== "none" && <span class="secondary">{incidentImpactLabels[incident.impact]}</span>}
   </div>
-  {latest && <p>{incidentStatusLabels[latest.status]}. {preview}</p>}
+  {shown.length > 0 && (
+    <ol class="timeline compact">
+      {shown.map((u) => (
+        <li>
+          <p><strong>{incidentStatusLabels[u.status]}</strong> <span class="secondary"><time datetime={u.createdAt}>{utcDateTime(u.createdAt)}</time></span></p>
+          <p>{preview(u.body)}</p>
+        </li>
+      ))}
+    </ol>
+  )}
+  {earlier > 0 && (
+    <p class="secondary"><a href={`/incidents/${incident.id}/`}>{earlier} earlier {earlier === 1 ? "update" : "updates"}</a></p>
+  )}
 </article>

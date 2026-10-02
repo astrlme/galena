@@ -271,6 +271,64 @@ h3 {
 .updates {
   padding: 0;
 }
+
+/* Incident updates as a vertical timeline: a dot per update on a line, the latest filled. Plain
+   ink and greys: incident statuses are not states, so the dots carry no state colour. :where()
+   keeps these selectors as light as the page's other list rules. */
+.timeline {
+  list-style: none;
+  padding: 0;
+}
+.timeline > li {
+  position: relative;
+  padding: 0 0 20px 24px;
+}
+.timeline > li::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 20px;
+  bottom: 2px;
+  width: 1px;
+  background: var(--mist);
+}
+.timeline > li::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 11px;
+  height: 11px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--ash);
+  border-radius: 50%;
+  background: var(--paper);
+}
+:where(.card) .timeline > li::after {
+  background: var(--surface);
+}
+.timeline > li:where(:first-child)::after {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+.timeline:where(.compact) {
+  margin-top: 8px;
+}
+.timeline:where(.compact) > li {
+  padding-bottom: 12px;
+}
+.timeline > li:where(:last-child) {
+  padding-bottom: 0;
+}
+.timeline > li:where(:last-child)::before {
+  display: none;
+}
+.timeline .body {
+  margin-top: 4px;
+}
+h2 + .timeline {
+  margin-top: 16px;
+}
 .body p + p,
 .body ul {
   margin-top: 8px;
