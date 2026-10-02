@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { duration, utcDateTime } from "./format.ts";
 import { renderMarkdown } from "./markdown.ts";
-import { describeDay, stripPaths, stripWidth } from "./strip.ts";
+import { dayDetail, describeDay, stripPaths, stripWidth } from "./strip.ts";
 
 test("markdown: a safe subset, with everything else escaped", () => {
   expect(
@@ -40,5 +40,52 @@ test("each day is a green column; a bad day's state fills its foot, 1 px below t
   expect(stripWidth(90)).toBe(538);
   expect(describeDay({ date: "2026-09-28", worst: "major_outage", downMinutes: 60 })).toBe(
     "Major outage, 60 minutes down",
+  );
+});
+
+test("a day's popover: minutes per state, then the incidents that touched the component", () => {
+  const api = "01920000-0000-7000-8000-000000000011";
+  const incident = (id: string, startedAt: string, resolvedAt: string | null, componentId = api) =>
+    ({
+      id,
+      title: `Incident ${id.slice(-1)}`,
+      status: resolvedAt ? "resolved" : "identified",
+      impact: "major",
+      startedAt,
+      resolvedAt,
+      updatedAt: startedAt,
+      components: [{ componentId, status: "partial_outage" }],
+      updates: [],
+    }) as never;
+  const day = {
+    date: "2026-10-01",
+    worst: "degraded_performance" as const,
+    downMinutes: 0,
+    minutes: { degraded_performance: 52, operational: 1388 },
+  };
+  const incidents = [
+    incident("x1", "2026-10-01T09:44:00.000Z", "2026-10-01T10:36:00.000Z"),
+    incident("x2", "2026-09-29T09:00:00.000Z", "2026-09-29T10:00:00.000Z"), // another day
+    incident("x3", "2026-10-01T12:00:00.000Z", null, "01920000-0000-7000-8000-000000000012"),
+    incident("x4", "2026-09-30T23:30:00.000Z", null), // still open
+  ];
+  expect(dayDetail(day, incidents, api, "2026-10-02T08:00:00.000Z")).toEqual({
+    t: "Degraded performance",
+    m: [
+      ["operational", 1388],
+      ["degraded_performance", 52],
+    ],
+    n: [
+      ["Incident 1", "2026-10-01T09:44:00.000Z", "2026-10-01T10:36:00.000Z", "partial_outage"],
+      ["Incident 4", "2026-09-30T23:30:00.000Z", null, "partial_outage"],
+    ],
+  });
+  // A whole operational day with nothing on it needs no detail; the page fills it in.
+  const calm = { date: "2026-09-29", worst: "operational" as const, downMinutes: 0 };
+  expect(dayDetail({ ...calm, minutes: { operational: 1440 } }, [], api, "2026-10-02")).toBe(
+    undefined,
+  );
+  expect(dayDetail({ date: "2026-07-01", worst: null, downMinutes: 0 }, [], api, "x")).toBe(
+    undefined,
   );
 });

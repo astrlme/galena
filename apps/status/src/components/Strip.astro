@@ -1,20 +1,26 @@
 ---
-import type { SnapshotDay } from "@galena/contracts";
+import type { SnapshotDay, SnapshotIncident } from "@galena/contracts";
 import { utcDay } from "../lib/format.ts";
-import { describeDay, ROW, stripPaths, stripWidth } from "../lib/strip.ts";
+import { dayDetail, describeDay, ROW, stripPaths, stripWidth } from "../lib/strip.ts";
 
 interface Props {
   name: string;
+  componentId: string;
   days: SnapshotDay[];
+  /** Open and recent incidents; the popover lists those that touched this component each day. */
+  incidents: SnapshotIncident[];
+  /** When the snapshot was published: an open incident runs until then. */
+  now: string;
 }
-const { name, days } = Astro.props;
+const { name, componentId, days, incidents, now } = Astro.props;
 const width = stripWidth(days.length);
-// Only the days worth reading out travel to the browser; every other day is operational, or
-// has no data before the first one that has.
-const notable = Object.fromEntries(
-  days.flatMap((d, i) =>
-    d.worst !== null && d.worst !== "operational" ? [[i, describeDay(d)]] : [],
-  ),
+// Only days with something to tell travel to the browser; every other day is a whole
+// operational day, or has no data before the first one that has.
+const details = Object.fromEntries(
+  days.flatMap((d, i) => {
+    const detail = dayDetail(d, incidents, componentId, now);
+    return detail ? [[i, detail]] : [];
+  }),
 );
 const first = Math.max(
   0,
@@ -34,7 +40,7 @@ const listed = days.filter((d) => d.worst !== null && d.worst !== "operational")
     data-start={days[0]?.date}
     data-count={days.length}
     data-first={first}
-    data-notable={JSON.stringify(notable)}
+    data-days={JSON.stringify(details)}
   >
     <svg width={width} height={ROW} viewBox={`0 0 ${width} ${ROW}`} aria-hidden="true">
       <rect class="baseline" x="0" y={ROW - 1} width={width} height="1"></rect>
@@ -42,7 +48,7 @@ const listed = days.filter((d) => d.worst !== null && d.worst !== "operational")
       <rect class="strip-cursor" data-strip-cursor x="0" y="0" width="6" height={ROW} hidden></rect>
     </svg>
   </div>
-  <p class="strip-tip" data-strip-tip hidden></p>
+  <div class="strip-tip" data-strip-tip hidden></div>
   <p class="sr-only" aria-live="polite" data-strip-live></p>
 </div>
 <div class="captions" aria-hidden="true">
