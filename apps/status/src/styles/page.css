@@ -131,27 +131,12 @@ h3 {
   font-weight: 600;
 }
 
-/* Incidents: heavier rule and title for a bigger impact. */
+/* Incidents: the glyph's colour, the impact label and a heavier title carry a bigger impact. */
 .incident {
   margin-top: 16px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-.impact-none {
-  padding-left: 16px;
-}
-.impact-minor {
-  border-left: 2px solid var(--degraded);
-  padding-left: 12px;
-}
-.impact-major {
-  border-left: 3px solid var(--partial);
-  padding-left: 12px;
-}
-.impact-critical {
-  border-left: 4px solid var(--major);
-  padding-left: 12px;
 }
 .incident-title {
   display: flex;
@@ -181,16 +166,6 @@ h3 {
 }
 .incident.card {
   padding: 16px;
-}
-/* The impact rule replaces the card's left hairline. */
-.incident.card.impact-minor {
-  border-left: 2px solid var(--degraded);
-}
-.incident.card.impact-major {
-  border-left: 3px solid var(--partial);
-}
-.incident.card.impact-critical {
-  border-left: 4px solid var(--major);
 }
 
 /* Components and the signal strip */

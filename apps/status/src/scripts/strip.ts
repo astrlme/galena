@@ -1,6 +1,7 @@
 // The signal strip for keyboards and pointers: one focusable element per strip; arrow keys (and
 // Home, End) move between days, the day is read out through a polite live region, and hover or
-// focus shows the same words in a small popover. Nothing moves on its own.
+// focus shows the same words in a small popover. Only keyboard focus outlines the day, so a
+// pointer gets the words without a box following it. Nothing moves on its own.
 
 const STEP = 6; // a 4 px mark and a 2 px gap
 const MONTHS =
@@ -27,25 +28,29 @@ for (const strip of document.querySelectorAll<HTMLElement>("[data-strip]")) {
     const what = notable[i] ?? (i >= Number(first) ? "Operational" : "No data");
     return `${dayLabel(start, i)}: ${what}`;
   };
-  const show = (i: number, speak: boolean) => {
+  const show = (i: number, keyboard: boolean) => {
     index = Math.max(0, Math.min(last, i));
     const words = text(index);
     cursor?.setAttribute("x", String(index * STEP - 1));
-    cursor?.removeAttribute("hidden");
+    if (keyboard) cursor?.removeAttribute("hidden");
+    else cursor?.setAttribute("hidden", "");
     if (tip && svg) {
       tip.textContent = words;
       tip.hidden = false;
       const offset = svg.getBoundingClientRect().left - strip.getBoundingClientRect().left;
-      tip.style.left = `${Math.max(0, offset + index * STEP - 40)}px`;
+      // Near today the words would run past the strip's right edge; keep them over it.
+      const room = strip.getBoundingClientRect().width - tip.offsetWidth;
+      tip.style.left = `${Math.max(0, Math.min(offset + index * STEP - 40, room))}px`;
     }
-    if (speak && live) live.textContent = words;
+    if (keyboard && live) live.textContent = words;
   };
   const hide = () => {
     if (tip) tip.hidden = true;
     cursor?.setAttribute("hidden", "");
   };
 
-  strip.addEventListener("focus", () => show(index, true));
+  // A click focuses the strip too; only keyboard focus (focus-visible) outlines a day.
+  strip.addEventListener("focus", () => show(index, strip.matches(":focus-visible")));
   strip.addEventListener("blur", hide);
   strip.addEventListener("keydown", (event) => {
     const moves: Record<string, number> = {
