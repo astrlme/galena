@@ -39,8 +39,8 @@ example; replace its values with yours:
 1. Sign in as root once, turn on MFA, and stop using root.
 2. Create an IAM Identity Center user with administrator access for the first deploy, and sign
    in with `aws configure sso`.
-3. Set a monthly budget with email alerts. The maintainer's deployment costs about $1.50 a month
-   at rest (see [Cost](/docs/operations/cost/)).
+3. Set a monthly budget with email alerts. A deployment costs a few dollars a month at rest (see
+   [Cost](/docs/operations/cost/)).
 4. Bootstrap the CDK in every region the stage uses, plus `us-east-1` for CloudFront
    certificates:
 
