@@ -11,6 +11,7 @@ import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { control, Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { StatusLabel } from "../../../components/status.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { MonitorHealth, useTelemetry } from "./monitor-health.tsx";
@@ -186,7 +187,16 @@ export function MonitorsEditor() {
                 className="flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist px-4 py-3 last:border-b-0"
               >
                 <div className="flex min-w-0 flex-col">
-                  <span className="font-semibold">{monitor.name}</span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="font-semibold">{monitor.name}</span>
+                    {monitor.enabled && telemetry.data && (
+                      <StatusLabel
+                        status={
+                          telemetry.data.monitors.find((m) => m.id === monitor.id)?.status ?? null
+                        }
+                      />
+                    )}
+                  </div>
                   <span className="break-all text-[14px] text-slate">{monitor.http.url}</span>
                   <span className="text-[14px] text-slate">
                     {componentName(monitor.componentId)}. {policyLabel(monitor.publishPolicy)}.

@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { StatusLabel } from "../../../components/status.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 
@@ -111,7 +110,7 @@ function ResultStrip({ results }: { results: readonly Result[] }) {
   );
 }
 
-/** State, each region's latest latency and the last hour of checks for one monitor. */
+/** Each region's latest latency and the last hour of checks for one monitor. */
 export function MonitorHealth({
   reading,
   regions,
@@ -123,8 +122,8 @@ export function MonitorHealth({
   const latest = new Map<string, Result>();
   for (const result of results) if (!latest.has(result.region)) latest.set(result.region, result);
   return (
-    <div className="flex basis-full flex-wrap items-center gap-x-6 gap-y-2">
-      <StatusLabel status={reading?.status ?? null} />
+    // `min-w-0`, or the strip's full width would hold the row open on a phone.
+    <div className="flex min-w-0 basis-full flex-wrap items-center gap-x-6 gap-y-2">
       <dl className="flex gap-4 text-[14px] tabular-nums">
         {regions.map((region) => (
           <div key={region} className="flex flex-col">
