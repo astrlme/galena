@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import { Button } from "../../../components/button.tsx";
+import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
@@ -27,6 +28,11 @@ export function IncidentsEditor() {
   const components = useQuery({
     queryKey: ["components"],
     queryFn: () => unwrap(api.GET("/v1/components")),
+  });
+  useReopenDraft("incident", components.isSuccess, (id) => {
+    setProblem(undefined);
+    setPublishing(id === "new");
+    return id === "new";
   });
 
   if (open.isPending || resolved.isPending || components.isPending) {

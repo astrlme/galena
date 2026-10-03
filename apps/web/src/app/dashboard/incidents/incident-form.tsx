@@ -3,10 +3,10 @@
 import { type IncidentImpact, incidentCreate, incidentImpacts } from "@galena/contracts";
 import { checkUpdateBody } from "@galena/core";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "../../../components/button.tsx";
+import { useDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
 import {
   type Affected,
@@ -47,19 +47,29 @@ export function IncidentForm({
   onPublish: (incident: NewIncident) => Promise<boolean>;
   onCancel: () => void;
 }) {
-  const [affected, setAffected] = useState<Affected[]>([]);
   const form = useForm<FormIn, unknown, NewIncident>({
     resolver: zodResolver(schema),
-    defaultValues: { title: "", impact: "minor", status: "investigating", body: "" },
+    defaultValues: {
+      title: "",
+      impact: "minor",
+      status: "investigating",
+      body: "",
+      components: [],
+    },
   });
   const { errors, isSubmitting } = form.formState;
+  const affected: Affected[] = form.watch("components") ?? [];
   useTemplate(
     form.watch("status") ?? "investigating",
     componentNames(components, affected),
     form.watch("body") ?? "",
     (text) => form.setValue("body", text),
   );
-  const submit = form.handleSubmit((values) => onPublish({ ...values, components: affected }));
+  // After the template, so a restored message isn't replaced by it.
+  const draft = useDraft("incident:new", "New incident", form);
+  const submit = form.handleSubmit(async (values) => {
+    if (await onPublish(values)) draft.discard();
+  });
 
   return (
     <form
@@ -92,7 +102,11 @@ export function IncidentForm({
           </label>
         ))}
       </fieldset>
-      <ComponentPicker components={components} value={affected} onChange={setAffected} />
+      <ComponentPicker
+        components={components}
+        value={affected}
+        onChange={(next) => form.setValue("components", next, { shouldDirty: true })}
+      />
       <div className="flex flex-col gap-1">
         <label htmlFor="incident-status" className="text-[14px] font-semibold">
           Status
@@ -117,8 +131,15 @@ export function IncidentForm({
         <Button type="submit" variant="primary" disabled={isSubmitting}>
           {isSubmitting ? "Publishing…" : "Publish incident"}
         </Button>
-        <Button type="button" variant="quiet" onClick={onCancel}>
-          Cancel
+        <Button
+          type="button"
+          variant="quiet"
+          onClick={() => {
+            draft.discard();
+            onCancel();
+          }}
+        >
+          {draft.dirty ? "Discard" : "Cancel"}
         </Button>
       </div>
     </form>

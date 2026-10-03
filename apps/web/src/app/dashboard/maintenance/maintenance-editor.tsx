@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
+import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import { Time } from "../incidents/incident-ui.tsx";
@@ -38,6 +39,13 @@ export function MaintenanceEditor() {
       return queryClient.invalidateQueries({ queryKey: ["maintenances"] });
     },
     onError: (error) => setProblem(error.message),
+  });
+  useReopenDraft("maintenance", windows.isSuccess, (id) => {
+    setProblem(undefined);
+    if (id === "new") setAdding(true);
+    const found = windows.data?.maintenances.find((w) => w.id === id && w.status !== "completed");
+    if (found) setEditing(found);
+    return id === "new" || found !== undefined;
   });
   const run = (call: () => Promise<unknown>) =>
     new Promise<boolean>((resolve) =>

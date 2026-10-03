@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { Button } from "../../components/button.tsx";
+import { DraftDock } from "../../components/drafts.tsx";
 import { Wordmark } from "../../components/wordmark.tsx";
 import { api, authPost } from "../../lib/api.ts";
 import { sections } from "./sections.ts";
@@ -84,8 +85,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </Button>
           </div>
         </nav>
-        <main className="w-full max-w-[1080px] p-4 md:p-8">{children}</main>
+        {/* Room at the foot for the drafts dock. */}
+        <main className="w-full max-w-[1080px] p-4 pb-24 md:p-8 md:pb-24">{children}</main>
       </div>
+      <DraftDock />
     </QueryClientProvider>
   );
 }
