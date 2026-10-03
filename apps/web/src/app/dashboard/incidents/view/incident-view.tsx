@@ -26,6 +26,11 @@ import {
 } from "../incident-ui.tsx";
 import { MessageField, useTemplate } from "../message-field.tsx";
 
+// Updates on a vertical line, as on the status page: a dot each, the latest filled. Plain ink and
+// greys, since incident statuses are not states.
+const step =
+  "relative pb-5 pl-6 last:pb-0 before:absolute before:top-5 before:bottom-0.5 before:left-[5px] before:w-px before:bg-mist last:before:hidden after:absolute after:top-[7px] after:left-0 after:size-[11px] after:rounded-full after:border-[1.5px] after:border-ash after:bg-paper first:after:border-ink first:after:bg-ink";
+
 type Incident = paths["/v1/incidents/{id}"]["get"]["responses"][200]["content"]["application/json"];
 
 export function IncidentView() {
@@ -86,16 +91,16 @@ export function IncidentView() {
         <h2 id="updates" className="border-b border-mist pb-2 text-[19px] font-semibold">
           Updates
         </h2>
-        <ol>
+        <ol className="mt-4">
           {shown.updates.map((update) => (
-            <li key={update.id} className="flex flex-col gap-1 border-b border-mist py-3">
+            <li key={update.id} className={step}>
               <span className="text-[14px]">
                 <span className="font-semibold">{STATUS_LABELS[update.status]}</span>{" "}
                 <span className="text-slate">
                   <Time iso={update.createdAt} />
                 </span>
               </span>
-              <p className="max-w-[72ch] whitespace-pre-wrap">{update.body}</p>
+              <p className="mt-1 max-w-[72ch] whitespace-pre-wrap">{update.body}</p>
             </li>
           ))}
         </ol>
