@@ -66,7 +66,7 @@ export function IncidentForm({
     (text) => form.setValue("body", text),
   );
   // After the template, so a restored message isn't replaced by it.
-  const draft = useDraft("incident:new", "New incident", form);
+  const draft = useDraft("incident:new", "Publish an incident", form);
   const submit = form.handleSubmit(async (values) => {
     if (await onPublish(values)) draft.discard();
   });

@@ -192,7 +192,7 @@ function Minimize() {
     <button
       type="button"
       onClick={onClose}
-      className="absolute top-4 right-4 z-10 inline-flex bg-surface items-center gap-1.5 rounded-[6px] px-2 py-1 text-[14px] text-graphite transition-colors duration-[120ms] hover:bg-mist hover:text-ink motion-reduce:transition-none"
+      className="absolute top-4 right-4 z-10 inline-flex items-center gap-1.5 rounded-[6px] bg-surface px-2 py-1 text-[14px] text-ink hover:underline focus-visible:underline"
     >
       <Minus aria-hidden="true" size={16} strokeWidth={1.5} />
       Minimize
