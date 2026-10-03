@@ -2,7 +2,7 @@
  * "galena" with its mark, the cleaved crystal: a square with a 45° channel cutting a triangle off
  * its bottom-left corner. Below 24 px the pixel-drawn 16 px cut stays sharp; the master blurs.
  */
-export function Wordmark({ size = 24 }: { size?: number }) {
+export function Wordmark({ size = 24, markOnly = false }: { size?: number; markOnly?: boolean }) {
   return (
     <span className="inline-flex items-center gap-[9px] text-[19px] font-semibold leading-none">
       {size < 24 ? (
@@ -22,7 +22,7 @@ export function Wordmark({ size = 24 }: { size?: number }) {
           />
         </svg>
       )}
-      galena
+      <span className={markOnly ? "sr-only" : undefined}>galena</span>
     </span>
   );
 }
