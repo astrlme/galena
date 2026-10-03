@@ -107,11 +107,15 @@ function useScrollLock(enabled: boolean): void {
 }
 
 const SCRIM = "fixed inset-0 z-50 bg-scrim/60 backdrop-blur-sm";
+// vaul hangs a block twice the drawer's size off its outer edge for the overshoot, so the drawer
+// itself must not scroll, or that block scrolls in over the form: the content scrolls inside.
 const BOTTOM =
-  "fixed right-0 bottom-0 left-0 z-50 flex h-auto max-h-[96%] flex-col overflow-y-auto rounded-t-3xl border-mist border-t bg-surface px-6 pt-4 pb-10 text-ink outline-none";
+  "fixed right-0 bottom-0 left-0 z-50 flex h-auto max-h-[96%] flex-col rounded-t-3xl border-mist border-t bg-surface pt-4 text-ink outline-none";
+const BOTTOM_BODY = "min-h-0 flex-1 overflow-y-auto px-6 pb-10";
 // Floats 8 px off the edges; vaul starts it that much further out so it slides in from off-screen.
 const SIDE =
-  "fixed inset-y-2 right-2 z-50 flex w-[480px] flex-col overflow-y-auto rounded-2xl border border-mist bg-surface p-6 text-ink shadow-2xl outline-none";
+  "fixed inset-y-2 right-2 z-50 flex w-[480px] flex-col rounded-2xl border border-mist bg-surface text-ink shadow-2xl outline-none";
+const SIDE_BODY = "min-h-0 flex-1 overflow-y-auto p-6";
 const SIDE_START = { "--initial-transform": "calc(100% + 8px)" } as CSSProperties;
 const FIELD = "form :is(input, select, textarea):not([disabled])";
 
@@ -188,7 +192,7 @@ function Minimize() {
     <button
       type="button"
       onClick={onClose}
-      className="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-[6px] px-2 py-1 text-[14px] text-graphite transition-colors duration-[120ms] hover:bg-mist hover:text-ink motion-reduce:transition-none"
+      className="absolute top-4 right-4 z-10 inline-flex bg-surface items-center gap-1.5 rounded-[6px] px-2 py-1 text-[14px] text-graphite transition-colors duration-[120ms] hover:bg-mist hover:text-ink motion-reduce:transition-none"
     >
       <Minus aria-hidden="true" size={16} strokeWidth={1.5} />
       Minimize
@@ -259,7 +263,7 @@ function ModalRoot({
             >
               {!side && <Drawer.Handle className="mb-5" />}
               {sheet && <Minimize />}
-              {stableChildren}
+              <div className={side ? SIDE_BODY : BOTTOM_BODY}>{stableChildren}</div>
             </Drawer.Content>
           </Drawer.Portal>
         </Drawer.Root>
