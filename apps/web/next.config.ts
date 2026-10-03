@@ -8,6 +8,8 @@ const config: NextConfig = {
   output: "export",
   trailingSlash: true, // /dashboard/ becomes dashboard/index.html, which S3 can serve
   transpilePackages: ["@galena/contracts", "@galena/core", "@galena/ui"],
+  // The dev badge sits over the bottom-left corner, where a phone's form buttons are.
+  devIndicators: false,
   ...(process.env.NODE_ENV === "development"
     ? {
         rewrites: async () => [
