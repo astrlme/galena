@@ -2,10 +2,10 @@
 
 import { maintenanceInput } from "@galena/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "../../../components/button.tsx";
+import { useDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
 import type { paths } from "../../../lib/api-schema.ts";
 import { MessageField } from "../incidents/message-field.tsx";
@@ -46,7 +46,6 @@ export function MaintenanceForm({
   onSave: (input: WindowInput) => Promise<boolean>;
   onCancel: () => void;
 }) {
-  const [selected, setSelected] = useState<string[]>(editing?.componentIds ?? []);
   const form = useForm<FormIn, unknown, z.output<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: editing
@@ -55,18 +54,26 @@ export function MaintenanceForm({
           body: editing.body,
           startsAt: toMinute(editing.startsAt),
           endsAt: toMinute(editing.endsAt),
+          componentIds: editing.componentIds,
         }
-      : { title: "", body: "", startsAt: "", endsAt: "" },
+      : { title: "", body: "", startsAt: "", endsAt: "", componentIds: [] },
   });
   const { errors, isSubmitting } = form.formState;
+  const draft = useDraft(
+    editing ? `maintenance:${editing.id}` : "maintenance:new",
+    editing ? title : "New window",
+    form,
+  );
   const submit = form.handleSubmit(async (values) => {
-    if ((await onSave({ ...values, componentIds: selected })) && !editing) {
-      form.reset();
-      setSelected([]);
-    }
+    if (!(await onSave(values))) return;
+    draft.discard();
+    if (!editing) form.reset();
   });
+  const selected = form.watch("componentIds") ?? [];
   const toggle = (id: string, on: boolean) =>
-    setSelected((now) => (on ? [...now, id] : now.filter((c) => c !== id)));
+    form.setValue("componentIds", on ? [...selected, id] : selected.filter((c) => c !== id), {
+      shouldDirty: true,
+    });
   const label = editing
     ? isSubmitting
       ? "Saving…"
@@ -126,8 +133,15 @@ export function MaintenanceForm({
         <Button type="submit" variant="primary" disabled={isSubmitting}>
           {label}
         </Button>
-        <Button type="button" variant="quiet" onClick={onCancel}>
-          Cancel
+        <Button
+          type="button"
+          variant="quiet"
+          onClick={() => {
+            draft.discard();
+            onCancel();
+          }}
+        >
+          {draft.dirty ? "Discard" : "Cancel"}
         </Button>
       </div>
     </form>

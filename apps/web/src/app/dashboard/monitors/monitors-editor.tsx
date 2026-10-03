@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
+import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { control, Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
@@ -78,6 +79,13 @@ export function MonitorsEditor() {
     queryFn: () => unwrap(api.GET("/v1/components")),
   });
   const telemetry = useTelemetry();
+  useReopenDraft("monitor", monitors.isSuccess, (id) => {
+    setProblem(undefined);
+    if (id === "new") setAdding(true);
+    const monitor = monitors.data?.monitors.find((m) => m.id === id);
+    if (monitor) setEditing(monitor);
+    return id === "new" || monitor !== undefined;
+  });
   const change = useMutation({
     mutationFn: (run: () => Promise<unknown>) => run(),
     onSuccess: () => {
@@ -246,8 +254,15 @@ function MonitorForm({
     defaultValues: editing ? toInput(editing) : EMPTY,
   });
   const { errors, isSubmitting } = form.formState;
+  const draft = useDraft(
+    editing ? `monitor:${editing.id}` : "monitor:new",
+    editing ? title : "New monitor",
+    form,
+  );
   const submit = form.handleSubmit(async (values) => {
-    if (await onSave(values)) form.reset(EMPTY);
+    if (!(await onSave(values))) return;
+    draft.discard();
+    form.reset(EMPTY);
   });
   return (
     <form onSubmit={submit} aria-label={title} className="mt-6 flex flex-col gap-4" noValidate>
@@ -340,8 +355,15 @@ function MonitorForm({
               ? "Adding…"
               : "Add monitor"}
         </Button>
-        <Button type="button" variant="quiet" onClick={onCancel}>
-          Cancel
+        <Button
+          type="button"
+          variant="quiet"
+          onClick={() => {
+            draft.discard();
+            onCancel();
+          }}
+        >
+          {draft.dirty ? "Discard" : "Cancel"}
         </Button>
       </div>
     </form>

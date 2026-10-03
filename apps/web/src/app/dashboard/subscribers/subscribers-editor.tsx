@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
+import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { control, Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
@@ -61,6 +62,12 @@ export function SubscribersEditor() {
       });
     },
     onError: (error) => setProblem(error.message),
+  });
+  useReopenDraft("destination", components.isSuccess, (id) => {
+    setProblem(undefined);
+    setSecret(undefined);
+    setAdding(id === "new");
+    return id === "new";
   });
 
   if (endpoints.isPending || subscribers.isPending || components.isPending) {
@@ -146,14 +153,42 @@ export function SubscribersEditor() {
         )}
       </section>
 
+      <Modal.Root open={adding && !secret} onClose={() => setAdding(false)}>
+        <Modal.Title>Add a destination</Modal.Title>
+        <DestinationForm
+          components={all}
+          problem={adding ? problem : undefined}
+          onCancel={() => setAdding(false)}
+          onSave={(input) =>
+            new Promise<boolean>((resolve) =>
+              change.mutate(
+                async () => {
+                  const created = await unwrap(api.POST("/v1/webhook-endpoints", { body: input }));
+                  // A webhook's secret is shown once, next; a Slack channel needs none.
+                  if (created.secret) {
+                    setSecret({ name: input.name, value: created.secret });
+                  } else {
+                    setAdding(false);
+                  }
+                },
+                { onSuccess: () => resolve(true), onError: () => resolve(false) },
+              ),
+            )
+          }
+        />
+      </Modal.Root>
       <Modal.Root
-        open={adding}
-        onClose={() => setAdding(false)}
+        kind="dialog"
+        open={secret !== undefined}
+        onClose={() => {
+          setSecret(undefined);
+          setAdding(false);
+        }}
         // A secret that isn't shown again closes only on Done.
-        closeOnOverlayClick={!secret}
-        closeOnEsc={!secret}
+        closeOnOverlayClick={false}
+        closeOnEsc={false}
       >
-        {secret ? (
+        {secret && (
           <>
             <Modal.Title>Signing secret for {secret.name}</Modal.Title>
             <div role="status" className="mt-4 flex flex-col gap-2">
@@ -167,37 +202,16 @@ export function SubscribersEditor() {
               </p>
             </div>
             <div className="mt-6">
-              <Button variant="primary" onClick={() => setAdding(false)}>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setSecret(undefined);
+                  setAdding(false);
+                }}
+              >
                 Done
               </Button>
             </div>
-          </>
-        ) : (
-          <>
-            <Modal.Title>Add a destination</Modal.Title>
-            <DestinationForm
-              components={all}
-              problem={adding ? problem : undefined}
-              onCancel={() => setAdding(false)}
-              onSave={(input) =>
-                new Promise<boolean>((resolve) =>
-                  change.mutate(
-                    async () => {
-                      const created = await unwrap(
-                        api.POST("/v1/webhook-endpoints", { body: input }),
-                      );
-                      // A webhook's secret is shown once, here; a Slack channel needs none.
-                      if (created.secret) {
-                        setSecret({ name: input.name, value: created.secret });
-                      } else {
-                        setAdding(false);
-                      }
-                    },
-                    { onSuccess: () => resolve(true), onError: () => resolve(false) },
-                  ),
-                )
-              }
-            />
           </>
         )}
       </Modal.Root>
@@ -275,21 +289,23 @@ function DestinationForm({
   onSave: (input: Input) => Promise<boolean>;
   onCancel: () => void;
 }) {
-  const [selected, setSelected] = useState<string[]>([]);
   const form = useForm<z.input<typeof endpointInput>, unknown, z.output<typeof endpointInput>>({
     resolver: zodResolver(endpointInput),
-    defaultValues: { kind: "slack", name: "", url: "" },
+    defaultValues: { kind: "slack", name: "", url: "", componentIds: [] },
   });
   const { errors, isSubmitting } = form.formState;
   const kind = form.watch("kind");
+  const draft = useDraft("destination:new", "New destination", form);
   const submit = form.handleSubmit(async (values) => {
-    if (await onSave({ ...values, componentIds: selected })) {
-      form.reset({ kind: values.kind, name: "", url: "" });
-      setSelected([]);
-    }
+    if (!(await onSave(values))) return;
+    draft.discard();
+    form.reset({ kind: values.kind, name: "", url: "", componentIds: [] });
   });
+  const selected = form.watch("componentIds") ?? [];
   const toggle = (id: string, on: boolean) =>
-    setSelected((now) => (on ? [...now, id] : now.filter((c) => c !== id)));
+    form.setValue("componentIds", on ? [...selected, id] : selected.filter((c) => c !== id), {
+      shouldDirty: true,
+    });
 
   return (
     <form
@@ -353,8 +369,15 @@ function DestinationForm({
         <Button type="submit" variant="primary" disabled={isSubmitting}>
           {isSubmitting ? "Adding…" : "Add destination"}
         </Button>
-        <Button type="button" variant="quiet" onClick={onCancel}>
-          Cancel
+        <Button
+          type="button"
+          variant="quiet"
+          onClick={() => {
+            draft.discard();
+            onCancel();
+          }}
+        >
+          {draft.dirty ? "Discard" : "Cancel"}
         </Button>
       </div>
     </form>

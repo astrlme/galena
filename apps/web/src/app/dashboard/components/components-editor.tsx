@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
+import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { control, Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { StatusLabel } from "../../../components/status.tsx";
@@ -46,6 +47,13 @@ export function ComponentsEditor() {
     },
     onError: (error) => setProblem(error.message),
   });
+  const reopen = (kind: "group" | "component") => (id: string) => {
+    setProblem(undefined);
+    if (id === "new") setCreating(kind);
+    return id === "new";
+  };
+  useReopenDraft("group", listing.isSuccess, reopen("group"));
+  useReopenDraft("component", listing.isSuccess, reopen("component"));
 
   /** Whether the call succeeded; a failure shows above the lists and the form keeps its values. */
   const run = (call: () => Promise<unknown>) =>
@@ -250,8 +258,11 @@ function GroupForm({
     resolver: zodResolver(componentGroupInput),
     defaultValues: { name: "" },
   });
+  const draft = useDraft("group:new", "New group", form);
   const submit = form.handleSubmit(async (values) => {
-    if (await onCreate(values)) form.reset();
+    if (!(await onCreate(values))) return;
+    draft.discard();
+    form.reset();
   });
   return (
     <form
@@ -274,8 +285,15 @@ function GroupForm({
         <Button type="submit" variant="primary" disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting ? "Adding…" : "Add group"}
         </Button>
-        <Button type="button" variant="quiet" onClick={onCancel}>
-          Cancel
+        <Button
+          type="button"
+          variant="quiet"
+          onClick={() => {
+            draft.discard();
+            onCancel();
+          }}
+        >
+          {draft.dirty ? "Discard" : "Cancel"}
         </Button>
       </div>
     </form>
@@ -300,8 +318,11 @@ function ComponentForm({
     resolver: zodResolver(componentInput),
     defaultValues: { name: "", description: null, groupId: null },
   });
+  const draft = useDraft("component:new", "New component", form);
   const submit = form.handleSubmit(async (values) => {
-    if (await onCreate(values)) form.reset();
+    if (!(await onCreate(values))) return;
+    draft.discard();
+    form.reset();
   });
   return (
     <form
@@ -346,8 +367,15 @@ function ComponentForm({
         <Button type="submit" variant="primary" disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting ? "Adding…" : "Add component"}
         </Button>
-        <Button type="button" variant="quiet" onClick={onCancel}>
-          Cancel
+        <Button
+          type="button"
+          variant="quiet"
+          onClick={() => {
+            draft.discard();
+            onCancel();
+          }}
+        >
+          {draft.dirty ? "Discard" : "Cancel"}
         </Button>
       </div>
     </form>
