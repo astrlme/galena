@@ -258,7 +258,7 @@ function GroupForm({
     resolver: zodResolver(componentGroupInput),
     defaultValues: { name: "" },
   });
-  const draft = useDraft("group:new", "New group", form);
+  const draft = useDraft("group:new", "Add a group", form);
   const submit = form.handleSubmit(async (values) => {
     if (!(await onCreate(values))) return;
     draft.discard();
@@ -318,7 +318,7 @@ function ComponentForm({
     resolver: zodResolver(componentInput),
     defaultValues: { name: "", description: null, groupId: null },
   });
-  const draft = useDraft("component:new", "New component", form);
+  const draft = useDraft("component:new", "Add a component", form);
   const submit = form.handleSubmit(async (values) => {
     if (!(await onCreate(values))) return;
     draft.discard();

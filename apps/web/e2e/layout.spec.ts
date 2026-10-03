@@ -19,12 +19,12 @@ test("a minimized form waits in the dock, survives a reload and reopens where it
   await expect(sheet).toBeHidden();
 
   const dock = page.getByRole("complementary", { name: "Drafts" });
-  await expect(dock.getByRole("link", { name: "New monitor" })).toBeVisible();
+  await expect(dock.getByRole("link", { name: "Add a monitor" })).toBeVisible();
   await expectAccessible(page);
 
   // Kept in the browser, so a reload or another section keeps it too.
   await page.goto("/dashboard/incidents/");
-  await dock.getByRole("link", { name: "New monitor" }).click();
+  await dock.getByRole("link", { name: "Add a monitor" }).click();
   await expect(page).toHaveURL(/\/dashboard\/monitors\/$/);
   await expect(sheet.getByLabel("Monitor name")).toHaveValue(name);
 
@@ -49,7 +49,7 @@ test("sending a restored draft clears it", async ({ page }, testInfo) => {
 
   await page.reload();
   const dock = page.getByRole("complementary", { name: "Drafts" });
-  await dock.getByRole("link", { name: "New group" }).click();
+  await dock.getByRole("link", { name: "Add a group" }).click();
   await expect(sheet.getByLabel("Group name")).toHaveValue(name);
   await sheet.getByRole("button", { name: "Add group" }).click();
   await expect(sheet).toBeHidden();
@@ -108,7 +108,7 @@ test.describe("on a phone", () => {
     await sheet.getByLabel("Title").fill("Phone draft");
     await sheet.getByRole("button", { name: "Minimize" }).click();
     const dock = page.getByRole("complementary", { name: "Drafts" });
-    await dock.getByRole("link", { name: "New window" }).click();
+    await dock.getByRole("link", { name: "Schedule a window" }).click();
     await expect(sheet.getByLabel("Title")).toHaveValue("Phone draft");
     await sheet.getByRole("button", { name: "Discard" }).click();
     await expect(dock).toBeHidden();

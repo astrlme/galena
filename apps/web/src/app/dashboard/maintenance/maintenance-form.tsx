@@ -59,11 +59,7 @@ export function MaintenanceForm({
       : { title: "", body: "", startsAt: "", endsAt: "", componentIds: [] },
   });
   const { errors, isSubmitting } = form.formState;
-  const draft = useDraft(
-    editing ? `maintenance:${editing.id}` : "maintenance:new",
-    editing ? title : "New window",
-    form,
-  );
+  const draft = useDraft(editing ? `maintenance:${editing.id}` : "maintenance:new", title, form);
   const submit = form.handleSubmit(async (values) => {
     if (!(await onSave(values))) return;
     draft.discard();

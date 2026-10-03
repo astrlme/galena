@@ -295,7 +295,7 @@ function DestinationForm({
   });
   const { errors, isSubmitting } = form.formState;
   const kind = form.watch("kind");
-  const draft = useDraft("destination:new", "New destination", form);
+  const draft = useDraft("destination:new", "Add a destination", form);
   const submit = form.handleSubmit(async (values) => {
     if (!(await onSave(values))) return;
     draft.discard();

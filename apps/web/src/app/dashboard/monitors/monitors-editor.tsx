@@ -264,11 +264,7 @@ function MonitorForm({
     defaultValues: editing ? toInput(editing) : EMPTY,
   });
   const { errors, isSubmitting } = form.formState;
-  const draft = useDraft(
-    editing ? `monitor:${editing.id}` : "monitor:new",
-    editing ? title : "New monitor",
-    form,
-  );
+  const draft = useDraft(editing ? `monitor:${editing.id}` : "monitor:new", title, form);
   const submit = form.handleSubmit(async (values) => {
     if (!(await onSave(values))) return;
     draft.discard();

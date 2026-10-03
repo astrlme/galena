@@ -8,11 +8,11 @@ import {
   LayoutDashboard,
   LogOut,
   type LucideIcon,
+  Megaphone,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
-  TriangleAlert,
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
@@ -24,8 +24,9 @@ import { Wordmark } from "../../components/wordmark.tsx";
 import { api, authPost } from "../../lib/api.ts";
 import { sections } from "./sections.ts";
 
-const ICONS: Record<string, LucideIcon> = {
-  incidents: TriangleAlert,
+// No triangle for incidents: ▲ is the partial-outage glyph.
+const ICONS: Record<(typeof sections)[number]["slug"], LucideIcon> = {
+  incidents: Megaphone,
   maintenance: Wrench,
   monitors: Activity,
   components: Boxes,
@@ -37,12 +38,13 @@ const nav = [
   ...sections.map((s) => ({
     href: `/dashboard/${s.slug}/`,
     title: s.title,
-    Icon: ICONS[s.slug] ?? LayoutDashboard,
+    Icon: ICONS[s.slug],
   })),
 ];
-const icon = { "aria-hidden": true, size: 18, strokeWidth: 1.5, className: "shrink-0" } as const;
+const icon = { "aria-hidden": true, size: 20, strokeWidth: 1.5, className: "shrink-0" } as const;
+// 10 + 20 + 10 px fills the rail's 40 px, so each icon sits centred in it.
 const row =
-  "flex items-center gap-3 whitespace-nowrap rounded-[6px] px-3 py-1.5 text-left transition-colors duration-[120ms] motion-reduce:transition-none";
+  "flex items-center gap-3 whitespace-nowrap rounded-[6px] px-2.5 py-1.5 text-left transition-colors duration-[120ms] motion-reduce:transition-none";
 const quiet = "text-graphite hover:bg-surface hover:text-ink";
 // The menu drawer floats 8 px off the edge; vaul starts it that much further out.
 const FROM_LEFT = { "--initial-transform": "calc(100% + 8px)" } as CSSProperties;
@@ -159,7 +161,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 style={FROM_LEFT}
                 className="fixed inset-y-2 left-2 z-50 flex w-[min(280px,calc(100vw-4rem))] flex-col gap-6 overflow-y-auto rounded-2xl border border-mist bg-surface px-3 py-5 text-ink outline-none"
               >
-                <Drawer.Title className="px-3">
+                <Drawer.Title className="px-2.5">
                   <Wordmark />
                   <span className="sr-only"> menu</span>
                 </Drawer.Title>
@@ -167,7 +169,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   <NavLinks collapsed={false} onNavigate={() => setMenuOpen(false)} />
                 </nav>
                 <div className="mt-auto flex flex-col gap-1 text-[14px]">
-                  <span className="truncate px-3 py-1.5 text-slate">{me.email}</span>
+                  <span className="truncate px-2.5 py-1.5 text-slate">{me.email}</span>
                   {signOutButton(false)}
                 </div>
               </Drawer.Content>
@@ -178,7 +180,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         {/* From 768 px: the sidebar, which collapses to a rail of icons. */}
         <nav
           aria-label="Dashboard"
-          className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-8 overflow-y-auto overflow-x-hidden border-mist border-r px-3 py-6 transition-[width] duration-200 motion-reduce:transition-none md:flex ${collapsed ? "w-16" : "w-[240px]"}`}
+          className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-8 overflow-y-auto overflow-x-hidden border-mist border-r px-3 py-6 transition-[width] duration-[120ms] ease-out motion-reduce:transition-none md:flex ${collapsed ? "w-16" : "w-[240px]"}`}
         >
           <span className="px-2">
             <Wordmark markOnly={collapsed} />
@@ -196,7 +198,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 {collapsed ? "Expand sidebar" : "Collapse sidebar"}
               </span>
             </button>
-            {!collapsed && <span className="truncate px-3 py-1.5 text-slate">{me.email}</span>}
+            {!collapsed && <span className="truncate px-2.5 py-1.5 text-slate">{me.email}</span>}
             {signOutButton(collapsed)}
           </div>
         </nav>
