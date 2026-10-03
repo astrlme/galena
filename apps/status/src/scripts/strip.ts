@@ -53,25 +53,24 @@ function swatch(state: ComponentStatus): HTMLElement {
 /** The popover's contents for one day, built from text nodes only. */
 function fill(tip: HTMLElement, day: Date, detail: DayDetail | undefined, hasData: boolean) {
   tip.replaceChildren(el("p", "tip-date", `${dayLabel(day)} ${day.getUTCFullYear()}`));
-  if (!hasData && !detail) {
-    tip.append(el("p", "tip-rows secondary", "No data"));
-    return;
-  }
-  const rows = el("ul", "tip-rows");
-  const minutes: DayDetail["m"] = detail?.m.length ? detail.m : [["operational", 1440]];
-  if (detail && detail.m.length === 0) rows.append(el("li", "", detail.t));
+  if (!hasData) tip.append(el("p", "tip-rows secondary", "No data"));
   else {
-    for (const [state, spent] of minutes) {
-      const row = el("li", "");
-      row.append(
-        swatch(state),
-        el("span", "", componentStatusLabels[state]),
-        el("span", "num tip-value", hm(spent)),
-      );
-      rows.append(row);
+    const rows = el("ul", "tip-rows");
+    const minutes: DayDetail["m"] = detail?.m.length ? detail.m : [["operational", 1440]];
+    if (detail && detail.m.length === 0) rows.append(el("li", "", detail.t));
+    else {
+      for (const [state, spent] of minutes) {
+        const row = el("li", "");
+        row.append(
+          swatch(state),
+          el("span", "", componentStatusLabels[state]),
+          el("span", "num tip-value", hm(spent)),
+        );
+        rows.append(row);
+      }
     }
+    tip.append(rows);
   }
-  tip.append(rows);
   if (!detail?.n.length) return;
   const list = el("ul", "tip-incidents");
   for (const [title, start, end, state] of detail.n) {
@@ -88,7 +87,7 @@ function fill(tip: HTMLElement, day: Date, detail: DayDetail | undefined, hasDat
 }
 
 for (const strip of document.querySelectorAll<HTMLElement>("[data-strip]")) {
-  const { start = "", count = "0", first = "0", name = "" } = strip.dataset;
+  const { start = "", count = "0", empty = "", name = "" } = strip.dataset;
   const details = JSON.parse(strip.dataset.days ?? "{}") as Record<string, DayDetail>;
   const svg = strip.querySelector("svg");
   const cursor = strip.querySelector<SVGRectElement>("[data-strip-cursor]");
@@ -98,8 +97,9 @@ for (const strip of document.querySelectorAll<HTMLElement>("[data-strip]")) {
   const last = Number(count) - 1;
   let index = last;
 
+  const hasData = (i: number) => empty[i] !== "1";
   const text = (i: number) => {
-    const what = details[i]?.t ?? (i >= Number(first) ? "Operational" : "No data");
+    const what = details[i]?.t ?? (hasData(i) ? "Operational" : "No data");
     return `${dayLabel(dayAt(start, i))}: ${what}`;
   };
   const show = (i: number, keyboard: boolean) => {
@@ -108,7 +108,7 @@ for (const strip of document.querySelectorAll<HTMLElement>("[data-strip]")) {
     if (keyboard) cursor?.removeAttribute("hidden");
     else cursor?.setAttribute("hidden", "");
     if (tip && svg && wrap) {
-      fill(tip, dayAt(start, index), details[index], index >= Number(first));
+      fill(tip, dayAt(start, index), details[index], hasData(index));
       tip.hidden = false;
       const offset = svg.getBoundingClientRect().left - wrap.getBoundingClientRect().left;
       // Keep the popover over the card: near today it would run past the right edge.

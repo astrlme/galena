@@ -15,17 +15,14 @@ interface Props {
 const { name, componentId, days, incidents, now } = Astro.props;
 const width = stripWidth(days.length);
 // Only days with something to tell travel to the browser; every other day is a whole
-// operational day, or has no data before the first one that has.
+// operational day, unless `empty` marks it as a day nothing was observed ("1").
 const details = Object.fromEntries(
   days.flatMap((d, i) => {
     const detail = dayDetail(d, incidents, componentId, now);
     return detail ? [[i, detail]] : [];
   }),
 );
-const first = Math.max(
-  0,
-  days.findIndex((d) => d.worst !== null),
-);
+const empty = days.map((d) => (d.worst === null ? "1" : "0")).join("");
 const listed = days.filter((d) => d.worst !== null && d.worst !== "operational");
 ---
 
@@ -39,7 +36,7 @@ const listed = days.filter((d) => d.worst !== null && d.worst !== "operational")
     data-name={name}
     data-start={days[0]?.date}
     data-count={days.length}
-    data-first={first}
+    data-empty={empty}
     data-days={JSON.stringify(details)}
   >
     <svg width={width} height={ROW} viewBox={`0 0 ${width} ${ROW}`} aria-hidden="true">
