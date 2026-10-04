@@ -34,6 +34,7 @@ export { findOutboxRow, markOutboxDispatched } from "./repositories/outbox.ts";
 export {
   advancePageVersion,
   ensurePage,
+  findMonitorState,
   listMonitorTransitions,
   listUptimeDays,
   loadSnapshotInputs,

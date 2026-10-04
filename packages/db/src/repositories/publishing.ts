@@ -57,6 +57,16 @@ export async function recordMonitorTransition(db: Db, t: MonitorTransition): Pro
   });
 }
 
+/** The monitor's last confirmed state, or undefined once it has been deleted. */
+export async function findMonitorState(db: Db, workspaceId: WorkspaceId, monitorId: MonitorId) {
+  const [row] = await db
+    .select({ state: monitor.state })
+    .from(monitor)
+    .where(and(eq(monitor.workspaceId, workspaceId), eq(monitor.id, monitorId)))
+    .limit(1);
+  return row?.state;
+}
+
 /**
  * Each monitor's transitions from `since` on, oldest first, led by the last one before `since`
  * (the state each monitor was in when the period began).
