@@ -66,6 +66,12 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
   const triggerKey =
     env.TRIGGER_SECRET_KEY ??
     (env.GLN_TRIGGER_SECRET_PARAM ? await parameter(env.GLN_TRIGGER_SECRET_PARAM) : undefined);
+  // Without it every change would commit and then quietly never reach the workers.
+  if (!triggerKey && env.GLN_STAGE !== "local") {
+    throw new Error(
+      "Outside local development, set GLN_TRIGGER_SECRET_PARAM (an SSM SecureString).",
+    );
+  }
   if (triggerKey) configure({ accessToken: triggerKey });
 
   let appKey =
