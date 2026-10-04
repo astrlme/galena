@@ -66,22 +66,18 @@ export class FoundationStack extends Stack {
       vpc,
       vpcSubnets: { subnetType: SubnetType.PRIVATE_ISOLATED },
       storageEncrypted: true,
-      backup: { retention: Duration.days(isProd ? 14 : 1) },
-      deletionProtection: isProd,
-      removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+      // What people wrote (incidents, subscribers) lives only here, so every stage keeps it:
+      // guarded against deletion, kept when the stack goes, with two weeks of backups.
+      backup: { retention: Duration.days(14) },
+      deletionProtection: true,
+      removalPolicy: RemovalPolicy.RETAIN,
       cloudwatchLogsExports: ["postgresql"],
     });
-    for (const [id, reason] of [
-      [
-        "AwsSolutions-RDS11",
+    Validations.of(this.database).acknowledge({
+      id: "AwsSolutions-RDS11",
+      reason:
         "Nothing connects on a port: every client uses the Data API over HTTPS, so moving the port hides nothing.",
-      ],
-      ...(isProd
-        ? []
-        : [["AwsSolutions-RDS10", "Dev data is disposable; prod has deletion protection."]]),
-    ] as const) {
-      Validations.of(this.database).acknowledge({ id, reason });
-    }
+    });
 
     this.databaseSecretArn = (
       this.database.node.defaultChild as CfnDBCluster

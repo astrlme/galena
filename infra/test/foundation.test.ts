@@ -110,14 +110,24 @@ test("publishes the identifiers other stacks and the workers read", () => {
   );
 });
 
-test("prod keeps its data when the stack goes; dev does not", () => {
-  const policies = (template: Template, type: string) =>
-    Object.values(template.findResources(type)).map((r) => r.DeletionPolicy);
-  for (const type of ["AWS::RDS::DBCluster", "AWS::DynamoDB::Table", "AWS::S3::Bucket"]) {
+const policies = (template: Template, type: string) =>
+  Object.values(template.findResources(type)).map((r) => r.DeletionPolicy);
+
+test("every stage keeps the database, guarded against deletion, with two weeks of backups", () => {
+  for (const { template } of [dev, prod]) {
+    expect(policies(template, "AWS::RDS::DBCluster")).toEqual(["Retain"]);
+    template.hasResourceProperties("AWS::RDS::DBCluster", {
+      DeletionProtection: true,
+      BackupRetentionPeriod: 14,
+    });
+  }
+});
+
+test("prod keeps telemetry and the config bucket when the stack goes; dev does not", () => {
+  for (const type of ["AWS::DynamoDB::Table", "AWS::S3::Bucket"]) {
     expect(policies(prod.template, type)).toEqual(["Retain"]);
     expect(policies(dev.template, type)).toEqual(["Delete"]);
   }
-  prod.template.hasResourceProperties("AWS::RDS::DBCluster", { DeletionProtection: true });
 });
 
 test("passes cdk-nag AwsSolutions in both stages", () => {
