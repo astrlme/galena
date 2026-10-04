@@ -30,8 +30,8 @@ publishes a static status page that keeps serving when everything else is not.
   stays up when they are down.
 - **Tells people** by email (double opt-in, one-click unsubscribe), Slack and signed webhooks
   when an incident or maintenance window is posted.
-- **Lets your team** run incidents and maintenance from a dashboard with roles and two-factor
-  sign-in.
+- **Runs** incidents and maintenance from a dashboard, behind email and password sign-in with
+  TOTP two-factor.
 
 ## How it fits together
 
@@ -54,7 +54,8 @@ still serves.
 
 ## What works today
 
-- Sign-in with email and password, TOTP two-factor, first-run owner setup, and roles.
+- Sign-in with email and password and TOTP two-factor, for an owner created with one API request
+  on first run.
 - Components and groups, HTTP monitors with per-region results, and detection across regions.
 - Incidents with updates and impact, and maintenance windows that start and finish on their own.
 - The static status page: a 90-day history per component, incident pages with a timeline of
@@ -63,8 +64,9 @@ still serves.
 - Email subscribers, Slack incoming webhooks and signed outgoing webhooks.
 - A dashboard whose forms open in a side sheet and keep what you typed as a draft.
 
-Next: drafting incidents from monitors automatically, approvals in Slack, alert ingest, a
-Statuspage-compatible API, settings, invites and GitHub sign-in. See the
+Next: incidents drafted from monitors, with approvals in Slack and in the dashboard, and a live
+demo. After that: alert ingest, Statuspage-compatible files, API keys, and a settings screen for
+members, two-factor and GitHub sign-in. See the
 [roadmap](https://galena.astrl.me/docs/roadmap/).
 
 ## Run it locally

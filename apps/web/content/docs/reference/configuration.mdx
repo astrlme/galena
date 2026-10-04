@@ -53,7 +53,7 @@ In AWS, CDK sets these on the Lambda. Locally, `pnpm dev` uses the defaults.
 | `GLN_DYNAMODB_ENDPOINT` | | Locally, DynamoDB Local |
 | `GLN_PROBE_REGIONS` | | The probe regions, comma-separated |
 | `GLN_ALLOW_LOOPBACK` | `false` | Lets monitors reach loopback addresses; only honoured when the stage is `local` |
-| `GLN_GITHUB_CLIENT_ID`, `GLN_GITHUB_CLIENT_SECRET` | | GitHub sign-in, off when unset |
+| `GLN_GITHUB_CLIENT_ID`, `GLN_GITHUB_CLIENT_SECRET` | | GitHub sign-in on the API, off when unset. The sign-in page has no GitHub button yet, and the stacks don't set these |
 
 ## Dashboard build
 

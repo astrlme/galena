@@ -19,8 +19,8 @@ It runs in your own AWS account, alongside trigger.dev for background work.
   when they are down.
 - **Tells people** by email (double opt-in, one-click unsubscribe), Slack and signed webhooks
   when an incident or maintenance window is posted.
-- **Lets your team** run incidents and maintenance from a dashboard with roles and two-factor
-  sign-in.
+- **Runs** incidents and maintenance from a dashboard, behind email and password sign-in with
+  TOTP two-factor.
 
 ## How it fits together
 
@@ -48,15 +48,17 @@ are all down at once, the last published page still serves.
 
 Galena is in active development and has no release yet. Working now:
 
-- Sign-in with email and password, TOTP two-factor at sign-in, first-run owner setup, and roles.
+- Sign-in with email and password and TOTP two-factor, for an owner created with one API request
+  on first run.
 - Components and groups, HTTP monitors with per-region results, and detection across regions.
 - Incidents with updates and impact, and maintenance windows that start and finish on their own.
 - The static status page with a 90-day history per component, incident pages, RSS and Atom
   feeds, a status badge and state favicons.
 - Email subscribers, Slack incoming webhooks and signed outgoing webhooks.
 
-Drafting incidents automatically from monitors, approvals in Slack, alert ingest, a
-Statuspage-compatible API, settings, invites and GitHub sign-in are next. See the [roadmap](/docs/roadmap/).
+Next: incidents drafted from monitors, with approvals in Slack and in the dashboard, and a live
+demo. After that: alert ingest, Statuspage-compatible files, API keys, and a settings screen for
+members, two-factor and GitHub sign-in. See the [roadmap](/docs/roadmap/).
 
 ## License
 

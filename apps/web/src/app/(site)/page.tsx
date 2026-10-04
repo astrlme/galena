@@ -135,7 +135,7 @@ export default function Home() {
           <p className="mt-4 max-w-[64ch] text-[16px] leading-[1.6] text-slate">
             Galena is in active development and has no release yet. Detection, the static page,
             incidents, maintenance and notifications work today; incidents drafted from monitors,
-            approvals in Slack and alert ingest are next.
+            with approvals in Slack and in the dashboard, are next.
           </p>
           <p className="mt-6">
             <Link href="/docs/roadmap/" className="underline">
