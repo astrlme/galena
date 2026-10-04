@@ -16,6 +16,7 @@ synthesises.
 | `pageRegions.primary`, `.replica` | regions | The status page's buckets; all three of these and `homeRegion` must differ |
 | `pageDomain` | hostname, optional | The page's own domain; adds a certificate stack in us-east-1 |
 | `webDomain` | hostname, optional | The dashboard's own domain; adds a certificate stack in us-east-1 and becomes the public URL |
+| `siteDomain` | hostname, optional | The project's own site: the landing page and docs, without the dashboard. Only the maintainer's deployment sets it; leave it out |
 | `email.domain`, `email.from` | optional | The SES identity, and the sender, which must be an address at that domain |
 | `github.repository` | `owner/name` | Your fork |
 | `github.oidcSubject` | `repo:owner@id/name@id` | The `sub` prefix of GitHub's OIDC tokens for your fork |
@@ -23,9 +24,9 @@ synthesises.
 | `telemetryCapacity.read`, `.write` | integers | DynamoDB units; stages in one region may not add up to more than 25 each |
 | `auroraMaxAcu` | 1 to 16 | Aurora's capacity ceiling; the floor is 0, so it pauses |
 
-`prod` has no domain or email by default. A `prod` stage also keeps 14 days of database backups
-instead of 1, turns on deletion protection for the database, and keeps the key, database, table
-and config bucket if their stack is ever deleted.
+`prod` has no domain or email by default. Every stage keeps 14 days of database backups, turns
+on deletion protection for the database and keeps it if its stack is ever deleted. A `prod` stage
+also keeps the table and the config bucket.
 
 ## SSM parameters
 
@@ -58,7 +59,7 @@ In AWS, CDK sets these on the Lambda. Locally, `pnpm dev` uses the defaults.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `GLN_SITE` | | `project` builds the project's landing page at `/`; otherwise `/` opens the dashboard. The Deploy workflow reads it from the repository variable of the same name. |
+| `GLN_SITE` | | `project` builds the project's own site (the landing page and docs) into `out-site/` for the `siteDomain` stack; otherwise `/` opens the dashboard. The Deploy workflow builds it when the repository variable of the same name is `project`; leave it unset. |
 
 ## Probe
 

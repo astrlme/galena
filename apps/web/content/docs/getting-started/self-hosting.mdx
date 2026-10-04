@@ -115,7 +115,7 @@ The first run creates, among others:
 - `galena-dev-probe-<region>` in each probe region, and `galena-dev-detection` (the evaluator).
 - `galena-dev-api` and `galena-dev-web` (the dashboard on CloudFront).
 - `galena-dev-page`, `galena-dev-page-replica` and, with a domain, `galena-dev-page-certificate`.
-- `galena-dev-web-certificate`, when `webDomain` is set.
+- `galena-dev-dashboard-certificate`, when `webDomain` is set.
 - `galena-dev-worker-access`: the IAM user trigger.dev uses.
 - `galena-dev-email`, when `email` is set.
 - `galena-dev-smoke`, on the `dev` stage only: an endpoint the end-to-end Smoke workflow takes
@@ -162,8 +162,8 @@ With a `pageDomain` or a `webDomain`, for each:
 1. Add the certificate's validation CNAME (shown in ACM in `us-east-1`) while the first deploy
    waits for it.
 2. Add a CNAME from the domain to its CloudFront distribution's domain: the status page's
-   `DistributionDomain` output, or the dashboard's distribution. With Cloudflare, set the
-   records to DNS only.
+   `DistributionDomain` output, or the same output of `galena-dev-web` for the dashboard. With
+   Cloudflare, set the records to DNS only.
 
 With `email`:
 
