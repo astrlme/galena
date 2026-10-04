@@ -1,9 +1,12 @@
 import { Duration, Stack, type StackProps } from "aws-cdk-lib";
+import { ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
+import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
 import { PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
+import { Topic } from "aws-cdk-lib/aws-sns";
 import { Queue } from "aws-cdk-lib/aws-sqs";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
@@ -78,5 +81,29 @@ export class DetectionStack extends Stack {
     evaluator.addEventSource(
       new SqsEventSource(queue, { batchSize: 10, reportBatchItemFailures: true }),
     );
+
+    // To Foundation's alarm topic: a failing evaluator holds every monitor's state still, and a
+    // throttled one means the account's concurrency ran out.
+    const notify = new SnsAction(Topic.fromTopicArn(this, "Alarms", param("alarm-topic-arn")));
+    evaluator
+      .metricErrors({ period: Duration.minutes(5) })
+      .createAlarm(this, "EvaluatorErrorsAlarm", {
+        alarmDescription: "The evaluator failed in two 5-minute periods in a row.",
+        threshold: 1,
+        evaluationPeriods: 2,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+      })
+      .addAlarmAction(notify);
+    evaluator
+      .metricThrottles({ period: Duration.minutes(5) })
+      .createAlarm(this, "EvaluatorThrottlesAlarm", {
+        alarmDescription: "Lambda throttled the evaluator: the account's concurrency ran out.",
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+      })
+      .addAlarmAction(notify);
   }
 }

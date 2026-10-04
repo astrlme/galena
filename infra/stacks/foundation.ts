@@ -1,4 +1,6 @@
 import { Duration, RemovalPolicy, Stack, type StackProps, Validations } from "aws-cdk-lib";
+import { ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
+import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
 import { AttributeType, BillingMode, Table } from "aws-cdk-lib/aws-dynamodb";
 import { SubnetType, Vpc } from "aws-cdk-lib/aws-ec2";
 import {
@@ -10,6 +12,7 @@ import {
   DatabaseClusterEngine,
 } from "aws-cdk-lib/aws-rds";
 import { BlockPublicAccess, Bucket, BucketEncryption } from "aws-cdk-lib/aws-s3";
+import { Topic } from "aws-cdk-lib/aws-sns";
 import { Queue, QueueEncryption } from "aws-cdk-lib/aws-sqs";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
@@ -119,6 +122,40 @@ export class FoundationStack extends Stack {
       deadLetterQueue: { queue: deadLetters, maxReceiveCount: 5 },
     });
 
+    // Alarms tell the operator through this topic. Nothing subscribes to it here: the operator
+    // subscribes an address once, so none is kept in the repository.
+    const alarms = new Topic(this, "Alarms", {
+      topicName: `galena-${stage}-alarms`,
+      enforceSSL: true,
+    });
+    Validations.of(alarms).acknowledge({
+      id: "AwsSolutions-SNS2",
+      reason:
+        "CloudWatch can publish only to topics under a customer-managed key, which costs more than this budget; an alarm message holds its name and state, in transit over TLS only.",
+    });
+    const notify = new SnsAction(alarms);
+    deadLetters
+      .metricApproximateNumberOfMessagesVisible({ period: Duration.minutes(5) })
+      .createAlarm(this, "DeadLetterAlarm", {
+        alarmDescription: "Check results failed five times and wait in the dead-letter queue.",
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+      })
+      .addAlarmAction(notify);
+    // Every probe region sends results each minute, so silence means they all stopped.
+    this.checkResults
+      .metricNumberOfMessagesSent({ period: Duration.minutes(5) })
+      .createAlarm(this, "NoCheckResultsAlarm", {
+        alarmDescription: "No probe region has sent a check result for 10 minutes.",
+        threshold: 1,
+        evaluationPeriods: 2,
+        comparisonOperator: ComparisonOperator.LESS_THAN_THRESHOLD,
+        treatMissingData: TreatMissingData.BREACHING,
+      })
+      .addAlarmAction(notify);
+
     this.config = new Bucket(this, "Config", {
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
       encryption: BucketEncryption.S3_MANAGED,
@@ -139,6 +176,7 @@ export class FoundationStack extends Stack {
       "check-results-queue-url": this.checkResults.queueUrl,
       "check-results-queue-arn": this.checkResults.queueArn,
       "config-bucket": this.config.bucketName,
+      "alarm-topic-arn": alarms.topicArn,
     };
     for (const [name, value] of Object.entries(parameters)) {
       new StringParameter(this, `Param-${name}`, {

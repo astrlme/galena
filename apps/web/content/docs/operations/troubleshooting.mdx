@@ -7,6 +7,25 @@ Most problems show up in one of three places: the trigger.dev dashboard (every t
 payload and its logs), CloudWatch Logs for the Lambdas (one log group each, kept a month), and
 the dashboard's own error messages, which name what to do.
 
+## Alarms
+
+Four CloudWatch alarms in the home region publish to the SNS topic `galena-<stage>-alarms`:
+
+| Alarm | Fires when |
+| --- | --- |
+| Dead letters | A check result failed five times and waits in the dead-letter queue |
+| No check results | No probe region sent a result for 10 minutes |
+| Evaluator errors | The evaluator failed in two 5-minute periods in a row |
+| Evaluator throttles | Lambda throttled the evaluator, so the account ran out of concurrency |
+
+Nothing subscribes to the topic in code, so no address is kept in your fork. Subscribe one once,
+then confirm the email AWS sends:
+
+```bash
+aws sns subscribe --region <home region> --protocol email --notification-endpoint you@example.com \
+  --topic-arn "$(aws ssm get-parameter --region <home region> --name /galena/dev/alarm-topic-arn --query Parameter.Value --output text)"
+```
+
 ## The first request is slow
 
 Aurora pauses after five idle minutes. The first request afterwards waits about 15 seconds while

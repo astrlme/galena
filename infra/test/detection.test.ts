@@ -10,6 +10,19 @@ const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
 const template = Template.fromStack(new DetectionStack(app, "Detection", { config: stages.dev }));
 
+test("alarms on evaluator errors and throttles, to Foundation's alarm topic", () => {
+  const alarms = Object.values(template.findResources("AWS::CloudWatch::Alarm")).map(
+    (a) => a.Properties,
+  );
+  expect(alarms.map((a) => [a.MetricName, a.EvaluationPeriods]).sort()).toEqual([
+    ["Errors", 2],
+    ["Throttles", 1],
+  ]);
+  for (const alarm of alarms) {
+    expect(JSON.stringify(alarm.AlarmActions)).toMatch(/SsmParameterValuegalenadevalarmtopicarn/);
+  }
+});
+
 test("runs the evaluator on Node 24 arm64 Lambda outside any VPC", () => {
   template.hasResourceProperties("AWS::Lambda::Function", {
     Runtime: "nodejs24.x",

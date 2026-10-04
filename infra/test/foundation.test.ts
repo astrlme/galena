@@ -96,10 +96,36 @@ test("the config bucket is private and refuses plain HTTP", () => {
   });
 });
 
+test("alarms on dead letters and on silent probes, to a TLS-only topic nobody is subscribed to in code", () => {
+  dev.template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "galena-dev-alarms" });
+  dev.template.resourceCountIs("AWS::SNS::Subscription", 0);
+  dev.template.hasResourceProperties("AWS::SNS::TopicPolicy", {
+    PolicyDocument: Match.objectLike({
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Effect: "Deny",
+          Condition: { Bool: { "aws:SecureTransport": "false" } },
+        }),
+      ]),
+    }),
+  });
+  const alarms = resources("AWS::CloudWatch::Alarm").map((a) => a.Properties);
+  expect(
+    alarms.map((a) => [a.MetricName, a.ComparisonOperator, a.TreatMissingData]).sort(),
+  ).toEqual([
+    ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],
+    ["NumberOfMessagesSent", "LessThanThreshold", "breaching"],
+  ]);
+  for (const alarm of alarms) {
+    expect(alarm.AlarmActions).toEqual([{ Ref: expect.stringMatching(/^Alarms/) }]);
+  }
+});
+
 test("publishes the identifiers other stacks and the workers read", () => {
   const names = resources("AWS::SSM::Parameter").map((p) => p.Properties.Name);
   expect(names.sort()).toEqual(
     [
+      "alarm-topic-arn",
       "check-results-queue-arn",
       "check-results-queue-url",
       "config-bucket",
