@@ -8,12 +8,9 @@ page is the only place that describes what doesn't yet.
 
 ## Next: autopilot
 
-- **Incidents drafted from monitors.** When a monitor goes down, Galena attaches it to an open
-  incident or drafts a new one, following the monitor's publish policy: publish automatically,
-  ask a person first (and publish after 10 minutes if still down), or keep it internal. Flapping
-  monitors and maintenance windows don't draft anything.
 - **Approvals in Slack and in the dashboard.** A Slack app with an approval card and an
-  `/incident` command, and the same card in the dashboard.
+  `/incident` command, and the same card in the dashboard, so a person can publish or dismiss a
+  monitor's draft before its 10 minutes are up.
 - **Resolve-watch.** A recovering monitor posts a Monitoring update, resolves the incident once
   it has been stable, and reopens it if it fails again.
 - **Outbox safeguards.** A delayed backstop and an hourly sweep, so an event survives trigger.dev

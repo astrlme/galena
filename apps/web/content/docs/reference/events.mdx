@@ -43,6 +43,7 @@ type EventEnvelope<Type extends string, Data> = {
 | `notify.fanout` | `fan:{eventId}` | One fan-out per event |
 | `notify.email`, `notify.slack`, `notify.webhook` | `send:{eventId}:{subscriberId or endpointId}` | One send per event and target, backed by a unique delivery row |
 | `maintenance.lifecycle` | `mnt:{maintenanceId}:{version}` | One run per version of a window; an edit starts a new one |
+| `incident.autopilot` | `auto:{incidentId}` | One approval wait per draft; its waitpoint token is keyed `approve:{incidentId}` |
 
 ## Change events
 

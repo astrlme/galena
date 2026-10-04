@@ -54,10 +54,20 @@ Each monitor carries a publish policy for incidents it will draft on its own:
 | Publish automatically (`auto`) | The draft publishes as soon as the monitor is down. |
 | Internal only (`internal_only`) | The monitor shows in the dashboard only. It moves no component status or history on the page, opens no incident, and tells no subscriber. |
 
+When a monitor goes down, Galena first looks for an open incident on its component: if there
+is one, it covers the monitor too and nothing new opens. Otherwise it opens one named after
+the component ("API is down"), with the investigating template filled in and the component at the monitor's down
+status. Nothing opens for a flapping or degraded monitor, inside a maintenance window, for an
+internal-only monitor, or for a monitor on no component.
+
+A draft shows in the dashboard with the time it publishes. A dismissed draft is kept for the
+record and lets the monitor draft again the next time it goes down.
+
 <Callout type="warn">
-Galena stores the policy today, but drafting incidents from monitors is not built yet: a monitor
-going down changes its component's status and republishes the page, and a person posts the
-incident. See the [roadmap](/docs/roadmap/).
+Approving or dismissing a draft before its deadline isn't built yet: today every `approve` draft
+waits its 10 minutes, then publishes if the monitor is still down and is dismissed if it
+recovered. Incidents also don't resolve on their own when the monitor recovers. See the
+[roadmap](/docs/roadmap/).
 </Callout>
 
 ## Check results

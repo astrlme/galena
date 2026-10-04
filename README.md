@@ -58,14 +58,17 @@ still serves.
   on first run.
 - Components and groups, HTTP monitors with per-region results, and detection across regions.
 - Incidents with updates and impact, and maintenance windows that start and finish on their own.
+- Incidents opened from monitors: when a monitor goes down, an incident is published at once or
+  drafted and published after 10 minutes if the monitor is still down, following its publish
+  policy; an incident already open on the component takes the monitor instead.
 - The static status page: a 90-day history per component, incident pages with a timeline of
   updates, RSS and Atom feeds, a status badge and state favicons. A component that no monitor
   reports on shows "No data" rather than a made-up 100%.
 - Email subscribers, Slack incoming webhooks and signed outgoing webhooks.
 - A dashboard whose forms open in a side sheet and keep what you typed as a draft.
 
-Next: incidents drafted from monitors, with approvals in Slack and in the dashboard, and a live
-demo. After that: alert ingest, Statuspage-compatible files, API keys, and a settings screen for
+Next: approving or dismissing drafts in Slack and in the dashboard, resolving incidents when
+their monitor recovers, and a live demo. After that: alert ingest, Statuspage-compatible files, API keys, and a settings screen for
 members, two-factor and GitHub sign-in. See the
 [roadmap](https://galena.astrl.me/docs/roadmap/).
 
