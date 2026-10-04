@@ -24,7 +24,7 @@ if (!project) {
 // `status/` next to the workspace packages it imports. Copied with fs.cp rather than
 // additionalFiles, which keeps `..` in the destination on Windows and copies outside the image.
 const STATUS_APP: Record<string, string[]> = {
-  status: ["../status", "package.json", "astro.config.mjs", "tsconfig.json", "src", "public"],
+  status: ["../status", "package.json", "astro.config.mjs", "tsconfig.json", "src"],
   "packages/config": ["../../packages/config", "package.json", "tsconfig.base.json"],
   "packages/contracts": ["../../packages/contracts", "package.json", "src"],
   "packages/ui": ["../../packages/ui", "package.json", "src"],
