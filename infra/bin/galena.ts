@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { App, Validations } from "aws-cdk-lib";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { stageConfig } from "../config/stages.ts";
@@ -40,19 +41,35 @@ new DetectionStack(app, `galena-${config.stage}-detection`, { env, config });
 if (config.stage === "dev") new SmokeStack(app, `galena-${config.stage}-smoke`, { env, config });
 const api = new ApiStack(app, `galena-${config.stage}-api`, { env, config });
 const webCertificate = config.webDomain
-  ? new CertificateStack(app, `galena-${config.stage}-web-certificate`, {
+  ? new CertificateStack(app, `galena-${config.stage}-dashboard-certificate`, {
       env: inRegion("us-east-1"),
       domain: config.webDomain,
       crossRegionReferences: true,
     }).certificate
   : undefined;
-new WebStack(app, `galena-${config.stage}-web`, {
+const web = new WebStack(app, `galena-${config.stage}-web`, {
   env,
   config,
   api: api.api,
   domain: config.webDomain,
   ...(webCertificate ? { certificate: webCertificate, crossRegionReferences: true } : {}),
 });
+if (config.siteDomain) {
+  const { certificate } = new CertificateStack(app, `galena-${config.stage}-site-certificate`, {
+    env: inRegion("us-east-1"),
+    domain: config.siteDomain,
+    crossRegionReferences: true,
+  });
+  // After the dashboard, so CloudFront has released the name when it moves from there.
+  new WebStack(app, `galena-${config.stage}-site`, {
+    env,
+    config,
+    domain: config.siteDomain,
+    certificate,
+    crossRegionReferences: true,
+    siteDir: fileURLToPath(new URL("../../apps/web/out-site", import.meta.url)),
+  }).addStackDependency(web);
+}
 new WorkerAccessStack(app, `galena-${config.stage}-worker-access`, { env, config });
 if (config.email) {
   new EmailStack(app, `galena-${config.stage}-email`, {

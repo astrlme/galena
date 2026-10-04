@@ -14,9 +14,15 @@ export const stageSchema = z
       .string()
       .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)
       .optional(),
-    // The dashboard's own name (with the docs and, on the project's site, the landing page); its
-    // certificate is validated by a CNAME at the DNS host, like the page's.
+    // The dashboard's own name (with the docs); its certificate is validated by a CNAME at the
+    // DNS host, like the page's.
     webDomain: z
+      .string()
+      .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)
+      .optional(),
+    // The project's own site: the landing page and the docs, without the dashboard or the API.
+    // Only the maintainer's deployment sets it; a fork leaves it out.
+    siteDomain: z
       .string()
       .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)
       .optional(),
@@ -75,7 +81,8 @@ export const stages = {
     ...common,
     stage: "dev",
     pageDomain: "status.astrl.me",
-    webDomain: "galena.astrl.me",
+    webDomain: "dashboard.astrl.me",
+    siteDomain: "galena.astrl.me",
     email: { domain: "mail.astrl.me", from: "status@mail.astrl.me" },
     telemetryCapacity: { read: 5, write: 5 },
     auroraMaxAcu: 2,
