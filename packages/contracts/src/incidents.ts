@@ -79,6 +79,8 @@ export type IncidentEventType = (typeof incidentEventTypes)[number];
 /** The data of every `incident.*` event: enough for the publisher to know what to rebuild. */
 export const incidentEventData = z.object({
   incidentId,
+  /** The update this event announces, so a notice sent later still carries its own words. */
+  updateId: incidentUpdateId.optional(),
   status: z.enum(incidentStatuses),
   impact: z.enum(incidentImpacts),
   visibility: z.enum(incidentVisibilities),

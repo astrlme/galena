@@ -100,6 +100,51 @@ test("an incident notice carries the latest update, named components and the inc
   });
 });
 
+test("a notice for an earlier update carries that update's status and words, not the newest", () => {
+  const incident = {
+    id: incidentId.parse("01920000-0000-7000-8000-000000000101"),
+    workspaceId: workspaceId.parse("01920000-0000-7000-8000-000000000001"),
+    title: "Errors on API",
+    status: "identified" as const,
+    impact: "major" as const,
+    visibility: "published" as const,
+    source: "manual" as const,
+    startedAt: at("2026-09-30T10:00:00Z"),
+    resolvedAt: null,
+    updatedAt: at("2026-09-30T10:00:20Z"),
+    components: [],
+    updates: [
+      {
+        id: "u2" as never,
+        status: "identified" as const,
+        body: "Rolling back.",
+        createdAt: at("2026-09-30T10:00:20Z"),
+      },
+      {
+        id: "u1" as never,
+        status: "investigating" as const,
+        body: "Looking into it.",
+        createdAt: at("2026-09-30T10:00:00Z"),
+      },
+    ],
+  };
+  const notice = (updateId?: string) =>
+    incidentNotice({
+      eventId: event,
+      kind: "incident_updated",
+      incident,
+      updateId: updateId as never,
+      names: new Map(),
+      page,
+      occurredAt: at("2026-09-30T10:00:25Z"),
+    });
+  // Two updates posted seconds apart: the first event still announces the first update.
+  expect(notice("u1")).toMatchObject({ status: "investigating", body: "Looking into it." });
+  expect(notice("u2")).toMatchObject({ status: "identified", body: "Rolling back." });
+  // Events from before updates were named announce the newest.
+  expect(notice()).toMatchObject({ status: "identified", body: "Rolling back." });
+});
+
 test("a maintenance notice carries the window's times and message and links to the page", () => {
   const window: Maintenance = {
     id: maintenanceId.parse("01920000-0000-7000-8000-000000000301"),

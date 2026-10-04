@@ -98,7 +98,12 @@ export async function fanOut(
     if (incident?.visibility !== "published") return { outcome: "gone" };
     subjectId = incident.id;
     const announced = await wasAnnounced(deps.db, ws, subjectId, event.id);
-    notice = incidentNotice({ ...common, kind: noticeKind(event.type, announced), incident });
+    notice = incidentNotice({
+      ...common,
+      kind: noticeKind(event.type, announced),
+      incident,
+      updateId: event.data.updateId,
+    });
   } else {
     const window = await maintenanceRepository(deps.db).findById(ws, event.data.maintenanceId);
     if (!window) return { outcome: "gone" };

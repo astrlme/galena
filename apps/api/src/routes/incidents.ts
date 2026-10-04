@@ -1,6 +1,7 @@
 import {
   type AffectedComponent,
   type IncidentEventType,
+  type IncidentUpdateId,
   incidentCreate,
   incidentId,
   incidentSummary,
@@ -40,16 +41,17 @@ const toView = (i: Incident & { updates: IncidentUpdate[] }) => ({
   updates: i.updates.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() })),
 });
 
-/** The audit entry and the `incident.*` outbox event for one change. */
+/** The audit entry and the `incident.*` outbox event for one change and the update it posts. */
 const incidentChange = (
   member: Member,
   type: IncidentEventType,
   { id, status, impact, visibility }: Pick<Incident, "id" | "status" | "impact" | "visibility">,
+  updateId: IncidentUpdateId,
 ) =>
   eventChange(
     member,
     { type: "incident", id },
-    { type, data: { incidentId: id, status, impact, visibility } },
+    { type, data: { incidentId: id, updateId, status, impact, visibility } },
   );
 
 /** Thrown inside the transaction so the audit entry and event roll back with the update. */
@@ -170,7 +172,7 @@ export function registerIncidentRoutes(app: App, deps: Deps) {
       };
       await commit(
         deps,
-        incidentChange(member, "incident.created", { ...row, ...started.value }),
+        incidentChange(member, "incident.created", { ...row, ...started.value }, first.update.id),
         (tx) => incidentRepository(tx).create(row, first),
       );
       const created = await incidents.findById(member.workspaceId, row.id);
@@ -213,7 +215,7 @@ export function registerIncidentRoutes(app: App, deps: Deps) {
       };
       const after = { ...current, ...stage, impact: input.impact ?? current.impact };
       let applied = false;
-      await commit(deps, incidentChange(member, event, after), async (tx) => {
+      await commit(deps, incidentChange(member, event, after, change.update.id), async (tx) => {
         applied = await incidentRepository(tx).append(
           member.workspaceId,
           id,

@@ -54,22 +54,27 @@ type NoticeInput = {
 };
 
 export function incidentNotice(
-  input: NoticeInput & { incident: Incident & { updates: IncidentUpdate[] } },
+  input: NoticeInput & {
+    incident: Incident & { updates: IncidentUpdate[] };
+    /** The update the event announces; events from before updates were named announce the newest. */
+    updateId?: IncidentUpdate["id"] | undefined;
+  },
 ): Notice {
   const { incident } = input;
+  // Updates come newest first.
+  const update = incident.updates.find((u) => u.id === input.updateId) ?? incident.updates[0];
   return {
     kind: input.kind,
     eventId: input.eventId,
     page: input.page,
     title: incident.title,
-    status: incident.status,
+    status: update?.status ?? incident.status,
     impact: incident.impact,
     components: incident.components.flatMap(({ componentId: id, status }) => {
       const name = input.names.get(id);
       return name === undefined ? [] : [{ id, name, status }];
     }),
-    // Updates come newest first.
-    body: incident.updates[0]?.body ?? "",
+    body: update?.body ?? "",
     startsAt: incident.startedAt.toISOString(),
     endsAt: incident.resolvedAt?.toISOString() ?? null,
     occurredAt: input.occurredAt.toISOString(),
