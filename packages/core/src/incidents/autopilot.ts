@@ -4,6 +4,7 @@ import type {
   DownStatus,
   IncidentId,
   IncidentImpact,
+  IncidentStatus,
   MonitorId,
   MonitorState,
   PublishPolicy,
@@ -11,10 +12,12 @@ import type {
 import type { Incident } from "../ports.ts";
 import { fillTemplate } from "./templates.ts";
 
-// What autopilot does when a monitor changes state: open an incident for an outage, or leave it
-// to the incident already covering the component. The monitor's publish policy decides whether
-// the incident goes out at once (`auto`), waits for a person (`approve`), or never reaches the
-// page at all (`internal_only`).
+// What autopilot does when a monitor changes state. An outage opens an incident, unless one is
+// already open on the component; the monitor's publish policy decides whether it goes out at once
+// (`auto`), waits for a person (`approve`), or never reaches the page (`internal_only`). The
+// incident a monitor opened then follows it: Monitoring when it recovers, Investigating again if
+// it fails before it is stable, and resolved once it is up. Detection's RECOVERING state already
+// lasts `stableMinutes`, so no timer is needed.
 
 /** How long an `approve` draft waits for a person before the timeout decides. */
 export const APPROVAL_WAIT_MINUTES = 10;
@@ -28,10 +31,15 @@ export type AutopilotMonitor = {
   publishPolicy: PublishPolicy;
   /** What the component shows while this monitor is down. */
   downStatus: DownStatus;
+  /** How long it stays RECOVERING before it is up. */
+  stableMinutes: number;
 };
 
 export type AutopilotPlan =
-  | { action: "none"; reason: "suppressed" | "not_down" | "internal_only" | "no_component" }
+  | {
+      action: "none";
+      reason: "suppressed" | "not_down" | "internal_only" | "no_component" | "no_incident";
+    }
   | { action: "attach"; incidentId: IncidentId }
   | {
       action: "open";
@@ -44,11 +52,25 @@ export type AutopilotPlan =
       components: AffectedComponent[];
       /** A draft publishes at this time unless a person answers first. */
       approvalDeadline: Date | null;
+    }
+  | {
+      /** An update on the incident this monitor opened. */
+      action: "update";
+      incidentId: IncidentId;
+      /** The status it has now; the update applies only while it still does. */
+      expected: IncidentStatus;
+      status: "investigating" | "monitoring" | "resolved";
+      body: string;
     };
 
+/** The monitor's own incidents carry this key; others are never updated by autopilot. */
+export const monitorDedupKey = (monitorId: MonitorId) => `mon:${monitorId}`;
+
 const utcTime = (date: Date) => `${date.toISOString().slice(11, 16)} UTC`;
+const minutesFrom = (date: Date, minutes: number) => new Date(date.getTime() + minutes * MINUTE);
 
 export function planAutopilot(input: {
+  from: MonitorState;
   to: MonitorState;
   /** Inside a maintenance window. */
   suppressed: boolean;
@@ -57,33 +79,78 @@ export function planAutopilot(input: {
   openIncidents: readonly Incident[];
   now: Date;
 }): AutopilotPlan {
-  const { monitor, now } = input;
+  const { monitor, now, from, to } = input;
   if (input.suppressed) return { action: "none", reason: "suppressed" };
-  // Flapping holds still on purpose, and a degraded monitor shows on its component already.
-  if (input.to !== "down") return { action: "none", reason: "not_down" };
   if (monitor.publishPolicy === "internal_only") return { action: "none", reason: "internal_only" };
   if (monitor.componentId === null || monitor.componentName === null) {
     return { action: "none", reason: "no_component" };
   }
-  const covering = input.openIncidents[0];
-  if (covering) return { action: "attach", incidentId: covering.id };
+  const component = monitor.componentName;
+  const own = input.openIncidents.find((i) => i.dedupKey === monitorDedupKey(monitor.id));
+  const investigating = fillTemplate("investigating", {
+    symptom: "failed checks",
+    component,
+    // A monitor is down only when at least two regions agree.
+    regions: "more than one region",
+    nextUpdate: utcTime(minutesFrom(now, NEXT_UPDATE_MINUTES)),
+  });
 
-  const draft = monitor.publishPolicy === "approve";
+  if (to === "down") {
+    // It failed again before it was stable: the incident goes back to Investigating.
+    if (own?.status === "monitoring") {
+      return {
+        action: "update",
+        incidentId: own.id,
+        expected: own.status,
+        status: "investigating",
+        body: investigating,
+      };
+    }
+    const covering = own ?? input.openIncidents[0];
+    if (covering) return { action: "attach", incidentId: covering.id };
+    const draft = monitor.publishPolicy === "approve";
+    return {
+      action: "open",
+      dedupKey: monitorDedupKey(monitor.id),
+      visibility: draft ? "draft" : "published",
+      title: `${component} is down`,
+      body: investigating,
+      impact: "major",
+      components: [{ componentId: monitor.componentId, status: monitor.downStatus }],
+      approvalDeadline: draft ? minutesFrom(now, APPROVAL_WAIT_MINUTES) : null,
+    };
+  }
+
+  if (to === "recovering" && (own?.status === "investigating" || own?.status === "identified")) {
+    return {
+      action: "update",
+      incidentId: own.id,
+      expected: own.status,
+      status: "monitoring",
+      body: fillTemplate("monitoring", { component, stableMinutes: String(monitor.stableMinutes) }),
+    };
+  }
+
+  if (to === "up" && own && own.status !== "resolved" && own.status !== "postmortem") {
+    // Coming out of RECOVERING, it has worked since that began.
+    const since = from === "recovering" ? minutesFrom(now, -monitor.stableMinutes) : now;
+    return {
+      action: "update",
+      incidentId: own.id,
+      expected: own.status,
+      status: "resolved",
+      body: fillTemplate("resolved", {
+        component,
+        time: utcTime(since),
+        summary: "Checks pass from every region again",
+      }),
+    };
+  }
+
+  // Flapping holds still on purpose, and a degraded monitor shows on its component already.
   return {
-    action: "open",
-    dedupKey: `mon:${monitor.id}`,
-    visibility: draft ? "draft" : "published",
-    title: `${monitor.componentName} is down`,
-    body: fillTemplate("investigating", {
-      symptom: "failed checks",
-      component: monitor.componentName,
-      // A monitor is down only when at least two regions agree.
-      regions: "more than one region",
-      nextUpdate: utcTime(new Date(now.getTime() + NEXT_UPDATE_MINUTES * MINUTE)),
-    }),
-    impact: "major",
-    components: [{ componentId: monitor.componentId, status: monitor.downStatus }],
-    approvalDeadline: draft ? new Date(now.getTime() + APPROVAL_WAIT_MINUTES * MINUTE) : null,
+    action: "none",
+    reason: to === "recovering" || to === "up" ? "no_incident" : "not_down",
   };
 }
 

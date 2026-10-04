@@ -21,6 +21,7 @@ const columns = {
   resolvedAt: incident.resolvedAt,
   updatedAt: incident.updatedAt,
   approvalDeadline: incident.approvalDeadline,
+  dedupKey: incident.dedupKey,
 };
 
 // Open: not resolved, deleted or dismissed, as in the partial unique index on dedup keys. The

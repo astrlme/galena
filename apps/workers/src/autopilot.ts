@@ -14,7 +14,14 @@ import {
   type WorkspaceId,
   workspaceId,
 } from "@galena/contracts";
-import { approvalOutcome, type Clock, planAutopilot } from "@galena/core";
+import {
+  type AutopilotPlan,
+  applyUpdate,
+  approvalOutcome,
+  type Clock,
+  type Incident,
+  planAutopilot,
+} from "@galena/core";
 import {
   componentRepository,
   type Db,
@@ -47,11 +54,13 @@ export type ApprovalDeps = Pick<AutopilotDeps, "db" | "clock" | "dispatch"> & {
 };
 
 /**
- * After `monitor.state-changed` records a transition: opens an incident for an outage, leaves
- * it to the incident already covering the component, or does nothing. Safe to repeat: the
- * monitor's dedup key holds one open incident, and the approval run is keyed by the incident.
+ * After `monitor.state-changed` records a transition: opens an incident for an outage, moves the
+ * incident the monitor opened along (Monitoring, Investigating again, resolved), leaves it to the
+ * incident already covering the component, or does nothing. Safe to repeat: the monitor's dedup
+ * key holds one open incident, an update applies only while the incident is where it was, and
+ * the approval run is keyed by the incident.
  */
-export async function draftFromTransition(
+export async function actOnTransition(
   { workspaceId, data }: MonitorTransitioned,
   deps: AutopilotDeps,
 ) {
@@ -61,7 +70,11 @@ export async function draftFromTransition(
     ? await componentRepository(deps.db).findById(workspaceId, monitor.componentId)
     : undefined;
   const now = deps.clock.now();
+  const openIncidents = component
+    ? await incidentRepository(deps.db).openAffecting(workspaceId, component.id)
+    : [];
   const plan = planAutopilot({
+    from: data.from,
     to: data.to,
     suppressed: data.suppressed,
     monitor: {
@@ -70,12 +83,15 @@ export async function draftFromTransition(
       componentName: component?.name ?? null,
       publishPolicy: monitor.publishPolicy,
       downStatus: monitor.downStatus,
+      stableMinutes: monitor.detection.stableMinutes,
     },
-    openIncidents: component
-      ? await incidentRepository(deps.db).openAffecting(workspaceId, component.id)
-      : [],
+    openIncidents,
     now,
   });
+  if (plan.action === "update") {
+    const incident = openIncidents.find((i) => i.id === plan.incidentId);
+    return incident ? postUpdate(workspaceId, incident, plan, deps) : plan;
+  }
   if (plan.action !== "open") return plan;
 
   const update = {
@@ -128,6 +144,48 @@ export async function draftFromTransition(
     incidentId: opened.id,
     created: opened.created,
     visibility: plan.visibility,
+  };
+}
+
+/** One update on the incident the monitor opened, if it is still where autopilot found it. */
+async function postUpdate(
+  workspaceId: WorkspaceId,
+  incident: Incident,
+  plan: Extract<AutopilotPlan, { action: "update" }>,
+  deps: AutopilotDeps,
+) {
+  const step = applyUpdate(incident, plan.status, deps.clock);
+  if (!step.ok) throw new Error(step.error.message); // planAutopilot only plans allowed moves
+  const { statusChanged, event, ...stage } = step.value;
+  const update = {
+    id: incidentUpdateId.parse(v7()),
+    status: plan.status,
+    body: plan.body,
+    createdAt: deps.clock.now(),
+    createdByUserId: null,
+  };
+  const outboxId = await deps.db.transaction(async (tx) => {
+    const applied = await incidentRepository(tx).append(workspaceId, incident.id, plan.expected, {
+      update,
+      stage,
+      ...(statusChanged ? { statusChange: { from: plan.expected, to: stage.status } } : {}),
+    });
+    if (!applied) return null;
+    return recordChange(
+      tx,
+      incidentChange(
+        { workspaceId, incidentId: incident.id, updateId: update.id, now: update.createdAt },
+        event,
+        { status: stage.status, impact: incident.impact, visibility: incident.visibility },
+      ),
+    );
+  });
+  if (outboxId) await deps.dispatch(outboxId);
+  return {
+    action: "update" as const,
+    incidentId: incident.id,
+    status: plan.status,
+    applied: outboxId !== null,
   };
 }
 

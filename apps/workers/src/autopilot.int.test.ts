@@ -23,7 +23,7 @@ import {
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { type DraftPayload, draftFromTransition, settleDraft } from "./autopilot.ts";
+import { type DraftPayload, actOnTransition, settleDraft } from "./autopilot.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
 let db: Db;
@@ -107,7 +107,7 @@ test("auto: a monitor going down publishes an incident at once, and a retry open
   const monitor = await monitorWith("auto");
   const { deps, dispatched, approvals } = recorder();
 
-  const first = await draftFromTransition(transition(monitor.id, "down", 1), deps);
+  const first = await actOnTransition(transition(monitor.id, "down", 1), deps);
   expect(first).toMatchObject({ action: "open", created: true, visibility: "published" });
   const id = (first as { incidentId: IncidentId }).incidentId;
   expect(await incidentRepository(db).findById(acme, id)).toMatchObject({
@@ -125,7 +125,7 @@ test("auto: a monitor going down publishes an incident at once, and a retry open
   expect(approvals).toEqual([]);
 
   // The same transition again (a retried run) finds the incident it opened.
-  const again = await draftFromTransition(transition(monitor.id, "down", 1), deps);
+  const again = await actOnTransition(transition(monitor.id, "down", 1), deps);
   expect(again).toMatchObject({ action: "attach", incidentId: id });
   expect(dispatched).toHaveLength(1);
 });
@@ -141,7 +141,7 @@ test.each([
     const monitor = await monitorWith("approve");
     const { deps, dispatched, approvals } = recorder();
 
-    const opened = await draftFromTransition(transition(monitor.id, "down", 1), deps);
+    const opened = await actOnTransition(transition(monitor.id, "down", 1), deps);
     expect(opened).toMatchObject({ action: "open", created: true, visibility: "draft" });
     const id = (opened as { incidentId: IncidentId }).incidentId;
     expect(approvals).toEqual([{ workspaceId: acme, incidentId: id, monitorId: monitor.id }]);
@@ -185,7 +185,7 @@ test.each([
 test("a draft someone already decided is left alone, without waiting", async () => {
   const monitor = await monitorWith("approve");
   const { deps, approvals } = recorder();
-  await draftFromTransition(transition(monitor.id, "down", 1), deps);
+  await actOnTransition(transition(monitor.id, "down", 1), deps);
   const draft = approvals[0] as DraftPayload;
   await incidentRepository(db).decide(acme, draft.incidentId, "published");
   let waited = false;
@@ -202,13 +202,13 @@ test("a draft someone already decided is left alone, without waiting", async () 
 test("a dismissed draft frees the monitor to draft again when it next goes down", async () => {
   const monitor = await monitorWith("approve");
   const { deps, approvals } = recorder();
-  await draftFromTransition(transition(monitor.id, "down", 1), deps);
+  await actOnTransition(transition(monitor.id, "down", 1), deps);
   await settleDraft(approvals[0] as DraftPayload, {
     ...deps,
     waitForAnswer: async () => "dismissed",
   });
 
-  const next = await draftFromTransition(transition(monitor.id, "down", 3), deps);
+  const next = await actOnTransition(transition(monitor.id, "down", 3), deps);
   expect(next).toMatchObject({ action: "open", created: true, visibility: "draft" });
   expect((next as { incidentId: IncidentId }).incidentId).not.toBe(approvals[0]?.incidentId);
 });
@@ -239,7 +239,7 @@ test("an open incident on the component takes the monitor; no second incident op
     },
   );
   const { deps, dispatched } = recorder();
-  expect(await draftFromTransition(transition(monitor.id, "down", 1), deps)).toEqual({
+  expect(await actOnTransition(transition(monitor.id, "down", 1), deps)).toEqual({
     action: "attach",
     incidentId: manual,
   });
@@ -253,7 +253,7 @@ test.each([
 ] as const)("%s opens nothing", async (_, policy, onComponent, suppressed, reason) => {
   const monitor = await monitorWith(policy, onComponent);
   const { deps, dispatched, approvals } = recorder();
-  expect(await draftFromTransition(transition(monitor.id, "down", 1, suppressed), deps)).toEqual({
+  expect(await actOnTransition(transition(monitor.id, "down", 1, suppressed), deps)).toEqual({
     action: "none",
     reason,
   });

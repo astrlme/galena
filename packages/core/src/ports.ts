@@ -98,6 +98,8 @@ export type Incident = IncidentStage & {
   components: AffectedComponent[];
   /** A draft waiting for a person publishes at this time unless someone answers first. */
   approvalDeadline?: Date | null;
+  /** `mon:{monitorId}` on an incident a monitor opened, which that monitor then follows. */
+  dedupKey?: string | null;
 };
 
 export type IncidentUpdate = {

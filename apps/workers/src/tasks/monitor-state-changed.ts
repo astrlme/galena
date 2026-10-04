@@ -1,15 +1,14 @@
 import { monitorTransitioned } from "@galena/contracts";
 import { nextSnapshotVersion, recordMonitorTransition } from "@galena/db";
 import { logger, task } from "@trigger.dev/sdk";
-import { draftFromTransition } from "../autopilot.ts";
+import { actOnTransition } from "../autopilot.ts";
 import { db } from "../db.ts";
 import { awaitApproval, dispatchOutbox, incidents } from "./incident-autopilot.ts";
 import { triggerPublish } from "./page-publish.ts";
 
 // Triggered by the evaluator on every transition, keyed `mon:{monitorId}:{transitionSeq}`.
-// Records it as the monitor's state and in its history, opens or attaches an incident when the
-// monitor went down (autopilot), then republishes the page unless the transition happened
-// inside a maintenance window.
+// Records it as the monitor's state and in its history, lets autopilot open, move or attach an
+// incident, then republishes the page unless the transition happened inside a maintenance window.
 export const monitorStateChanged = task({
   id: "monitor.state-changed",
   queue: incidents,
@@ -24,7 +23,7 @@ export const monitorStateChanged = task({
       seq: data.transitionSeq,
       at: new Date(occurredAt),
     });
-    const autopilot = await draftFromTransition(transition, {
+    const autopilot = await actOnTransition(transition, {
       db,
       clock: { now: () => new Date() },
       dispatch: dispatchOutbox,
