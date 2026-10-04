@@ -10,7 +10,6 @@ import {
   type MonitorTransitioned,
   monitorId,
   type ProbeMessage,
-  transitionIdempotencyKey,
   workspaceId,
 } from "@galena/contracts";
 import type { WorkflowEngine } from "@galena/core";
@@ -154,15 +153,20 @@ function load(name: string) {
 /**
  * trigger.dev as seen from outside: the first call for each key fails, repeats are recorded.
  * It also notes any transition triggered before a state write held it, which a crash in
- * between would leave triggered but unrecorded.
+ * between would leave triggered but unrecorded. It asks the store itself: another copy may
+ * trigger a transition it read back the moment the write landed, before the writer resumes.
  */
-function flakyEngine(persisted: ReadonlySet<string>) {
+function flakyEngine(store: Store) {
   const calls: { key: string; payload: MonitorTransitioned }[] = [];
   const unpersisted: string[] = [];
   const failedOnce = new Set<string>();
   const engine: WorkflowEngine = {
     async trigger(_task, payload, { idempotencyKey }) {
-      if (!persisted.has(idempotencyKey)) unpersisted.push(idempotencyKey);
+      const { data } = payload as MonitorTransitioned;
+      const stored = await store.getMonitor(data.monitorId);
+      if ((stored?.detection.transitionSeq ?? 0) < data.transitionSeq) {
+        unpersisted.push(idempotencyKey);
+      }
       if (!failedOnce.has(idempotencyKey)) {
         failedOnce.add(idempotencyKey);
         throw new Error("trigger.dev is unreachable");
@@ -171,19 +175,6 @@ function flakyEngine(persisted: ReadonlySet<string>) {
     },
   };
   return { calls, unpersisted, engine };
-}
-
-/** The real store, remembering which transitions a successful state write has held. */
-function trackingStore(store: Store) {
-  const persisted = new Set<string>();
-  return {
-    ...store,
-    persisted,
-    async putMonitor(...args: Parameters<Store["putMonitor"]>) {
-      await store.putMonitor(...args);
-      for (const t of args[1].pending) persisted.add(transitionIdempotencyKey(t));
-    },
-  };
 }
 
 /**
@@ -207,8 +198,8 @@ async function deliver(records: SqsRecord[], deps: EvaluatorDeps) {
 test.each(SCENARIOS)("%s: every expected transition triggers exactly once", async (name) => {
   await createTable(name);
   const { file, records, expected, checks } = load(name);
-  const store = trackingStore(createStore(doc, name));
-  const { calls, unpersisted, engine } = flakyEngine(store.persisted);
+  const store = createStore(doc, name);
+  const { calls, unpersisted, engine } = flakyEngine(store);
   const conflicts: unknown[] = [];
   await deliver(records, {
     store,
