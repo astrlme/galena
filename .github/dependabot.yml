@@ -1,0 +1,13 @@
+# Keeps the SHA-pinned actions in the workflows current. npm packages get security updates only,
+# through the repository's Dependabot settings.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
