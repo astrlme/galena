@@ -25,11 +25,14 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # The Web stack uploads apps/web/out; without it the dashboard would not change. The project's
-      # own site sets the GLN_SITE variable to `project` for its landing page at /.
+      # The Web stack uploads apps/web/out; without it the dashboard would not change.
       - run: pnpm --filter @galena/web build
+      # Only the project's own deployment sets GLN_SITE to `project`: its site stack uploads
+      # apps/web/out-site, the landing page and docs. Forks leave the variable unset.
+      - if: vars.GLN_SITE == 'project'
+        run: pnpm --filter @galena/web build
         env:
-          GLN_SITE: ${{ vars.GLN_SITE }}
+          GLN_SITE: project
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}

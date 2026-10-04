@@ -1,20 +1,27 @@
-// `pnpm --filter @galena/web check:links`: every same-site link in the built site (out/) must
-// reach a file, the way CloudFront serves it (a directory means its index.html), and every
-// `#fragment` must name an element on the target page. Run after `next build`.
+// `pnpm --filter @galena/web check:links`: every same-site link in the built site (out/, or
+// out-site/ with GLN_SITE=project) must reach a file, the way CloudFront serves it (a directory
+// means its index.html), and every `#fragment` must name an element on the target page. Run after
+// `next build`.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const OUT = fileURLToPath(new URL("../out/", import.meta.url));
+const site = process.env.GLN_SITE === "project";
+const OUT = fileURLToPath(new URL(site ? "../out-site/" : "../out/", import.meta.url));
+// The project's site is uploaded without these, so links to them would break there.
+const left = site ? ["dashboard/", "sign-in/"] : [];
+const uploaded = (file) => !left.some((dir) => file.startsWith(dir));
 
 const pages = readdirSync(OUT, { recursive: true, encoding: "utf8" })
   .filter((file) => file.endsWith(".html"))
-  .map((file) => file.replaceAll("\\", "/"));
+  .map((file) => file.replaceAll("\\", "/"))
+  .filter(uploaded);
 
 /** The file CloudFront would answer `path` with, or undefined. */
 function resolve(path) {
   const clean = decodeURIComponent(path).replace(/^\/+/, "");
   return [join(clean, "index.html"), clean]
+    .filter((candidate) => uploaded(candidate.replaceAll("\\", "/")))
     .map((candidate) => join(OUT, candidate))
     .find((file) => existsSync(file) && statSync(file).isFile());
 }
