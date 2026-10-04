@@ -18,7 +18,6 @@ import {
   Heading,
   Hr,
   Html,
-  Img,
   Link,
   Preview,
   Text,
@@ -57,15 +56,7 @@ function Layout(props: { page: Page; preview: string; children: ReactNode; foote
       <Preview>{props.preview}</Preview>
       <Body style={{ backgroundColor: light.paper, color: light.ink, fontFamily: font, margin: 0 }}>
         <Container style={{ maxWidth: "600px", padding: "32px 24px" }}>
-          {/* Published with the status page, so it comes from the page's own domain. Transparent
-              with a white outline, so it stays legible where a mail app darkens the message. */}
-          <Img
-            src={`${props.page.url}/email-header.png`}
-            alt="galena"
-            width="120"
-            height="35"
-            style={{ margin: "0 0 24px" }}
-          />
+          {/* The page's own name heads the mail: subscribers hear from that page, not from Galena. */}
           <Text style={{ ...text, fontWeight: 600 }}>{props.page.name} status</Text>
           {props.children}
           <Hr style={{ borderColor: light.mist, margin: "32px 0 16px" }} />
