@@ -19,7 +19,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
 import { Drawer } from "vaul";
-import { DraftDock } from "../../components/drafts.tsx";
+import { DraftDock, forgetDrafts } from "../../components/drafts.tsx";
 import { Wordmark } from "../../components/wordmark.tsx";
 import { api, authPost } from "../../lib/api.ts";
 import { sections } from "./sections.ts";
@@ -121,6 +121,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await authPost("sign-out", {});
+    forgetDrafts();
     window.location.assign("/sign-in/");
   }
   const toggle = () => {

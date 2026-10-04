@@ -35,14 +35,31 @@ function write(key: string, draft: Draft | undefined): void {
 /** Forgets a draft whose form can't open any more, such as one for a deleted monitor. */
 export const forgetDraft = (key: string) => write(key, undefined);
 
+/** Forgets every draft, on sign-out: whoever uses this browser next shouldn't see them. */
+export function forgetDrafts(): void {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(PREFIX)) localStorage.removeItem(key);
+    }
+  } catch {
+    return;
+  }
+  window.dispatchEvent(new Event(CHANGED));
+}
+
+// One empty list for every form, so the effect below doesn't rerun on each render.
+const NONE: readonly never[] = [];
+
 /**
  * Restores the form's draft when it opens and keeps it while it changes (300 ms after the last
  * change, and at once when the form closes). `discard` drops it: after sending, or on Discard.
+ * Fields in `unsaved` never reach the browser's storage, for secrets such as a Slack URL.
  */
 export function useDraft<T extends FieldValues, Out>(
   key: string,
   label: string,
   form: UseFormReturn<T, unknown, Out>,
+  unsaved: readonly (keyof T)[] = NONE,
 ) {
   const discarded = useRef(false);
   useEffect(() => {
@@ -52,7 +69,8 @@ export function useDraft<T extends FieldValues, Out>(
     const save = () => {
       timer = undefined;
       if (discarded.current) return;
-      const values = form.formState.isDirty ? form.getValues() : undefined;
+      const values = form.formState.isDirty ? { ...form.getValues() } : undefined;
+      for (const field of unsaved) delete values?.[field];
       write(key, values && { label, href: window.location.pathname, values });
     };
     const watching = form.watch(() => {
@@ -66,7 +84,7 @@ export function useDraft<T extends FieldValues, Out>(
         save();
       }
     };
-  }, [key, label, form]);
+  }, [key, label, form, unsaved]);
   return {
     dirty: form.formState.isDirty,
     discard: () => {

@@ -278,6 +278,9 @@ export function SubscribersEditor() {
 
 type Input = Omit<z.output<typeof endpointInput>, "componentIds"> & { componentIds: string[] };
 
+// The URL is the credential (Slack's carries its token), so drafts leave it out.
+const UNSAVED = ["url"] as const;
+
 function DestinationForm({
   components,
   problem,
@@ -295,7 +298,7 @@ function DestinationForm({
   });
   const { errors, isSubmitting } = form.formState;
   const kind = form.watch("kind");
-  const draft = useDraft("destination:new", "Add a destination", form);
+  const draft = useDraft("destination:new", "Add a destination", form, UNSAVED);
   const submit = form.handleSubmit(async (values) => {
     if (!(await onSave(values))) return;
     draft.discard();

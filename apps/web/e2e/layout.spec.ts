@@ -64,6 +64,36 @@ test("sending a restored draft clears it", async ({ page }, testInfo) => {
   if (created) await page.request.delete(`/v1/component-groups/${created.id}`);
 });
 
+test("a destination's draft never holds its URL, and signing out forgets every draft", async ({
+  page,
+}, testInfo) => {
+  const name = `Draft hook ${testInfo.project.name} ${Date.now()}`;
+  await signIn(page);
+  await expect(page).toHaveURL(/\/dashboard\/$/);
+  await page.goto("/dashboard/subscribers/");
+  await page
+    .getByRole("region", { name: "Slack and webhooks" })
+    .getByRole("button", { name: "Add destination" })
+    .click();
+  const form = page.getByRole("form", { name: "Add a destination" });
+  await form.getByLabel("Name").fill(name);
+  await form.getByLabel("URL").fill("https://hooks.slack.com/services/T0/B0/token-in-the-url");
+  await page.keyboard.press("Escape"); // closing keeps the draft
+  const dock = page.getByRole("complementary", { name: "Drafts" });
+  await expect(dock.getByRole("link", { name: "Add a destination" })).toBeVisible();
+
+  const stored = await page.evaluate(() => JSON.stringify(localStorage));
+  expect(stored).toContain(name);
+  expect(stored).not.toContain("token-in-the-url");
+
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/sign-in\/$/);
+  const left = await page.evaluate(() =>
+    Object.keys(localStorage).filter((key) => key.startsWith("galena:draft:")),
+  );
+  expect(left).toEqual([]);
+});
+
 test("the sidebar collapses to a rail of named icons and stays that way", async ({ page }) => {
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
