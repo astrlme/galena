@@ -18,9 +18,9 @@ import {
 import { createPortal } from "react-dom";
 import { Drawer } from "vaul";
 
-// The modal from astrl.me: a centred dialog from 640 px, a vaul bottom drawer below that. Both
-// trap focus and lock the page's scroll; they fade and scale (or slide) in 220 ms. Under reduced
-// motion the dialog's animations take 1 ms rather than none, so `animationend` still closes it.
+// A centred dialog from 640 px, a vaul bottom drawer below that. Both trap focus and lock the
+// page's scroll; they fade and scale (or slide) in 220 ms. Under reduced motion the dialog's
+// animations take 1 ms rather than none, so `animationend` still closes it.
 // A form opens as a sheet instead: from 640 px a vaul drawer from the right, with Minimize, which
 // closes it and leaves what was typed in the form's draft.
 

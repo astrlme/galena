@@ -154,9 +154,6 @@ export default function Home() {
             <a href="https://github.com/astrlme/galena" className="hover:underline">
               GitHub
             </a>
-            <Link href="/dashboard/" className="hover:underline">
-              Dashboard
-            </Link>
           </span>
         </div>
       </footer>

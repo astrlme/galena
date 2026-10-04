@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { Wordmark } from "../../components/wordmark.tsx";
 import { SignInForm } from "./sign-in-form.tsx";
 
-export const metadata: Metadata = { title: "Sign in to Galena" };
+export const metadata: Metadata = {
+  title: "Sign in to Galena",
+  robots: { index: false, follow: false },
+};
 
 export default function SignIn() {
   return (
