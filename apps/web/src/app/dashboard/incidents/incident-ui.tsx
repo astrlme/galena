@@ -1,6 +1,11 @@
 "use client";
 
-import type { IncidentComponentStatus, IncidentImpact, IncidentStatus } from "@galena/contracts";
+import type {
+  IncidentComponentStatus,
+  IncidentImpact,
+  IncidentStatus,
+  IncidentVisibility,
+} from "@galena/contracts";
 import { control } from "../../../components/field.tsx";
 
 /** A component an incident names, as the API sends and takes it. */
@@ -48,6 +53,28 @@ export function Time({ iso }: { iso: string }) {
       {utc}
     </time>
   );
+}
+
+const NOT_PUBLISHED: Record<Exclude<IncidentVisibility, "published">, string> = {
+  draft: "Draft, not on the status page",
+  dismissed: "Dismissed, never published",
+  internal: "Internal, never published",
+};
+
+/** Says when an incident isn't on the status page; a waiting draft says when it publishes. */
+export function VisibilityNote(props: {
+  visibility: IncidentVisibility;
+  approvalDeadline: string | null;
+}) {
+  if (props.visibility === "published") return null;
+  if (props.visibility === "draft" && props.approvalDeadline) {
+    return (
+      <span className="text-[14px]">
+        Draft. Publishes at <Time iso={props.approvalDeadline} /> if the monitor is still down.
+      </span>
+    );
+  }
+  return <span className="text-[14px]">{NOT_PUBLISHED[props.visibility]}.</span>;
 }
 
 export const select = control;

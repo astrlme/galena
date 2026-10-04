@@ -23,6 +23,7 @@ import {
   STATUS_LABELS,
   select,
   Time,
+  VisibilityNote,
 } from "../incident-ui.tsx";
 import { MessageField, useTemplate } from "../message-field.tsx";
 
@@ -76,6 +77,7 @@ export function IncidentView() {
           )}
           .
         </p>
+        <VisibilityNote visibility={shown.visibility} approvalDeadline={shown.approvalDeadline} />
       </div>
       {shown.components.length > 0 && (
         <ul aria-label="Affected components" className="mt-4 flex flex-wrap gap-3">

@@ -1839,6 +1839,13 @@
                                 "status"
                               ]
                             }
+                          },
+                          "approvalDeadline": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
                           }
                         },
                         "required": [
@@ -1851,7 +1858,8 @@
                           "startedAt",
                           "resolvedAt",
                           "updatedAt",
-                          "components"
+                          "components",
+                          "approvalDeadline"
                         ]
                       }
                     }
@@ -2035,6 +2043,13 @@
                         ]
                       }
                     },
+                    "approvalDeadline": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
                     "updates": {
                       "type": "array",
                       "items": {
@@ -2082,6 +2097,7 @@
                     "resolvedAt",
                     "updatedAt",
                     "components",
+                    "approvalDeadline",
                     "updates"
                   ]
                 }
@@ -2199,6 +2215,13 @@
                         ]
                       }
                     },
+                    "approvalDeadline": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
                     "updates": {
                       "type": "array",
                       "items": {
@@ -2246,6 +2269,7 @@
                     "resolvedAt",
                     "updatedAt",
                     "components",
+                    "approvalDeadline",
                     "updates"
                   ]
                 }
@@ -2430,6 +2454,13 @@
                         ]
                       }
                     },
+                    "approvalDeadline": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
                     "updates": {
                       "type": "array",
                       "items": {
@@ -2477,6 +2508,7 @@
                     "resolvedAt",
                     "updatedAt",
                     "components",
+                    "approvalDeadline",
                     "updates"
                   ]
                 }

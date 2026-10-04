@@ -10,7 +10,13 @@ import { Modal } from "../../../components/modal.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { IncidentForm, type NewIncident } from "./incident-form.tsx";
-import { IMPACT_LABELS, IMPACT_TITLE, STATUS_LABELS, Time } from "./incident-ui.tsx";
+import {
+  IMPACT_LABELS,
+  IMPACT_TITLE,
+  STATUS_LABELS,
+  Time,
+  VisibilityNote,
+} from "./incident-ui.tsx";
 
 type Summary =
   paths["/v1/incidents"]["get"]["responses"][200]["content"]["application/json"]["incidents"][number];
@@ -89,6 +95,10 @@ export function IncidentsEditor() {
                   {incident.components.length > 0 &&
                     ` ${incident.components.map((c) => nameOf(c.componentId)).join(", ")}.`}
                 </span>
+                <VisibilityNote
+                  visibility={incident.visibility}
+                  approvalDeadline={incident.approvalDeadline}
+                />
                 <span className="text-[14px] text-slate">
                   Updated <Time iso={incident.updatedAt} />
                 </span>

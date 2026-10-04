@@ -62,6 +62,8 @@ export const incidentSummary = z.object({
   /** When the last update was posted. */
   updatedAt: z.iso.datetime(),
   components: z.array(affectedComponent),
+  /** A draft a monitor opened publishes at this time if the monitor is still down. */
+  approvalDeadline: z.iso.datetime().nullable(),
 });
 export type IncidentSummary = z.infer<typeof incidentSummary>;
 

@@ -35,6 +35,7 @@ const toSummary = (i: Incident) => ({
   resolvedAt: iso(i.resolvedAt),
   updatedAt: i.updatedAt.toISOString(),
   components: i.components,
+  approvalDeadline: iso(i.approvalDeadline ?? null),
 });
 const toView = (i: Incident & { updates: IncidentUpdate[] }) => ({
   ...toSummary(i),

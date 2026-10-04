@@ -1023,6 +1023,8 @@ export interface paths {
                                     /** @enum {string} */
                                     status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
                                 }[];
+                                /** Format: date-time */
+                                approvalDeadline: string | null;
                             }[];
                         };
                     };
@@ -1091,6 +1093,8 @@ export interface paths {
                                 /** @enum {string} */
                                 status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
                             }[];
+                            /** Format: date-time */
+                            approvalDeadline: string | null;
                             updates: {
                                 /** Format: uuid */
                                 id: string;
@@ -1160,6 +1164,8 @@ export interface paths {
                                 /** @enum {string} */
                                 status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
                             }[];
+                            /** Format: date-time */
+                            approvalDeadline: string | null;
                             updates: {
                                 /** Format: uuid */
                                 id: string;
@@ -1252,6 +1258,8 @@ export interface paths {
                                 /** @enum {string} */
                                 status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
                             }[];
+                            /** Format: date-time */
+                            approvalDeadline: string | null;
                             updates: {
                                 /** Format: uuid */
                                 id: string;
