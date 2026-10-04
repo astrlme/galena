@@ -23,7 +23,7 @@ import {
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { type DraftPayload, actOnTransition, settleDraft } from "./autopilot.ts";
+import { actOnTransition, type DraftPayload, settleDraft } from "./autopilot.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
 let db: Db;
@@ -70,14 +70,20 @@ async function monitorWith(publishPolicy: PublishPolicy, onComponent = true) {
   return { id, component, name };
 }
 
-const transition = (monitor: string, to: MonitorState, seq: number, suppressed = false) => ({
+const transition = (
+  monitor: string,
+  to: MonitorState,
+  seq: number,
+  suppressed = false,
+  from: MonitorState = "up",
+) => ({
   id: eventId.parse(v7()),
   type: "monitor.transitioned" as const,
   occurredAt: NOW.toISOString(),
   workspaceId: acme,
   data: {
     monitorId: monitorId.parse(monitor),
-    from: "up" as const,
+    from,
     to,
     transitionSeq: seq,
     suppressed,
@@ -258,4 +264,47 @@ test.each([
     reason,
   });
   expect([dispatched, approvals]).toEqual([[], []]);
+});
+
+test("its incident goes Monitoring on recovery, Investigating if it fails again, and resolves once up", async () => {
+  const monitor = await monitorWith("auto");
+  const { deps, dispatched } = recorder();
+  const steps = [
+    ["up", "down"],
+    ["down", "recovering"],
+    ["recovering", "down"],
+    ["down", "recovering"],
+    ["recovering", "up"],
+  ] as const;
+  let id: IncidentId | undefined;
+  for (const [i, [from, to]] of steps.entries()) {
+    const done = await actOnTransition(transition(monitor.id, to, i + 1, false, from), deps);
+    if (done.action === "open") id = done.incidentId;
+  }
+  if (!id) throw new Error("nothing opened");
+
+  const resolved = await incidentRepository(db).findById(acme, id);
+  expect(resolved?.status).toBe("resolved");
+  expect(resolved?.resolvedAt).toEqual(NOW);
+  expect(resolved?.updates.map((u) => u.status).reverse()).toEqual([
+    "investigating",
+    "monitoring",
+    "investigating",
+    "monitoring",
+    "resolved",
+  ]);
+  const events = await Promise.all(dispatched.map(eventOf));
+  expect(events.map((e) => e?.type)).toEqual([
+    "incident.created",
+    "incident.updated",
+    "incident.updated",
+    "incident.updated",
+    "incident.resolved",
+  ]);
+
+  // Up again later changes nothing: it has no open incident of its own any more.
+  expect(await actOnTransition(transition(monitor.id, "up", 6), deps)).toEqual({
+    action: "none",
+    reason: "no_incident",
+  });
 });
