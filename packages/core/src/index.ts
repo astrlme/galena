@@ -2,6 +2,7 @@ export * from "./assert-never.ts";
 export * from "./components/reorder.ts";
 export * from "./detection/canary.ts";
 export * from "./detection/evaluate.ts";
+export * from "./incidents/autopilot.ts";
 export * from "./incidents/body.ts";
 export * from "./incidents/lifecycle.ts";
 export * from "./incidents/templates.ts";
