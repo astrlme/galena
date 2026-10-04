@@ -88,8 +88,20 @@ const inputs: SnapshotInputs = {
     },
   ],
   monitors: [
-    { componentId: api, state: "down", downStatus: "partial_outage", enabled: true },
-    { componentId: web, state: "down", downStatus: "major_outage", enabled: false },
+    {
+      componentId: api,
+      state: "down",
+      downStatus: "partial_outage",
+      enabled: true,
+      publishPolicy: "approve",
+    },
+    {
+      componentId: web,
+      state: "down",
+      downStatus: "major_outage",
+      enabled: false,
+      publishPolicy: "approve",
+    },
   ],
   incidents: [
     incident({ impact: "major", components: [{ componentId: api, status: "major_outage" }] }),
@@ -148,7 +160,13 @@ test("a component nothing reports on is not observed, so the page can say no dat
       monitors: [
         ...inputs.monitors,
         // A monitor with no verdict yet says nothing either.
-        { componentId: docs, state: "unknown", downStatus: "major_outage", enabled: true },
+        {
+          componentId: docs,
+          state: "unknown",
+          downStatus: "major_outage",
+          enabled: true,
+          publishPolicy: "approve",
+        },
       ],
     },
     fixedClock(NOW),
@@ -157,6 +175,19 @@ test("a component nothing reports on is not observed, so the page can say no dat
   // API has a reporting monitor; Web's monitor is paused but a running window speaks for it.
   expect(observed).toEqual({ Web: true, API: true, Docs: false });
   expect(built.components.find((c) => c.id === docs)).toMatchObject({ uptime: null });
+});
+
+test("an internal-only monitor moves nothing on the page and doesn't count as reporting", () => {
+  const built = buildSnapshot(
+    {
+      ...inputs,
+      incidents: [],
+      monitors: inputs.monitors.map((m) => ({ ...m, publishPolicy: "internal_only" as const })),
+    },
+    fixedClock(NOW),
+  );
+  const api = built.components.find((c) => c.name === "API");
+  expect(api).toMatchObject({ status: "operational", observed: false });
 });
 
 test("draws 90 days, ending today, from the daily rollups", () => {

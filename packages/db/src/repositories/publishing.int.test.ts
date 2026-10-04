@@ -187,7 +187,13 @@ test("loads open incidents with their updates and those resolved in the last 14 
   expect(inputs.page).toEqual({ slug: "status", name: "Acme", url: "https://status.example.com" });
   expect(inputs.components.map((c) => c.id)).toEqual([web]);
   expect(inputs.monitors).toEqual([
-    { componentId: web, state: "up", downStatus: "major_outage", enabled: true },
+    {
+      componentId: web,
+      state: "up",
+      downStatus: "major_outage",
+      enabled: true,
+      publishPolicy: "approve",
+    },
   ]);
   expect(inputs.incidents.map((i) => i.id)).toEqual([current, recent]);
   expect(inputs.incidents[0]).toMatchObject({

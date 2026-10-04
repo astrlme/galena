@@ -42,7 +42,7 @@ const POLICIES: { value: PublishPolicy; label: string; help: string }[] = [
   {
     value: "internal_only",
     label: "Internal only",
-    help: "Drafts stay in the dashboard. Nothing reaches the status page or subscribers.",
+    help: "Shows in the dashboard only: the status page, its history and subscribers never hear of it.",
   },
 ];
 const policyLabel = (value: PublishPolicy) => POLICIES.find((p) => p.value === value)?.label;

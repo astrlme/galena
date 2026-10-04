@@ -3,6 +3,7 @@ import type {
   ComponentStatus,
   DownStatus,
   MonitorState,
+  PublishPolicy,
   Snapshot,
   SnapshotDay,
   SnapshotIncident,
@@ -17,7 +18,7 @@ import type {
   Maintenance,
 } from "../ports.ts";
 import { componentStatus, isOpenPublished, pageIndicator } from "../status/aggregate.ts";
-import { dayMark, wholeMinutes } from "./uptime.ts";
+import { dayMark, onPage, wholeMinutes } from "./uptime.ts";
 
 const DAY = 86_400_000;
 const STRIP_DAYS = 90;
@@ -44,6 +45,7 @@ export type SnapshotInputs = {
     state: MonitorState;
     downStatus: DownStatus;
     enabled: boolean;
+    publishPolicy: PublishPolicy;
   }>;
   /** Open incidents and those resolved recently, of any visibility: filtered here. */
   incidents: ReadonlyArray<Incident & { updates: IncidentUpdate[] }>;
@@ -102,7 +104,9 @@ export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
   const dates = stripDates(now);
 
   const components = inputs.components.map((component) => {
-    const monitors = inputs.monitors.filter((m) => m.enabled && m.componentId === component.id);
+    const monitors = inputs.monitors.filter(
+      (m) => m.enabled && m.componentId === component.id && onPage(m),
+    );
     const incidents = inputs.incidents.flatMap((i) =>
       i.components
         .filter((c) => c.componentId === component.id)

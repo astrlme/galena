@@ -209,6 +209,7 @@ export async function loadSnapshotInputs(
         state: monitor.state,
         downStatus: monitor.downStatus,
         enabled: monitor.enabled,
+        publishPolicy: monitor.publishPolicy,
       })
       .from(monitor)
       .where(eq(monitor.workspaceId, ws)),

@@ -158,8 +158,8 @@ describe("rollupUptime", () => {
     // `docs` has no monitor, so it gets no history.
     components: [{ id: api }, { id: web }, { id: docs }],
     monitors: [
-      { id: probe, componentId: api, downStatus: "major_outage" },
-      { id: webProbe, componentId: web, downStatus: "major_outage" },
+      { id: probe, componentId: api, downStatus: "major_outage", publishPolicy: "approve" },
+      { id: webProbe, componentId: web, downStatus: "major_outage", publishPolicy: "approve" },
     ],
     transitions: [
       { monitorId: probe, state: "up", at: new Date(at(0) - 3 * DAY) },
@@ -178,6 +178,14 @@ describe("rollupUptime", () => {
       { componentId: web, date: "2026-09-28", minutes: { operational: 1440 } },
       { componentId: web, date: "2026-09-29", minutes: { operational: 720 } },
     ]);
+  });
+
+  test("an internal-only monitor gives its component no history", () => {
+    const monitors = inputs.monitors.map((m) =>
+      m.id === probe ? { ...m, publishPolicy: "internal_only" as const } : m,
+    );
+    const days = rollupUptime({ ...inputs, monitors }, now);
+    expect(days.map((d) => d.componentId)).toEqual([web, web]);
   });
 
   test("only published incidents and windows that were not cancelled count", () => {

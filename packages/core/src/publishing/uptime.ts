@@ -5,9 +5,14 @@ import type {
   IncidentComponentStatus,
   MonitorId,
   MonitorState,
+  PublishPolicy,
 } from "@galena/contracts";
 import type { Incident, Maintenance } from "../ports.ts";
 import { componentStatus } from "../status/aggregate.ts";
+
+/** An `internal_only` monitor never reaches the page: no status, history or uptime of its own. */
+export const onPage = (monitor: { publishPolicy: PublishPolicy }) =>
+  monitor.publishPolicy !== "internal_only";
 
 const MINUTE = 60_000;
 const DAY = 86_400_000;
@@ -117,6 +122,7 @@ export type RollupInputs = {
     id: MonitorId;
     componentId: ComponentId | null;
     downStatus: DownStatus;
+    publishPolicy: PublishPolicy;
   }>;
   /** Each monitor's confirmed transitions since yesterday began, led by the one before that. */
   transitions: ReadonlyArray<{ monitorId: MonitorId; state: MonitorState; at: Date }>;
@@ -141,7 +147,7 @@ export function rollupUptime(
   return inputs.components.flatMap(({ id }) => {
     const history: ComponentHistory = {
       monitors: inputs.monitors
-        .filter((m) => m.componentId === id)
+        .filter((m) => m.componentId === id && onPage(m))
         .map((m) => ({
           downStatus: m.downStatus,
           changes: inputs.transitions

@@ -43,7 +43,15 @@ export const inputs: SnapshotInputs = {
       manualStatus: null,
     },
   ],
-  monitors: [{ componentId: api, state: "down", downStatus: "partial_outage", enabled: true }],
+  monitors: [
+    {
+      componentId: api,
+      state: "down",
+      downStatus: "partial_outage",
+      enabled: true,
+      publishPolicy: "approve",
+    },
+  ],
   incidents: [
     {
       id: incidentId.parse("01920000-0000-7000-8000-000000000101"),
