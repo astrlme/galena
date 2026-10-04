@@ -47,10 +47,23 @@ export const incident = pgTable(
     resolvedAt: at(),
     // Soft delete: the audit trail keeps pointing at it.
     deletedAt: at(),
+    // Set on incidents a monitor opened (`mon:{monitorId}`): one open incident per key, so a
+    // retried transition finds the draft it already wrote.
+    dedupKey: text(),
+    // A draft waiting for a person: when it publishes unless someone answers, and the waitpoint
+    // token their answer completes.
+    approvalDeadline: at(),
+    approvalTokenId: text(),
     ...timestamps,
   },
   (t) => [
     index().on(t.workspaceId, t.startedAt),
+    // Open means not resolved, deleted or dismissed: a dismissed draft lets the monitor draft again.
+    uniqueIndex("incident_open_dedup_idx")
+      .on(t.workspaceId, t.dedupKey)
+      .where(
+        sql`${t.resolvedAt} is null and ${t.deletedAt} is null and ${t.visibility} <> 'dismissed'`,
+      ),
     // Open incidents first: the dashboard and the publisher ask for them on every read.
     index("incident_open_idx")
       .on(t.workspaceId)

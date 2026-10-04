@@ -20,7 +20,12 @@ const columns = {
   startedAt: incident.startedAt,
   resolvedAt: incident.resolvedAt,
   updatedAt: incident.updatedAt,
+  approvalDeadline: incident.approvalDeadline,
 };
+
+// Open: not resolved, deleted or dismissed, as in the partial unique index on dedup keys. The
+// visibility is compared as text: the Data API sends parameters as text.
+const open = sql`${incident.resolvedAt} is null and ${incident.deletedAt} is null and ${incident.visibility} <> 'dismissed'`;
 
 export function incidentRepository(db: Db): IncidentRepository {
   const scoped = (workspaceId: WorkspaceId, id: IncidentId) =>
@@ -155,6 +160,61 @@ export function incidentRepository(db: Db): IncidentRepository {
       if (moved.length === 0) return false;
       await write(workspaceId, id, change);
       return true;
+    },
+
+    async openAffecting(workspaceId, componentId) {
+      const rows = await db
+        .select(columns)
+        .from(incident)
+        .innerJoin(incidentComponent, eq(incidentComponent.incidentId, incident.id))
+        .where(
+          and(
+            eq(incident.workspaceId, workspaceId),
+            eq(incidentComponent.componentId, componentId),
+            open,
+          ),
+        )
+        .orderBy(desc(incident.startedAt), desc(incident.id));
+      const components = await componentsOf(rows.map((r) => r.id));
+      return rows.map((row): Incident => ({ ...row, components: components.get(row.id) ?? [] }));
+    },
+
+    async createOnce(value, first) {
+      const [created] = await db
+        .insert(incident)
+        .values({ ...value, ...first.stage })
+        .onConflictDoNothing({ target: [incident.workspaceId, incident.dedupKey], where: open })
+        .returning({ id: incident.id });
+      if (created) {
+        await write(value.workspaceId, value.id, first);
+        return { id: created.id, created: true };
+      }
+      const [existing] = await db
+        .select({ id: incident.id })
+        .from(incident)
+        .where(
+          and(
+            eq(incident.workspaceId, value.workspaceId),
+            eq(incident.dedupKey, value.dedupKey),
+            open,
+          ),
+        )
+        .limit(1);
+      if (!existing) throw new Error(`No open incident holds ${value.dedupKey} after a conflict.`);
+      return { id: existing.id, created: false };
+    },
+
+    async decide(workspaceId, id, visibility) {
+      const decided = await db
+        .update(incident)
+        .set({ visibility, approvalDeadline: null })
+        .where(and(scoped(workspaceId, id), sql`${incident.visibility}::text = 'draft'`))
+        .returning({ id: incident.id });
+      return decided.length > 0;
+    },
+
+    async setApprovalToken(workspaceId, id, tokenId) {
+      await db.update(incident).set({ approvalTokenId: tokenId }).where(scoped(workspaceId, id));
     },
   };
 }

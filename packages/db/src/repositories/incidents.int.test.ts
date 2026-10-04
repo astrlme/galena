@@ -159,3 +159,44 @@ test("another workspace and soft-deleted incidents stay out of sight", async () 
   expect(await repo.findById(acme, id)).toBeUndefined();
   expect((await repo.list(acme, { open: true })).map((i) => i.id)).not.toContain(id);
 });
+
+test("one open incident per dedup key; a dismissed draft frees it, and only drafts are decided", async () => {
+  const repo = incidentRepository(db);
+  const checkout = componentId.parse(v7());
+  await db
+    .insert(component)
+    .values({ id: checkout, workspaceId: acme, name: "Checkout", position: 2 });
+  const draft = (minute: number) => ({
+    id: incidentId.parse(v7()),
+    workspaceId: acme,
+    title: "Checkout is down",
+    impact: "major" as const,
+    visibility: "draft" as const,
+    source: "monitor" as const,
+    startedAt: at(minute),
+    dedupKey: "mon:checkout",
+    approvalDeadline: at(minute + 10),
+  });
+  const first = (minute: number) =>
+    change("investigating", minute, {
+      components: [{ componentId: checkout, status: "major_outage" }],
+    });
+
+  const one = draft(40);
+  expect(await repo.createOnce(one, first(40))).toEqual({ id: one.id, created: true });
+  // A retried transition finds the draft it already opened, and writes nothing more.
+  expect(await repo.createOnce(draft(41), first(41))).toEqual({ id: one.id, created: false });
+  expect((await repo.openAffecting(acme, checkout)).map((i) => [i.id, i.approvalDeadline])).toEqual(
+    [[one.id, at(50)]],
+  );
+
+  expect(await repo.decide(acme, one.id, "dismissed")).toBe(true);
+  expect(await repo.decide(acme, one.id, "published")).toBe(false);
+  expect(await repo.openAffecting(acme, checkout)).toEqual([]);
+
+  const two = draft(60);
+  expect(await repo.createOnce(two, first(60))).toEqual({ id: two.id, created: true });
+  expect(await repo.decide(acme, two.id, "published")).toBe(true);
+  const published = await repo.findById(acme, two.id);
+  expect(published).toMatchObject({ visibility: "published", approvalDeadline: null });
+});

@@ -96,6 +96,8 @@ export type Incident = IncidentStage & {
   /** When the last update was posted. */
   updatedAt: Date;
   components: AffectedComponent[];
+  /** A draft waiting for a person publishes at this time unless someone answers first. */
+  approvalDeadline?: Date | null;
 };
 
 export type IncidentUpdate = {
@@ -146,6 +148,26 @@ export interface IncidentRepository {
     expected: IncidentStatus,
     change: IncidentChange,
   ): Promise<boolean>;
+  /** Open incidents (not resolved, dismissed or deleted) that affect the component. */
+  openAffecting(workspaceId: WorkspaceId, componentId: ComponentId): Promise<Incident[]>;
+  /**
+   * Creates the incident unless one with its `dedupKey` is still open, and returns the open one
+   * either way, so a retried transition finds the incident it already opened.
+   */
+  createOnce(
+    incident: Omit<Incident, "updatedAt" | "components" | keyof IncidentStage> & {
+      dedupKey: string;
+    },
+    first: IncidentChange,
+  ): Promise<{ id: IncidentId; created: boolean }>;
+  /** Publishes or dismisses a draft; false when it is no longer a draft. */
+  decide(
+    workspaceId: WorkspaceId,
+    id: IncidentId,
+    visibility: "published" | "dismissed",
+  ): Promise<boolean>;
+  /** The waitpoint token a person's answer to the draft completes. */
+  setApprovalToken(workspaceId: WorkspaceId, id: IncidentId, tokenId: string): Promise<void>;
 }
 
 export type Maintenance = {
