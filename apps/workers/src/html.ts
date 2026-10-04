@@ -77,6 +77,23 @@ export async function readTree(dir: string): Promise<StoredFile[]> {
 
 const run = promisify(execFile);
 
+// What Node and Astro need to run, and nothing else: the worker's AWS, database and app keys
+// stay out of the build.
+const BUILD_ENV = [
+  "PATH",
+  "HOME",
+  "TMPDIR",
+  "TMP",
+  "TEMP",
+  "SYSTEMROOT",
+  "USERPROFILE",
+  "LOCALAPPDATA",
+];
+const buildEnv = () =>
+  Object.fromEntries(
+    BUILD_ENV.flatMap((name) => (process.env[name] ? [[name, process.env[name]]] : [])),
+  );
+
 /**
  * `astro build` of the status app. A deployed image carries it as `status/`, with the workspace
  * packages it imports in `packages/`, and this links those where Node looks for them.
@@ -101,6 +118,6 @@ export const astroBuild: BuildPage = async (snapshotFile, outDir) => {
   }
   await run(process.execPath, [astro, "build", "--outDir", outDir], {
     cwd: app,
-    env: { ...process.env, GLN_SNAPSHOT_FILE: snapshotFile },
+    env: { ...buildEnv(), GLN_SNAPSHOT_FILE: snapshotFile },
   });
 };
