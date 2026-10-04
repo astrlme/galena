@@ -1,7 +1,7 @@
 import { problemContentType, problemDetails } from "@galena/contracts";
 import { createRoute, z } from "@hono/zod-openapi";
 import { Validator } from "@seriousme/openapi-schema-validator";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { createApp } from "./app.ts";
 import { testDeps } from "./test-deps.ts";
 
@@ -61,6 +61,19 @@ test("an unexpected error answers 500 problem details without leaking the cause"
   await expectProblem(response, 500, "internal_error");
   expect(text).not.toContain("hunter2");
   expect(text).not.toContain("SELECT");
+});
+
+test("a failed query is logged without its parameters", async () => {
+  const app = newApp();
+  app.get("/query", () => {
+    throw new Error('Failed query: select * from "session" where "token" = $1\nparams: tok_secret');
+  });
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  await expectProblem(await app.request("/query"), 500, "internal_error");
+  const logged = JSON.stringify(log.mock.calls);
+  log.mockRestore();
+  expect(logged).toContain("Failed query");
+  expect(logged).not.toContain("tok_secret");
 });
 
 test("with an origin secret, only requests carrying it reach a route; /health stays open", async () => {

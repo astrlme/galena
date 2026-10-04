@@ -229,11 +229,12 @@ export function createApp(deps: Deps) {
 
   app.onError((error, c) => {
     if (error instanceof HTTPException) return error.getResponse();
-    // The cause goes to the logs only: it may hold SQL or secrets.
+    // The cause goes to the logs only, and only the statement: a failed query's message ends with
+    // its bound parameters (session tokens, email addresses).
     console.error("unhandled error", {
       path: c.req.path,
       name: error.name,
-      message: error.message,
+      message: error.message.split("\nparams:")[0],
     });
     return problemResponse({
       status: 500,
