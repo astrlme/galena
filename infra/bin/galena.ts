@@ -50,6 +50,7 @@ new WebStack(app, `galena-${config.stage}-web`, {
   env,
   config,
   api: api.api,
+  domain: config.webDomain,
   ...(webCertificate ? { certificate: webCertificate, crossRegionReferences: true } : {}),
 });
 new WorkerAccessStack(app, `galena-${config.stage}-worker-access`, { env, config });

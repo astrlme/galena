@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { App, Validations } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import { stages } from "../config/stages.ts";
 import { ApiStack } from "../stacks/api.ts";
 import { CertificateStack } from "../stacks/status-page.ts";
@@ -127,8 +127,9 @@ test("with a certificate, answers on the stage's domain over TLS 1.2 and publish
   const domainApi = new ApiStack(withDomain, "Api", { env, config: stages.dev });
   const stack = new WebStack(withDomain, "Web", {
     env,
-    config: { ...stages.dev, webDomain: "galena.example.com" },
+    config: stages.dev,
     api: domainApi.api,
+    domain: "galena.example.com",
     certificate,
     crossRegionReferences: true,
     siteDir,
@@ -143,6 +144,40 @@ test("with a certificate, answers on the stage's domain over TLS 1.2 and publish
     Value: "https://galena.example.com",
   });
   expect(() => withDomain.synth()).not.toThrow();
+});
+
+describe("without an API (the project's site)", () => {
+  const siteApp = new App({ context: { "aws:cdk:bundling-stacks": [] } });
+  Validations.of(siteApp).addPlugins(new AwsSolutionsChecks(siteApp));
+  const site = Template.fromStack(
+    new WebStack(siteApp, "Site", { env, config: stages.dev, siteDir }),
+  );
+  const config = () =>
+    Object.values(site.findResources("AWS::CloudFront::Distribution"))[0]?.Properties
+      .DistributionConfig;
+
+  test("has no API behaviour, origin or public URL", () => {
+    expect(config().CacheBehaviors).toBeUndefined();
+    expect(config().Origins).toHaveLength(1);
+    site.resourceCountIs("AWS::SSM::Parameter", 0);
+  });
+
+  test("answers 404 with the site's page for missing files", () => {
+    expect(config().CustomErrorResponses).toEqual([
+      { ErrorCode: 403, ResponseCode: 404, ResponsePagePath: "/404.html" },
+      { ErrorCode: 404, ResponseCode: 404, ResponsePagePath: "/404.html" },
+    ]);
+  });
+
+  test("leaves the dashboard and sign-in out of the upload", () => {
+    site.hasResourceProperties("Custom::CDKBucketDeployment", {
+      Exclude: ["dashboard/*", "sign-in/*"],
+    });
+  });
+
+  test("passes cdk-nag AwsSolutions", () => {
+    expect(() => siteApp.synth()).not.toThrow();
+  });
 });
 
 test.each([

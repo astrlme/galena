@@ -49,8 +49,9 @@ export const indexRewrite = `function handler(event) {
 }`;
 
 /**
- * The dashboard and landing page: the Next.js static export in S3 behind CloudFront,
- * with /auth/* and /v1/* forwarded to the HTTP API on the same origin, so cookies are first-party.
+ * The Next.js static export in S3 behind CloudFront. With `api` it is the dashboard: /auth/* and
+ * /v1/* go to the HTTP API on the same origin, so cookies are first-party. Without it, it is a
+ * plain site (the project's landing page and docs) that leaves out the dashboard and sign-in.
  */
 export class WebStack extends Stack {
   constructor(
@@ -58,14 +59,16 @@ export class WebStack extends Stack {
     id: string,
     props: StackProps & {
       config: StageConfig;
-      api: HttpApi;
-      /** For `config.webDomain`, from a stack in us-east-1. */
+      api?: HttpApi;
+      /** The name it answers on, with `certificate` from a stack in us-east-1. */
+      domain?: string;
       certificate?: ICertificate;
       /** The static export to upload; tests pass a fixture. */
       siteDir?: string;
     },
   ) {
     super(scope, id, props);
+    const kind = props.api ? "dashboard" : "site";
 
     // Holds only the build output, which CI uploads again on every deploy.
     const site = new Bucket(this, "Site", {
@@ -75,40 +78,12 @@ export class WebStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    const api = new HttpOrigin(Fn.select(2, Fn.split("/", props.api.apiEndpoint)), {
-      customHeaders: {
-        [ORIGIN_HEADER]: SecretValue.secretsManager(
-          originSecretName(props.config.stage),
-        ).unsafeUnwrap(),
-      },
-    });
-    // What the API reads: cookies, the query and these headers. Host stays API Gateway's own;
-    // CloudFront-Viewer-Address is the visitor's address, which the sign-in limits key on.
-    const apiRequests = new OriginRequestPolicy(this, "ApiRequests", {
-      comment: "Dashboard requests to the API",
-      headerBehavior: OriginRequestHeaderBehavior.allowList(
-        "CloudFront-Viewer-Address",
-        "Origin",
-        "Referer",
-        "User-Agent",
-        "Content-Type",
-        "Accept",
-      ),
-      cookieBehavior: OriginRequestCookieBehavior.all(),
-      queryStringBehavior: OriginRequestQueryStringBehavior.all(),
-    });
-    const apiBehavior = {
-      origin: api,
-      viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
-      allowedMethods: AllowedMethods.ALLOW_ALL,
-      cachePolicy: CachePolicy.CACHING_DISABLED,
-      originRequestPolicy: apiRequests,
-    };
+    const apiBehaviors = props.api ? this.apiBehaviors(props.api, props.config.stage) : undefined;
 
     // Next's static export bootstraps with inline scripts, so scripts and styles allow
     // 'unsafe-inline'; everything else is this origin only, and nothing may frame the dashboard.
     const headers = new ResponseHeadersPolicy(this, "Headers", {
-      comment: `Galena ${props.config.stage} dashboard`,
+      comment: `Galena ${props.config.stage} ${kind}`,
       securityHeadersBehavior: {
         contentSecurityPolicy: {
           contentSecurityPolicy: [
@@ -138,11 +113,9 @@ export class WebStack extends Stack {
       },
     });
 
-    // No custom error pages: CloudFront applies them to every behaviour and would turn the API's
-    // JSON 403 and 404 problems into HTML.
-    const domain = props.certificate ? props.config.webDomain : undefined;
+    const domain = props.certificate ? props.domain : undefined;
     const distribution = new Distribution(this, "Distribution", {
-      comment: `Galena ${props.config.stage} dashboard`,
+      comment: `Galena ${props.config.stage} ${kind}`,
       ...(props.certificate && domain
         ? {
             domainNames: [domain],
@@ -164,7 +137,18 @@ export class WebStack extends Stack {
           },
         ],
       },
-      additionalBehaviors: { "/auth/*": apiBehavior, "/v1/*": apiBehavior },
+      // The dashboard has no custom error pages: CloudFront applies them to every behaviour and
+      // would turn the API's JSON 403 and 404 problems into HTML. The site has no API, and S3
+      // answers 403 for a missing file.
+      ...(apiBehaviors
+        ? { additionalBehaviors: apiBehaviors }
+        : {
+            errorResponses: [403, 404].map((httpStatus) => ({
+              httpStatus,
+              responseHttpStatus: 404,
+              responsePagePath: "/404.html",
+            })),
+          }),
     });
 
     for (const [id, reason] of [
@@ -174,11 +158,15 @@ export class WebStack extends Stack {
       ],
       [
         "AwsSolutions-CFR1",
-        "The dashboard is for the owner's team wherever they are; sign-in guards it, not geography.",
+        props.api
+          ? "The dashboard is for the owner's team wherever they are; sign-in guards it, not geography."
+          : "The site is public documentation for anyone, anywhere.",
       ],
       [
         "AwsSolutions-CFR2",
-        "WAF costs more than the monthly budget; the app authenticates every route and the HTTP API is throttled at 50 rps.",
+        props.api
+          ? "WAF costs more than the monthly budget; the app authenticates every route and the HTTP API is throttled at 50 rps."
+          : "The site is static files with no forms or sign-in; WAF costs more than the monthly budget.",
       ],
       [
         "AwsSolutions-CFR3",
@@ -192,12 +180,14 @@ export class WebStack extends Stack {
       Validations.of(id === "AwsSolutions-S1" ? site : distribution).acknowledge({ id, reason });
     }
 
-    const dashboardUrl = `https://${domain ?? distribution.distributionDomainName}`;
+    const url = `https://${domain ?? distribution.distributionDomainName}`;
     // The API reads this at cold start: it is where people sign in and where cookies belong.
-    new StringParameter(this, "PublicUrl", {
-      parameterName: `/galena/${props.config.stage}/public-url`,
-      stringValue: dashboardUrl,
-    });
+    if (props.api) {
+      new StringParameter(this, "PublicUrl", {
+        parameterName: `/galena/${props.config.stage}/public-url`,
+        stringValue: url,
+      });
+    }
 
     // The static export, uploaded on every deploy with a cache invalidation. Synth without a
     // build (tests, a quick `infra:synth`) skips it rather than failing.
@@ -206,6 +196,8 @@ export class WebStack extends Stack {
       new BucketDeployment(this, "Upload", {
         sources: [Source.asset(out)],
         destinationBucket: site,
+        // The site build still holds these pages; without an API they could only fail.
+        ...(props.api ? {} : { exclude: ["dashboard/*", "sign-in/*"] }),
         distribution,
         distributionPaths: ["/*"],
         memoryLimit: 512,
@@ -213,12 +205,46 @@ export class WebStack extends Stack {
       acknowledgeBucketDeployment(this, site);
     } else {
       Annotations.of(this).addWarning(
-        "apps/web/out is missing, so the dashboard is not uploaded. Run `pnpm --filter @galena/web build` before deploying.",
+        `${out} is missing, so the ${kind} is not uploaded. Build apps/web before deploying.`,
       );
     }
 
-    new CfnOutput(this, "DashboardUrl", { value: dashboardUrl });
+    new CfnOutput(this, props.api ? "DashboardUrl" : "SiteUrl", { value: url });
+    // Where the domain's CNAME at the DNS host points.
+    new CfnOutput(this, "DistributionDomain", { value: distribution.distributionDomainName });
     new CfnOutput(this, "SiteBucket", { value: site.bucketName });
+  }
+
+  /** /auth/* and /v1/* to the HTTP API, uncached, with the origin secret only CloudFront knows. */
+  private apiBehaviors(httpApi: HttpApi, stage: string) {
+    const origin = new HttpOrigin(Fn.select(2, Fn.split("/", httpApi.apiEndpoint)), {
+      customHeaders: {
+        [ORIGIN_HEADER]: SecretValue.secretsManager(originSecretName(stage)).unsafeUnwrap(),
+      },
+    });
+    // What the API reads: cookies, the query and these headers. Host stays API Gateway's own;
+    // CloudFront-Viewer-Address is the visitor's address, which the sign-in limits key on.
+    const apiRequests = new OriginRequestPolicy(this, "ApiRequests", {
+      comment: "Dashboard requests to the API",
+      headerBehavior: OriginRequestHeaderBehavior.allowList(
+        "CloudFront-Viewer-Address",
+        "Origin",
+        "Referer",
+        "User-Agent",
+        "Content-Type",
+        "Accept",
+      ),
+      cookieBehavior: OriginRequestCookieBehavior.all(),
+      queryStringBehavior: OriginRequestQueryStringBehavior.all(),
+    });
+    const behavior = {
+      origin,
+      viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+      allowedMethods: AllowedMethods.ALLOW_ALL,
+      cachePolicy: CachePolicy.CACHING_DISABLED,
+      originRequestPolicy: apiRequests,
+    };
+    return { "/auth/*": behavior, "/v1/*": behavior };
   }
 }
 
