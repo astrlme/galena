@@ -193,6 +193,9 @@ test("one open incident per dedup key; a dismissed draft frees it, and only draf
   expect(await repo.decide(acme, one.id, "dismissed")).toBe(true);
   expect(await repo.decide(acme, one.id, "published")).toBe(false);
   expect(await repo.openAffecting(acme, checkout)).toEqual([]);
+  // A dismissed draft is past, never open, though it never resolves.
+  expect((await repo.list(acme, { open: true })).map((i) => i.id)).not.toContain(one.id);
+  expect((await repo.list(acme, { open: false })).map((i) => i.id)).toContain(one.id);
 
   const two = draft(60);
   expect(await repo.createOnce(two, first(60))).toEqual({ id: two.id, created: true });

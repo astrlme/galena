@@ -119,7 +119,10 @@ export type IncidentChange = {
 };
 
 export interface IncidentRepository {
-  /** Open (not resolved) or resolved incidents, newest first. Soft-deleted ones never appear. */
+  /**
+   * Open incidents (not resolved or dismissed), or past ones (resolved or dismissed), newest
+   * first. Soft-deleted ones never appear.
+   */
   list(workspaceId: WorkspaceId, filter: { open: boolean }): Promise<Incident[]>;
   /**
    * What a status page can show: open incidents and those resolved since `resolvedSince`, of

@@ -25,7 +25,7 @@ const columns = {
 
 // Open: not resolved, deleted or dismissed, as in the partial unique index on dedup keys. The
 // visibility is compared as text: the Data API sends parameters as text.
-const open = sql`${incident.resolvedAt} is null and ${incident.deletedAt} is null and ${incident.visibility} <> 'dismissed'`;
+const openIncident = sql`${incident.resolvedAt} is null and ${incident.deletedAt} is null and ${incident.visibility} <> 'dismissed'`;
 
 export function incidentRepository(db: Db): IncidentRepository {
   const scoped = (workspaceId: WorkspaceId, id: IncidentId) =>
@@ -82,7 +82,7 @@ export function incidentRepository(db: Db): IncidentRepository {
   }
 
   return {
-    async list(workspaceId, { open }) {
+    async list(workspaceId, filter) {
       const rows = await db
         .select(columns)
         .from(incident)
@@ -90,7 +90,10 @@ export function incidentRepository(db: Db): IncidentRepository {
           and(
             eq(incident.workspaceId, workspaceId),
             isNull(incident.deletedAt),
-            open ? isNull(incident.resolvedAt) : isNotNull(incident.resolvedAt),
+            // A dismissed draft never resolves; it belongs with the past ones.
+            filter.open
+              ? openIncident
+              : or(isNotNull(incident.resolvedAt), sql`${incident.visibility} = 'dismissed'`),
           ),
         )
         .orderBy(desc(incident.startedAt), desc(incident.id))
@@ -171,7 +174,7 @@ export function incidentRepository(db: Db): IncidentRepository {
           and(
             eq(incident.workspaceId, workspaceId),
             eq(incidentComponent.componentId, componentId),
-            open,
+            openIncident,
           ),
         )
         .orderBy(desc(incident.startedAt), desc(incident.id));
@@ -183,7 +186,10 @@ export function incidentRepository(db: Db): IncidentRepository {
       const [created] = await db
         .insert(incident)
         .values({ ...value, ...first.stage })
-        .onConflictDoNothing({ target: [incident.workspaceId, incident.dedupKey], where: open })
+        .onConflictDoNothing({
+          target: [incident.workspaceId, incident.dedupKey],
+          where: openIncident,
+        })
         .returning({ id: incident.id });
       if (created) {
         await write(value.workspaceId, value.id, first);
@@ -196,7 +202,7 @@ export function incidentRepository(db: Db): IncidentRepository {
           and(
             eq(incident.workspaceId, value.workspaceId),
             eq(incident.dedupKey, value.dedupKey),
-            open,
+            openIncident,
           ),
         )
         .limit(1);
