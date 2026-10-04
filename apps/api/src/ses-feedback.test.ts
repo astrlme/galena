@@ -21,6 +21,7 @@ test("a permanent bounce or a complaint suppresses the address; a transient boun
   ).toEqual(["grace@example.com"]);
 });
 
-test("other SES events are ignored", () => {
+test("other SES events, and messages that are not JSON, are ignored", () => {
   expect(suppressions(JSON.stringify({ eventType: "Delivery", delivery: {} }))).toEqual([]);
+  expect(suppressions("not json")).toEqual([]);
 });

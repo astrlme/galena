@@ -19,7 +19,7 @@ const sesEvent = z.discriminatedUnion("eventType", [
 
 /** The addresses an SES event says to stop mailing; transient bounces say nothing. */
 export function suppressions(message: string): string[] {
-  const parsed = sesEvent.safeParse(JSON.parse(message));
+  const parsed = sesEvent.safeParse(parseJson(message));
   if (!parsed.success) return [];
   const event = parsed.data;
   const found =
@@ -30,6 +30,15 @@ export function suppressions(message: string): string[] {
         : [];
   // SES may write "Name <address>"; we store bare, lower-cased addresses.
   return found.map((r) => (/<([^>]+)>/.exec(r.emailAddress)?.[1] ?? r.emailAddress).toLowerCase());
+}
+
+// A message that is not JSON names nobody; throwing would only make SNS retry it.
+function parseJson(message: string): unknown {
+  try {
+    return JSON.parse(message);
+  } catch {
+    return undefined;
+  }
 }
 
 let db: ReturnType<typeof createDb>["db"] | undefined;
