@@ -32,8 +32,10 @@ the API sets itself. The subscribe form has its own limits; see [Limits](/docs/r
 
 ### Sign-up
 
-Only first-run setup creates an account. After the workspace exists, every attempt to create a
-user is refused in a database hook, whatever route it comes through.
+Only first-run setup creates an account. In AWS it needs the setup token, a SecureString only
+someone with access to the AWS account can read, so nobody can claim a fresh deployment first.
+After the workspace exists, every attempt to create a user is refused in a database hook,
+whatever route it comes through.
 
 ## Outbound requests
 

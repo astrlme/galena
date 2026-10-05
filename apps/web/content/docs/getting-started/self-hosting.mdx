@@ -80,13 +80,14 @@ Secrets and variables, Actions, Variables), and the whole of `galena.config.json
 
 ### Store the secrets
 
-Three SecureString parameters in the home region, made once and never printed:
+Four SecureString parameters in the home region, made once and never printed:
 
 | Parameter | Value |
 | --- | --- |
 | `/galena/dev/auth-secret` | Signs session cookies and encrypts two-factor secrets. 32 random bytes or more. |
 | `/galena/dev/app-key` | Exactly 32 random bytes, base64. Seals stored credentials such as Slack URLs and webhook signing secrets, and signs confirmation and unsubscribe links. |
 | `/galena/dev/trigger-secret-key` | Your trigger.dev project's production secret key (`tr_prod_…`). |
+| `/galena/dev/setup-token` | Random. First-run setup must send it, so nobody else can create the owner before you do. |
 
 ```bash
 aws ssm put-parameter --name /galena/dev/auth-secret --type SecureString \
@@ -95,6 +96,8 @@ aws ssm put-parameter --name /galena/dev/app-key --type SecureString \
   --value "$(openssl rand -base64 32)"
 aws ssm put-parameter --name /galena/dev/trigger-secret-key --type SecureString \
   --value "tr_prod_…"
+aws ssm put-parameter --name /galena/dev/setup-token --type SecureString \
+  --value "$(openssl rand -hex 32)"
 ```
 
 The API reads them when a Lambda container starts. Keep the app key: the workers need the same
@@ -191,7 +194,10 @@ one request:
 
 ```bash
 URL=https://d1234example.cloudfront.net
-curl -X POST "$URL/v1/setup" -H 'content-type: application/json' -d '{
+TOKEN=$(aws ssm get-parameter --name /galena/dev/setup-token --with-decryption \
+  --query Parameter.Value --output text)
+curl -X POST "$URL/v1/setup" -H 'content-type: application/json' \
+  -H "x-galena-setup-token: $TOKEN" -d '{
   "workspaceName": "Acme",
   "name": "Your name",
   "email": "you@example.com",
@@ -199,7 +205,8 @@ curl -X POST "$URL/v1/setup" -H 'content-type: application/json' -d '{
 }'
 ```
 
-It works once. After that, sign-up is closed, and you sign in at `$URL/sign-in/`.
+It works once, and only with the setup token: without it the API answers 403. After that, sign-up
+is closed, and you sign in at `$URL/sign-in/`.
 
 </Step>
 </Steps>
