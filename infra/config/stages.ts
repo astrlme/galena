@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { z } from "zod";
 
 const region = z.string().regex(/^[a-z]{2}(?:-gov)?-[a-z]+-\d$/, "not an AWS region name");
+const domain = z
+  .string()
+  .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, "a lower-case domain name, such as status.example.com");
 
 export const stageSchema = z
   .object({
@@ -16,26 +19,17 @@ export const stageSchema = z
     probeRegions: z.array(region).min(3),
     pageRegions: z.object({ primary: region, replica: region }),
     // The status page's own name; its certificate is validated by a CNAME at the DNS host.
-    pageDomain: z
-      .string()
-      .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)
-      .optional(),
+    pageDomain: domain.optional(),
     // The dashboard's own name (with the docs); its certificate is validated by a CNAME at the
     // DNS host, like the page's.
-    webDomain: z
-      .string()
-      .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)
-      .optional(),
+    webDomain: domain.optional(),
     // The project's own site: the landing page and the docs, without the dashboard or the API.
     // Only the maintainer's deployment sets it; a fork leaves it out.
-    siteDomain: z
-      .string()
-      .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)
-      .optional(),
+    siteDomain: domain.optional(),
     // Where notification email comes from: an SES identity for `domain`, verified by DKIM
     // CNAMEs at the DNS host, sending as `from`.
     email: z
-      .object({ domain: z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/), from: z.email() })
+      .object({ domain, from: z.email() })
       .refine(
         ({ domain, from }) => from.endsWith(`@${domain}`),
         "from must be an address at domain",
