@@ -5,11 +5,13 @@ import { Button } from "../../components/button.tsx";
 import { Field } from "../../components/field.tsx";
 import { authPost } from "../../lib/api.ts";
 
-type Step = "password" | "code";
+type Step = "password" | "code" | "backup";
 
 const FAILED = {
   password: "Couldn't sign you in. Check the email and password, then try again.",
   code: "That code didn't match. Enter the current 6-digit code from your authenticator app.",
+  backup:
+    "That backup code didn't work. Each code works once; check it, or use your authenticator app.",
 };
 
 export function SignInForm() {
@@ -32,8 +34,10 @@ export function SignInForm() {
           setStep("code");
           return;
         }
-      } else {
+      } else if (step === "code") {
         await authPost("two-factor/verify-totp", { code: form.get("code") });
+      } else {
+        await authPost("two-factor/verify-backup-code", { code: form.get("backup") });
       }
       window.location.assign("/dashboard/");
     } catch {
@@ -56,7 +60,7 @@ export function SignInForm() {
             required
           />
         </>
-      ) : (
+      ) : step === "code" ? (
         <Field
           id="code"
           label="Authentication code"
@@ -66,6 +70,15 @@ export function SignInForm() {
           pattern="[0-9]{6}"
           required
         />
+      ) : (
+        <Field
+          id="backup"
+          label="Backup code"
+          help="One of the codes you saved when you turned on two-factor. Each works once."
+          autoComplete="off"
+          spellCheck={false}
+          required
+        />
       )}
       <p aria-live="polite" className="text-[14px] font-semibold empty:hidden">
         {error}
@@ -73,6 +86,18 @@ export function SignInForm() {
       <Button type="submit" variant="primary" disabled={pending}>
         {pending ? "Signing in…" : step === "password" ? "Sign in" : "Verify code"}
       </Button>
+      {step !== "password" && (
+        <Button
+          type="button"
+          variant="quiet"
+          onClick={() => {
+            setError(undefined);
+            setStep(step === "code" ? "backup" : "code");
+          }}
+        >
+          {step === "code" ? "Use a backup code instead" : "Use your authenticator app instead"}
+        </Button>
+      )}
     </form>
   );
 }
