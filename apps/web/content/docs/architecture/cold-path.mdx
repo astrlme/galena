@@ -66,7 +66,7 @@ seconds, and the dashboard explains the wait after 10.
 
 | Task | Started by | Runs | Idempotency key |
 | --- | --- | --- | --- |
-| `monitor.state-changed` | The evaluator, on a transition | Records the transition, opens or attaches an incident when the monitor went down, republishes unless suppressed | `mon:{monitorId}:{transitionSeq}` |
+| `monitor.state-changed` | The evaluator, on a transition | Records the transition; opens an incident when the monitor goes down, moves the one it opened to Monitoring, back to Investigating or resolved, or leaves it to an incident already open on the component; republishes unless suppressed | `mon:{monitorId}:{transitionSeq}` |
 | `incident.autopilot` | `monitor.state-changed`, for a draft | Waits for a person until the draft's deadline (a waitpoint token keyed `approve:{incidentId}`), then publishes or dismisses it | `auto:{incidentId}` |
 | `outbox.dispatch` | The API, after each commit | One at a time | `outbox:{outboxId}` |
 | `page.publish` | Dispatch, state changes, the rollup | One at a time; latest wins | `pub:{snapshotVersion}` |

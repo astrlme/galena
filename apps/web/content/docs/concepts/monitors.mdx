@@ -55,10 +55,15 @@ Each monitor carries a publish policy for incidents it will draft on its own:
 | Internal only (`internal_only`) | The monitor shows in the dashboard only. It moves no component status or history on the page, opens no incident, and tells no subscriber. |
 
 When a monitor goes down, Galena first looks for an open incident on its component: if there
-is one, it covers the monitor too and nothing new opens. Otherwise it opens one named after
-the component ("API is down"), with the investigating template filled in and the component at the monitor's down
-status. Nothing opens for a flapping or degraded monitor, inside a maintenance window, for an
-internal-only monitor, or for a monitor on no component.
+is one, it covers the monitor too and nothing new opens. Otherwise it opens one named after the
+component ("API is down"), with the investigating template filled in and the component at the
+monitor's down status. Nothing opens for a flapping or degraded monitor, inside a maintenance
+window, for an internal-only monitor, or for a monitor on no component.
+
+The incident a monitor opened then follows it. When the monitor starts recovering, it posts a
+Monitoring update ("API is working normally again. We're watching it for the next 15
+minutes."); if the monitor fails again within those minutes, it goes back to Investigating; once
+the monitor is up, it resolves. Incidents people opened are never moved by a monitor.
 
 A draft shows in the dashboard with the time it publishes. A dismissed draft is kept for the
 record and lets the monitor draft again the next time it goes down.
@@ -66,8 +71,7 @@ record and lets the monitor draft again the next time it goes down.
 <Callout type="warn">
 Approving or dismissing a draft before its deadline isn't built yet: today every `approve` draft
 waits its 10 minutes, then publishes if the monitor is still down and is dismissed if it
-recovered. Incidents also don't resolve on their own when the monitor recovers. See the
-[roadmap](/docs/roadmap/).
+recovered. See the [roadmap](/docs/roadmap/).
 </Callout>
 
 ## Check results
