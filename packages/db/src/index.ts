@@ -31,7 +31,11 @@ export {
   suppressSubscriber,
   wasAnnounced,
 } from "./repositories/notifications.ts";
-export { findOutboxRow, markOutboxDispatched } from "./repositories/outbox.ts";
+export {
+  findOutboxRow,
+  listPendingOutbox,
+  markOutboxDispatched,
+} from "./repositories/outbox.ts";
 export {
   advancePageVersion,
   ensurePage,

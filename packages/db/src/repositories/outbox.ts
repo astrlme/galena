@@ -1,5 +1,5 @@
 import type { OutboxId } from "@galena/contracts";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, lt } from "drizzle-orm";
 import type { Db } from "../client.ts";
 import { outbox } from "../schema/index.ts";
 
@@ -16,6 +16,17 @@ export async function findOutboxRow(db: Db, id: OutboxId) {
     .where(eq(outbox.id, id))
     .limit(1);
   return row;
+}
+
+/** Rows written before `before` and still not dispatched, oldest first. */
+export async function listPendingOutbox(db: Db, before: Date, limit: number): Promise<OutboxId[]> {
+  const rows = await db
+    .select({ id: outbox.id })
+    .from(outbox)
+    .where(and(isNull(outbox.dispatchedAt), lt(outbox.createdAt, before)))
+    .orderBy(asc(outbox.createdAt))
+    .limit(limit);
+  return rows.map((row) => row.id);
 }
 
 /** False when another run marked it first. */

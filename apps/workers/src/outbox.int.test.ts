@@ -7,6 +7,7 @@ import {
   monitorConfig,
   monitorId,
   monitorsFile,
+  type OutboxId,
   outboxId,
   subscriberId,
   type WorkspaceId,
@@ -26,7 +27,7 @@ import {
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { dispatchOutbox, localMonitorsFile } from "./outbox.ts";
+import { dispatchOutbox, localMonitorsFile, sweepOutbox } from "./outbox.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
 let db: Db;
@@ -252,4 +253,37 @@ test("a subscription request records its delivery and sends its confirmation", a
   expect(await findDelivery(db, event, { subscriberId: subscriber })).toMatchObject({
     status: "pending",
   });
+});
+
+test("the sweep hands rows pending for over five minutes back to the dispatcher, oldest first", async () => {
+  const now = new Date();
+  const row = async (minutesAgo: number, dispatched = false) => {
+    const id = outboxId.parse(v7());
+    const at = new Date(now.getTime() - minutesAgo * 60_000);
+    await db.insert(schema.outbox).values({
+      id,
+      workspaceId: acme,
+      eventType: "component.changed",
+      payload: {},
+      createdAt: at,
+      dispatchedAt: dispatched ? at : null,
+    });
+    return id;
+  };
+  const older = await row(70);
+  const old = await row(10);
+  const fresh = await row(2);
+  const done = await row(10, true);
+
+  const redispatched: OutboxId[] = [];
+  const result = await sweepOutbox({
+    db,
+    clock: { now: () => now },
+    redispatch: async (ids) => void redispatched.push(...ids),
+  });
+  expect(redispatched).toContain(old);
+  expect(redispatched.indexOf(older)).toBeLessThan(redispatched.indexOf(old));
+  expect(redispatched).not.toContain(fresh);
+  expect(redispatched).not.toContain(done);
+  expect(result.pending).toBe(redispatched.length);
 });

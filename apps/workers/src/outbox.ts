@@ -13,6 +13,7 @@ import {
   type Db,
   findOutboxRow,
   listEnabledMonitors,
+  listPendingOutbox,
   maintenanceRepository,
   markOutboxDispatched,
   nextSnapshotVersion,
@@ -83,6 +84,26 @@ export async function dispatchOutbox(id: OutboxId, deps: DispatchDeps): Promise<
   }
   const marked = await markOutboxDispatched(deps.db, id, deps.clock.now());
   return marked ? "dispatched" : "already_dispatched";
+}
+
+/** How long a row may stay pending before the sweep takes it: its own runs come well before. */
+const SWEEP_AFTER_MS = 5 * 60_000;
+// Known limit: this many rows per hourly sweep; the rest wait for the next one.
+const SWEEP_LIMIT = 500;
+
+/**
+ * Hands every outbox row still pending five minutes after it was written to the dispatcher
+ * again: rows whose trigger never reached trigger.dev, or whose runs failed for good.
+ */
+export async function sweepOutbox(deps: {
+  db: Db;
+  clock: Clock;
+  redispatch: (ids: OutboxId[]) => Promise<void>;
+}): Promise<{ pending: number }> {
+  const before = new Date(deps.clock.now().getTime() - SWEEP_AFTER_MS);
+  const ids = await listPendingOutbox(deps.db, before, SWEEP_LIMIT);
+  if (ids.length > 0) await deps.redispatch(ids);
+  return { pending: ids.length };
 }
 
 /** Local development: the file on disk, replaced whole so a reader never sees half of it. */
