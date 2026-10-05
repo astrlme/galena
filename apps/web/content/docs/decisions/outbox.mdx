@@ -18,11 +18,12 @@ Write an `outbox` row in the same transaction as the change, then trigger `outbo
 it after the commit, keyed `outbox:{id}`. The dispatcher hands the event to its consumers and
 marks the row dispatched; consumers are idempotent.
 
-Two more safeguards are planned and not built yet:
+Two more safeguards:
 
 - **A backstop.** The row's id is generated in the application, so before the transaction the
-  API can also trigger a dispatch delayed by one minute, which finds the row already handled, or
-  missing if the transaction rolled back.
+  API also triggers a dispatch delayed by one minute, which finds the row already handled, or
+  missing if the transaction rolled back. The public subscribe form arms none, so a stranger
+  can't start runs by posting it; the sweep covers it.
 - **An hourly sweep** of rows still pending after five minutes, at the same minute as the other
   hourly job, covering trigger.dev being unreachable when the change was written.
 
@@ -37,8 +38,10 @@ Two more safeguards are planned and not built yet:
 ## Consequences
 
 - Every consumer must be safe to run twice; they are, through their keys.
-- Today, if trigger.dev is unreachable when a change is saved, the change is kept but its event
-  stays pending until the change is saved again.
+- Every change costs two `outbox.dispatch` runs instead of one.
+- After a crash between commit and trigger, the event arrives about a minute late. If trigger.dev
+  is unreachable when a change is saved, the event waits for the first hourly sweep after it
+  comes back.
 
 ## Revisit when
 

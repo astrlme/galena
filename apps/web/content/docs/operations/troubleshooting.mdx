@@ -36,8 +36,8 @@ deployment cheap. Scripts calling the API should allow at least 20 seconds.
 
 1. In trigger.dev, find the `outbox.dispatch` run for the change. If there is none, the API
    couldn't reach trigger.dev when you saved: the API's log says `outbox.dispatch was not
-   triggered`. The change is saved but its event is still pending; save the change again to
-   publish.
+   triggered`. The change is saved and its event is still pending; the hourly `outbox.sweep` at
+   five past the hour dispatches it, or save the change again to publish sooner.
 2. Check the `page.publish` run that followed. `superseded` means a newer publish already covered
    the change.
 3. Check `page.rebuild-html` for the HTML. The data files (`snapshot.json`) land first, so an open

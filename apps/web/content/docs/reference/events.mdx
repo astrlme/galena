@@ -37,7 +37,7 @@ type EventEnvelope<Type extends string, Data> = {
 
 | Task | Key | Meaning |
 | --- | --- | --- |
-| `outbox.dispatch` | `outbox:{outboxId}` | One dispatch per outbox row |
+| `outbox.dispatch` | `outbox:{outboxId}`; `outbox:{outboxId}:backstop`; `outbox:{outboxId}:sweep:{hour}` | One dispatch per outbox row after the commit, one delayed backstop, one retry per hourly sweep |
 | `page.publish` | `pub:{snapshotVersion}` | One publish per version; older versions stop early |
 | `page.rebuild-html` | `html:{snapshotVersion}` | One HTML build per published version |
 | `notify.fanout` | `fan:{eventId}` | One fan-out per event |

@@ -33,6 +33,11 @@ After the commit, the API triggers the `outbox.dispatch` task with the key `outb
 Triggering after the commit means the dispatcher never sees a change that could still roll back;
 writing the row inside the transaction means no committed change can lose its event.
 
+The API picks the row's id before the transaction and first triggers a dispatch delayed by one
+minute, keyed `outbox:{outboxId}:backstop`. If the API stops between the commit and its trigger,
+that run delivers the event a minute late; otherwise it finds the row already dispatched, or
+missing because the transaction rolled back, and stops.
+
 The dispatcher reads the row, does what the event needs, and marks it dispatched:
 
 | Event | Dispatch does |
@@ -48,15 +53,16 @@ committed state is always written last.
 
 <Callout>
 If trigger.dev is unreachable at the moment of the trigger, the request still succeeds and the row
-stays pending, but nothing dispatches it later yet. An hourly sweep of pending rows is planned.
+stays pending. The hourly `outbox.sweep` hands every row still pending after five minutes back to
+the dispatcher, keyed `outbox:{outboxId}:sweep:{hour}`, so each hour tries again.
 </Callout>
 
 ## Why nothing polls the database
 
 Aurora Serverless v2 pauses after five idle minutes and costs nothing for compute while paused. A
 dispatcher that polled the outbox every minute would keep it awake around the clock. So the cold
-path is event-driven: the API triggers dispatch directly, and the only scheduled job that reads
-Aurora is the hourly uptime rollup, at five past the hour.
+path is event-driven: the API triggers dispatch directly, and the only scheduled jobs that read
+Aurora are the hourly uptime rollup and outbox sweep, both at five past the hour.
 
 The first query after a pause can take around 15 seconds, and the Data API fails fast with
 `DatabaseResumingException` meanwhile. The database client retries that error for up to 30
@@ -68,14 +74,15 @@ seconds, and the dashboard explains the wait after 10.
 | --- | --- | --- | --- |
 | `monitor.state-changed` | The evaluator, on a transition | Records the transition; opens an incident when the monitor goes down, moves the one it opened to Monitoring, back to Investigating or resolved, or leaves it to an incident already open on the component; republishes unless suppressed | `mon:{monitorId}:{transitionSeq}` |
 | `incident.autopilot` | `monitor.state-changed`, for a draft | Waits for a person until the draft's deadline (a waitpoint token keyed `approve:{incidentId}`), then publishes or dismisses it | `auto:{incidentId}` |
-| `outbox.dispatch` | The API, after each commit | One at a time | `outbox:{outboxId}` |
+| `outbox.dispatch` | The API, after each commit and a minute later as a backstop; the sweep | One at a time | `outbox:{outboxId}`, `outbox:{outboxId}:backstop`, `outbox:{outboxId}:sweep:{hour}` |
+| `outbox.sweep` | Cron, five past every hour | Re-dispatches rows pending for over five minutes | |
 | `page.publish` | Dispatch, state changes, the rollup | One at a time; latest wins | `pub:{snapshotVersion}` |
 | `page.rebuild-html` | Each publish | One at a time; latest wins | `html:{snapshotVersion}` |
 | `notify.fanout` | Dispatch, for incident and maintenance events | | `fan:{eventId}` |
 | `notify.email` | Fan-out, and subscription requests | Up to 5 attempts | `send:{eventId}:{subscriberId}` |
 | `notify.slack`, `notify.webhook` | Fan-out | Up to 5 attempts, 10 at a time per channel | `send:{eventId}:{endpointId}` |
 | `maintenance.lifecycle` | Dispatch, when a window is scheduled or edited | Sleeps until start and end | `mnt:{maintenanceId}:{version}` |
-| `rollup.uptime` | Cron, five past every hour | Replays yesterday and today, then publishes | |
+| `rollup.uptime` | Cron, five past every hour | Catches monitor states up with detection, replays yesterday and today, then publishes | |
 
 trigger.dev tasks run on trigger.dev's machines, not in AWS. They reach AWS only as the
 `galena-<stage>-worker-access` IAM user, whose policy allows exactly what the tasks need.
@@ -89,4 +96,6 @@ trigger.dev tasks run on trigger.dev's machines, not in AWS. They reach AWS only
 per target, and triggers one send per row. Each row is unique on (event, target), so a re-run of
 the fan-out finds the rows already there and sends nothing twice. A send checks that its target
 still qualifies (still subscribed, endpoint not disabled) before sending, and records the result
-on its row.
+on its row. Before sending, it claims the row by raising its attempt count from the value it read,
+so of two runs racing on one row only one sends. A subscription's confirmation email gets a
+delivery row the same way.
