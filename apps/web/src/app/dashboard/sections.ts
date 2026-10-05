@@ -1,9 +1,8 @@
-// `built: false` sections render the shared placeholder page until their task lands.
 export const sections = [
-  { slug: "incidents", title: "Incidents", built: true },
-  { slug: "maintenance", title: "Maintenance", built: true },
-  { slug: "monitors", title: "Monitors", built: true },
-  { slug: "components", title: "Components", built: true },
-  { slug: "subscribers", title: "Subscribers", built: true },
-  { slug: "settings", title: "Settings", built: false },
+  { slug: "incidents", title: "Incidents" },
+  { slug: "maintenance", title: "Maintenance" },
+  { slug: "monitors", title: "Monitors" },
+  { slug: "components", title: "Components" },
+  { slug: "subscribers", title: "Subscribers" },
+  { slug: "settings", title: "Settings" },
 ] as const;

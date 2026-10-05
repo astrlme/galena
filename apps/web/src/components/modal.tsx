@@ -73,10 +73,12 @@ function useFocusTrap<T extends HTMLElement>(ref: RefObject<T | null>, enabled: 
     if (!enabled || !ref.current) return;
     const el = ref.current;
     const prev = document.activeElement as HTMLElement;
-    const focusable = Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE));
-    focusable[0]?.focus();
+    // Read on every Tab: a dialog that moves through steps replaces what is focusable.
+    const focusables = () => Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE));
+    focusables()[0]?.focus();
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
+      const focusable = focusables();
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (e.shiftKey && document.activeElement === first) {

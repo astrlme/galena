@@ -16,6 +16,13 @@ export async function unwrap<T>(
   return data as T;
 }
 
+/** GETs a Better Auth endpoint (not in /openapi.json) and returns the parsed body. */
+export async function authGet<T>(path: string): Promise<T> {
+  const response = await fetch(`/auth/${path}`);
+  if (!response.ok) throw new Error(`The request failed with ${response.status}. Try again.`);
+  return (await response.json()) as T;
+}
+
 /** POSTs JSON to a Better Auth endpoint (not in /openapi.json) and returns the parsed body. */
 export async function authPost<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`/auth/${path}`, {
