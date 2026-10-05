@@ -12,7 +12,7 @@ import {
   type WebhookEndpointId,
   type WorkspaceId,
 } from "@galena/contracts";
-import { and, asc, count, desc, eq, gte, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNull, lt, ne, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import type { Db } from "../client.ts";
 import { delivery, subscriber, webhookEndpoint } from "../schema/index.ts";
@@ -154,17 +154,18 @@ export async function findDelivery(db: Db, eventId: EventId, target: DeliveryTar
 }
 
 /**
- * Takes the next attempt at a pending delivery. Of several runs that read the same `attempts`,
- * exactly one gets true; a retry reads the raised count and claims again.
+ * Claims a pending delivery for one attempt of its send (the task's attempt number, from 1).
+ * Runs on the same attempt exclude each other whichever reads first; a retry, with a higher
+ * number, claims it again.
  */
-export async function claimDelivery(db: Db, id: DeliveryId, seen: number): Promise<boolean> {
+export async function claimDelivery(db: Db, id: DeliveryId, attempt: number): Promise<boolean> {
   const rows = await db
     .update(delivery)
-    .set({ attempts: seen + 1 })
+    .set({ attempts: attempt })
     .where(
       and(
         eq(delivery.id, id),
-        eq(delivery.attempts, seen),
+        lt(delivery.attempts, attempt),
         sql`${delivery.status}::text = 'pending'`,
       ),
     )

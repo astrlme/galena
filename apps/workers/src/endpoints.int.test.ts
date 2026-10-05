@@ -101,7 +101,7 @@ async function endpoint(kind: "slack" | "webhook", path: string, secret?: string
   );
   return { id, n };
 }
-const deps = () => ({ db, keys, guard, now: () => now });
+const deps = (attempt = 1) => ({ db, keys, guard, now: () => now, attempt });
 const state = async (id: string) => (await listEndpoints(db, acme)).find((e) => e.id === id)?.state;
 
 test("a webhook is signed over id.timestamp.body with the endpoint's secret, and sent once", async () => {
@@ -134,6 +134,9 @@ test("Slack gets Block Kit; a busy receiver is retried, a refusal marks the endp
     deliver("webhook", { endpointId: busy.id, notice: busy.n }, deps()),
   ).rejects.toBeInstanceOf(RetryableSendError);
   expect((await findDelivery(db, busy.n.eventId, { endpointId: busy.id }))?.status).toBe("pending");
+  // The task's retry, attempt 2, finds it answering again.
+  answer = 204;
+  expect(await deliver("webhook", { endpointId: busy.id, notice: busy.n }, deps(2))).toBe("sent");
 
   answer = 410;
   const gone = await endpoint("webhook", "/gone", newWebhookSecret());

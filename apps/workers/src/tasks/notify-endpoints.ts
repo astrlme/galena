@@ -15,10 +15,16 @@ function endpointTask(kind: "slack" | "webhook") {
     queue: queue({ name: kind, concurrencyLimit: 10 }),
     // Basic retries: 5 attempts with backoff, then the endpoint is marked failing.
     retry: { maxAttempts: 5, factor: 3, minTimeoutInMs: 5_000, maxTimeoutInMs: 600_000 },
-    run: async (payload: unknown) => {
+    run: async (payload: unknown, { ctx }) => {
       const request = endpointPayload.parse(payload);
       try {
-        const outcome = await deliver(kind, request, { db, keys, guard, now });
+        const outcome = await deliver(kind, request, {
+          db,
+          keys,
+          guard,
+          now,
+          attempt: ctx.attempt.number,
+        });
         logger.info(`notify.${kind}`, { endpointId: request.endpointId, outcome });
         return { outcome };
       } catch (error) {

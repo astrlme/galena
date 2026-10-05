@@ -27,6 +27,8 @@ export type EndpointDeps = {
   keys: AppKeys;
   guard: Guard;
   now: () => Date;
+  /** The task's attempt number, from 1: what the delivery is claimed for. */
+  attempt: number;
   post?: typeof postJson;
 };
 export type EndpointOutcome = "sent" | "skipped" | "already_settled" | "refused";
@@ -55,8 +57,8 @@ export async function deliver(
 ): Promise<EndpointOutcome> {
   const delivery = await findDelivery(deps.db, notice.eventId, { endpointId });
   if (delivery?.status !== "pending") return "already_settled";
-  if (!(await claimDelivery(deps.db, delivery.id, delivery.attempts))) return "already_settled";
-  const attempts = delivery.attempts + 1;
+  if (!(await claimDelivery(deps.db, delivery.id, deps.attempt))) return "already_settled";
+  const attempts = deps.attempt;
   const endpoint = await findEndpointForSend(deps.db, endpointId);
   if (!endpoint || endpoint.kind !== kind || endpoint.state === "disabled") {
     await settleDelivery(deps.db, delivery.id, { status: "skipped", attempts });

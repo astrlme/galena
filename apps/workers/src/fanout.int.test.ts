@@ -86,7 +86,7 @@ function pipeline() {
         for (const { subscriberId: id, notice } of requests) {
           await sendEmail(
             { kind: "notice", subscriberId: id, notice },
-            { db, url, mailer, keys: appKeys(LOCAL_APP_KEY), now: () => now },
+            { db, url, mailer, keys: appKeys(LOCAL_APP_KEY), now: () => now, attempt: 1 },
           );
         }
       },

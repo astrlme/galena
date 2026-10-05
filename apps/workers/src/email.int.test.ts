@@ -1,4 +1,3 @@
-import { setTimeout as sleep } from "node:timers/promises";
 import {
   componentId,
   eventId,
@@ -51,6 +50,7 @@ function inbox() {
     keys,
     url,
     now: () => now,
+    attempt: 1,
     mailer: {
       send: async (email) => {
         sent.push(email);
@@ -151,27 +151,67 @@ test("a notice goes out once, with one-click unsubscribe, and is recorded as sen
   });
 });
 
-test("two runs sending the same notice at once send it once", async () => {
-  const { sent, deps } = inbox();
-  const slow = {
-    ...deps,
-    // Both runs read the pending row before either one settles it.
-    mailer: { send: (email: OutgoingEmail) => sleep(50).then(() => deps.mailer.send(email)) },
-  };
-  const id = await subscriber("katherine@example.com", "active");
+async function pendingNotice(email: string) {
+  const id = await subscriber(email, "active");
   const n = notice();
   await recordDeliveries(
     db,
     { workspaceId: acme, eventId: n.eventId, subjectId: incidentId.parse(v7()) },
     [{ subscriberId: id, channel: "email" }],
   );
-  const request = { kind: "notice" as const, subscriberId: id, notice: n };
-  const outcomes = await Promise.all([sendEmail(request, slow), sendEmail(request, slow)]);
-  expect(outcomes.sort()).toEqual(["already_settled", "sent"]);
+  return { id, n, request: { kind: "notice" as const, subscriberId: id, notice: n } };
+}
+
+test("a second run on the same attempt sends nothing, even after the first one claimed", async () => {
+  const { sent, deps } = inbox();
+  const { id, n, request } = await pendingNotice("katherine@example.com");
+  // The first run is inside its send (claimed, not settled) while the second one runs.
+  let inSend: () => void = () => {};
+  let release: () => void = () => {};
+  const claimed = new Promise<void>((resolve) => {
+    inSend = resolve;
+  });
+  const held = {
+    ...deps,
+    mailer: {
+      send: async (email: OutgoingEmail) => {
+        inSend();
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return deps.mailer.send(email);
+      },
+    },
+  };
+  const first = sendEmail(request, held);
+  await claimed;
+  expect(await sendEmail(request, deps)).toBe("already_settled");
+  release();
+  expect(await first).toBe("sent");
   expect(sent).toHaveLength(1);
   expect(await findDelivery(db, n.eventId, { subscriberId: id })).toMatchObject({
     status: "sent",
     attempts: 1,
+  });
+});
+
+test("a retry claims the delivery again after a send that failed", async () => {
+  const { sent, deps } = inbox();
+  const { id, n, request } = await pendingNotice("hedy@example.com");
+  const failing = {
+    ...deps,
+    mailer: {
+      send: async () => {
+        throw new Error("Throttling: slow down");
+      },
+    },
+  };
+  await expect(sendEmail(request, failing)).rejects.toThrow("Throttling");
+  expect(await sendEmail(request, { ...deps, attempt: 2 })).toBe("sent");
+  expect(sent).toHaveLength(1);
+  expect(await findDelivery(db, n.eventId, { subscriberId: id })).toMatchObject({
+    status: "sent",
+    attempts: 2,
   });
 });
 

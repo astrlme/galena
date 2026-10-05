@@ -31,7 +31,15 @@ export const emailPayload = z.discriminatedUnion("kind", [
 ]);
 export type EmailPayload = z.infer<typeof emailPayload>;
 
-export type EmailDeps = { db: Db; keys: AppKeys; mailer: Mailer; url: string; now: () => Date };
+export type EmailDeps = {
+  db: Db;
+  keys: AppKeys;
+  mailer: Mailer;
+  url: string;
+  now: () => Date;
+  /** The task's attempt number, from 1: what the delivery is claimed for. */
+  attempt: number;
+};
 export type EmailOutcome = "sent" | "skipped" | "already_settled";
 
 const eventOf = (payload: EmailPayload) =>
@@ -48,8 +56,8 @@ async function claim(payload: EmailPayload, deps: EmailDeps) {
     subscriberId: payload.subscriberId,
   });
   if (delivery?.status !== "pending") return undefined;
-  if (!(await claimDelivery(deps.db, delivery.id, delivery.attempts))) return undefined;
-  return { id: delivery.id, attempts: delivery.attempts + 1 };
+  if (!(await claimDelivery(deps.db, delivery.id, deps.attempt))) return undefined;
+  return { id: delivery.id, attempts: deps.attempt };
 }
 
 /** Double opt-in: sent only while the subscriber still waits for confirmation. */

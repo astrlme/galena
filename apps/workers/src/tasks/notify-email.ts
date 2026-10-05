@@ -28,7 +28,7 @@ export const notifyEmail = task({
   id: "notify.email",
   queue: email,
   retry: { maxAttempts: 5, factor: 2, minTimeoutInMs: 2_000, maxTimeoutInMs: 60_000 },
-  run: async (payload: unknown) => {
+  run: async (payload: unknown, { ctx }) => {
     const request = emailPayload.parse(payload);
     try {
       const outcome = await sendEmail(request, {
@@ -37,6 +37,7 @@ export const notifyEmail = task({
         mailer,
         url: env.GLN_PAGE_URL,
         now: () => new Date(),
+        attempt: ctx.attempt.number,
       });
       logger.info("notify.email", { kind: request.kind, outcome });
       return { outcome };
