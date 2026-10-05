@@ -1,4 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
 import { memberId, workspaceId } from "@galena/contracts";
 import { createWorkspace, workspaceExists } from "@galena/db";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
@@ -13,6 +12,8 @@ import {
   ORIGIN_HEADER,
   problemResponse,
   requireRole,
+  SETUP_TOKEN_HEADER,
+  sameSecret,
   viewerAddress,
 } from "./http.ts";
 import { registerComponentRoutes } from "./routes/components.ts";
@@ -57,8 +58,9 @@ const setup = createRoute({
   tags: ["Workspace"],
   summary: "First-run setup",
   description:
-    "Creates the workspace and its owner, then signs the owner in. Works once per deployment.",
+    "Creates the workspace and its owner, then signs the owner in. Works once per deployment. In AWS it needs the deployment's setup token (the `/galena/<name>/setup-token` SecureString) in `x-galena-setup-token`, and answers 403 without it.",
   request: {
+    headers: z.object({ [SETUP_TOKEN_HEADER]: z.string().optional() }),
     body: {
       content: {
         "application/json": {
@@ -123,14 +125,10 @@ export function createApp(deps: Deps) {
 
   // Only requests that came through CloudFront: the per-visitor limits trust the address it
   // adds. Health checks may come from anywhere.
-  if (deps.originSecret) {
-    const expected = Buffer.from(deps.originSecret);
+  const { originSecret } = deps;
+  if (originSecret) {
     app.use("*", async (c, next) => {
-      const given = Buffer.from(c.req.header(ORIGIN_HEADER) ?? "");
-      if (
-        c.req.path === "/health" ||
-        (given.length === expected.length && timingSafeEqual(given, expected))
-      ) {
+      if (c.req.path === "/health" || sameSecret(c.req.header(ORIGIN_HEADER) ?? "", originSecret)) {
         return next();
       }
       return problemResponse({
@@ -155,6 +153,19 @@ export function createApp(deps: Deps) {
   });
 
   app.openapi(setup, async (c) => {
+    // Checked before the database, so a caller without the token never wakes Aurora.
+    if (deps.setup !== "open") {
+      const { token } = deps.setup;
+      const given = c.req.valid("header")[SETUP_TOKEN_HEADER];
+      if (!token || !given || !sameSecret(given, token)) {
+        fail({
+          status: 403,
+          code: "setup_token_required",
+          title: "First-run setup needs the setup token",
+          detail: `Create the SecureString /galena/<name>/setup-token if it doesn't exist, then send its value in ${SETUP_TOKEN_HEADER}.`,
+        });
+      }
+    }
     if (await workspaceExists(db)) {
       fail({
         status: 409,

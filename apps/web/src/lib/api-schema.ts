@@ -57,12 +57,14 @@ export interface paths {
         put?: never;
         /**
          * First-run setup
-         * @description Creates the workspace and its owner, then signs the owner in. Works once per deployment.
+         * @description Creates the workspace and its owner, then signs the owner in. Works once per deployment. In AWS it needs the deployment's setup token (the `/galena/<name>/setup-token` SecureString) in `x-galena-setup-token`, and answers 403 without it.
          */
         post: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    "x-galena-setup-token"?: string;
+                };
                 path?: never;
                 cookie?: never;
             };

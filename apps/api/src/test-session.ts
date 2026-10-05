@@ -14,13 +14,19 @@ export class Session {
     this.#app = app;
   }
 
-  async call(path: string, body?: unknown, method = body === undefined ? "GET" : "POST") {
+  async call(
+    path: string,
+    body?: unknown,
+    method = body === undefined ? "GET" : "POST",
+    headers: Record<string, string> = {},
+  ) {
     const response = await this.#app.request(path, {
       method,
       headers: {
         origin: TEST_BASE_URL,
         "content-type": "application/json",
         cookie: [...this.#cookies].map(([k, v]) => `${k}=${v}`).join("; "),
+        ...headers,
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });

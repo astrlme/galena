@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
+import { GetParameterCommand, ParameterNotFound, SSMClient } from "@aws-sdk/client-ssm";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import type { WorkflowEngine } from "@galena/core";
 import { createDb, type DbConfig } from "@galena/db";
@@ -85,6 +85,14 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     ? await parameter(env.GLN_ORIGIN_SECRET_PARAM)
     : undefined;
 
+  // Made once for first-run setup. Without it, setup is refused and everything else works.
+  const setupToken = env.GLN_SETUP_TOKEN_PARAM
+    ? await parameter(env.GLN_SETUP_TOKEN_PARAM).catch((error: unknown) => {
+        if (error instanceof ParameterNotFound) return undefined;
+        throw error;
+      })
+    : undefined;
+
   // DynamoDB Local takes any credentials; AWS uses the function's role.
   const endpoint =
     env.GLN_DYNAMODB_ENDPOINT ?? (env.GLN_STAGE === "local" ? "http://localhost:8000" : undefined);
@@ -111,6 +119,7 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     keys: appKeys(appKey),
     publicUrl: baseURL,
     ...(originSecret ? { originSecret } : {}),
+    setup: env.GLN_STAGE === "local" ? "open" : setupToken ? { token: setupToken } : {},
     close,
   };
 }

@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import type { MemberRole, ProblemDetails, WorkspaceId } from "@galena/contracts";
 import { problemContentType } from "@galena/contracts";
 import { roleAtLeast, type WorkflowEngine } from "@galena/core";
@@ -27,10 +28,24 @@ export type Deps = {
    * execute-api URL is public too, and there a caller could forge CloudFront-Viewer-Address.
    */
   originSecret?: string;
+  /**
+   * First-run setup: open locally. In AWS it needs the deployment's setup token, read at cold
+   * start; without that parameter there is no token and setup is refused.
+   */
+  setup: "open" | { token?: string };
 };
 
 /** Infra's CloudFront distributions add this header to requests they send to the API. */
 export const ORIGIN_HEADER = "x-galena-origin";
+
+/** First-run setup in AWS sends the deployment's setup token in this header. */
+export const SETUP_TOKEN_HEADER = "x-galena-setup-token";
+
+/** Compares a secret someone sent with ours in constant time. */
+export function sameSecret(given: string, expected: string): boolean {
+  const [a, b] = [Buffer.from(given), Buffer.from(expected)];
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 /**
  * The visitor's address from CloudFront's `ip:port` (IPv6 too: the port follows the last colon).

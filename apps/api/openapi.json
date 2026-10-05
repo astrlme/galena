@@ -73,7 +73,17 @@
           "Workspace"
         ],
         "summary": "First-run setup",
-        "description": "Creates the workspace and its owner, then signs the owner in. Works once per deployment.",
+        "description": "Creates the workspace and its owner, then signs the owner in. Works once per deployment. In AWS it needs the deployment's setup token (the `/galena/<name>/setup-token` SecureString) in `x-galena-setup-token`, and answers 403 without it.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "x-galena-setup-token",
+            "in": "header"
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
