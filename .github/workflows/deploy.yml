@@ -25,6 +25,15 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The deployment's settings (regions, domains, GitHub) live in the GLN_CONFIG variable.
+      - name: Read the deployment config
+        env:
+          GLN_CONFIG: ${{ vars.GLN_CONFIG }}
+        run: |
+          test -n "$GLN_CONFIG" || { echo "Set the GLN_CONFIG repository variable."; exit 1; }
+          printf '%s' "$GLN_CONFIG" > galena.config.json
+          echo "GLN_STAGE=$(jq -r .stage galena.config.json)" >> "$GITHUB_ENV"
+          echo "GLN_HOME_REGION=$(jq -r .homeRegion galena.config.json)" >> "$GITHUB_ENV"
       # The Web stack uploads apps/web/out; without it the dashboard would not change.
       - run: pnpm --filter @galena/web build
       # Only the project's own deployment sets GLN_SITE to `project`: its site stack uploads
@@ -36,13 +45,13 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: eu-central-1
+          aws-region: ${{ env.GLN_HOME_REGION }}
       - run: >-
-          pnpm --filter @galena/infra exec cdk deploy --all -c stage=dev
+          pnpm --filter @galena/infra exec cdk deploy --all
           --require-approval never --outputs-file cdk-outputs.json
       - name: Smoke test
         run: |
-          url=$(jq -r '."galena-dev-web".DashboardUrl' infra/cdk-outputs.json)
+          url=$(jq -r --arg stack "galena-$GLN_STAGE-web" '.[$stack].DashboardUrl' infra/cdk-outputs.json)
           curl -fsS --max-time 30 "$url/" > /dev/null
           # Signing in as nobody makes the API look the user up in Aurora: a 401 (not a 5xx)
           # proves CloudFront, the API and the Data API work, even after the cluster paused.

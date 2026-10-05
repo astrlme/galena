@@ -26,8 +26,17 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The deployment's settings (regions, domains, GitHub) live in the GLN_CONFIG variable.
+      - name: Read the deployment config
+        env:
+          GLN_CONFIG: ${{ vars.GLN_CONFIG }}
+        run: |
+          test -n "$GLN_CONFIG" || { echo "Set the GLN_CONFIG repository variable."; exit 1; }
+          printf '%s' "$GLN_CONFIG" > galena.config.json
+          echo "GLN_STAGE=$(jq -r .stage galena.config.json)" >> "$GITHUB_ENV"
+          echo "GLN_HOME_REGION=$(jq -r .homeRegion galena.config.json)" >> "$GITHUB_ENV"
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_SMOKE_ROLE_ARN }}
-          aws-region: eu-central-1
+          aws-region: ${{ env.GLN_HOME_REGION }}
       - run: bash scripts/smoke-dev.sh
