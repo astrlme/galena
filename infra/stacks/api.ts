@@ -25,6 +25,8 @@ import { dataApiAccess } from "./data-api.ts";
  */
 export const ORIGIN_HEADER = "x-galena-origin";
 export const originSecretName = (stage: string) => `galena/${stage}/origin-secret`;
+/** First-run setup sends the deployment's setup token in this header. */
+export const SETUP_TOKEN_HEADER = "x-galena-setup-token";
 
 /** apps/api on Lambda behind an HTTP API. */
 export class ApiStack extends Stack {
@@ -51,16 +53,18 @@ export class ApiStack extends Stack {
         ],
       }),
     );
-    // The auth secret, the trigger.dev secret key and the app key are SecureStrings made once
-    // outside CloudFormation; the Web stack writes the public URL. All are read at cold start.
+    // The auth secret, the trigger.dev secret key, the app key and the setup token are
+    // SecureStrings made once outside CloudFormation; the Web stack writes the public URL. All
+    // are read at cold start. Without the setup token, first-run setup is refused.
     const authSecret = `/galena/${stage}/auth-secret`;
     const triggerSecret = `/galena/${stage}/trigger-secret-key`;
     const appKey = `/galena/${stage}/app-key`;
+    const setupToken = `/galena/${stage}/setup-token`;
     const publicUrl = `/galena/${stage}/public-url`;
     role.addToPolicy(
       new PolicyStatement({
         actions: ["ssm:GetParameter"],
-        resources: [authSecret, triggerSecret, appKey, publicUrl].map((name) =>
+        resources: [authSecret, triggerSecret, appKey, setupToken, publicUrl].map((name) =>
           this.formatArn({ service: "ssm", resource: "parameter", resourceName: name.slice(1) }),
         ),
       }),
@@ -109,6 +113,7 @@ export class ApiStack extends Stack {
         GLN_AUTH_SECRET_PARAM: authSecret,
         GLN_TRIGGER_SECRET_PARAM: triggerSecret,
         GLN_APP_KEY_PARAM: appKey,
+        GLN_SETUP_TOKEN_PARAM: setupToken,
         GLN_PUBLIC_URL_PARAM: publicUrl,
         GLN_ORIGIN_SECRET_PARAM: originSecretParam,
         GLN_TELEMETRY_TABLE: telemetryTable,

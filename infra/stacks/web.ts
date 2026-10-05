@@ -38,7 +38,7 @@ import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
-import { ORIGIN_HEADER, originSecretName } from "./api.ts";
+import { ORIGIN_HEADER, originSecretName, SETUP_TOKEN_HEADER } from "./api.ts";
 
 // The export writes /dashboard/ as dashboard/index.html; S3 behind OAC has no index documents.
 export const indexRewrite = `function handler(event) {
@@ -233,6 +233,7 @@ export class WebStack extends Stack {
         "User-Agent",
         "Content-Type",
         "Accept",
+        SETUP_TOKEN_HEADER,
       ),
       cookieBehavior: OriginRequestCookieBehavior.all(),
       queryStringBehavior: OriginRequestQueryStringBehavior.all(),

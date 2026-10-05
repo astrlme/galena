@@ -74,6 +74,7 @@ test("sends the API cookies, the query and only the headers it reads, with the v
           "User-Agent",
           "Content-Type",
           "Accept",
+          "x-galena-setup-token",
         ],
       },
       CookiesConfig: { CookieBehavior: "all" },

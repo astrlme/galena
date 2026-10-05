@@ -77,11 +77,16 @@ test("the API reads its database from Foundation's parameters and its secrets fr
         GLN_AUTH_SECRET_PARAM: "/galena/dev/auth-secret",
         GLN_TRIGGER_SECRET_PARAM: "/galena/dev/trigger-secret-key",
         GLN_APP_KEY_PARAM: "/galena/dev/app-key",
+        GLN_SETUP_TOKEN_PARAM: "/galena/dev/setup-token",
         GLN_PUBLIC_URL_PARAM: "/galena/dev/public-url",
         GLN_PROBE_REGIONS: "eu-west-1,eu-west-3,eu-north-1",
       },
     },
   });
+  const policies = JSON.stringify(template.findResources("AWS::IAM::Policy"));
+  for (const name of ["auth-secret", "trigger-secret-key", "app-key", "setup-token"]) {
+    expect(policies).toContain(`parameter/galena/dev/${name}`);
+  }
 });
 
 test("migrations run on deploy through a trigger with room for Aurora to resume", () => {
