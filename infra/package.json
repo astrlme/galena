@@ -4,6 +4,9 @@
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
+  "exports": {
+    "./config": "./config/stages.ts"
+  },
   "scripts": {
     "synth": "cdk synth --quiet -c config=test/fixture.config.json",
     "diff": "cdk diff",

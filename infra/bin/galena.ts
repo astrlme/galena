@@ -14,6 +14,8 @@ import { CertificateStack, PageReplicaStack, StatusPageStack } from "../stacks/s
 import { WebStack } from "../stacks/web.ts";
 import { WorkerAccessStack } from "../stacks/worker-access.ts";
 
+// Add or remove a stack here and in `expectedStacks` (config/stages.ts), which `galena doctor`
+// checks a deployment against.
 const app = new App();
 // `-c config=<path>` (relative to where cdk runs), else galena.config.json at the repository root.
 const config = loadConfig(

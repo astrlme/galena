@@ -63,6 +63,11 @@ export const stageSchema = z
     smoke: z.boolean().default(false),
     // Keep buckets and the telemetry table when a stack is deleted. Aurora is always kept.
     retainData: z.boolean().default(true),
+    // The trigger.dev project the workers deploy to. The stacks don't use it; the CLI does.
+    triggerProjectRef: z
+      .string()
+      .regex(/^proj_[a-z0-9]+$/, "the project ref from trigger.dev, proj_…")
+      .optional(),
   })
   // The Smoke workflow assumes its role through GitHub's OIDC.
   .refine(({ smoke, github }) => !smoke || github, "smoke needs github")
@@ -102,6 +107,31 @@ export function stageRegions(config: StageConfig): string[] {
       "us-east-1",
     ]),
   ];
+}
+
+/** The stacks `bin/galena.ts` creates for a config, by id, in the region each deploys to. */
+export function expectedStacks(config: StageConfig): { id: string; region: string }[] {
+  const { stage, homeRegion, pageRegions } = config;
+  const stacks: [string, string | false | undefined][] = [
+    ["ci-access", config.github && homeRegion],
+    ["foundation", homeRegion],
+    ...config.probeRegions.map((region): [string, string] => [`probe-${region}`, region]),
+    ["detection", homeRegion],
+    ["smoke", config.smoke && config.github && homeRegion],
+    ["api", homeRegion],
+    ["dashboard-certificate", config.webDomain && "us-east-1"],
+    ["web", homeRegion],
+    ["site-certificate", config.siteDomain && "us-east-1"],
+    ["site", config.siteDomain && homeRegion],
+    ["worker-access", homeRegion],
+    ["email", config.email && homeRegion],
+    ["page-replica", pageRegions.replica],
+    ["page-certificate", config.pageDomain && "us-east-1"],
+    ["page", pageRegions.primary],
+  ];
+  return stacks.flatMap(([name, region]) =>
+    region ? [{ id: `galena-${stage}-${name}`, region }] : [],
+  );
 }
 
 /**
