@@ -137,6 +137,49 @@ test("each change hands its outbox row to outbox.dispatch once it has committed"
   expect(row?.payload).toMatchObject({ type: "monitor.changed", data: { ids: [created.id] } });
 });
 
+test("a change arms a delayed dispatch first, so a crash after the commit still delivers", async () => {
+  const seen: (Triggered & { rowExisted: boolean })[] = [];
+  const crashing: Deps = {
+    ...deps,
+    engine: {
+      async trigger(task, payload, { idempotencyKey, delay }) {
+        const { outboxId } = payload as { outboxId: OutboxId };
+        const rows = await deps.db
+          .select({ id: schema.outbox.id })
+          .from(schema.outbox)
+          .where(eq(schema.outbox.id, outboxId));
+        const rowExisted = rows.length === 1;
+        seen.push({ task, payload, idempotencyKey, rowExisted, ...(delay ? { delay } : {}) });
+        // The process dies after the commit, before the undelayed trigger reaches trigger.dev.
+        if (!delay) throw new Error("Task timed out after 29.03 seconds");
+      },
+    },
+  };
+  const session = new Session(createApp(crashing));
+  await session.call("/auth/sign-in/email", {
+    email: "ada@example.com",
+    password: "correct horse battery",
+  });
+  const response = await session.call("/v1/monitors", {
+    name: "Crashed",
+    http: { url: "https://example.com/crashed" },
+  });
+  expect(response.status).toBe(201);
+  const [backstop, afterCommit] = seen;
+  if (!backstop) throw new Error("Nothing was triggered.");
+  const { outboxId } = backstop.payload as { outboxId: OutboxId };
+  expect(backstop).toMatchObject({
+    task: "outbox.dispatch",
+    idempotencyKey: `outbox:${outboxId}:backstop`,
+    delay: "1m",
+    rowExisted: false,
+  });
+  expect(afterCommit).toMatchObject({ idempotencyKey: `outbox:${outboxId}`, rowExisted: true });
+  // The delayed run finds this committed, still pending row and dispatches it.
+  const [row] = await deps.db.select().from(schema.outbox).where(eq(schema.outbox.id, outboxId));
+  expect(row).toMatchObject({ eventType: "monitor.changed", dispatchedAt: null });
+});
+
 test("a change still succeeds when trigger.dev is unreachable", async () => {
   const unreachable: Deps = {
     ...deps,

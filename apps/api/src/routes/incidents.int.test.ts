@@ -200,7 +200,7 @@ test("a person publishes or dismisses a monitor's draft before its deadline, onc
     type: "incident.updated",
     data: { incidentId: published, visibility: "published" },
   });
-  expect(triggered.length).toBe(before + 1);
+  expect(triggered.slice(before).map((t) => t.delay ?? "now")).toEqual(["1m", "now"]);
 
   const dismissed = await draft("API is down again");
   expect(await (await decide(dismissed, "dismiss")).json()).toMatchObject({

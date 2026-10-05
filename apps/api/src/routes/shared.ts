@@ -1,4 +1,4 @@
-import { type ChangeAction, eventId, type OutboxId } from "@galena/contracts";
+import { type ChangeAction, eventId, type OutboxId, outboxId } from "@galena/contracts";
 import { type Change, type Db, recordChange } from "@galena/db";
 import type { z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
@@ -64,31 +64,35 @@ export function eventChange(
 
 /**
  * The change, its audit entry and its outbox row in one transaction; then the outbox row goes to
- * the dispatcher. The trigger comes after the commit, so the dispatcher never sees a row that can
- * still roll back. If trigger.dev is unreachable, the request still succeeds and the row stays
- * pending.
+ * the dispatcher. Before the transaction, a dispatch delayed by a minute is armed for the row's
+ * id, so the event still goes out if this process dies between the commit and the trigger after
+ * it; if the transaction rolls back, that run finds no row and stops. If trigger.dev is
+ * unreachable, the request still succeeds and the hourly sweep picks the pending row up.
  */
 export async function commit(deps: Deps, change: Change, write: (tx: Db) => Promise<unknown>) {
-  const outboxId = await deps.db.transaction(async (tx) => {
+  const id = outboxId.parse(v7());
+  await trigger(deps, id, { idempotencyKey: `outbox:${id}:backstop`, delay: "1m" });
+  await deps.db.transaction(async (tx) => {
     await write(tx);
-    return recordChange(tx, change);
+    await recordChange(tx, change, id);
   });
-  await dispatch(deps, outboxId);
+  await dispatch(deps, id);
 }
 
-/**
- * Hands a committed outbox row to the dispatcher. Known limit: a row whose trigger failed stays
- * pending, and nothing dispatches it later until an hourly sweep of pending rows exists.
- */
-export async function dispatch(deps: Deps, outboxId: OutboxId) {
+/** Hands a committed outbox row to the dispatcher. */
+export async function dispatch(deps: Deps, id: OutboxId) {
+  await trigger(deps, id, { idempotencyKey: `outbox:${id}` });
+}
+
+async function trigger(
+  deps: Deps,
+  id: OutboxId,
+  options: { idempotencyKey: string; delay?: string },
+) {
   try {
-    await deps.engine.trigger(
-      "outbox.dispatch",
-      { outboxId },
-      { idempotencyKey: `outbox:${outboxId}` },
-    );
+    await deps.engine.trigger("outbox.dispatch", { outboxId: id }, options);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    console.warn("outbox.dispatch was not triggered", { outboxId, reason });
+    console.warn("outbox.dispatch was not triggered", { outboxId: id, reason });
   }
 }

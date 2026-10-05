@@ -25,9 +25,14 @@ export type Change = {
 /**
  * Writes the audit entry and the outbox event for one change. Call it inside the same
  * transaction as the change itself, so neither can exist without the other. Returns the outbox
- * id for the dispatcher, which the caller triggers once the transaction has committed.
+ * id for the dispatcher, which the caller triggers once the transaction has committed; a caller
+ * that armed a delayed dispatch before the transaction passes the id it armed.
  */
-export async function recordChange(db: Db, change: Change): Promise<OutboxId> {
+export async function recordChange(
+  db: Db,
+  change: Change,
+  id: OutboxId = outboxId.parse(v7()),
+): Promise<OutboxId> {
   await db.insert(auditLog).values({
     id: auditLogId.parse(v7()),
     workspaceId: change.workspaceId,
@@ -37,7 +42,6 @@ export async function recordChange(db: Db, change: Change): Promise<OutboxId> {
     targetId: change.targetId,
     data: change.data ?? null,
   });
-  const id = outboxId.parse(v7());
   await db.insert(outbox).values({
     id,
     workspaceId: change.workspaceId,

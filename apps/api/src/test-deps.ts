@@ -10,7 +10,7 @@ import type { MonitorReading, Telemetry } from "./telemetry.ts";
 
 export const TEST_BASE_URL = "http://localhost:8787";
 
-export type Triggered = { task: string; payload: unknown; idempotencyKey: string };
+export type Triggered = { task: string; payload: unknown; idempotencyKey: string; delay?: string };
 
 export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
   const { db, migrate, close } = createDb({ kind: "postgres", url });
@@ -22,8 +22,8 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
   // Records what the API hands to trigger.dev instead of calling it.
   const triggered: Triggered[] = [];
   const engine: WorkflowEngine = {
-    async trigger(task, payload, { idempotencyKey }) {
-      triggered.push({ task, payload, idempotencyKey });
+    async trigger(task, payload, { idempotencyKey, delay }) {
+      triggered.push({ task, payload, idempotencyKey, ...(delay ? { delay } : {}) });
     },
   };
   // Telemetry the test sets directly instead of DynamoDB.
