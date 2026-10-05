@@ -55,7 +55,8 @@ still serves.
 ## What works today
 
 - Sign-in with email and password and TOTP two-factor, for an owner created with one API request
-  on first run.
+  on first run. Settings turns two-factor on and off (QR code and backup codes), changes the
+  password and signs out other sessions.
 - Components and groups, HTTP monitors with per-region results, and detection across regions.
 - Incidents with updates and impact, and maintenance windows that start and finish on their own.
 - Incidents opened from monitors, following each monitor's publish policy: published at once, or
@@ -69,7 +70,7 @@ still serves.
 - A dashboard whose forms open in a side sheet and keep what you typed as a draft.
 
 Next: approvals in Slack and a live demo. After that: alert ingest, Statuspage-compatible
-files, API keys, and a settings screen for members, two-factor and GitHub sign-in. See the
+files, API keys, and members, roles and GitHub sign-in in Settings. See the
 [roadmap](https://galena.astrl.me/docs/roadmap/).
 
 ## Run it locally
