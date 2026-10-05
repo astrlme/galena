@@ -51,6 +51,17 @@ export class WorkerAccessStack extends Stack {
         resources: [`${pageBucket}/pages/*`],
       }),
       new PolicyStatement({ actions: ["s3:ListBucket"], resources: [pageBucket] }),
+      // rollup.uptime catches monitor states up with what the evaluator wrote; read only.
+      new PolicyStatement({
+        actions: ["dynamodb:BatchGetItem"],
+        resources: [
+          this.formatArn({
+            service: "dynamodb",
+            resource: "table",
+            resourceName: param("telemetry-table"),
+          }),
+        ],
+      }),
     ]) {
       this.user.addToPolicy(statement);
     }

@@ -22,9 +22,10 @@ test("one user, no managed policies, no access key in the template", () => {
   }
 });
 
-test("the workers may use the Data API, the database secret, monitors.json and the page files", () => {
+test("the workers may use the Data API, the database secret, monitors.json, the page files and read monitor states", () => {
   const actions = statements.flatMap((s) => [s.Action].flat()).sort();
   expect(actions).toEqual([
+    "dynamodb:BatchGetItem",
     "rds-data:BatchExecuteStatement",
     "rds-data:BeginTransaction",
     "rds-data:CommitTransaction",
@@ -47,6 +48,12 @@ test("page files are the only wildcard, and only under pages/ in the page bucket
   for (const s of statements.filter((s) => s !== page)) {
     expect(JSON.stringify(s.Resource)).not.toMatch(/"\*"|\/\*/);
   }
+});
+
+test("monitor states are read from the telemetry table only", () => {
+  const dynamo = statements.find((s) => s.Action === "dynamodb:BatchGetItem");
+  expect(JSON.stringify(dynamo.Resource)).toContain(":table/");
+  expect(JSON.stringify(dynamo.Resource)).toContain("galenadevtelemetrytable");
 });
 
 test("passes cdk-nag AwsSolutions", () => {
