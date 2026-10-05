@@ -25,7 +25,8 @@ export function Password() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const next = String(form.get("new-password") ?? "");
+    const typed = form.get("new-password");
+    const next = typeof typed === "string" ? typed : "";
     if (next.length < MIN_LENGTH) {
       setErrors({ next: `Use at least ${MIN_LENGTH} characters.` });
       return;

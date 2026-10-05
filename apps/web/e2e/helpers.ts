@@ -26,7 +26,10 @@ export async function signIn(page: Page, password = OWNER.password) {
 /** The code an authenticator app shows now for a base32 key: RFC 6238, SHA-1, 30 s, 6 digits. */
 export function totp(key: string, at = Date.now()): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  const bits = [...key.toUpperCase().replace(/[\s=]/g, "")]
+  const bits = key
+    .toUpperCase()
+    .replace(/[\s=]/g, "")
+    .split("")
     .map((c) => alphabet.indexOf(c).toString(2).padStart(5, "0"))
     .join("");
   const secret = Buffer.from((bits.match(/.{8}/g) ?? []).map((byte) => Number.parseInt(byte, 2)));

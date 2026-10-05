@@ -43,7 +43,10 @@ afterAll(async () => {
 function totp(uri: string, at = Date.now()): string {
   const params = new URL(uri).searchParams;
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  const bits = [...(params.get("secret") ?? "").replace(/=+$/, "").toUpperCase()]
+  const bits = (params.get("secret") ?? "")
+    .replace(/=+$/, "")
+    .toUpperCase()
+    .split("")
     .map((ch) => alphabet.indexOf(ch).toString(2).padStart(5, "0"))
     .join("");
   const key = Buffer.from(bits.match(/.{8}/g)?.map((byte) => Number.parseInt(byte, 2)) ?? []);

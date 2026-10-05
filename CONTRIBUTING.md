@@ -17,7 +17,7 @@ only. Background tasks need a trigger.dev project: put its ref in `apps/workers/
 
 | Command | What it runs |
 | --- | --- |
-| `pnpm check` | Biome, TypeScript, unit tests and dependency rules. Run it before every commit. |
+| `pnpm check` | Biome, oxlint, TypeScript, unit tests and dependency rules. Run it before every commit. |
 | `pnpm test:int` | Integration tests against Postgres and DynamoDB Local in Testcontainers |
 | `pnpm test:e2e` | Playwright and axe against local dev, in light and dark |
 | `pnpm check:page` | The status page's JavaScript and HTML budgets, Lighthouse and axe |

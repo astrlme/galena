@@ -186,6 +186,7 @@ test.each([
   ["/_next/static/chunks/app.js", "/_next/static/chunks/app.js"],
   ["/favicon.ico", "/favicon.ico"],
 ])("the index rewrite maps %s to %s", (uri, expected) => {
+  // oxlint-disable-next-line typescript/no-implied-eval -- runs the function's source as CloudFront does
   const handler = new Function(`${indexRewrite}; return handler;`)();
   expect(handler({ request: { uri } }).uri).toBe(expected);
 });
