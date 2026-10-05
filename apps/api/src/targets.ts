@@ -5,7 +5,7 @@ import { createGuard, type Guard, guard } from "@galena/integrations/net";
  * GLN_ALLOW_LOOPBACK=1, so a server on this machine can stand in for an outage; every other
  * stage ignores the switch.
  */
-export function targetGuard(stage: "local" | "dev" | "prod", allowLoopback: boolean): Guard {
+export function targetGuard(stage: string, allowLoopback: boolean): Guard {
   return stage === "local" && allowLoopback
     ? createGuard({ allowAddresses: ["127.0.0.1"] })
     : guard;
