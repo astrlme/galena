@@ -28,6 +28,11 @@ export function createDb(config: DbConfig): {
 } {
   if (config.kind === "postgres") {
     const pool = new pg.Pool({ connectionString: config.url });
+    // An idle connection the server drops (a restart, a stopped container) emits here; without a
+    // listener node-postgres throws it out of the process. The pool replaces it on next use.
+    pool.on("error", (error: Error & { code?: string }) => {
+      console.warn("postgres dropped an idle connection", { code: error.code });
+    });
     const db = nodePgDrizzle(pool, { schema, casing: "snake_case" });
     return {
       db,
