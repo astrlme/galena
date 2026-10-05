@@ -1,7 +1,13 @@
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { eventId, type MonitorsFile, type OutboxId, subscriberId } from "@galena/contracts";
+import {
+  eventId,
+  type MonitorsFile,
+  type OutboxId,
+  subscriberId,
+  workspaceId,
+} from "@galena/contracts";
 import { buildMonitorsFile, type Clock, isPageEvent } from "@galena/core";
 import {
   type Db,
@@ -10,6 +16,7 @@ import {
   maintenanceRepository,
   markOutboxDispatched,
   nextSnapshotVersion,
+  recordDeliveries,
 } from "@galena/db";
 import { z } from "zod";
 import { type FanoutEvent, fanoutPayload, isNotifyEvent } from "./fanout.ts";
@@ -35,7 +42,11 @@ export type DispatchDeps = {
   fanOut: (event: FanoutEvent) => Promise<void>;
 };
 
-const subscriberRequested = z.object({ id: eventId, data: z.object({ subscriberId }) });
+const subscriberRequested = z.object({
+  id: eventId,
+  workspaceId,
+  data: z.object({ subscriberId }),
+});
 export type DispatchOutcome = "rolled_back" | "already_dispatched" | "dispatched";
 
 /**
@@ -61,7 +72,13 @@ export async function dispatchOutbox(id: OutboxId, deps: DispatchDeps): Promise<
   if (isPageEvent(eventType)) await deps.publish(await nextSnapshotVersion(deps.db));
   if (isNotifyEvent(eventType)) await deps.fanOut(fanoutPayload.parse(row.payload));
   if (eventType === "subscriber.requested") {
-    const { id, data } = subscriberRequested.parse(row.payload);
+    const { id, workspaceId: ws, data } = subscriberRequested.parse(row.payload);
+    // A delivery row like a notice's, so two runs never both send the confirmation.
+    await recordDeliveries(
+      deps.db,
+      { workspaceId: ws, eventId: id, subjectId: data.subscriberId },
+      [{ subscriberId: data.subscriberId, channel: "email" }],
+    );
     await deps.confirm({ eventId: id, subscriberId: data.subscriberId });
   }
   const marked = await markOutboxDispatched(deps.db, id, deps.clock.now());

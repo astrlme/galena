@@ -45,7 +45,7 @@ export const outboxDispatch = task({
       confirm: async ({ eventId, subscriberId }) => {
         await tasks.trigger(
           "notify.email",
-          { kind: "confirmation", subscriberId },
+          { kind: "confirmation", subscriberId, eventId },
           { idempotencyKey: await globalKey(`send:${eventId}:${subscriberId}`) },
         );
       },

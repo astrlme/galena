@@ -154,6 +154,25 @@ export async function findDelivery(db: Db, eventId: EventId, target: DeliveryTar
 }
 
 /**
+ * Takes the next attempt at a pending delivery. Of several runs that read the same `attempts`,
+ * exactly one gets true; a retry reads the raised count and claims again.
+ */
+export async function claimDelivery(db: Db, id: DeliveryId, seen: number): Promise<boolean> {
+  const rows = await db
+    .update(delivery)
+    .set({ attempts: seen + 1 })
+    .where(
+      and(
+        eq(delivery.id, id),
+        eq(delivery.attempts, seen),
+        sql`${delivery.status}::text = 'pending'`,
+      ),
+    )
+    .returning({ id: delivery.id });
+  return rows.length === 1;
+}
+
+/**
  * Settles a pending delivery. False when it had already settled, which tells a retried send
  * that an earlier attempt got there first.
  */

@@ -1,8 +1,10 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import {
   componentId,
   eventId,
   incidentId,
   type Notice,
+  type SubscriberId,
   subscriberId,
   workspaceId,
 } from "@galena/contracts";
@@ -91,10 +93,26 @@ const notice = (): Notice => ({
   url: `${url}/incidents/x/`,
 });
 
-test("a pending subscriber gets a confirmation link the API will accept", async () => {
+/** The dispatcher records a confirmation's delivery before it starts the send. */
+async function confirmation(id: SubscriberId) {
+  const event = eventId.parse(v7());
+  await recordDeliveries(db, { workspaceId: acme, eventId: event, subjectId: id }, [
+    { subscriberId: id, channel: "email" },
+  ]);
+  return { kind: "confirmation" as const, subscriberId: id, eventId: event };
+}
+
+test("a pending subscriber gets a confirmation link the API will accept, once", async () => {
   const { sent, deps } = inbox();
   const id = await subscriber("ada@example.com", "pending_confirmation");
-  expect(await sendEmail({ kind: "confirmation", subscriberId: id }, deps)).toBe("sent");
+  const request = await confirmation(id);
+  expect(await sendEmail(request, deps)).toBe("sent");
+  expect(await sendEmail(request, deps)).toBe("already_settled");
+  expect(sent).toHaveLength(1);
+  expect(await findDelivery(db, request.eventId, { subscriberId: id })).toMatchObject({
+    status: "sent",
+    attempts: 1,
+  });
   expect(sent[0]).toMatchObject({ to: "ada@example.com", fromName: "Acme" });
   const link = /https:\/\/status\.example\.com\/subscription\/confirm\/\?t=(\S+)/.exec(
     sent[0]?.text ?? "",
@@ -105,7 +123,7 @@ test("a pending subscriber gets a confirmation link the API will accept", async 
   });
   // Confirmed in the meantime: nothing more to send.
   const active = await subscriber("grace@example.com", "active");
-  expect(await sendEmail({ kind: "confirmation", subscriberId: active }, deps)).toBe("skipped");
+  expect(await sendEmail(await confirmation(active), deps)).toBe("skipped");
 });
 
 test("a notice goes out once, with one-click unsubscribe, and is recorded as sent", async () => {
@@ -127,6 +145,30 @@ test("a notice goes out once, with one-click unsubscribe, and is recorded as sen
     sent[0]?.headers["List-Unsubscribe"] ?? "",
   );
   expect(readLinkToken(keys, "unsubscribe", decodeURIComponent(oneClick?.[1] ?? ""))?.id).toBe(id);
+  expect(await findDelivery(db, n.eventId, { subscriberId: id })).toMatchObject({
+    status: "sent",
+    attempts: 1,
+  });
+});
+
+test("two runs sending the same notice at once send it once", async () => {
+  const { sent, deps } = inbox();
+  const slow = {
+    ...deps,
+    // Both runs read the pending row before either one settles it.
+    mailer: { send: (email: OutgoingEmail) => sleep(50).then(() => deps.mailer.send(email)) },
+  };
+  const id = await subscriber("katherine@example.com", "active");
+  const n = notice();
+  await recordDeliveries(
+    db,
+    { workspaceId: acme, eventId: n.eventId, subjectId: incidentId.parse(v7()) },
+    [{ subscriberId: id, channel: "email" }],
+  );
+  const request = { kind: "notice" as const, subscriberId: id, notice: n };
+  const outcomes = await Promise.all([sendEmail(request, slow), sendEmail(request, slow)]);
+  expect(outcomes.sort()).toEqual(["already_settled", "sent"]);
+  expect(sent).toHaveLength(1);
   expect(await findDelivery(db, n.eventId, { subscriberId: id })).toMatchObject({
     status: "sent",
     attempts: 1,

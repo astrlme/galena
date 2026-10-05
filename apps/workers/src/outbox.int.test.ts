@@ -2,11 +2,13 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  eventId,
   type MonitorsFile,
   monitorConfig,
   monitorId,
   monitorsFile,
   outboxId,
+  subscriberId,
   type WorkspaceId,
   workspaceId,
 } from "@galena/contracts";
@@ -14,9 +16,11 @@ import { fixedClock } from "@galena/core";
 import {
   createDb,
   type Db,
+  findDelivery,
   findOutboxRow,
   monitorRepository,
   recordChange,
+  saveSubscriber,
   schema,
 } from "@galena/db";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
@@ -206,9 +210,18 @@ test("the local writer replaces monitors.json with a file the probes can parse",
   }
 });
 
-test("a subscription request sends its confirmation, keyed by the event and subscriber", async () => {
-  const subscriber = v7();
-  const event = v7();
+test("a subscription request records its delivery and sends its confirmation", async () => {
+  const subscriber = subscriberId.parse(v7());
+  const event = eventId.parse(v7());
+  await saveSubscriber(db, {
+    id: subscriber,
+    workspaceId: acme,
+    email: "ada@example.com",
+    state: "pending_confirmation",
+    componentIds: [],
+    confirmSentAt: clock.now(),
+    ipHash: null,
+  });
   const id = await recordChange(db, {
     workspaceId: acme,
     actorUserId: null,
@@ -236,4 +249,7 @@ test("a subscription request sends its confirmation, keyed by the event and subs
     }),
   ).toBe("dispatched");
   expect(confirmations).toEqual([{ eventId: event, subscriberId: subscriber }]);
+  expect(await findDelivery(db, event, { subscriberId: subscriber })).toMatchObject({
+    status: "pending",
+  });
 });

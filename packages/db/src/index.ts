@@ -5,6 +5,7 @@ export { incidentRepository } from "./repositories/incidents.ts";
 export { maintenanceRepository } from "./repositories/maintenance.ts";
 export { listEnabledMonitors, monitorRepository } from "./repositories/monitors.ts";
 export {
+  claimDelivery,
   countConfirmationsSince,
   countSubscribersFromIp,
   createEndpoint,

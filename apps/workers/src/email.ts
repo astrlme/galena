@@ -1,8 +1,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
-import { type Notice, notice as noticeSchema, subscriberId } from "@galena/contracts";
-import { type Db, ensurePage, findDelivery, findSubscriber, settleDelivery } from "@galena/db";
+import { eventId, notice as noticeSchema, subscriberId } from "@galena/contracts";
+import {
+  claimDelivery,
+  type Db,
+  ensurePage,
+  findDelivery,
+  findSubscriber,
+  settleDelivery,
+} from "@galena/db";
 import { confirmationEmail, noticeEmail } from "@galena/emails";
 import { type AppKeys, keyedHash, linkToken } from "@galena/integrations/secrets";
 import { z } from "zod";
@@ -19,7 +26,7 @@ export type OutgoingEmail = {
 export type Mailer = { send: (email: OutgoingEmail) => Promise<{ id: string }> };
 
 export const emailPayload = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("confirmation"), subscriberId }),
+  z.object({ kind: z.literal("confirmation"), subscriberId, eventId }),
   z.object({ kind: z.literal("notice"), subscriberId, notice: noticeSchema }),
 ]);
 export type EmailPayload = z.infer<typeof emailPayload>;
@@ -27,32 +34,67 @@ export type EmailPayload = z.infer<typeof emailPayload>;
 export type EmailDeps = { db: Db; keys: AppKeys; mailer: Mailer; url: string; now: () => Date };
 export type EmailOutcome = "sent" | "skipped" | "already_settled";
 
+const eventOf = (payload: EmailPayload) =>
+  payload.kind === "notice" ? payload.notice.eventId : payload.eventId;
+
+/**
+ * The email's delivery row, claimed for this attempt. Undefined when an earlier run settled it
+ * (sent or skipped) or another run is sending it right now, so it never goes out twice at once.
+ * Known limit: if the send succeeds and recording it fails, the retry sends again; SES takes no
+ * idempotency key.
+ */
+async function claim(payload: EmailPayload, deps: EmailDeps) {
+  const delivery = await findDelivery(deps.db, eventOf(payload), {
+    subscriberId: payload.subscriberId,
+  });
+  if (delivery?.status !== "pending") return undefined;
+  if (!(await claimDelivery(deps.db, delivery.id, delivery.attempts))) return undefined;
+  return { id: delivery.id, attempts: delivery.attempts + 1 };
+}
+
 /** Double opt-in: sent only while the subscriber still waits for confirmation. */
-async function sendConfirmation(id: EmailPayload["subscriberId"], deps: EmailDeps) {
+async function sendConfirmation(
+  payload: Extract<EmailPayload, { kind: "confirmation" }>,
+  deps: EmailDeps,
+) {
+  const delivery = await claim(payload, deps);
+  if (!delivery) return "already_settled";
+  const id = payload.subscriberId;
   const [subscriber, target] = await Promise.all([
     findSubscriber(deps.db, id),
     ensurePage(deps.db),
   ]);
-  if (subscriber?.state !== "pending_confirmation" || !target) return "skipped";
+  if (subscriber?.state !== "pending_confirmation" || !target) {
+    await settleDelivery(deps.db, delivery.id, { status: "skipped", attempts: delivery.attempts });
+    return "skipped";
+  }
   const token = linkToken(deps.keys, "confirm", id, deps.now());
   const email = await confirmationEmail({
     page: { name: target.name, url: deps.url },
     // The page's button confirms; a mail scanner opening the link does nothing.
     confirmUrl: `${deps.url}/subscription/confirm/?t=${encodeURIComponent(token)}`,
   });
-  await deps.mailer.send({ to: subscriber.email, fromName: target.name, headers: {}, ...email });
+  const { id: providerId } = await deps.mailer.send({
+    to: subscriber.email,
+    fromName: target.name,
+    headers: {},
+    ...email,
+  });
+  await settleDelivery(deps.db, delivery.id, {
+    status: "sent",
+    attempts: delivery.attempts,
+    providerId,
+    sentAt: deps.now(),
+  });
   return "sent";
 }
 
-/**
- * One notice to one subscriber, recorded on its delivery row. A row already settled means an
- * earlier run sent it (or skipped it), so a retry never sends twice. Known limit: if the send
- * succeeds and recording it fails, the retry sends again; SES takes no idempotency key.
- */
-async function sendNotice(id: EmailPayload["subscriberId"], notice: Notice, deps: EmailDeps) {
-  const delivery = await findDelivery(deps.db, notice.eventId, { subscriberId: id });
-  if (delivery?.status !== "pending") return "already_settled";
-  const attempts = delivery.attempts + 1;
+/** One notice to one subscriber, recorded on its delivery row. */
+async function sendNotice(payload: Extract<EmailPayload, { kind: "notice" }>, deps: EmailDeps) {
+  const delivery = await claim(payload, deps);
+  if (!delivery) return "already_settled";
+  const { subscriberId: id, notice } = payload;
+  const { attempts } = delivery;
   const subscriber = await findSubscriber(deps.db, id);
   if (subscriber?.state !== "active") {
     await settleDelivery(deps.db, delivery.id, { status: "skipped", attempts });
@@ -83,20 +125,20 @@ async function sendNotice(id: EmailPayload["subscriberId"], notice: Notice, deps
 
 export async function sendEmail(payload: EmailPayload, deps: EmailDeps): Promise<EmailOutcome> {
   return payload.kind === "confirmation"
-    ? sendConfirmation(payload.subscriberId, deps)
-    : sendNotice(payload.subscriberId, payload.notice, deps);
+    ? sendConfirmation(payload, deps)
+    : sendNotice(payload, deps);
 }
 
-/** After the last retry: the notice's delivery is marked failed, with the reason. */
+/** After the last retry: the email's delivery is marked failed, with the reason. */
 export async function failEmail(payload: EmailPayload, error: string, deps: { db: Db }) {
-  if (payload.kind !== "notice") return;
-  const delivery = await findDelivery(deps.db, payload.notice.eventId, {
+  const delivery = await findDelivery(deps.db, eventOf(payload), {
     subscriberId: payload.subscriberId,
   });
   if (delivery?.status !== "pending") return;
+  // Each attempt was counted when it claimed the delivery.
   await settleDelivery(deps.db, delivery.id, {
     status: "failed",
-    attempts: delivery.attempts + 1,
+    attempts: delivery.attempts,
     lastError: error.slice(0, 500),
   });
 }

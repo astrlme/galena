@@ -1,5 +1,6 @@
 import { type EndpointKind, notice, webhookEndpointId } from "@galena/contracts";
 import {
+  claimDelivery,
   type Db,
   findDelivery,
   findEndpointForSend,
@@ -54,6 +55,7 @@ export async function deliver(
 ): Promise<EndpointOutcome> {
   const delivery = await findDelivery(deps.db, notice.eventId, { endpointId });
   if (delivery?.status !== "pending") return "already_settled";
+  if (!(await claimDelivery(deps.db, delivery.id, delivery.attempts))) return "already_settled";
   const attempts = delivery.attempts + 1;
   const endpoint = await findEndpointForSend(deps.db, endpointId);
   if (!endpoint || endpoint.kind !== kind || endpoint.state === "disabled") {
@@ -97,7 +99,7 @@ export async function failDelivery(
   if (delivery?.status !== "pending") return;
   await settleDelivery(deps.db, delivery.id, {
     status: "failed",
-    attempts: delivery.attempts + 1,
+    attempts: delivery.attempts,
     lastError: error.slice(0, 500),
   });
   await markEndpointFailing(deps.db, endpointId, deps.now());
