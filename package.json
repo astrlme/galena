@@ -17,6 +17,7 @@
   "scripts": {
     "dev": "docker compose up -d --wait && pnpm db:migrate && pnpm db:seed && turbo run dev dev:hot-path",
     "dev:hot-path": "node scripts/dev-hot-path.ts",
+    "galena": "node apps/cli/src/main.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:deps",
     "lint": "biome check && oxlint --type-aware --deny-warnings",
     "format": "biome check --write",

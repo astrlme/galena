@@ -1,0 +1,21 @@
+{
+  "name": "@galena/cli",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "galena": "./src/main.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@galena/infra": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@galena/config": "workspace:*"
+  }
+}

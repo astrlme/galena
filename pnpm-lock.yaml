@@ -126,6 +126,19 @@ importers:
         specifier: ^12.1.0
         version: 12.1.0
 
+  apps/cli:
+    dependencies:
+      '@galena/infra':
+        specifier: workspace:*
+        version: link:../../infra
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@galena/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+
   apps/evaluator:
     dependencies:
       '@aws-lambda-powertools/logger':
