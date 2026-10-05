@@ -7,6 +7,7 @@ import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { QrCode } from "../../../components/qr-code.tsx";
 import { authPost } from "../../../lib/api.ts";
+import { refreshSessions } from "./sessions.tsx";
 
 // Turning two-factor on is three steps in one dialog: the password, the authenticator app (a QR
 // code and its key), then the backup codes, shown once. Nothing typed here is kept as a draft.
@@ -42,7 +43,7 @@ export function TwoFactor({ enabled }: { enabled: boolean }) {
   };
   const close = () => {
     setFlow(undefined);
-    return queryClient.invalidateQueries({ queryKey: ["session"] });
+    return refreshSessions(queryClient);
   };
 
   /** Runs one step's request; a failure shows `failed` and keeps the dialog on that step. */

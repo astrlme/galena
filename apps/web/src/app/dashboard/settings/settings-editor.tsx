@@ -2,6 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { authGet } from "../../../lib/api.ts";
+import { Password } from "./password.tsx";
+import { Sessions } from "./sessions.tsx";
 import { TwoFactor } from "./two-factor.tsx";
 
 /** What Better Auth's `get-session` returns for the signed-in person. */
@@ -20,5 +22,11 @@ export function SettingsEditor() {
   if (current.error || !current.data) {
     return <p className="mt-8 font-semibold">{current.error?.message ?? "You're signed out."}</p>;
   }
-  return <TwoFactor enabled={current.data.user.twoFactorEnabled === true} />;
+  return (
+    <>
+      <TwoFactor enabled={current.data.user.twoFactorEnabled === true} />
+      <Password />
+      <Sessions currentId={current.data.session.id} />
+    </>
+  );
 }
