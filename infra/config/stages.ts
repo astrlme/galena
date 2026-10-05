@@ -8,7 +8,9 @@ export const stageSchema = z
     // The deployment's name: stacks are `galena-<stage>-…`, parameters `/galena/<stage>/…`.
     stage: z
       .string()
-      .regex(/^[a-z][a-z0-9-]{0,19}$/, "lower-case letters, digits and hyphens, up to 20"),
+      .regex(/^[a-z][a-z0-9-]{0,19}$/, "lower-case letters, digits and hyphens, up to 20")
+      // The API treats `local` as a developer's machine: random secrets, loopback monitors.
+      .refine((name) => name !== "local", "`local` is reserved for local development"),
     // API, database, queues, detection, workers' AWS access.
     homeRegion: region,
     probeRegions: z.array(region).min(3),

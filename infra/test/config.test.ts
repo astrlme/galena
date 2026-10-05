@@ -14,8 +14,9 @@ test("optional settings take safe defaults: no smoke test, data kept", () => {
   expect(plain.github).toBeUndefined();
 });
 
-test("names are lower-case, and the smoke test needs GitHub", () => {
+test("names are lower-case, `local` is reserved, and the smoke test needs GitHub", () => {
   expect(stageSchema.safeParse({ ...plain, stage: "Acme Prod" }).success).toBe(false);
+  expect(stageSchema.safeParse({ ...plain, stage: "local" }).success).toBe(false);
   expect(stageSchema.safeParse({ ...plain, smoke: true }).success).toBe(false);
 });
 
