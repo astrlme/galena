@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { doctor } from "./doctor.ts";
 import { init } from "./init.ts";
 
 const HELP = `Usage: galena <command> [options]
 
 Commands:
   init     Write galena.config.json for a new deployment
+  doctor   Check a deployment against its config, changing nothing
 
 Options:
   --config <path>  The deployment's config file (default: galena.config.json)
   --force          init: replace an existing config file
+  --json           doctor: print the checks as JSON
 `;
 
 const { positionals, values } = (() => {
@@ -20,6 +23,7 @@ const { positionals, values } = (() => {
       options: {
         config: { type: "string", default: "galena.config.json" },
         force: { type: "boolean", default: false },
+        json: { type: "boolean", default: false },
         help: { type: "boolean", short: "h", default: false },
       },
     });
@@ -33,6 +37,9 @@ const path = resolve(values.config);
 switch (values.help ? "help" : positionals[0]) {
   case "init":
     process.exitCode = await init(path, { force: values.force });
+    break;
+  case "doctor":
+    process.exitCode = await doctor(path, { json: values.json });
     break;
   case "help":
     console.log(HELP);
