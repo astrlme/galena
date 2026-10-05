@@ -1,18 +1,25 @@
 /// <reference types="node" />
 // `pnpm replay`: every `<scenario>.jsonl` in test/fixtures/replay goes through the real reducer
-// and must produce exactly the transitions in `<scenario>.expected.json`. One event per line, in
-// time order (see `Line`); expected transitions are worked out by hand, never copied from a run.
+// and must produce exactly the transitions in `<scenario>.expected.json`; those transitions then
+// drive autopilot, whose incident updates must match `<scenario>.autopilot.json`. One event per
+// line, in time order (see `Line`); expectations are worked out by hand, never copied from a run.
 import { readdirSync, readFileSync } from "node:fs";
 import {
   type CheckStatus,
   checkResult,
+  componentId,
   type DetectionSettings,
   detectionSettings,
   eventId,
+  type IncidentStatus,
+  incidentId,
+  type MonitorState,
   monitorId,
+  workspaceId,
 } from "@galena/contracts";
 import { expect, test } from "vitest";
-import { fixedClock } from "../ports.ts";
+import { planAutopilot } from "../incidents/autopilot.ts";
+import { fixedClock, type Incident } from "../ports.ts";
 import { type CanaryTrack, nextCanary } from "./canary.ts";
 import { evaluate, initialDetectionState } from "./evaluate.ts";
 
@@ -28,7 +35,7 @@ type Line =
   | { type: "canary"; at: string; region: string; passed: boolean }
   | { type: "maintenance"; at: string; active: boolean };
 
-type Replayed = { at: string; from: string; to: string; suppressed: boolean };
+type Replayed = { at: string; from: MonitorState; to: MonitorState; suppressed: boolean };
 
 function replay(lines: Line[]): Replayed[] {
   let settings = detectionSettings.parse({});
@@ -111,11 +118,59 @@ test("the six required scenarios are present", () => {
   );
 });
 
-test.each(scenarios)("%s replays to exactly its expected transitions", (name) => {
-  const lines = readFileSync(new URL(`${name}.jsonl`, FIXTURES), "utf8")
+const read = (name: string, suffix: string) =>
+  readFileSync(new URL(`${name}${suffix}`, FIXTURES), "utf8");
+const linesOf = (name: string) =>
+  read(name, ".jsonl")
     .split("\n")
     .filter((line) => line.trim() !== "")
     .map((line) => JSON.parse(line) as Line);
-  const expected = JSON.parse(readFileSync(new URL(`${name}.expected.json`, FIXTURES), "utf8"));
-  expect(replay(lines)).toEqual(expected);
+
+test.each(scenarios)("%s replays to exactly its expected transitions", (name) => {
+  expect(replay(linesOf(name))).toEqual(JSON.parse(read(name, ".expected.json")));
+});
+
+/** The updates autopilot posts on the incident it opens, as the transitions arrive. */
+function autopilotUpdates(transitions: readonly Replayed[]) {
+  const api = componentId.parse("01920000-0000-7000-8000-000000000011");
+  const monitor = {
+    id: MONITOR,
+    componentId: api,
+    componentName: "API",
+    publishPolicy: "auto" as const,
+    downStatus: "major_outage" as const,
+    stableMinutes: detectionSettings.parse({}).stableMinutes,
+  };
+  let open: Incident | undefined;
+  const updates: { at: string; status: IncidentStatus }[] = [];
+  for (const t of transitions) {
+    const now = new Date(t.at);
+    const plan = planAutopilot({ ...t, monitor, openIncidents: open ? [open] : [], now });
+    if (plan.action === "open") {
+      open = {
+        id: incidentId.parse("01920000-0000-7000-8000-000000000101"),
+        workspaceId: workspaceId.parse("01920000-0000-7000-8000-000000000001"),
+        title: plan.title,
+        status: "investigating",
+        impact: plan.impact,
+        visibility: plan.visibility,
+        source: "monitor",
+        startedAt: now,
+        resolvedAt: null,
+        updatedAt: now,
+        components: plan.components,
+        dedupKey: plan.dedupKey,
+      };
+      updates.push({ at: t.at, status: "investigating" });
+    } else if (plan.action === "update" && open) {
+      updates.push({ at: t.at, status: plan.status });
+      open = plan.status === "resolved" ? undefined : { ...open, status: plan.status };
+    }
+  }
+  return updates;
+}
+
+test.each(scenarios)("%s drives autopilot to exactly its expected incident updates", (name) => {
+  const transitions = JSON.parse(read(name, ".expected.json")) as Replayed[];
+  expect(autopilotUpdates(transitions)).toEqual(JSON.parse(read(name, ".autopilot.json")));
 });
