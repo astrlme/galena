@@ -65,14 +65,11 @@ Monitoring update ("API is working normally again. We're watching it for the nex
 minutes."); if the monitor fails again within those minutes, it goes back to Investigating; once
 the monitor is up, it resolves. Incidents people opened are never moved by a monitor.
 
-A draft shows in the dashboard with the time it publishes. A dismissed draft is kept for the
-record and lets the monitor draft again the next time it goes down.
-
-<Callout type="warn">
-Approving or dismissing a draft before its deadline isn't built yet: today every `approve` draft
-waits its 10 minutes, then publishes if the monitor is still down and is dismissed if it
-recovered. See the [roadmap](/docs/roadmap/).
-</Callout>
+A draft shows in the dashboard with the time it publishes. On its page, **Approve and
+publish** puts it on the status page and **Dismiss** keeps it off; with no answer by the
+deadline it publishes if the monitor is still down and is dismissed if it recovered. A dismissed
+draft is kept for the record and lets the monitor draft again the next time it goes down.
+Approving from Slack is on the [roadmap](/docs/roadmap/).
 
 ## Check results
 
