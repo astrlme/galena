@@ -1,6 +1,7 @@
 "use client";
 
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import { Button } from "../../../components/button.tsx";
 import { authGet, authPost } from "../../../lib/api.ts";
 import { Time } from "../incidents/incident-ui.tsx";
@@ -30,8 +31,16 @@ export function Sessions({ currentId }: { currentId: string }) {
     queryKey: ["sessions"],
     queryFn: () => authGet<Session[]>("list-sessions"),
   });
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const [notice, setNotice] = useState<string>();
+  // The button pressed is gone once the list refetches, so focus moves to the heading.
   const signOut = useMutation({
-    mutationFn: (call: () => Promise<unknown>) => call(),
+    mutationFn: ({ call }: { call: () => Promise<unknown>; done: string }) => call(),
+    onSuccess: (_, { done }) => {
+      setNotice(done);
+      headingRef.current?.focus();
+    },
+    onError: () => setNotice("Couldn't sign out that session. Try again."),
     onSettled: () => refreshSessions(queryClient),
   });
 
@@ -45,22 +54,32 @@ export function Sessions({ currentId }: { currentId: string }) {
   return (
     <section className="mt-8" aria-labelledby="sessions-heading">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 id="sessions-heading" className={heading}>
+        <h2 id="sessions-heading" ref={headingRef} tabIndex={-1} className={heading}>
           Where you're signed in
         </h2>
         {others.length > 0 && (
           <Button
             disabled={signOut.isPending}
-            onClick={() => signOut.mutate(() => authPost("revoke-other-sessions", {}))}
+            onClick={() =>
+              signOut.mutate({
+                call: () => authPost("revoke-other-sessions", {}),
+                done: "Signed out everywhere else.",
+              })
+            }
           >
             Sign out everywhere else
           </Button>
         )}
       </div>
+      <p role="status" className="mt-2 text-[14px] empty:hidden">
+        {notice}
+      </p>
       {sessions.isPending ? (
         <p className="mt-4 text-slate">Loading sessions</p>
       ) : sessions.error ? (
-        <p className="mt-4 font-semibold">{sessions.error.message}</p>
+        <p className="mt-4 font-semibold">
+          Couldn't load where you're signed in. Reload the page to try again.
+        </p>
       ) : (
         <ul className={card}>
           {list.map((s) => (
@@ -76,7 +95,10 @@ export function Sessions({ currentId }: { currentId: string }) {
                   className="px-2 py-1 text-[14px]"
                   disabled={signOut.isPending}
                   onClick={() =>
-                    signOut.mutate(() => authPost("revoke-session", { token: s.token }))
+                    signOut.mutate({
+                      call: () => authPost("revoke-session", { token: s.token }),
+                      done: `Signed out of ${describeAgent(s.userAgent)}.`,
+                    })
                   }
                 >
                   Sign out

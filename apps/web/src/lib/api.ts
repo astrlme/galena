@@ -23,6 +23,23 @@ export async function authGet<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+/** A failed Better Auth call; the status tells a wrong answer from a busy or broken server. */
+export class AuthError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/** What to tell the person: `mismatch` for a wrong password or code, otherwise why it failed. */
+export function authFailure(error: unknown, mismatch: string): string {
+  const status = error instanceof AuthError ? error.status : 0;
+  if (status === 400 || status === 401) return mismatch;
+  if (status === 429) return "Too many attempts. Wait a minute, then try again.";
+  return "Couldn't check that. Try again in a minute.";
+}
+
 /** POSTs JSON to a Better Auth endpoint (not in /openapi.json) and returns the parsed body. */
 export async function authPost<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`/auth/${path}`, {
@@ -31,6 +48,8 @@ export async function authPost<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   const data = (await response.json().catch(() => ({}))) as T & { message?: string };
-  if (!response.ok) throw new Error(data.message ?? `Request failed with ${response.status}`);
+  if (!response.ok) {
+    throw new AuthError(data.message ?? `Request failed with ${response.status}`, response.status);
+  }
   return data;
 }

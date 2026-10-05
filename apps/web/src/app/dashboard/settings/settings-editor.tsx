@@ -19,8 +19,22 @@ export function SettingsEditor() {
   });
 
   if (current.isPending) return <p className="mt-8 text-slate">Loading your account</p>;
-  if (current.error || !current.data) {
-    return <p className="mt-8 font-semibold">{current.error?.message ?? "You're signed out."}</p>;
+  if (current.error) {
+    return (
+      <p className="mt-8 font-semibold">
+        Couldn't load your account. Reload the page to try again.
+      </p>
+    );
+  }
+  if (!current.data) {
+    return (
+      <p className="mt-8 font-semibold">
+        You're signed out.{" "}
+        <a href="/sign-in/" className="underline">
+          Sign in again
+        </a>
+      </p>
+    );
   }
   return (
     <>

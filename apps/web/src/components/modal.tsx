@@ -80,6 +80,12 @@ function useFocusTrap<T extends HTMLElement>(ref: RefObject<T | null>, enabled: 
       if (e.key !== "Tab") return;
       const focusable = focusables();
       const first = focusable[0];
+      // A step that replaced the focused element left focus on the page behind: bring it back.
+      if (!el.contains(document.activeElement)) {
+        e.preventDefault();
+        first?.focus();
+        return;
+      }
       const last = focusable[focusable.length - 1];
       if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();
@@ -89,9 +95,9 @@ function useFocusTrap<T extends HTMLElement>(ref: RefObject<T | null>, enabled: 
         first?.focus();
       }
     };
-    el.addEventListener("keydown", handler);
+    document.addEventListener("keydown", handler);
     return () => {
-      el.removeEventListener("keydown", handler);
+      document.removeEventListener("keydown", handler);
       prev?.focus(); // back where it was when the modal closes
     };
   }, [enabled, ref]);

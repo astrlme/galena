@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 import { Button } from "../../components/button.tsx";
 import { Field } from "../../components/field.tsx";
-import { authPost } from "../../lib/api.ts";
+import { authFailure, authPost } from "../../lib/api.ts";
 
 type Step = "password" | "code" | "backup";
 
@@ -40,8 +40,8 @@ export function SignInForm() {
         await authPost("two-factor/verify-backup-code", { code: form.get("backup") });
       }
       window.location.assign("/dashboard/");
-    } catch {
-      setError(FAILED[step]);
+    } catch (failure) {
+      setError(authFailure(failure, FAILED[step]));
     } finally {
       setPending(false);
     }
@@ -62,6 +62,7 @@ export function SignInForm() {
         </>
       ) : step === "code" ? (
         <Field
+          key="code"
           id="code"
           label="Authentication code"
           help="The 6-digit code from your authenticator app."
@@ -72,6 +73,7 @@ export function SignInForm() {
         />
       ) : (
         <Field
+          key="backup"
           id="backup"
           label="Backup code"
           help="One of the codes you saved when you turned on two-factor. Each works once."

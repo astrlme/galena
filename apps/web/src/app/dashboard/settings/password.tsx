@@ -5,7 +5,7 @@ import { type FormEvent, useState } from "react";
 import { Button } from "../../../components/button.tsx";
 import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
-import { authPost } from "../../../lib/api.ts";
+import { authFailure, authPost } from "../../../lib/api.ts";
 import { refreshSessions } from "./sessions.tsx";
 
 // The API's minimum (Better Auth's `minPasswordLength`).
@@ -41,9 +41,12 @@ export function Password() {
       setOpen(false);
       setChanged(true);
       await refreshSessions(queryClient);
-    } catch {
+    } catch (failure) {
       setErrors({
-        current: "That password didn't match. Enter the password you sign in with now.",
+        current: authFailure(
+          failure,
+          "That password didn't match. Enter the password you sign in with now.",
+        ),
       });
     } finally {
       setPending(false);

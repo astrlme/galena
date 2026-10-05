@@ -1,12 +1,12 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Button } from "../../../components/button.tsx";
 import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { QrCode } from "../../../components/qr-code.tsx";
-import { authPost } from "../../../lib/api.ts";
+import { authFailure, authPost } from "../../../lib/api.ts";
 import { refreshSessions } from "./sessions.tsx";
 
 // Turning two-factor on is three steps in one dialog: the password, the authenticator app (a QR
@@ -35,6 +35,15 @@ export function TwoFactor({ enabled }: { enabled: boolean }) {
   const [step, setStep] = useState<Step>({ name: "password" });
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const shown = useRef(enabled);
+
+  // The button that opened the dialog is gone once two-factor changes; keep focus on the card.
+  useEffect(() => {
+    if (shown.current === enabled) return;
+    shown.current = enabled;
+    headingRef.current?.focus();
+  }, [enabled]);
 
   const open = (next: Flow) => {
     setStep({ name: "password" });
@@ -58,8 +67,8 @@ export function TwoFactor({ enabled }: { enabled: boolean }) {
     setError(undefined);
     try {
       await run(form);
-    } catch {
-      setError(failed);
+    } catch (failure) {
+      setError(authFailure(failure, failed));
     } finally {
       setPending(false);
     }
@@ -94,7 +103,12 @@ export function TwoFactor({ enabled }: { enabled: boolean }) {
 
   const title = {
     enable: "Turn on two-factor",
-    codes: "New backup codes",
+    codes: "Make new backup codes",
+    disable: "Turn off two-factor",
+  };
+  const submitLabel = {
+    enable: "Continue",
+    codes: "Make new codes",
     disable: "Turn off two-factor",
   };
   const passwordHelp = {
@@ -105,10 +119,10 @@ export function TwoFactor({ enabled }: { enabled: boolean }) {
 
   return (
     <section className={card} aria-labelledby="two-factor-heading">
-      <h2 id="two-factor-heading" className={heading}>
+      <h2 id="two-factor-heading" ref={headingRef} tabIndex={-1} className={heading}>
         Two-factor sign-in
       </h2>
-      <p className="mt-1 max-w-[72ch] text-[16px] text-slate">
+      <p role="status" className="mt-1 max-w-[72ch] text-[16px] text-slate">
         {enabled
           ? "On. Sign-in asks for a code from your authenticator app, or one of your backup codes."
           : "Off. Sign-in asks only for your password. Turn it on to also ask for a code from an authenticator app."}
@@ -116,7 +130,7 @@ export function TwoFactor({ enabled }: { enabled: boolean }) {
       <div className="mt-4 flex flex-wrap gap-2">
         {enabled ? (
           <>
-            <Button onClick={() => open("codes")}>New backup codes</Button>
+            <Button onClick={() => open("codes")}>Make new backup codes</Button>
             <Button onClick={() => open("disable")}>Turn off two-factor</Button>
           </>
         ) : (
@@ -146,7 +160,7 @@ export function TwoFactor({ enabled }: { enabled: boolean }) {
             />
             <div className="flex flex-wrap gap-2">
               <Button type="submit" variant="primary" disabled={pending}>
-                {pending ? "Checking…" : flow === "disable" ? "Turn off two-factor" : "Continue"}
+                {pending ? "Checking…" : submitLabel[flow]}
               </Button>
               <Button type="button" onClick={close}>
                 Cancel
@@ -179,6 +193,8 @@ export function TwoFactor({ enabled }: { enabled: boolean }) {
               pattern="[0-9]{6}"
               error={error}
               required
+              // The step replaced the field that had focus.
+              autoFocus
             />
             <div className="flex flex-wrap gap-2">
               <Button type="submit" variant="primary" disabled={pending}>
@@ -197,7 +213,7 @@ export function TwoFactor({ enabled }: { enabled: boolean }) {
 }
 
 function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
-  const [copied, setCopied] = useState(false);
+  const [copy, setCopy] = useState<string>();
   return (
     <div role="status" className="mt-4 flex flex-col gap-4">
       <p className="text-[16px]">
@@ -213,18 +229,24 @@ function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => void })
         ))}
       </ul>
       <div className="flex flex-wrap gap-2">
-        <Button variant="primary" onClick={onDone}>
+        {/* The step replaced the button that had focus. */}
+        <Button variant="primary" onClick={onDone} autoFocus>
           Done
         </Button>
         <Button
           onClick={async () => {
-            await navigator.clipboard.writeText(codes.join("\n"));
-            setCopied(true);
+            try {
+              await navigator.clipboard.writeText(codes.join("\n"));
+              setCopy("Codes copied.");
+            } catch {
+              setCopy("Couldn't copy. Select the codes and copy them by hand.");
+            }
           }}
         >
-          {copied ? "Copied" : "Copy codes"}
+          Copy codes
         </Button>
       </div>
+      <p className="text-[14px] empty:hidden">{copy}</p>
     </div>
   );
 }
