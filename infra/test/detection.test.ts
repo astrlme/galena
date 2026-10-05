@@ -2,13 +2,13 @@ import { App, Validations } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
-import { stages } from "../config/stages.ts";
 import { DetectionStack } from "../stacks/detection.ts";
+import { fixture } from "./fixture.ts";
 
 // Skip esbuild here; `pnpm infra:synth` bundles for real.
 const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
-const template = Template.fromStack(new DetectionStack(app, "Detection", { config: stages.dev }));
+const template = Template.fromStack(new DetectionStack(app, "Detection", { config: fixture }));
 
 test("alarms on evaluator errors and throttles, to Foundation's alarm topic", () => {
   const alarms = Object.values(template.findResources("AWS::CloudWatch::Alarm")).map(

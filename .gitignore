@@ -12,3 +12,4 @@ coverage/
 !test/fixtures/deps/node_modules/**/dist/
 cdk.out/
 cdk.context.json
+galena.config.json

@@ -2,14 +2,14 @@ import { App, Validations } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
-import { stages } from "../config/stages.ts";
 import { FoundationStack } from "../stacks/foundation.ts";
 import { ProbeStack } from "../stacks/probe.ts";
+import { fixture } from "./fixture.ts";
 
 // Skip esbuild here; `pnpm infra:synth` bundles for real.
 const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
-const config = stages.dev;
+const config = fixture;
 const foundation = new FoundationStack(app, "Foundation", {
   env: { region: config.homeRegion },
   config,

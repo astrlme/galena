@@ -1,10 +1,14 @@
+import { readFileSync } from "node:fs";
 import { z } from "zod";
 
 const region = z.string().regex(/^[a-z]{2}(?:-gov)?-[a-z]+-\d$/, "not an AWS region name");
 
 export const stageSchema = z
   .object({
-    stage: z.enum(["dev", "prod"]),
+    // The deployment's name: stacks are `galena-<stage>-…`, parameters `/galena/<stage>/…`.
+    stage: z
+      .string()
+      .regex(/^[a-z][a-z0-9-]{0,19}$/, "lower-case letters, digits and hyphens, up to 20"),
     // API, database, queues, detection, workers' AWS access.
     homeRegion: region,
     probeRegions: z.array(region).min(3),
@@ -35,21 +39,31 @@ export const stageSchema = z
         "from must be an address at domain",
       )
       .optional(),
-    github: z.object({
-      repository: z.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
-      // The `sub` prefix in GitHub's OIDC tokens. Newer repositories use the immutable form with
-      // owner and repository ids, which survives renames and can't be claimed by a lookalike
-      // (`gh api repos/OWNER/REPO/actions/oidc/customization/sub` prints it).
-      oidcSubject: z.string().regex(/^repo:[\w.-]+(@\d+)?\/[\w.-]+(@\d+)?$/),
-      // The only Git ref whose workflows may assume the deploy role.
-      deployRef: z.string().startsWith("refs/"),
-    }),
+    // Deploying from GitHub Actions through OIDC; without it there is no CI deploy role, and
+    // `galena deploy` uses the caller's own AWS credentials.
+    github: z
+      .object({
+        repository: z.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
+        // The `sub` prefix in GitHub's OIDC tokens. Newer repositories use the immutable form with
+        // owner and repository ids, which survives renames and can't be claimed by a lookalike
+        // (`gh api repos/OWNER/REPO/actions/oidc/customization/sub` prints it).
+        oidcSubject: z.string().regex(/^repo:[\w.-]+(@\d+)?\/[\w.-]+(@\d+)?$/),
+        // The only Git ref whose workflows may assume the deploy role.
+        deployRef: z.string().startsWith("refs/"),
+      })
+      .optional(),
     // DynamoDB `telemetry` capacity units. The always-free tier gives 25 read and 25 write units
-    // per account and region, shared by every stage there (checked below).
+    // per account and region, shared by every deployment there (`galena doctor` checks them).
     telemetryCapacity: z.object({ read: z.number().int().min(1), write: z.number().int().min(1) }),
     // Aurora Serverless v2 ceiling; the floor is 0 ACU so an idle cluster pauses.
     auroraMaxAcu: z.number().min(1).max(16),
+    // The deployed smoke test (a public target the Smoke workflow stops and starts).
+    smoke: z.boolean().default(false),
+    // Keep buckets and the telemetry table when a stack is deleted. Aurora is always kept.
+    retainData: z.boolean().default(true),
   })
+  // The Smoke workflow assumes its role through GitHub's OIDC.
+  .refine(({ smoke, github }) => !smoke || github, "smoke needs github")
   // The page must not share a region with the API and database, or with its replica.
   .refine(
     ({ homeRegion, pageRegions }) =>
@@ -58,42 +72,6 @@ export const stageSchema = z
   );
 
 export type StageConfig = z.infer<typeof stageSchema>;
-
-// Defaults for a deployment whose people and servers are in Europe: the API and database in
-// Frankfurt, probes in three other EU regions, and the status page in Ireland with a Stockholm
-// replica. Pick a home region where your own services do not run.
-const common = {
-  homeRegion: "eu-central-1",
-  probeRegions: ["eu-west-1", "eu-west-3", "eu-north-1"],
-  pageRegions: { primary: "eu-west-1", replica: "eu-north-1" },
-  // The maintainer's repository and domains below: a fork replaces them with its own. The
-  // subject is `repo:<owner>@<owner id>/<repo>@<repo id>`; `gh api repos/<owner>/<repo>` shows
-  // both ids.
-  github: {
-    repository: "astrlme/galena",
-    oidcSubject: "repo:astrlme@61922439/galena@1391246106",
-    deployRef: "refs/heads/main",
-  },
-};
-
-export const stages = {
-  dev: stageSchema.parse({
-    ...common,
-    stage: "dev",
-    pageDomain: "status.astrl.me",
-    webDomain: "dashboard.astrl.me",
-    siteDomain: "galena.astrl.me",
-    email: { domain: "mail.astrl.me", from: "status@mail.astrl.me" },
-    telemetryCapacity: { read: 5, write: 5 },
-    auroraMaxAcu: 2,
-  }),
-  prod: stageSchema.parse({
-    ...common,
-    stage: "prod",
-    telemetryCapacity: { read: 20, write: 20 },
-    auroraMaxAcu: 4,
-  }),
-};
 
 /** Throws when the stages sharing a home region would outgrow DynamoDB's free tier together. */
 export function checkSharedFreeTier(all: readonly StageConfig[]): void {
@@ -109,7 +87,6 @@ export function checkSharedFreeTier(all: readonly StageConfig[]): void {
     }
   }
 }
-checkSharedFreeTier(Object.values(stages));
 
 /** Every region a stage deploys to, including us-east-1 for CloudFront certificates. */
 export function stageRegions(config: StageConfig): string[] {
@@ -125,7 +102,33 @@ export function stageRegions(config: StageConfig): string[] {
   ];
 }
 
-export function stageConfig(name: unknown): StageConfig {
-  if (name === "dev" || name === "prod") return stages[name];
-  throw new Error(`Unknown stage ${JSON.stringify(name)}. Pass -c stage=dev or -c stage=prod.`);
+/**
+ * The deployment described by the JSON file at `path` (untracked: `galena init` writes it, and
+ * the maintainer's Deploy workflow writes it from the `GLN_CONFIG` repository variable).
+ */
+export function loadConfig(path: string): StageConfig {
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch {
+    throw new Error(
+      `No Galena config at ${path}. Run \`galena init\`, or pass -c config=<path to galena.config.json>.`,
+    );
+  }
+  const config = stageSchema.parse(JSON.parse(text));
+  checkSharedFreeTier([config]);
+  return config;
+}
+
+/**
+ * In GitHub Actions, refuses a config made for another repository: a fork that copied the
+ * maintainer's variable would otherwise try to assume a role that doesn't trust it.
+ */
+export function checkRepository(config: StageConfig, env: NodeJS.ProcessEnv): void {
+  if (env.GITHUB_ACTIONS !== "true" || !config.github) return;
+  if (env.GITHUB_REPOSITORY !== config.github.repository) {
+    throw new Error(
+      `This config deploys from ${config.github.repository}, not ${env.GITHUB_REPOSITORY}. Set your own github settings in galena.config.json.`,
+    );
+  }
 }

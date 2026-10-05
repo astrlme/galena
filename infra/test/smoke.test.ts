@@ -2,12 +2,16 @@ import { App, Validations } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
-import { stages } from "../config/stages.ts";
 import { SmokeStack } from "../stacks/smoke.ts";
+import { fixture } from "./fixture.ts";
 
 const app = new App();
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
-const template = Template.fromStack(new SmokeStack(app, "Smoke", { config: stages.dev }));
+const github = fixture.github;
+if (!github) throw new Error("The fixture deploys from GitHub.");
+const template = Template.fromStack(
+  new SmokeStack(app, "Smoke", { config: { ...fixture, github } }),
+);
 const statementsOf = (rolePrefix: string) =>
   Object.values(template.findResources("AWS::IAM::Policy"))
     .filter((p) => p.Properties.Roles.some((r: { Ref: string }) => r.Ref.startsWith(rolePrefix)))
@@ -36,7 +40,7 @@ test("only workflows on the deploy ref can assume the smoke role", () => {
             StringEquals: {
               "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
               "token.actions.githubusercontent.com:sub":
-                "repo:astrlme@61922439/galena@1391246106:ref:refs/heads/main",
+                "repo:example@1001/galena@2002:ref:refs/heads/main",
             },
           },
         }),

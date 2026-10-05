@@ -5,19 +5,19 @@ import { App, Validations } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { describe, expect, test } from "vitest";
-import { stages } from "../config/stages.ts";
 import { ApiStack } from "../stacks/api.ts";
 import { CertificateStack } from "../stacks/status-page.ts";
 import { indexRewrite, WebStack } from "../stacks/web.ts";
+import { fixture } from "./fixture.ts";
 
 const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
 const env = { region: "eu-central-1", account: "111111111111" };
-const api = new ApiStack(app, "Api", { env, config: stages.dev });
+const api = new ApiStack(app, "Api", { env, config: fixture });
 // A one-page export, so the upload and its cdk-nag acknowledgements are always exercised.
 const siteDir = mkdtempSync(join(tmpdir(), "galena-web-"));
 writeFileSync(join(siteDir, "index.html"), "<!doctype html><title>Galena</title>");
-const web = new WebStack(app, "Web", { env, config: stages.dev, api: api.api, siteDir });
+const web = new WebStack(app, "Web", { env, config: fixture, api: api.api, siteDir });
 const template = Template.fromStack(web);
 const distribution = () =>
   Object.values(template.findResources("AWS::CloudFront::Distribution"))[0]?.Properties
@@ -124,10 +124,10 @@ test("with a certificate, answers on the stage's domain over TLS 1.2 and publish
     domain: "galena.example.com",
     crossRegionReferences: true,
   });
-  const domainApi = new ApiStack(withDomain, "Api", { env, config: stages.dev });
+  const domainApi = new ApiStack(withDomain, "Api", { env, config: fixture });
   const stack = new WebStack(withDomain, "Web", {
     env,
-    config: stages.dev,
+    config: fixture,
     api: domainApi.api,
     domain: "galena.example.com",
     certificate,
@@ -149,9 +149,7 @@ test("with a certificate, answers on the stage's domain over TLS 1.2 and publish
 describe("without an API (the project's site)", () => {
   const siteApp = new App({ context: { "aws:cdk:bundling-stacks": [] } });
   Validations.of(siteApp).addPlugins(new AwsSolutionsChecks(siteApp));
-  const site = Template.fromStack(
-    new WebStack(siteApp, "Site", { env, config: stages.dev, siteDir }),
-  );
+  const site = Template.fromStack(new WebStack(siteApp, "Site", { env, config: fixture, siteDir }));
   const config = () =>
     Object.values(site.findResources("AWS::CloudFront::Distribution"))[0]?.Properties
       .DistributionConfig;

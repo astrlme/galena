@@ -34,9 +34,8 @@ export class FoundationStack extends Stack {
 
   constructor(scope: Construct, id: string, props: StackProps & { config: StageConfig }) {
     super(scope, id, props);
-    const { stage, telemetryCapacity, auroraMaxAcu } = props.config;
-    const isProd = stage === "prod";
-    const dataRemoval = isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY;
+    const { stage, telemetryCapacity, auroraMaxAcu, retainData } = props.config;
+    const dataRemoval = retainData ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY;
 
     const vpc = new Vpc(this, "Vpc", {
       maxAzs: 2, // Aurora needs subnets in two AZs

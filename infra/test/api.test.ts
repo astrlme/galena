@@ -2,13 +2,13 @@ import { App, Validations } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
-import { stages } from "../config/stages.ts";
 import { ApiStack } from "../stacks/api.ts";
+import { fixture } from "./fixture.ts";
 
 // Skip esbuild here; `pnpm infra:synth` bundles for real.
 const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
-const template = Template.fromStack(new ApiStack(app, "Api", { config: stages.dev }));
+const template = Template.fromStack(new ApiStack(app, "Api", { config: fixture }));
 
 test("runs the API on Node 24 arm64 Lambda outside any VPC", () => {
   template.hasResourceProperties("AWS::Lambda::Function", {
@@ -55,7 +55,7 @@ test("generates the origin secret, copies it to the page region, and the API rea
   template.hasResourceProperties("AWS::SecretsManager::Secret", {
     Name: "galena/dev/origin-secret",
     GenerateSecretString: { PasswordLength: 48, ExcludePunctuation: true },
-    ReplicaRegions: [{ Region: stages.dev.pageRegions.primary }],
+    ReplicaRegions: [{ Region: fixture.pageRegions.primary }],
   });
   template.hasResourceProperties("AWS::Lambda::Function", {
     Timeout: 29,

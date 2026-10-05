@@ -2,26 +2,26 @@ import { App, Validations } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
-import { stages } from "../config/stages.ts";
 import { EmailStack } from "../stacks/email.ts";
+import { fixture } from "./fixture.ts";
 
 const app = new App();
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
-const email = stages.dev.email;
+const email = fixture.email;
 if (!email) throw new Error("dev sends email");
 const stack = new EmailStack(app, "Email", {
   env: { region: "eu-central-1", account: "111111111111" },
-  config: { ...stages.dev, email },
+  config: { ...fixture, email },
 });
 const template = Template.fromStack(stack);
 
-test("verifies mail.astrl.me with Easy DKIM and its own MAIL FROM", () => {
+test("verifies mail.example.com with Easy DKIM and its own MAIL FROM", () => {
   template.hasResourceProperties("AWS::SES::EmailIdentity", {
-    EmailIdentity: "mail.astrl.me",
+    EmailIdentity: "mail.example.com",
     DkimAttributes: { SigningEnabled: true },
     DkimSigningAttributes: { NextSigningKeyLength: "RSA_2048_BIT" },
     MailFromAttributes: {
-      MailFromDomain: "bounce.mail.astrl.me",
+      MailFromDomain: "bounce.mail.example.com",
       BehaviorOnMxFailure: "USE_DEFAULT_VALUE",
     },
   });
@@ -50,8 +50,8 @@ test("outputs every DNS record the domain needs", () => {
   );
 });
 
-test("dev sends as status@mail.astrl.me, and a from address must be at the domain", () => {
-  expect(email).toEqual({ domain: "mail.astrl.me", from: "status@mail.astrl.me" });
+test("sends as the configured address, and a from address must be at the domain", () => {
+  expect(email).toEqual({ domain: "mail.example.com", from: "status@mail.example.com" });
 });
 
 test("bounces and complaints reach a Lambda that can use the Data API and nothing else", () => {

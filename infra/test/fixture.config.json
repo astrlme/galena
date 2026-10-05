@@ -1,0 +1,19 @@
+{
+  "stage": "dev",
+  "homeRegion": "eu-central-1",
+  "probeRegions": ["eu-west-1", "eu-west-3", "eu-north-1"],
+  "pageRegions": { "primary": "eu-west-1", "replica": "eu-north-1" },
+  "pageDomain": "status.example.com",
+  "webDomain": "dashboard.example.com",
+  "siteDomain": "www.example.com",
+  "email": { "domain": "mail.example.com", "from": "status@mail.example.com" },
+  "github": {
+    "repository": "example/galena",
+    "oidcSubject": "repo:example@1001/galena@2002",
+    "deployRef": "refs/heads/main"
+  },
+  "telemetryCapacity": { "read": 5, "write": 5 },
+  "auroraMaxAcu": 2,
+  "smoke": true,
+  "retainData": false
+}

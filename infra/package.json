@@ -5,10 +5,9 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "synth": "cdk synth --quiet -c stage=dev",
-    "diff": "cdk diff -c stage=dev",
-    "deploy:dev": "cdk deploy --all -c stage=dev",
-    "deploy:prod": "cdk deploy --all -c stage=prod",
+    "synth": "cdk synth --quiet -c config=test/fixture.config.json",
+    "diff": "cdk diff",
+    "deploy:all": "cdk deploy --all",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

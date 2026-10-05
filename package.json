@@ -32,8 +32,7 @@
     "db:migrate": "pnpm --filter @galena/db migrate",
     "infra:synth": "pnpm --filter @galena/infra synth",
     "infra:diff": "pnpm --filter @galena/infra diff",
-    "deploy:dev": "pnpm --filter @galena/infra deploy:dev",
-    "deploy:prod": "pnpm --filter @galena/infra deploy:prod",
+    "infra:deploy": "pnpm --filter @galena/infra deploy:all",
     "db:seed": "pnpm --filter @galena/api seed",
     "api:generate": "pnpm --filter @galena/api openapi && pnpm --filter @galena/web generate:api"
   },

@@ -16,7 +16,13 @@ const BOOTSTRAP_ROLES = ["deploy", "file-publishing", "lookup"];
 export class CiAccessStack extends Stack {
   readonly deployRole: Role;
 
-  constructor(scope: Construct, id: string, props: StackProps & { config: StageConfig }) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: StackProps & {
+      config: StageConfig & { github: NonNullable<StageConfig["github"]> };
+    },
+  ) {
     super(scope, id, props);
     const { stage, github } = props.config;
 

@@ -1,7 +1,8 @@
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { App, Validations } from "aws-cdk-lib";
 import { AwsSolutionsChecks } from "cdk-nag";
-import { stageConfig } from "../config/stages.ts";
+import { checkRepository, loadConfig } from "../config/stages.ts";
 import { ApiStack } from "../stacks/api.ts";
 import { CiAccessStack } from "../stacks/ci-access.ts";
 import { DetectionStack } from "../stacks/detection.ts";
@@ -14,13 +15,26 @@ import { WebStack } from "../stacks/web.ts";
 import { WorkerAccessStack } from "../stacks/worker-access.ts";
 
 const app = new App();
-const config = stageConfig(app.node.tryGetContext("stage"));
+// `-c config=<path>` (relative to where cdk runs), else galena.config.json at the repository root.
+const config = loadConfig(
+  resolve(
+    app.node.tryGetContext("config") ??
+      fileURLToPath(new URL("../../galena.config.json", import.meta.url)),
+  ),
+);
+checkRepository(config, process.env);
 // Without credentials CDK_DEFAULT_ACCOUNT is unset and the stacks synthesise account-agnostic.
 const account = process.env.CDK_DEFAULT_ACCOUNT;
 const inRegion = (region: string) => ({ region, ...(account ? { account } : {}) });
 const env = inRegion(config.homeRegion);
 
-new CiAccessStack(app, `galena-${config.stage}-ci-access`, { env, config });
+// Only a deployment that deploys from GitHub Actions needs the OIDC deploy role.
+if (config.github) {
+  new CiAccessStack(app, `galena-${config.stage}-ci-access`, {
+    env,
+    config: { ...config, github: config.github },
+  });
+}
 // The probe stacks take the config bucket and the queue from Foundation in another region.
 const foundation = new FoundationStack(app, `galena-${config.stage}-foundation`, {
   env,
@@ -37,8 +51,12 @@ for (const region of config.probeRegions) {
   });
 }
 new DetectionStack(app, `galena-${config.stage}-detection`, { env, config });
-// Only dev runs the deployed smoke test.
-if (config.stage === "dev") new SmokeStack(app, `galena-${config.stage}-smoke`, { env, config });
+if (config.smoke && config.github) {
+  new SmokeStack(app, `galena-${config.stage}-smoke`, {
+    env,
+    config: { ...config, github: config.github },
+  });
+}
 const api = new ApiStack(app, `galena-${config.stage}-api`, { env, config });
 const webCertificate = config.webDomain
   ? new CertificateStack(app, `galena-${config.stage}-dashboard-certificate`, {

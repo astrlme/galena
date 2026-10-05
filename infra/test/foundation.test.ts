@@ -2,8 +2,9 @@ import { App, Validations } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { describe, expect, test } from "vitest";
-import { checkSharedFreeTier, type StageConfig, stages } from "../config/stages.ts";
+import { checkSharedFreeTier, type StageConfig } from "../config/stages.ts";
 import { FoundationStack } from "../stacks/foundation.ts";
+import { fixture, plain } from "./fixture.ts";
 
 function synth(config: StageConfig) {
   const app = new App();
@@ -12,8 +13,8 @@ function synth(config: StageConfig) {
   return { app, template: Template.fromStack(stack) };
 }
 
-const dev = synth(stages.dev);
-const prod = synth(stages.prod);
+const dev = synth(fixture);
+const prod = synth(plain);
 const resources = (type: string) => Object.values(dev.template.findResources(type));
 
 describe("no NAT gateway, no Lambda in a VPC", () => {
@@ -39,7 +40,7 @@ test("Aurora scales to zero, answers the Data API and encrypts storage", () => {
     StorageEncrypted: true,
     ServerlessV2ScalingConfiguration: {
       MinCapacity: 0,
-      MaxCapacity: stages.dev.auroraMaxAcu,
+      MaxCapacity: fixture.auroraMaxAcu,
       SecondsUntilAutoPause: 300,
     },
   });
@@ -60,9 +61,9 @@ test("telemetry is provisioned within the free tier, with TTL", () => {
     ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
     TimeToLiveSpecification: { AttributeName: "ttl", Enabled: true },
   });
-  expect(() => checkSharedFreeTier(Object.values(stages))).not.toThrow();
-  const greedy = { ...stages.prod, telemetryCapacity: { read: 21, write: 20 } };
-  expect(() => checkSharedFreeTier([stages.dev, greedy])).toThrow(/read capacity adds up to 26/);
+  expect(() => checkSharedFreeTier([fixture, plain])).not.toThrow();
+  const greedy = { ...plain, telemetryCapacity: { read: 21, write: 20 } };
+  expect(() => checkSharedFreeTier([fixture, greedy])).toThrow(/read capacity adds up to 26/);
 });
 
 test("check results use a FIFO queue with a FIFO dead-letter queue", () => {
@@ -149,14 +150,14 @@ test("every stage keeps the database, guarded against deletion, with two weeks o
   }
 });
 
-test("prod keeps telemetry and the config bucket when the stack goes; dev does not", () => {
+test("retainData keeps telemetry and the config bucket when the stack goes; without it they go", () => {
   for (const type of ["AWS::DynamoDB::Table", "AWS::S3::Bucket"]) {
     expect(policies(prod.template, type)).toEqual(["Retain"]);
     expect(policies(dev.template, type)).toEqual(["Delete"]);
   }
 });
 
-test("passes cdk-nag AwsSolutions in both stages", () => {
+test("passes cdk-nag AwsSolutions in both deployments", () => {
   expect(() => dev.app.synth()).not.toThrow();
   expect(() => prod.app.synth()).not.toThrow();
 });

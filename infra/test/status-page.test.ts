@@ -2,32 +2,32 @@ import { App, Validations } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
-import { stages } from "../config/stages.ts";
 import { CertificateStack, PageReplicaStack, StatusPageStack } from "../stacks/status-page.ts";
+import { fixture, plain as withoutDomains } from "./fixture.ts";
 
 const app = new App();
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
 const account = "111111111111";
 const replica = new PageReplicaStack(app, "Replica", {
   env: { region: "eu-north-1", account },
-  config: stages.dev,
+  config: fixture,
 });
 const certificateStack = new CertificateStack(app, "Certificate", {
   env: { region: "us-east-1", account },
-  domain: "status.astrl.me",
+  domain: "status.example.com",
   crossRegionReferences: true,
 });
 const page = new StatusPageStack(app, "Page", {
   env: { region: "eu-west-1", account },
-  config: stages.dev,
+  config: fixture,
   certificate: certificateStack.certificate,
   apiEndpoint: "https://abc123.execute-api.eu-central-1.amazonaws.com",
   crossRegionReferences: true,
 });
-// Prod has no domain yet: the default CloudFront name.
+// Without a domain: the default CloudFront name.
 const plain = new StatusPageStack(app, "PlainPage", {
   env: { region: "eu-west-1", account },
-  config: stages.prod,
+  config: withoutDomains,
   apiEndpoint: "https://abc123.execute-api.eu-central-1.amazonaws.com",
 });
 const template = Template.fromStack(page);
@@ -78,9 +78,9 @@ test("CloudFront fails over from the primary to the replica on 403 and 5xx", () 
   expect(config.CustomErrorResponses).toBeUndefined();
 });
 
-test("serves status.astrl.me over TLS 1.2+, with HSTS and no framing", () => {
+test("serves status.example.com over TLS 1.2+, with HSTS and no framing", () => {
   const config = distribution(template);
-  expect(config.Aliases).toEqual(["status.astrl.me"]);
+  expect(config.Aliases).toEqual(["status.example.com"]);
   expect(config.ViewerCertificate.MinimumProtocolVersion).toBe("TLSv1.2_2021");
   expect(config.DefaultCacheBehavior.ViewerProtocolPolicy).toBe("redirect-to-https");
   template.hasResourceProperties("AWS::CloudFront::ResponseHeadersPolicy", {
@@ -97,7 +97,7 @@ test("serves status.astrl.me over TLS 1.2+, with HSTS and no framing", () => {
   });
   Template.fromStack(certificateStack).hasResourceProperties(
     "AWS::CertificateManager::Certificate",
-    { DomainName: "status.astrl.me", ValidationMethod: "DNS" },
+    { DomainName: "status.example.com", ValidationMethod: "DNS" },
   );
 });
 

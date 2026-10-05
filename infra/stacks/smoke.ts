@@ -19,7 +19,13 @@ const GITHUB_OIDC = "token.actions.githubusercontent.com";
  * concurrency 0, so its URL answers 429) and restarts, and the role that workflow assumes.
  */
 export class SmokeStack extends Stack {
-  constructor(scope: Construct, id: string, props: StackProps & { config: StageConfig }) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: StackProps & {
+      config: StageConfig & { github: NonNullable<StageConfig["github"]> };
+    },
+  ) {
     super(scope, id, props);
     const { stage, github, probeRegions } = props.config;
 
