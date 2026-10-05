@@ -1,0 +1,53 @@
+---
+title: CLI
+description: galena init writes a deployment's config; galena doctor checks the deployment against it.
+---
+
+Run the CLI from the repository root with `pnpm galena <command>`. Both commands read and write
+`galena.config.json` there; pass `--config <path>` for another file.
+
+## galena init
+
+Asks a few questions and writes the config. Answers can also be piped in, one per line.
+
+| Question | Becomes |
+| --- | --- |
+| Deployment name | `stage` |
+| Regions: eu or us | `homeRegion`, `probeRegions` and `pageRegions`, from the preset below |
+| Status page domain | `pageDomain`, or nothing to use its CloudFront address |
+| Dashboard domain | `webDomain`, or nothing to use its CloudFront address |
+| Domain email is sent from, and the sender | `email`, or nothing to send no email |
+| trigger.dev project ref | `triggerProjectRef`, or nothing to add it later |
+
+| Preset | Home | Probes | Page, then its replica |
+| --- | --- | --- | --- |
+| `eu` | eu-central-1 | eu-west-1, eu-west-3, eu-north-1 | eu-west-1, eu-north-1 |
+| `us` | us-east-2 | us-east-1, us-west-1, us-west-2 | us-west-2, us-east-1 |
+
+It sets 5 read and 5 write telemetry units and an Aurora ceiling of 2 ACU, and leaves GitHub
+deploys and the smoke test off; edit the file for those (see
+[Configuration](/docs/reference/configuration/)). An answer the config would refuse is asked
+again. It never replaces an existing file unless you pass `--force`.
+
+## galena doctor
+
+Checks a deployment against its config with your AWS credentials, and changes nothing. It reads
+the names of your secrets, never their values. The one exception is the trigger.dev secret key,
+which it uses to list the names of your production variables and never prints.
+
+| Check | What it reads | Not ok when |
+| --- | --- | --- |
+| `node` | The Node version running it | Older than 24 |
+| `aws` | Who your credentials belong to | There are none |
+| `bootstrap` | CDK's bootstrap version in every region the deployment uses, us-east-1 included | A region isn't bootstrapped |
+| `parameters` | The SecureStrings under `/galena/<stage>/` | `auth-secret`, `app-key` or `trigger-secret-key` is missing or not a SecureString. A missing `setup-token` is a warning: only first-run setup needs it |
+| `stacks` | Every stack the config creates, in its region | One is missing or failed. One still updating, or whose last update rolled back, is a warning |
+| `trigger` | The variable names in your trigger.dev project's production environment | One the workers need is missing. Without `triggerProjectRef` it's a warning |
+| `dns` | The CNAME of each custom domain | It doesn't point at its CloudFront distribution (with Cloudflare, also when the record is proxied) |
+| `email` | Your SES identity and account | The domain, DKIM or MAIL FROM isn't verified. SES still in the sandbox is a warning |
+| `telemetry` | Provisioned DynamoDB capacity of every table in the home region, any app's | Past the free tier's 25 read or write units: a warning |
+| `lambda` | Concurrent Lambda executions allowed in the home region | Fewer than 100: a warning |
+
+Each check prints one line, `ok`, `warn` or `fail`, with what to fix under it. `--json` prints
+the checks as an array of `{ id, status, summary, details }` instead. The exit code is 1 when a
+check fails; warnings leave it at 0.

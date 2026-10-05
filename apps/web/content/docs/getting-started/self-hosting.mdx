@@ -18,9 +18,11 @@ about an hour, plus a day for AWS to approve SES production access.
 
 ### Choose regions and names
 
-Copy `infra/test/fixture.config.json` to `galena.config.json` at the repository root and
-replace its values with yours. The file is never committed; see
-[Configuration](/docs/reference/configuration/) for every field.
+Run `pnpm install`, then `pnpm galena init` at the repository root. It asks for a name, a region
+preset, optional domains and your trigger.dev project ref, and writes `galena.config.json`. The
+file is never committed. Edit it for what `init` doesn't ask, such as deploying from GitHub; see
+[Configuration](/docs/reference/configuration/) for every field and the [CLI](/docs/reference/cli/)
+for the presets.
 
 | Setting | Meaning |
 | --- | --- |
@@ -52,7 +54,6 @@ put real traffic on the dashboard.
    certificates:
 
 ```bash
-pnpm install
 pnpm --filter @galena/infra exec cdk bootstrap \
   aws://ACCOUNT/eu-central-1 aws://ACCOUNT/eu-west-1 aws://ACCOUNT/eu-west-3 \
   aws://ACCOUNT/eu-north-1 aws://ACCOUNT/us-east-1
@@ -150,6 +151,7 @@ variables to your trigger.dev project's production environment:
 | `GLN_PAGE_BUCKET`, `GLN_PAGE_REGION` | The primary page bucket and its region |
 | `GLN_PAGE_URL` | Where the status page is reached, for links in feeds and email |
 | `GLN_APP_KEY` | The same value as `/galena/dev/app-key` (secret) |
+| `GLN_TELEMETRY_TABLE` | From SSM: `/galena/dev/telemetry-table` |
 | `GLN_EMAIL_FROM`, `GLN_SES_CONFIGURATION_SET` | The `from` address and `galena-dev`, when email is on |
 | `GLN_TRIGGER_PROJECT_REF` | Your project ref |
 
@@ -182,6 +184,19 @@ With `email`:
    SPF records for the MAIL FROM domain, and a DMARC record.
 2. Request SES production access in the home region. Until AWS approves it, SES only sends to
    addresses you have verified.
+
+</Step>
+<Step>
+
+### Check the deployment
+
+```bash
+pnpm galena doctor
+```
+
+It reads your account, trigger.dev and DNS, changes nothing, and prints one line per check with
+what to fix under any that isn't `ok`. See the [CLI reference](/docs/reference/cli/#galena-doctor)
+for what each check means.
 
 </Step>
 <Step>

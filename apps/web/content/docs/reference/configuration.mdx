@@ -5,7 +5,8 @@ description: The deployment config, SSM parameters, and every environment variab
 
 ## Deployment config
 
-A deployment is described by `galena.config.json`, which is never committed. CDK reads it from
+A deployment is described by `galena.config.json`, which is never committed; `pnpm galena init`
+writes one. CDK reads it from
 the repository root, or from the path in `-c config=<path>`, and validates it with Zod when it
 synthesises. `infra/test/fixture.config.json` is a complete example with every option set.
 
@@ -27,6 +28,7 @@ synthesises. `infra/test/fixture.config.json` is a complete example with every o
 | `auroraMaxAcu` | 1 to 16 | Aurora's capacity ceiling; the floor is 0, so it pauses |
 | `smoke` | boolean, default `false` | Adds the deployed smoke test's target and role; needs `github` |
 | `retainData` | boolean, default `true` | Keeps the telemetry table and the config bucket if their stack is deleted |
+| `triggerProjectRef` | `proj_…`, optional | The trigger.dev project the workers deploy to; the stacks don't use it, and `galena doctor` checks its production variables |
 
 Every deployment keeps 14 days of database backups, turns on deletion protection for the
 database and keeps it if its stack is ever deleted, whatever `retainData` says.
