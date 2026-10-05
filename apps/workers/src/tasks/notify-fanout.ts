@@ -2,6 +2,7 @@ import { logger, queue, task, tasks } from "@trigger.dev/sdk";
 import { db } from "../db.ts";
 import { env } from "../env.ts";
 import { fanOut, fanoutPayload } from "../fanout.ts";
+import { globalKey } from "./keys.ts";
 
 const notify = queue({ name: "notify", concurrencyLimit: 5 });
 // trigger.dev takes up to this many runs per batch call.
@@ -20,10 +21,14 @@ export const notifyFanout = task({
         for (let i = 0; i < requests.length; i += BATCH) {
           await tasks.batchTrigger(
             "notify.email",
-            requests.slice(i, i + BATCH).map(({ subscriberId, notice }) => ({
-              payload: { kind: "notice", subscriberId, notice },
-              options: { idempotencyKey: `send:${notice.eventId}:${subscriberId}` },
-            })),
+            await Promise.all(
+              requests.slice(i, i + BATCH).map(async ({ subscriberId, notice }) => ({
+                payload: { kind: "notice", subscriberId, notice },
+                options: {
+                  idempotencyKey: await globalKey(`send:${notice.eventId}:${subscriberId}`),
+                },
+              })),
+            ),
           );
         }
       },
@@ -33,14 +38,16 @@ export const notifyFanout = task({
           for (let i = 0; i < mine.length; i += BATCH) {
             await tasks.batchTrigger(
               `notify.${kind}`,
-              mine.slice(i, i + BATCH).map(({ endpointId, notice }) => ({
-                payload: { endpointId, notice },
-                options: {
-                  idempotencyKey: `send:${notice.eventId}:${endpointId}`,
-                  // One delivery at a time per destination, so a slow one throttles only itself.
-                  concurrencyKey: `${kind}:${endpointId}`,
-                },
-              })),
+              await Promise.all(
+                mine.slice(i, i + BATCH).map(async ({ endpointId, notice }) => ({
+                  payload: { endpointId, notice },
+                  options: {
+                    idempotencyKey: await globalKey(`send:${notice.eventId}:${endpointId}`),
+                    // One delivery at a time per destination, so a slow one throttles only itself.
+                    concurrencyKey: `${kind}:${endpointId}`,
+                  },
+                })),
+              ),
             );
           }
         }

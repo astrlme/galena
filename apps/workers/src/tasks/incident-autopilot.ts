@@ -1,29 +1,27 @@
 import { incidentRepository } from "@galena/db";
-import { idempotencyKeys, logger, queue, task, tasks, wait } from "@trigger.dev/sdk";
+import { logger, queue, task, tasks, wait } from "@trigger.dev/sdk";
 import { type DraftPayload, draftPayload, settleDraft } from "../autopilot.ts";
 import { db } from "../db.ts";
+import { globalKey } from "./keys.ts";
 
 export const incidents = queue({ name: "incidents", concurrencyLimit: 5 });
 
 /** What a person sends when they answer a draft (from Slack or the dashboard). */
 export type DraftAnswer = { decision: "approve" | "dismiss" };
 
-/**
- * Hands a committed outbox row to `outbox.dispatch`. The key is global: a plain string key
- * triggered inside a task only dedupes within that run.
- */
+/** Hands a committed outbox row to `outbox.dispatch`. */
 export async function dispatchOutbox(outboxId: string) {
   await tasks.trigger(
     "outbox.dispatch",
     { outboxId },
-    { idempotencyKey: await idempotencyKeys.create(`outbox:${outboxId}`, { scope: "global" }) },
+    { idempotencyKey: await globalKey(`outbox:${outboxId}`) },
   );
 }
 
 /** Starts the approval wait for a draft once, however often the transition is retried. */
 export async function awaitApproval(draft: DraftPayload) {
   await tasks.trigger("incident.autopilot", draft, {
-    idempotencyKey: await idempotencyKeys.create(`auto:${draft.incidentId}`, { scope: "global" }),
+    idempotencyKey: await globalKey(`auto:${draft.incidentId}`),
   });
 }
 

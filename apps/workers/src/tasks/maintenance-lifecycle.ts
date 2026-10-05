@@ -1,6 +1,7 @@
 import { logger, queue, task, tasks, wait } from "@trigger.dev/sdk";
 import { db } from "../db.ts";
 import { lifecyclePayload, runMaintenance } from "../maintenance.ts";
+import { globalKey } from "./keys.ts";
 
 const maintenance = queue({ name: "maintenance", concurrencyLimit: 5 });
 
@@ -18,7 +19,7 @@ export const maintenanceLifecycle = task({
         await tasks.trigger(
           "outbox.dispatch",
           { outboxId },
-          { idempotencyKey: `outbox:${outboxId}` },
+          { idempotencyKey: await globalKey(`outbox:${outboxId}`) },
         );
       },
     });

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "../db.ts";
 import { env } from "../env.ts";
 import { dispatchOutbox, localMonitorsFile, s3MonitorsFile } from "../outbox.ts";
+import { globalKey } from "./keys.ts";
 import { triggerPublish } from "./page-publish.ts";
 
 // Known limit: one run at a time for the whole outbox. Each run rebuilds monitors.json from the
@@ -31,7 +32,11 @@ export const outboxDispatch = task({
       writeMonitorsFile,
       runs: {
         start: async (window, idempotencyKey) =>
-          (await tasks.trigger("maintenance.lifecycle", window, { idempotencyKey })).id,
+          (
+            await tasks.trigger("maintenance.lifecycle", window, {
+              idempotencyKey: await globalKey(idempotencyKey),
+            })
+          ).id,
         cancel: async (runId) => {
           await runs.cancel(runId);
         },
@@ -41,11 +46,13 @@ export const outboxDispatch = task({
         await tasks.trigger(
           "notify.email",
           { kind: "confirmation", subscriberId },
-          { idempotencyKey: `send:${eventId}:${subscriberId}` },
+          { idempotencyKey: await globalKey(`send:${eventId}:${subscriberId}`) },
         );
       },
       fanOut: async (event) => {
-        await tasks.trigger("notify.fanout", event, { idempotencyKey: `fan:${event.id}` });
+        await tasks.trigger("notify.fanout", event, {
+          idempotencyKey: await globalKey(`fan:${event.id}`),
+        });
       },
     });
     logger.info("outbox.dispatch", { outboxId: id, outcome });
