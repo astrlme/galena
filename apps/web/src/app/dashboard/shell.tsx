@@ -94,6 +94,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   );
   const [me, setMe] = useState<Me>();
   const [slow, setSlow] = useState(false);
+  const [unreachable, setUnreachable] = useState(false);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -105,6 +106,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       .then(({ data, response }) =>
         response.status === 401 || !data ? router.replace("/sign-in/") : setMe(data),
       )
+      .catch(() => setUnreachable(true))
       .finally(() => clearTimeout(timer));
     return () => clearTimeout(timer);
   }, [router]);
@@ -112,9 +114,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   if (!me) {
     return (
       <p className="p-8 text-[16px] text-slate" aria-live="polite">
-        {slow
-          ? "Waking the database. This takes about 15 seconds after a quiet period."
-          : "Loading your workspace"}
+        {unreachable
+          ? "Couldn't load your workspace. Check your connection, then reload the page."
+          : slow
+            ? "Waking the database. This takes about 15 seconds after a quiet period."
+            : "Loading your workspace"}
       </p>
     );
   }
