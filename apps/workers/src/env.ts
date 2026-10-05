@@ -29,6 +29,9 @@ export const env = z
     GLN_EMAIL_FROM: z.email().optional(),
     GLN_SES_CONFIGURATION_SET: z.string().min(1).default("galena-dev"),
     GLN_MAIL_DIR: z.string().min(1).default(".local/mail"),
+    /** The table the evaluator writes monitor states to. Locally DynamoDB Local's `telemetry`. */
+    GLN_TELEMETRY_TABLE: z.string().min(1).default("telemetry"),
+    GLN_DYNAMODB_ENDPOINT: z.url().optional(),
   })
   .refine((e) => !e.GLN_DB_CLUSTER_ARN || e.GLN_APP_KEY, {
     message: "Workers reaching the Data API need GLN_APP_KEY, the same app key the API reads.",

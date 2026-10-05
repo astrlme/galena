@@ -40,6 +40,7 @@ export {
   advancePageVersion,
   ensurePage,
   findMonitorState,
+  listMonitorStates,
   listMonitorTransitions,
   listUptimeDays,
   loadSnapshotInputs,

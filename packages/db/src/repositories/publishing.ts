@@ -57,6 +57,19 @@ export async function recordMonitorTransition(db: Db, t: MonitorTransition): Pro
   });
 }
 
+/** Every monitor's last recorded state and the transition it came from. */
+export function listMonitorStates(db: Db) {
+  return db
+    .select({
+      id: monitor.id,
+      workspaceId: monitor.workspaceId,
+      state: monitor.state,
+      stateSeq: monitor.stateSeq,
+    })
+    .from(monitor)
+    .orderBy(asc(monitor.id));
+}
+
 /** The monitor's last confirmed state, or undefined once it has been deleted. */
 export async function findMonitorState(db: Db, workspaceId: WorkspaceId, monitorId: MonitorId) {
   const [row] = await db
