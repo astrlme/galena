@@ -1,5 +1,9 @@
+import { resolveCname } from "node:dns/promises";
 import type { Writable } from "node:stream";
 import { CloudFormationClient, DescribeStacksCommand } from "@aws-sdk/client-cloudformation";
+import { DescribeTableCommand, DynamoDBClient, paginateListTables } from "@aws-sdk/client-dynamodb";
+import { GetAccountSettingsCommand, LambdaClient } from "@aws-sdk/client-lambda";
+import { GetAccountCommand, GetEmailIdentityCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import {
   GetParameterCommand,
   ParameterNotFound,
@@ -8,6 +12,7 @@ import {
 } from "@aws-sdk/client-ssm";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { expectedStacks, loadConfig, type StageConfig, stageRegions } from "@galena/infra/config";
+import { z } from "zod";
 
 export type Status = "ok" | "warn" | "fail";
 export type Check = { id: string; status: Status; summary: string; details: string[] };
@@ -60,6 +65,55 @@ export function stackState(status: string | undefined): Status {
 
 /** The secrets made by hand, which the API reads at cold start. */
 const SECRETS = ["auth-secret", "app-key", "trigger-secret-key"];
+
+/** The variables the workers read in trigger.dev's production environment. */
+export function requiredTriggerEnv(config: StageConfig): string[] {
+  return [
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "GLN_HOME_REGION",
+    "GLN_DB_CLUSTER_ARN",
+    "GLN_DB_SECRET_ARN",
+    "GLN_CONFIG_BUCKET",
+    "GLN_PAGE_BUCKET",
+    "GLN_PAGE_REGION",
+    "GLN_PAGE_URL",
+    "GLN_APP_KEY",
+    "GLN_TELEMETRY_TABLE",
+    "GLN_TRIGGER_PROJECT_REF",
+    ...(config.email ? ["GLN_EMAIL_FROM", "GLN_SES_CONFIGURATION_SET"] : []),
+  ];
+}
+
+// trigger.dev lists each variable with its value; parsing keeps the names and drops the rest.
+const variables = z.array(z.object({ name: z.string() }));
+const variableNames = z
+  .union([variables, z.object({ data: variables }).transform(({ data }) => data)])
+  .transform((list) => list.map(({ name }) => name));
+
+type Table = { name: string; read: number; write: number };
+const FREE_UNITS = 25;
+
+/** Provisioned capacity in the home region against the always-free 25 read and 25 write units. */
+export function capacityCheck(
+  tables: Table[],
+  region: string,
+  planned?: { read: number; write: number },
+): Finding {
+  const all = planned ? [...tables, { name: "telemetry (not deployed yet)", ...planned }] : tables;
+  const total = (unit: "read" | "write") => all.reduce((sum, table) => sum + table[unit], 0);
+  const summary = `${total("read")} read and ${total("write")} write units provisioned in ${region}; the free tier covers ${FREE_UNITS} of each`;
+  if (total("read") <= FREE_UNITS && total("write") <= FREE_UNITS) return ok(summary);
+  return judge(
+    summary,
+    all
+      .filter((table) => table.read || table.write)
+      .map((table) => ({
+        status: "warn",
+        text: `${table.name}: ${table.read} read, ${table.write} write`,
+      })),
+  );
+}
 
 /**
  * Checks a deployment without changing anything: names and states only, never a secret's value.
@@ -176,6 +230,170 @@ function checks(config: StageConfig) {
           `${expected.length - findings.length} of ${expected.length} stacks deployed and settled`,
           findings,
         );
+      },
+    ],
+    [
+      "trigger",
+      async () => {
+        const ref = config.triggerProjectRef;
+        if (!ref) {
+          return {
+            status: "warn",
+            summary: "Add triggerProjectRef to the config to check the workers' variables",
+            details: [],
+          };
+        }
+        const { Parameter } = await ssm(home).send(
+          new GetParameterCommand({
+            Name: `/galena/${config.stage}/trigger-secret-key`,
+            WithDecryption: true,
+          }),
+        );
+        const response = await fetch(
+          `https://api.trigger.dev/api/v1/projects/${ref}/envvars/prod`,
+          { headers: { authorization: `Bearer ${Parameter?.Value ?? ""}` } },
+        );
+        if (!response.ok) {
+          return {
+            status: "fail",
+            summary: `trigger.dev answered ${response.status} for ${ref}'s production variables`,
+            details: [],
+          };
+        }
+        const names = new Set(variableNames.parse(await response.json()));
+        const required = requiredTriggerEnv(config);
+        const missing = required.filter((name) => !names.has(name));
+        return judge(
+          `${required.length - missing.length} of ${required.length} variables the workers need are set in ${ref}'s production environment`,
+          missing.map((name) => ({ status: "fail", text: `${name} is not set` })),
+        );
+      },
+    ],
+    [
+      "dns",
+      async () => {
+        const named: [string | undefined, string][] = [
+          [config.pageDomain, "page"],
+          [config.webDomain, "web"],
+          [config.siteDomain, "site"],
+        ];
+        const domains = named.flatMap(([domain, stack]) =>
+          domain ? [{ domain, stack: `galena-${config.stage}-${stack}` }] : [],
+        );
+        if (!domains.length) return ok("No custom domains; the CloudFront addresses serve");
+        const findings = await Promise.all(
+          domains.map(async ({ domain, stack }): Promise<Problem[]> => {
+            const target = stacks.get(stack)?.outputs.DistributionDomain;
+            if (!target) {
+              return [
+                { status: "fail", text: `${domain}: ${stack} has no CloudFront address yet` },
+              ];
+            }
+            const names = await resolveCname(domain).catch((): string[] => []);
+            if (names.some((name) => name.toLowerCase() === target.toLowerCase())) return [];
+            return [
+              {
+                status: "fail",
+                text: `${domain} points to ${names.join(", ") || "no CNAME"}; point it at ${target}, DNS only (not proxied)`,
+              },
+            ];
+          }),
+        );
+        const problems = findings.flat();
+        return judge(
+          `${domains.length - problems.length} of ${domains.length} domains point at their CloudFront distribution`,
+          problems,
+        );
+      },
+    ],
+    [
+      "email",
+      async () => {
+        if (!config.email) return ok("Email is off");
+        const { domain, from } = config.email;
+        const ses = new SESv2Client({ region: home });
+        const identity = await ses
+          .send(new GetEmailIdentityCommand({ EmailIdentity: domain }))
+          .catch((error: unknown) => {
+            if (error instanceof Error && error.name === "NotFoundException") return undefined;
+            throw error;
+          });
+        if (!identity) {
+          return {
+            status: "fail",
+            summary: `${domain} isn't an SES identity in ${home} yet; the email stack creates it`,
+            details: [],
+          };
+        }
+        const findings: Problem[] = [];
+        if (!identity.VerifiedForSendingStatus) {
+          findings.push({ status: "fail", text: `${domain} isn't verified for sending yet` });
+        }
+        const dkim = identity.DkimAttributes?.Status;
+        if (dkim !== "SUCCESS") {
+          findings.push({
+            status: "fail",
+            text: `DKIM is ${dkim ?? "not set up"}; add the three DKIM CNAMEs at your DNS host`,
+          });
+        }
+        const mailFrom = identity.MailFromAttributes?.MailFromDomainStatus;
+        if (mailFrom && mailFrom !== "SUCCESS") {
+          findings.push({
+            status: "warn",
+            text: `The MAIL FROM domain is ${mailFrom}; check its MX and SPF records`,
+          });
+        }
+        const { ProductionAccessEnabled } = await ses.send(new GetAccountCommand({}));
+        if (!ProductionAccessEnabled) {
+          findings.push({
+            status: "warn",
+            text: `SES in ${home} is in the sandbox: mail reaches verified addresses only until AWS grants production access`,
+          });
+        }
+        return judge(`Sending as ${from}`, findings);
+      },
+    ],
+    [
+      "telemetry",
+      async () => {
+        const dynamo = new DynamoDBClient({ region: home });
+        const names: string[] = [];
+        for await (const page of paginateListTables({ client: dynamo }, {})) {
+          names.push(...(page.TableNames ?? []));
+        }
+        const tables = await Promise.all(
+          names.map(async (name): Promise<Table> => {
+            const { Table } = await dynamo.send(new DescribeTableCommand({ TableName: name }));
+            const units = [
+              Table?.ProvisionedThroughput,
+              ...(Table?.GlobalSecondaryIndexes ?? []).map((index) => index.ProvisionedThroughput),
+            ];
+            return {
+              name,
+              read: units.reduce((sum, u) => sum + (u?.ReadCapacityUnits ?? 0), 0),
+              write: units.reduce((sum, u) => sum + (u?.WriteCapacityUnits ?? 0), 0),
+            };
+          }),
+        );
+        const deployed = stacks.get(`galena-${config.stage}-foundation`)?.status !== undefined;
+        return capacityCheck(tables, home, deployed ? undefined : config.telemetryCapacity);
+      },
+    ],
+    [
+      "lambda",
+      async () => {
+        const { AccountLimit } = await new LambdaClient({ region: home }).send(
+          new GetAccountSettingsCommand({}),
+        );
+        const limit = AccountLimit?.ConcurrentExecutions ?? 0;
+        const summary = `${limit} concurrent Lambda executions allowed in ${home}`;
+        if (limit >= 100) return ok(summary);
+        return judge(summary, [
+          {
+            status: "warn",
+            text: "The API, the evaluator and every other function share them; ask for 1000 in Service Quotas (AWS Lambda, Concurrent executions)",
+          },
+        ]);
       },
     ],
   ] satisfies [string, () => Promise<Finding>][];
