@@ -18,8 +18,9 @@ about an hour, plus a day for AWS to approve SES production access.
 
 ### Choose regions and names
 
-Edit `infra/config/stages.ts`. The `dev` stage there is the maintainer's deployment and a worked
-example; replace its values with yours:
+Copy `infra/test/fixture.config.json` to `galena.config.json` at the repository root and
+replace its values with yours. The file is never committed; see
+[Configuration](/docs/reference/configuration/) for every field.
 
 | Setting | Meaning |
 | --- | --- |
@@ -30,7 +31,13 @@ example; replace its values with yours:
 | `pageDomain` | Optional: the status page's own hostname, for example `status.example.com`. |
 | `webDomain` | Optional: the dashboard's own hostname, for example `galena.example.com`. Without it, the dashboard is on its CloudFront address. |
 | `email` | Optional: the domain and address notification email is sent from. Without it, email subscriptions are off. |
-| `telemetryCapacity` | DynamoDB read and write units. Stages in one account share the free tier of 25 each; the config refuses a split that goes over. |
+| `stage` | Your deployment's name, used in every stack and parameter. The steps below use `dev`. |
+| `telemetryCapacity` | DynamoDB read and write units. Deployments in one account and region share the free tier of 25 each. |
+| `smoke`, `retainData` | Leave `smoke` out (it's the maintainer's deployed test). `retainData` keeps the table and config bucket if their stack is deleted. |
+
+A new AWS account allows 10 concurrent Lambda executions per region. Galena's API, evaluator and
+probes share that pool, so ask AWS for more (Service Quotas, "Concurrent executions") before you
+put real traffic on the dashboard.
 
 </Step>
 <Step>
@@ -46,7 +53,7 @@ example; replace its values with yours:
 
 ```bash
 pnpm install
-pnpm --filter @galena/infra exec cdk bootstrap -c stage=dev \
+pnpm --filter @galena/infra exec cdk bootstrap \
   aws://ACCOUNT/eu-central-1 aws://ACCOUNT/eu-west-1 aws://ACCOUNT/eu-west-3 \
   aws://ACCOUNT/eu-north-1 aws://ACCOUNT/us-east-1
 ```
@@ -59,13 +66,14 @@ pnpm --filter @galena/infra exec cdk bootstrap -c stage=dev \
 Deploy the CI stack once from your machine:
 
 ```bash
-pnpm --filter @galena/infra exec cdk deploy galena-dev-ci-access -c stage=dev
+pnpm --filter @galena/infra exec cdk deploy galena-dev-ci-access
 ```
 
 It creates GitHub's OIDC provider and the role `galena-dev-github-deploy`. Only workflows on
 `refs/heads/main` of your fork can assume it, and it can do nothing but assume the CDK bootstrap
 roles. Add its ARN to your fork as the repository variable `AWS_DEPLOY_ROLE_ARN` (Settings,
-Secrets and variables, Actions, Variables).
+Secrets and variables, Actions, Variables), and the whole of `galena.config.json` as the variable
+`GLN_CONFIG`: the Deploy workflow writes it back to the file.
 
 </Step>
 <Step>

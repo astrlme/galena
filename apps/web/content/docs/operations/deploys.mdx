@@ -24,7 +24,8 @@ The deploy role trusts only workflows on `refs/heads/main` of your repository, i
 immutable owner and repository ids, and it can do nothing but assume the CDK bootstrap roles.
 Deploys never overlap: a second run waits for the first.
 
-Deploying from your own machine with `pnpm deploy:dev` works too, with your own credentials.
+Deploying from your own machine with `pnpm infra:deploy` works too, with your own credentials
+and your `galena.config.json`.
 
 ## Migrations
 

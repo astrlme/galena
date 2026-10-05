@@ -70,4 +70,4 @@ Messages that fail five times go to a dead-letter queue.
 DynamoDB is provisioned to stay inside the always-free tier of 25 write units per account and
 region. Each check costs two writes (the result and the state), so the default `dev` split of
 5 units and `prod` split of 20 units hold roughly 50 and 200 monitors across three regions.
-`infra/config/stages.ts` refuses splits that add up to more than the free tier.
+The deployment config refuses a split above the free tier.

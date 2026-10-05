@@ -1,16 +1,17 @@
 ---
 title: Configuration
-description: The stage config, SSM parameters, and every environment variable each app reads.
+description: The deployment config, SSM parameters, and every environment variable each app reads.
 ---
 
-## Stage config
+## Deployment config
 
-`infra/config/stages.ts` defines each stage (`dev`, `prod`) and is validated with Zod when CDK
-synthesises.
+A deployment is described by `galena.config.json`, which is never committed. CDK reads it from
+the repository root, or from the path in `-c config=<path>`, and validates it with Zod when it
+synthesises. `infra/test/fixture.config.json` is a complete example with every option set.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `stage` | `dev` or `prod` | Names every stack and resource |
+| `stage` | lower-case name, up to 20 characters | Names every stack (`galena-<stage>-…`) and parameter (`/galena/<stage>/…`) |
 | `homeRegion` | region | The API, database, queue, detection and the workers' AWS access |
 | `probeRegions` | at least 3 regions | Where checks run |
 | `pageRegions.primary`, `.replica` | regions | The status page's buckets; all three of these and `homeRegion` must differ |
@@ -18,15 +19,17 @@ synthesises.
 | `webDomain` | hostname, optional | The dashboard's own domain; adds a certificate stack in us-east-1 and becomes the public URL |
 | `siteDomain` | hostname, optional | The project's own site: the landing page and docs, without the dashboard. Only the maintainer's deployment sets it; leave it out |
 | `email.domain`, `email.from` | optional | The SES identity, and the sender, which must be an address at that domain |
-| `github.repository` | `owner/name` | Your fork |
-| `github.oidcSubject` | `repo:owner@id/name@id` | The `sub` prefix of GitHub's OIDC tokens for your fork |
+| `github` | optional | Deploying from GitHub Actions: adds the OIDC deploy role. Without it, deploy from your machine with your own credentials |
+| `github.repository` | `owner/name` | Your repository. In Actions, synth refuses a config made for another repository |
+| `github.oidcSubject` | `repo:owner@id/name@id` | The `sub` prefix of GitHub's OIDC tokens for your repository |
 | `github.deployRef` | `refs/…` | The only ref whose workflows may assume the deploy role |
-| `telemetryCapacity.read`, `.write` | integers | DynamoDB units; stages in one region may not add up to more than 25 each |
+| `telemetryCapacity.read`, `.write` | integers | DynamoDB units; deployments in one account and region share the free tier of 25 each |
 | `auroraMaxAcu` | 1 to 16 | Aurora's capacity ceiling; the floor is 0, so it pauses |
+| `smoke` | boolean, default `false` | Adds the deployed smoke test's target and role; needs `github` |
+| `retainData` | boolean, default `true` | Keeps the telemetry table and the config bucket if their stack is deleted |
 
-`prod` has no domain or email by default. Every stage keeps 14 days of database backups, turns
-on deletion protection for the database and keeps it if its stack is ever deleted. A `prod` stage
-also keeps the table and the config bucket.
+Every deployment keeps 14 days of database backups, turns on deletion protection for the
+database and keeps it if its stack is ever deleted, whatever `retainData` says.
 
 ## SSM parameters
 
