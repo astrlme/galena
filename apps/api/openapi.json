@@ -2518,6 +2518,201 @@
         }
       }
     },
+    "/v1/incidents/{id}/decision": {
+      "post": {
+        "tags": [
+          "Incidents"
+        ],
+        "summary": "Publish or dismiss a draft a monitor opened, before its deadline",
+        "description": "Only a draft can be decided. The monitor's own run finds it decided when its deadline comes.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "publish",
+                      "dismiss"
+                    ]
+                  }
+                },
+                "required": [
+                  "decision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The incident, published or dismissed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "investigating",
+                        "identified",
+                        "monitoring",
+                        "resolved",
+                        "postmortem"
+                      ]
+                    },
+                    "impact": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "minor",
+                        "major",
+                        "critical"
+                      ]
+                    },
+                    "visibility": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "published",
+                        "dismissed",
+                        "internal"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "monitor",
+                        "signal"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "resolvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "components": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "componentId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "operational",
+                              "degraded_performance",
+                              "partial_outage",
+                              "major_outage"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "componentId",
+                          "status"
+                        ]
+                      }
+                    },
+                    "approvalDeadline": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "updates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "investigating",
+                              "identified",
+                              "monitoring",
+                              "resolved",
+                              "postmortem"
+                            ]
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "body",
+                          "createdAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "status",
+                    "impact",
+                    "visibility",
+                    "source",
+                    "startedAt",
+                    "resolvedAt",
+                    "updatedAt",
+                    "components",
+                    "approvalDeadline",
+                    "updates"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/maintenances": {
       "get": {
         "tags": [

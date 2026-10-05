@@ -43,6 +43,10 @@ export const incidentUpdateCreate = z.object({
 });
 export type IncidentUpdateCreate = z.infer<typeof incidentUpdateCreate>;
 
+/** A person's answer to a draft a monitor opened. */
+export const incidentDecision = z.object({ decision: z.enum(["publish", "dismiss"]) });
+export type IncidentDecision = z.infer<typeof incidentDecision>;
+
 export const incidentUpdateView = z.object({
   id: incidentUpdateId,
   status: z.enum(incidentStatuses),

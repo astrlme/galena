@@ -3,6 +3,7 @@ import {
   type IncidentEventType,
   type IncidentUpdateId,
   incidentCreate,
+  incidentDecision,
   incidentId,
   incidentSummary,
   incidentUpdateCreate,
@@ -237,4 +238,52 @@ export function registerIncidentRoutes(app: App, deps: Deps) {
       return c.json(toView(updated ?? notFound("Incident")), 201);
     },
   );
+
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/v1/incidents/{id}/decision",
+      tags: ["Incidents"],
+      summary: "Publish or dismiss a draft a monitor opened, before its deadline",
+      description:
+        "Only a draft can be decided. The monitor's own run finds it decided when its deadline comes.",
+      middleware: [editor],
+      request: { params: z.object({ id: incidentId }), ...jsonBody(incidentDecision) },
+      responses: { 200: json(incidentView, "The incident, published or dismissed") },
+    }),
+    async (c) => {
+      const member = c.get("member");
+      const { id } = c.req.valid("param");
+      const { decision } = c.req.valid("json");
+      const draft = (await incidents.findById(member.workspaceId, id)) ?? notFound("Incident");
+      const latest = draft.updates[0];
+      if (draft.visibility !== "draft" || !latest) notDraft();
+      const visibility = decision === "publish" ? "published" : "dismissed";
+      let decided = false;
+      await commit(
+        deps,
+        incidentChange(member, "incident.updated", { ...draft, visibility }, latest.id),
+        async (tx) => {
+          decided = await incidentRepository(tx).decide(member.workspaceId, id, visibility);
+          // Roll back the audit entry and the event too.
+          if (!decided) throw new StaleIncident();
+        },
+      ).catch((error: unknown) => {
+        if (!(error instanceof StaleIncident)) throw error;
+      });
+      if (!decided) notDraft();
+      const after = await incidents.findById(member.workspaceId, id);
+      return c.json(toView(after ?? notFound("Incident")), 200);
+    },
+  );
+}
+
+/** Published, dismissed or internal already, by a person or by the deadline. */
+function notDraft(): never {
+  return fail({
+    status: 409,
+    code: "not_a_draft",
+    title: "Not a draft",
+    detail: "This incident was already published or dismissed. Reload it to see where it stands.",
+  });
 }

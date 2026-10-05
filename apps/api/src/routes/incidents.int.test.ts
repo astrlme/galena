@@ -1,6 +1,7 @@
-import { schema } from "@galena/db";
+import { componentId, incidentId, incidentUpdateId, workspaceId } from "@galena/contracts";
+import { incidentRepository, schema } from "@galena/db";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { eq, like } from "drizzle-orm";
+import { eq, like, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createApp, type Deps } from "../app.ts";
@@ -149,6 +150,66 @@ test.each([
     422,
     code,
   );
+});
+
+test("a person publishes or dismisses a monitor's draft before its deadline, once", async () => {
+  const [ws] = await deps.db.select({ id: schema.workspace.id }).from(schema.workspace);
+  const draft = async (title: string) => {
+    const id = incidentId.parse(v7());
+    const now = new Date();
+    await incidentRepository(deps.db).createOnce(
+      {
+        id,
+        workspaceId: workspaceId.parse(ws?.id),
+        title,
+        impact: "major",
+        visibility: "draft",
+        source: "monitor",
+        startedAt: now,
+        dedupKey: `mon:${v7()}`,
+        approvalDeadline: new Date(now.getTime() + 600_000),
+      },
+      {
+        update: {
+          id: incidentUpdateId.parse(v7()),
+          status: "investigating",
+          body: "We're seeing failed checks on API.",
+          createdAt: now,
+          createdByUserId: null,
+        },
+        stage: { status: "investigating", resolvedAt: null },
+        components: [{ componentId: componentId.parse(api), status: "major_outage" }],
+      },
+    );
+    return id;
+  };
+  const decide = (id: string, decision: string) =>
+    owner.call(`/v1/incidents/${id}/decision`, { decision });
+
+  const published = await draft("API is down");
+  const before = triggered.length;
+  const view = await decide(published, "publish");
+  expect(view.status, await view.clone().text()).toBe(200);
+  expect(await view.json()).toMatchObject({ visibility: "published", approvalDeadline: null });
+  // The change goes out like any other: an outbox row, then the dispatch.
+  const [event] = await deps.db
+    .select({ payload: schema.outbox.payload })
+    .from(schema.outbox)
+    .where(sql`${schema.outbox.payload}->'data'->>'incidentId' = ${published}`);
+  expect(event?.payload).toMatchObject({
+    type: "incident.updated",
+    data: { incidentId: published, visibility: "published" },
+  });
+  expect(triggered.length).toBe(before + 1);
+
+  const dismissed = await draft("API is down again");
+  expect(await (await decide(dismissed, "dismiss")).json()).toMatchObject({
+    visibility: "dismissed",
+  });
+  // Already decided, by a person or by the deadline.
+  await expectProblem(await decide(dismissed, "publish"), 409, "not_a_draft");
+  const manual = await post("/v1/incidents", { title: "Slow", impact: "minor", body: "Looking." });
+  await expectProblem(await decide(manual.id, "dismiss"), 409, "not_a_draft");
 });
 
 test("answers 404 for an incident that doesn't exist", async () => {

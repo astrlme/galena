@@ -1280,6 +1280,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/incidents/{id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish or dismiss a draft a monitor opened, before its deadline
+         * @description Only a draft can be decided. The monitor's own run finds it decided when its deadline comes.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        decision: "publish" | "dismiss";
+                    };
+                };
+            };
+            responses: {
+                /** @description The incident, published or dismissed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            title: string;
+                            /** @enum {string} */
+                            status: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem";
+                            /** @enum {string} */
+                            impact: "none" | "minor" | "major" | "critical";
+                            /** @enum {string} */
+                            visibility: "draft" | "published" | "dismissed" | "internal";
+                            /** @enum {string} */
+                            source: "manual" | "monitor" | "signal";
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** Format: date-time */
+                            resolvedAt: string | null;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            components: {
+                                /** Format: uuid */
+                                componentId: string;
+                                /** @enum {string} */
+                                status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
+                            }[];
+                            /** Format: date-time */
+                            approvalDeadline: string | null;
+                            updates: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                status: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem";
+                                body: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/maintenances": {
         parameters: {
             query?: never;
