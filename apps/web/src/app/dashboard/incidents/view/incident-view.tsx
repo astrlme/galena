@@ -77,7 +77,9 @@ export function IncidentView() {
           )}
           .
         </p>
-        <VisibilityNote visibility={shown.visibility} approvalDeadline={shown.approvalDeadline} />
+        {shown.visibility !== "draft" && (
+          <VisibilityNote visibility={shown.visibility} approvalDeadline={null} />
+        )}
       </div>
       {shown.components.length > 0 && (
         <ul aria-label="Affected components" className="mt-4 flex flex-wrap gap-3">
@@ -88,6 +90,7 @@ export function IncidentView() {
           ))}
         </ul>
       )}
+      {shown.visibility === "draft" && <ApprovalCard incident={shown} />}
       <UpdateForm key={shown.updates.length} incident={shown} components={all} />
       <section aria-labelledby="updates" className="mt-8">
         <h2 id="updates" className="border-b border-mist pb-2 text-[19px] font-semibold">
@@ -179,7 +182,12 @@ function UpdateForm({
         registration={form.register("body")}
       />
       <div>
-        <Button type="submit" variant="primary" disabled={post.isPending}>
+        {/* On a draft, approving is the view's one primary action. */}
+        <Button
+          type="submit"
+          variant={incident.visibility === "draft" ? "secondary" : "primary"}
+          disabled={post.isPending}
+        >
           {post.isPending ? "Posting…" : "Post update"}
         </Button>
       </div>
@@ -191,3 +199,53 @@ function UpdateForm({
 }
 
 const errors = (...messages: (string | undefined)[]) => messages.find(Boolean);
+
+/** A draft a monitor opened, waiting for a person: publish it now, or dismiss it. */
+function ApprovalCard({ incident }: { incident: Incident }) {
+  const queryClient = useQueryClient();
+  const decide = useMutation({
+    mutationFn: (decision: "publish" | "dismiss") =>
+      unwrap(
+        api.POST("/v1/incidents/{id}/decision", {
+          params: { path: { id: incident.id } },
+          body: { decision },
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["incidents"] }),
+  });
+  return (
+    <section
+      aria-labelledby="approval-title"
+      className="mt-6 flex max-w-[640px] flex-col gap-3 rounded-xl border border-mist bg-surface p-4"
+    >
+      <h2 id="approval-title" className="text-[16px] font-semibold">
+        Draft from a monitor
+      </h2>
+      <p className="text-[14px]">
+        {incident.approvalDeadline ? (
+          <>
+            Publishes automatically at <Time iso={incident.approvalDeadline} /> unless you approve
+            or dismiss it sooner.
+          </>
+        ) : (
+          "Not on the status page until you approve it."
+        )}
+      </p>
+      <div className="flex flex-wrap gap-3">
+        <Button
+          variant="primary"
+          disabled={decide.isPending}
+          onClick={() => decide.mutate("publish")}
+        >
+          Approve and publish
+        </Button>
+        <Button disabled={decide.isPending} onClick={() => decide.mutate("dismiss")}>
+          Dismiss
+        </Button>
+      </div>
+      <p role="alert" className="text-[14px] font-semibold empty:hidden">
+        {decide.error?.message}
+      </p>
+    </section>
+  );
+}

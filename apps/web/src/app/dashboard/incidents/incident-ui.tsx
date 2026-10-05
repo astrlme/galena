@@ -70,7 +70,8 @@ export function VisibilityNote(props: {
   if (props.visibility === "draft" && props.approvalDeadline) {
     return (
       <span className="text-[14px]">
-        Draft. Publishes at <Time iso={props.approvalDeadline} /> if the monitor is still down.
+        Draft. Publishes automatically at <Time iso={props.approvalDeadline} /> unless you approve
+        or dismiss it sooner.
       </span>
     );
   }
