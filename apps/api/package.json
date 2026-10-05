@@ -10,6 +10,7 @@
     "test": "vitest run",
     "seed": "node src/seed.ts",
     "draft:local": "node src/local-draft.ts",
+    "member:local": "node src/local-member.ts",
     "openapi": "node src/openapi.ts"
   },
   "dependencies": {
