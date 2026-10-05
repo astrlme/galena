@@ -9,7 +9,9 @@ import { globalKey } from "./keys.ts";
  */
 export const outboxSweep = schedules.task({
   id: "outbox.sweep",
-  cron: "5 * * * *",
+  // Zero window: trigger.dev spreads new schedules across the hour by default, and both hourly
+  // tasks must share minute 5 so Aurora wakes once.
+  cron: { pattern: "5 * * * *", window: "0m" },
   run: async ({ timestamp }) => {
     const hour = timestamp.toISOString().slice(0, 13);
     const result = await sweepOutbox({

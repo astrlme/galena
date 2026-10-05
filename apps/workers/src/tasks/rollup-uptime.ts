@@ -28,7 +28,9 @@ const readStates = dynamoStates(DynamoDBDocumentClient.from(dynamo), env.GLN_TEL
  */
 export const rollupUptimeTask = schedules.task({
   id: "rollup.uptime",
-  cron: "5 * * * *",
+  // Zero window: trigger.dev spreads new schedules across the hour by default, and both hourly
+  // tasks must share minute 5 so Aurora wakes once.
+  cron: { pattern: "5 * * * *", window: "0m" },
   run: async () => {
     const clock = { now: () => new Date() };
     // A failed read must not hold up the rollup; the next hour tries again.
