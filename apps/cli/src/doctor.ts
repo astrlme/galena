@@ -1,24 +1,22 @@
 import { resolveCname } from "node:dns/promises";
 import type { Writable } from "node:stream";
-import { CloudFormationClient, DescribeStacksCommand } from "@aws-sdk/client-cloudformation";
 import { DescribeTableCommand, DynamoDBClient, paginateListTables } from "@aws-sdk/client-dynamodb";
 import { GetAccountSettingsCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { GetAccountCommand, GetEmailIdentityCommand, SESv2Client } from "@aws-sdk/client-sesv2";
-import {
-  GetParameterCommand,
-  ParameterNotFound,
-  paginateDescribeParameters,
-  SSMClient,
-} from "@aws-sdk/client-ssm";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
-import { expectedStacks, loadConfig, type StageConfig, stageRegions } from "@galena/infra/config";
-import { z } from "zod";
+import { expectedStacks, loadConfig, type StageConfig } from "@galena/infra/config";
+import {
+  bootstrapVersions,
+  parameterTypes,
+  readStacks,
+  type Stack,
+  triggerVariableNames,
+} from "./aws.ts";
 
 export type Status = "ok" | "warn" | "fail";
 export type Check = { id: string; status: Status; summary: string; details: string[] };
 type Finding = Omit<Check, "id">;
 type Problem = { status: Status; text: string };
-type Stack = { status?: string; outputs: Record<string, string> };
 
 const ok = (summary: string, details: string[] = []): Finding => ({
   status: "ok",
@@ -33,19 +31,7 @@ function judge(summary: string, findings: Problem[]): Finding {
   return { status, summary, details: findings.map((f) => f.text) };
 }
 
-/** One client per region, made when first needed. */
-function perRegion<T>(make: (region: string) => T): (region: string) => T {
-  const made = new Map<string, T>();
-  return (region) => {
-    const known = made.get(region);
-    if (known) return known;
-    const client = make(region);
-    made.set(region, client);
-    return client;
-  };
-}
-
-const describeError = (error: unknown) =>
+export const describeError = (error: unknown) =>
   error instanceof Error
     ? `${error.name === "Error" ? "" : `${error.name}: `}${error.message}`
     : String(error);
@@ -85,12 +71,6 @@ export function requiredTriggerEnv(config: StageConfig): string[] {
   ];
 }
 
-// trigger.dev lists each variable with its value; parsing keeps the names and drops the rest.
-const variables = z.array(z.object({ name: z.string() }));
-const variableNames = z
-  .union([variables, z.object({ data: variables }).transform(({ data }) => data)])
-  .transform((list) => list.map(({ name }) => name));
-
 type Table = { name: string; read: number; write: number };
 const FREE_UNITS = 25;
 
@@ -121,9 +101,7 @@ export function capacityCheck(
  */
 function checks(config: StageConfig) {
   const home = config.homeRegion;
-  const ssm = perRegion((region) => new SSMClient({ region }));
-  const cloudFormation = perRegion((region) => new CloudFormationClient({ region }));
-  const stacks = new Map<string, Stack>();
+  let stacks = new Map<string, Stack>();
 
   return [
     ["node", async () => nodeCheck()],
@@ -139,23 +117,12 @@ function checks(config: StageConfig) {
     [
       "bootstrap",
       async () => {
-        const regions = stageRegions(config);
-        const versions = await Promise.all(
-          regions.map((region) =>
-            ssm(region)
-              .send(new GetParameterCommand({ Name: "/cdk-bootstrap/hnb659fds/version" }))
-              .then(({ Parameter }) => Parameter?.Value)
-              .catch((error: unknown) => {
-                if (error instanceof ParameterNotFound) return undefined;
-                throw error;
-              }),
-          ),
-        );
-        const missing = regions.filter((_, i) => !versions[i]);
+        const versions = await bootstrapVersions(config);
+        const missing = [...versions].flatMap(([region, version]) => (version ? [] : [region]));
         return judge(
           missing.length
-            ? `${missing.length} of ${regions.length} regions aren't bootstrapped for CDK`
-            : `${regions.length} regions bootstrapped for CDK (version ${versions[0]})`,
+            ? `${missing.length} of ${versions.size} regions aren't bootstrapped for CDK`
+            : `${versions.size} regions bootstrapped for CDK (version ${[...versions.values()][0]})`,
           missing.map((region) => ({
             status: "fail",
             text: `${region}: run cdk bootstrap aws://<account>/${region}`,
@@ -167,13 +134,7 @@ function checks(config: StageConfig) {
       "parameters",
       async () => {
         const prefix = `/galena/${config.stage}`;
-        const types = new Map<string, string>();
-        for await (const page of paginateDescribeParameters(
-          { client: ssm(home) },
-          { ParameterFilters: [{ Key: "Path", Option: "OneLevel", Values: [prefix] }] },
-        )) {
-          for (const { Name, Type } of page.Parameters ?? []) if (Name) types.set(Name, Type ?? "");
-        }
+        const types = await parameterTypes(config);
         const findings = SECRETS.flatMap((name): Problem[] => {
           const type = types.get(`${prefix}/${name}`);
           if (type === "SecureString") return [];
@@ -184,15 +145,8 @@ function checks(config: StageConfig) {
             },
           ];
         });
-        if (!types.has(`${prefix}/setup-token`)) {
-          findings.push({
-            status: "warn",
-            text: `${prefix}/setup-token is missing; only first-run setup needs it`,
-          });
-        }
-        const good = SECRETS.length - findings.filter((f) => f.status === "fail").length;
         return judge(
-          `${good} of ${SECRETS.length} secrets are SecureStrings under ${prefix}/`,
+          `${SECRETS.length - findings.length} of ${SECRETS.length} secrets are SecureStrings under ${prefix}/`,
           findings,
         );
       },
@@ -201,24 +155,7 @@ function checks(config: StageConfig) {
       "stacks",
       async () => {
         const expected = expectedStacks(config);
-        await Promise.all(
-          expected.map(async ({ id, region }) => {
-            const found = await cloudFormation(region)
-              .send(new DescribeStacksCommand({ StackName: id }))
-              .then(({ Stacks }) => Stacks?.[0])
-              // CloudFormation answers a ValidationError for a stack that doesn't exist.
-              .catch((error: unknown) => {
-                if (error instanceof Error && error.name === "ValidationError") return undefined;
-                throw error;
-              });
-            stacks.set(id, {
-              ...(found?.StackStatus ? { status: found.StackStatus } : {}),
-              outputs: Object.fromEntries(
-                (found?.Outputs ?? []).map((o) => [o.OutputKey ?? "", o.OutputValue ?? ""]),
-              ),
-            });
-          }),
-        );
+        stacks = await readStacks(config);
         const findings = expected.flatMap(({ id, region }) => {
           const status = stacks.get(id)?.status;
           const state = stackState(status);
@@ -243,24 +180,7 @@ function checks(config: StageConfig) {
             details: [],
           };
         }
-        const { Parameter } = await ssm(home).send(
-          new GetParameterCommand({
-            Name: `/galena/${config.stage}/trigger-secret-key`,
-            WithDecryption: true,
-          }),
-        );
-        const response = await fetch(
-          `https://api.trigger.dev/api/v1/projects/${ref}/envvars/prod`,
-          { headers: { authorization: `Bearer ${Parameter?.Value ?? ""}` } },
-        );
-        if (!response.ok) {
-          return {
-            status: "fail",
-            summary: `trigger.dev answered ${response.status} for ${ref}'s production variables`,
-            details: [],
-          };
-        }
-        const names = new Set(variableNames.parse(await response.json()));
+        const names = await triggerVariableNames({ ...config, triggerProjectRef: ref });
         const required = requiredTriggerEnv(config);
         const missing = required.filter((name) => !names.has(name));
         return judge(

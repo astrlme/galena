@@ -40,7 +40,7 @@ which it uses to list the names of your production variables and never prints.
 | `node` | The Node version running it | Older than 24 |
 | `aws` | Who your credentials belong to | There are none |
 | `bootstrap` | CDK's bootstrap version in every region the deployment uses, us-east-1 included | A region isn't bootstrapped |
-| `parameters` | The SecureStrings under `/galena/<stage>/` | `auth-secret`, `app-key` or `trigger-secret-key` is missing or not a SecureString. A missing `setup-token` is a warning: only first-run setup needs it |
+| `parameters` | The SecureStrings under `/galena/<stage>/` | `auth-secret`, `app-key` or `trigger-secret-key` is missing or not a SecureString |
 | `stacks` | Every stack the config creates, in its region | One is missing or failed. One still updating, or whose last update rolled back, is a warning |
 | `trigger` | The variable names in your trigger.dev project's production environment | One the workers need is missing. Without `triggerProjectRef` it's a warning |
 | `dns` | The CNAME of each custom domain | It doesn't point at its CloudFront distribution (with Cloudflare, also when the record is proxied) |
