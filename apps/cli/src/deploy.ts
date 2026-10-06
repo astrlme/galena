@@ -1,6 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
+import { setTimeout } from "node:timers/promises";
+import {
+  ACMClient,
+  type CertificateDetail,
+  DescribeCertificateCommand,
+  ListCertificatesCommand,
+} from "@aws-sdk/client-acm";
 import { loadConfig, type StageConfig } from "@galena/infra/config";
 import {
   bootstrapVersions,
@@ -82,6 +89,83 @@ async function createSecrets(
   );
 }
 
+/** The config's own domains, which get certificates in us-east-1. */
+const domainsOf = (config: StageConfig) =>
+  [config.pageDomain, config.webDomain, config.siteDomain].filter((d): d is string => !!d);
+
+/** The CNAMEs that validate pending certificates for `domains`, once ACM has made them. */
+export function validationRecords(
+  domains: string[],
+  certificates: (CertificateDetail | undefined)[],
+): { domain: string; name: string; value: string }[] {
+  return certificates.flatMap((certificate) =>
+    (certificate?.DomainValidationOptions ?? []).flatMap(({ DomainName, ResourceRecord }) =>
+      DomainName && domains.includes(DomainName) && ResourceRecord?.Name && ResourceRecord.Value
+        ? [{ domain: DomainName, name: ResourceRecord.Name, value: ResourceRecord.Value }]
+        : [],
+    ),
+  );
+}
+
+/**
+ * While CDK runs, prints each validation record once: CloudFormation waits until the record
+ * exists at the DNS host, and ACM only names it after the certificate is created.
+ */
+async function watchCertificates(config: StageConfig, say: Say, signal: AbortSignal) {
+  const domains = domainsOf(config);
+  if (!domains.length) return;
+  const acm = new ACMClient({ region: "us-east-1" });
+  const printed = new Set<string>();
+  while (!signal.aborted) {
+    const { CertificateSummaryList = [] } = await acm.send(
+      new ListCertificatesCommand({ CertificateStatuses: ["PENDING_VALIDATION"] }),
+    );
+    const pending = await Promise.all(
+      CertificateSummaryList.filter((c) => c.DomainName && domains.includes(c.DomainName)).map(
+        (c) =>
+          acm
+            .send(new DescribeCertificateCommand({ CertificateArn: c.CertificateArn }))
+            .then(({ Certificate }) => Certificate),
+      ),
+    );
+    for (const { domain, name, value } of validationRecords(domains, pending)) {
+      if (printed.has(name)) continue;
+      printed.add(name);
+      say(
+        `\nThe certificate for ${domain} waits for this record at your DNS host (DNS only):\n  CNAME  ${name}  ${value}\n`,
+      );
+    }
+    await setTimeout(15_000, undefined, { signal }).catch(() => undefined);
+  }
+}
+
+/** Builds the dashboard (and the project site, if it has a domain), then deploys every stack. */
+async function deployStacks(config: Deployment, configPath: string, say: Say) {
+  await pnpm(["--filter", "@galena/web", "build"]);
+  if (config.siteDomain) await pnpm(["--filter", "@galena/web", "build"], { GLN_SITE: "project" });
+  const stop = new AbortController();
+  const watching = watchCertificates(config, say, stop.signal).catch((error: unknown) =>
+    say(`Couldn't read the certificates' validation records: ${describeError(error)}`),
+  );
+  try {
+    await pnpm([
+      "--filter",
+      "@galena/infra",
+      "exec",
+      "cdk",
+      "deploy",
+      "--all",
+      "--require-approval",
+      "never",
+      "-c",
+      `config=${configPath}`,
+    ]);
+  } finally {
+    stop.abort();
+    await watching;
+  }
+}
+
 /**
  * Deploys the config's deployment, or upgrades it: each step checks first and skips what is
  * already done. It prints no secret, and stores the ones it makes only in SSM.
@@ -107,8 +191,10 @@ export async function deploy(
       `Deploying ${config.stage} to account ${account} as ${arn}. Running this again upgrades it.`,
     );
 
-    await bootstrap(config, account, resolve(path), say);
+    const configPath = resolve(path);
+    await bootstrap(config, account, configPath, say);
     await createSecrets(config, await readStacks(config), say, askHidden);
+    await deployStacks(config, configPath, say);
     return 0;
   } catch (error) {
     say(describeError(error));
