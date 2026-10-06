@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { deploy } from "./deploy.ts";
 import { doctor } from "./doctor.ts";
 import { init } from "./init.ts";
 
@@ -9,6 +10,7 @@ const HELP = `Usage: galena <command> [options]
 Commands:
   init     Write galena.config.json for a new deployment
   doctor   Check a deployment against its config, changing nothing
+  deploy   Deploy the config's deployment, or upgrade it
 
 Options:
   --config <path>  The deployment's config file (default: galena.config.json)
@@ -37,6 +39,9 @@ const path = resolve(values.config);
 switch (values.help ? "help" : positionals[0]) {
   case "init":
     process.exitCode = await init(path, { force: values.force });
+    break;
+  case "deploy":
+    process.exitCode = await deploy(path);
     break;
   case "doctor":
     process.exitCode = await doctor(path, { json: values.json });

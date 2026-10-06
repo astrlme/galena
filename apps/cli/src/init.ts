@@ -1,8 +1,8 @@
 import { existsSync, writeFileSync } from "node:fs";
-import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
 import { type StageConfig, stageSchema } from "@galena/infra/config";
 import type { ZodType } from "zod";
+import { type Check, prompter } from "./prompt.ts";
 
 type Regions = Pick<StageConfig, "homeRegion" | "probeRegions" | "pageRegions">;
 
@@ -48,8 +48,6 @@ export function buildConfig(answers: Answers): StageConfig {
   });
 }
 
-type Check = (answer: string) => string | undefined;
-
 /** Why the config would refuse `value` there, if it would. */
 const refusal = (schema: ZodType, value: unknown) => {
   const { error } = schema.safeParse(value);
@@ -74,25 +72,11 @@ export async function init(
     output = process.stdout,
   }: { force?: boolean; input?: Readable; output?: Writable } = {},
 ): Promise<number> {
-  const say = (text: string) => output.write(`${text}\n`);
+  const { say, ask } = prompter(input, output);
   if (existsSync(path) && !force) {
     say(`${path} already exists. Run galena init --force to replace it.`);
     return 1;
   }
-  const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY })[
-    Symbol.asyncIterator
-  ]();
-  const ask = async (question: string, check: Check, fallback = "") => {
-    for (;;) {
-      output.write(fallback ? `${question} [${fallback}]: ` : `${question}: `);
-      const next = await lines.next();
-      if (next.done) throw new Error("The answers ended before every question was asked.");
-      const answer = (next.value as string).trim() || fallback;
-      const problem = check(answer);
-      if (problem === undefined) return answer;
-      say(problem);
-    }
-  };
   const { shape } = stageSchema;
   try {
     const stage = await ask(

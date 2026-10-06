@@ -3,10 +3,10 @@ import type { Writable } from "node:stream";
 import { DescribeTableCommand, DynamoDBClient, paginateListTables } from "@aws-sdk/client-dynamodb";
 import { GetAccountSettingsCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { GetAccountCommand, GetEmailIdentityCommand, SESv2Client } from "@aws-sdk/client-sesv2";
-import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { expectedStacks, loadConfig, type StageConfig } from "@galena/infra/config";
 import {
   bootstrapVersions,
+  callerIdentity,
   parameterTypes,
   readStacks,
   type Stack,
@@ -108,10 +108,8 @@ function checks(config: StageConfig) {
     [
       "aws",
       async () => {
-        const { Account, Arn } = await new STSClient({ region: home }).send(
-          new GetCallerIdentityCommand({}),
-        );
-        return ok(`${Arn} in account ${Account}`);
+        const { account, arn } = await callerIdentity(home);
+        return ok(`${arn} in account ${account}`);
       },
     ],
     [

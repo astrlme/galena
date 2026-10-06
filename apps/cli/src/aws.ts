@@ -1,10 +1,13 @@
 import { CloudFormationClient, DescribeStacksCommand } from "@aws-sdk/client-cloudformation";
 import {
   GetParameterCommand,
+  ParameterAlreadyExists,
   ParameterNotFound,
+  PutParameterCommand,
   paginateDescribeParameters,
   SSMClient,
 } from "@aws-sdk/client-ssm";
+import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { expectedStacks, type StageConfig, stageRegions } from "@galena/infra/config";
 import { z } from "zod";
 
@@ -29,6 +32,28 @@ const missingParameter = (error: unknown) => {
   if (error instanceof ParameterNotFound) return undefined;
   throw error;
 };
+
+/** Who the AWS credentials belong to. */
+export async function callerIdentity(region: string): Promise<{ account: string; arn: string }> {
+  const { Account, Arn } = await new STSClient({ region }).send(new GetCallerIdentityCommand({}));
+  return { account: Account ?? "", arn: Arn ?? "" };
+}
+
+/** Stores a new SecureString under `/galena/<stage>/`; one that already exists is kept as is. */
+export async function putSecret(config: StageConfig, name: string, value: string): Promise<void> {
+  await ssm(config.homeRegion)
+    .send(
+      new PutParameterCommand({
+        Name: `/galena/${config.stage}/${name}`,
+        Value: value,
+        Type: "SecureString",
+        Overwrite: false,
+      }),
+    )
+    .catch((error: unknown) => {
+      if (!(error instanceof ParameterAlreadyExists)) throw error;
+    });
+}
 
 /** Each region's CDK bootstrap version, undefined where CDK isn't bootstrapped. */
 export async function bootstrapVersions(
