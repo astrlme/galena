@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
-import { newSecret, secretsToMake, validationRecords } from "./deploy.ts";
+import { newSecret, secretsToMake, validationRecords, workerVariables } from "./deploy.ts";
+import { requiredTriggerEnv } from "./doctor.ts";
 import { buildConfig } from "./init.ts";
 
 const config = buildConfig({ stage: "demo", preset: "eu" });
@@ -41,4 +42,46 @@ test("names the validation CNAMEs of the config's own domains once ACM has them"
       value: "_a.demo.example.com.acm.aws.",
     },
   ]);
+});
+
+test("sets exactly the variables doctor checks the workers for, secrets apart", () => {
+  const sources = (email: boolean) => ({
+    parameters: {
+      "database-cluster-arn": "arn:aws:rds:eu-central-1:1:cluster:c",
+      "database-secret-arn": "arn:aws:secretsmanager:eu-central-1:1:secret:s",
+      "config-bucket": "config",
+      "telemetry-table": "telemetry",
+    },
+    stacks: new Map([
+      [
+        "galena-demo-page",
+        { outputs: { PageBucket: "pages", DistributionDomain: "d1.cloudfront.net" } },
+      ],
+      ...(email
+        ? [["galena-demo-email", { outputs: { ConfigurationSetName: "galena-demo" } }] as const]
+        : []),
+    ]),
+    appKey: "app-key",
+    accessKey: { id: "id", secret: "secret" },
+  });
+  for (const email of [false, true]) {
+    const deployment = {
+      ...buildConfig({
+        stage: "demo",
+        preset: "eu",
+        ...(email ? { emailDomain: "mail.example.com" } : {}),
+      }),
+      triggerProjectRef: "proj_demo",
+    };
+    const { plain, secret } = workerVariables(deployment, sources(email));
+    expect(Object.keys({ ...plain, ...secret }).sort()).toEqual(
+      requiredTriggerEnv(deployment).sort(),
+    );
+    expect(Object.keys(secret).sort()).toEqual([
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+      "GLN_APP_KEY",
+    ]);
+    expect(plain.GLN_PAGE_URL).toBe("https://d1.cloudfront.net");
+  }
 });

@@ -8,14 +8,18 @@ import {
   DescribeCertificateCommand,
   ListCertificatesCommand,
 } from "@aws-sdk/client-acm";
+import { CreateAccessKeyCommand, IAMClient, ListAccessKeysCommand } from "@aws-sdk/client-iam";
 import { loadConfig, type StageConfig } from "@galena/infra/config";
 import {
   bootstrapVersions,
   callerIdentity,
+  parameter,
   parameterTypes,
   putSecret,
   readStacks,
   type Stack,
+  triggerVariableNames,
+  triggerVariables,
 } from "./aws.ts";
 import { describeError, nodeCheck } from "./doctor.ts";
 import { prompter } from "./prompt.ts";
@@ -166,6 +170,114 @@ async function deployStacks(config: Deployment, configPath: string, say: Say) {
   }
 }
 
+type Sources = {
+  /** Foundation's parameters, by name under `/galena/<stage>/`. */
+  parameters: Record<string, string | undefined>;
+  stacks: Map<string, Stack>;
+  appKey: string;
+  /** Only when deploy just made it: trigger.dev never hands a secret back. */
+  accessKey?: { id: string; secret: string };
+};
+
+/** The parameters Foundation writes that the workers read. */
+const FOUNDATION_PARAMETERS = [
+  "database-cluster-arn",
+  "database-secret-arn",
+  "config-bucket",
+  "telemetry-table",
+];
+
+const need = (from: Record<string, string | undefined>, key: string) => {
+  const value = from[key];
+  if (!value) throw new Error(`${key} is missing; run deploy again once every stack is deployed.`);
+  return value;
+};
+
+/** The workers' variables in trigger.dev: plain ones, and secret ones trigger.dev never shows. */
+export function workerVariables(config: Deployment, sources: Sources) {
+  const outputs = (stack: string) =>
+    sources.stacks.get(`galena-${config.stage}-${stack}`)?.outputs ?? {};
+  const page = outputs("page");
+  const plain: Record<string, string> = {
+    GLN_HOME_REGION: config.homeRegion,
+    GLN_DB_CLUSTER_ARN: need(sources.parameters, "database-cluster-arn"),
+    GLN_DB_SECRET_ARN: need(sources.parameters, "database-secret-arn"),
+    GLN_CONFIG_BUCKET: need(sources.parameters, "config-bucket"),
+    GLN_TELEMETRY_TABLE: need(sources.parameters, "telemetry-table"),
+    GLN_PAGE_BUCKET: need(page, "PageBucket"),
+    GLN_PAGE_REGION: config.pageRegions.primary,
+    GLN_PAGE_URL: `https://${config.pageDomain ?? need(page, "DistributionDomain")}`,
+    GLN_TRIGGER_PROJECT_REF: config.triggerProjectRef,
+  };
+  if (config.email) {
+    plain.GLN_EMAIL_FROM = config.email.from;
+    plain.GLN_SES_CONFIGURATION_SET = need(outputs("email"), "ConfigurationSetName");
+  }
+  const secret: Record<string, string> = { GLN_APP_KEY: sources.appKey };
+  if (sources.accessKey) {
+    secret.AWS_ACCESS_KEY_ID = sources.accessKey.id;
+    secret.AWS_SECRET_ACCESS_KEY = sources.accessKey.secret;
+  }
+  return { plain, secret };
+}
+
+/** A new key for the workers' IAM user, when trigger.dev doesn't have one yet. */
+async function workerKey(config: Deployment) {
+  const iam = new IAMClient({ region: config.homeRegion });
+  const user = `galena-${config.stage}-worker-access`;
+  const { AccessKeyMetadata = [] } = await iam.send(new ListAccessKeysCommand({ UserName: user }));
+  if (AccessKeyMetadata.length >= 2) {
+    throw new Error(
+      `${user} already has two access keys and trigger.dev has neither. Delete one in IAM, then run deploy again.`,
+    );
+  }
+  const { AccessKey } = await iam.send(new CreateAccessKeyCommand({ UserName: user }));
+  if (!AccessKey?.AccessKeyId || !AccessKey.SecretAccessKey) {
+    throw new Error(`IAM made no access key for ${user}.`);
+  }
+  return { id: AccessKey.AccessKeyId, secret: AccessKey.SecretAccessKey };
+}
+
+/** Sets the workers' variables in trigger.dev's production environment, then deploys them. */
+async function deployWorkers(config: Deployment, say: Say) {
+  const ref = config.triggerProjectRef;
+  const existing = await triggerVariableNames(config);
+  const accessKey = existing.has("AWS_ACCESS_KEY_ID") ? undefined : await workerKey(config);
+  const appKey = await parameter(config, "app-key");
+  if (!appKey) throw new Error(`/galena/${config.stage}/app-key is missing.`);
+  const parameters = Object.fromEntries(
+    await Promise.all(
+      FOUNDATION_PARAMETERS.map(async (name) => [name, await parameter(config, name)] as const),
+    ),
+  );
+  const { plain, secret } = workerVariables(config, {
+    parameters,
+    stacks: await readStacks(config),
+    appKey,
+    ...(accessKey ? { accessKey } : {}),
+  });
+  for (const [variables, isSecret] of [
+    [secret, true],
+    [plain, false],
+  ] as const) {
+    const response = await triggerVariables(config, "/import", {
+      variables,
+      override: true,
+      isSecret,
+    });
+    if (!response.ok) {
+      throw new Error(`trigger.dev answered ${response.status} when setting ${ref}'s variables.`);
+    }
+  }
+  say(
+    `Set ${Object.keys(plain).length + Object.keys(secret).length} variables in ${ref}'s production environment${accessKey ? ", with a new access key for the workers" : ""}.`,
+  );
+  // The flag and the variable both name the project, so a local .env can't point elsewhere.
+  await pnpm(["--filter", "@galena/workers", "exec", "trigger", "deploy", "--project-ref", ref], {
+    GLN_TRIGGER_PROJECT_REF: ref,
+  });
+}
+
 /**
  * Deploys the config's deployment, or upgrades it: each step checks first and skips what is
  * already done. It prints no secret, and stores the ones it makes only in SSM.
@@ -195,6 +307,7 @@ export async function deploy(
     await bootstrap(config, account, configPath, say);
     await createSecrets(config, await readStacks(config), say, askHidden);
     await deployStacks(config, configPath, say);
+    await deployWorkers(config, say);
     return 0;
   } catch (error) {
     say(describeError(error));
