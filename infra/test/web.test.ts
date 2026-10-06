@@ -117,7 +117,11 @@ test("passes cdk-nag AwsSolutions", () => {
   expect(() => app.synth()).not.toThrow();
 });
 
-test("with a certificate, answers on the stage's domain over TLS 1.2 and publishes that URL", () => {
+// Builds and synthesises three stacks with cdk-nag inside the test, which takes seconds when
+// the rest of the suite is running.
+test("with a certificate, answers on the stage's domain over TLS 1.2 and publishes that URL", {
+  timeout: 30_000,
+}, () => {
   const withDomain = new App({ context: { "aws:cdk:bundling-stacks": [] } });
   Validations.of(withDomain).addPlugins(new AwsSolutionsChecks(withDomain));
   const { certificate } = new CertificateStack(withDomain, "Certificate", {
