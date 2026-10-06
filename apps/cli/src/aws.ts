@@ -1,5 +1,6 @@
 import { CloudFormationClient, DescribeStacksCommand } from "@aws-sdk/client-cloudformation";
 import {
+  DeleteParameterCommand,
   GetParameterCommand,
   ParameterAlreadyExists,
   ParameterNotFound,
@@ -53,6 +54,13 @@ export async function putSecret(config: StageConfig, name: string, value: string
     .catch((error: unknown) => {
       if (!(error instanceof ParameterAlreadyExists)) throw error;
     });
+}
+
+/** Deletes a parameter under `/galena/<stage>/`; one already gone is fine. */
+export async function deleteParameter(config: StageConfig, name: string): Promise<void> {
+  await ssm(config.homeRegion)
+    .send(new DeleteParameterCommand({ Name: `/galena/${config.stage}/${name}` }))
+    .catch(missingParameter);
 }
 
 /** Each region's CDK bootstrap version, undefined where CDK isn't bootstrapped. */

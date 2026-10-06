@@ -10,9 +10,11 @@ import {
 } from "@aws-sdk/client-acm";
 import { CreateAccessKeyCommand, IAMClient, ListAccessKeysCommand } from "@aws-sdk/client-iam";
 import { loadConfig, type StageConfig } from "@galena/infra/config";
+import { z } from "zod";
 import {
   bootstrapVersions,
   callerIdentity,
+  deleteParameter,
   parameter,
   parameterTypes,
   putSecret,
@@ -21,7 +23,7 @@ import {
   triggerVariableNames,
   triggerVariables,
 } from "./aws.ts";
-import { describeError, nodeCheck } from "./doctor.ts";
+import { describeError, doctor, nodeCheck } from "./doctor.ts";
 import { prompter } from "./prompt.ts";
 import { pnpm } from "./run.ts";
 
@@ -278,6 +280,102 @@ async function deployWorkers(config: Deployment, say: Say) {
   });
 }
 
+/** Answers worth another try: the API starting, or Aurora resuming behind it. */
+export const retryable = (status: number) => status === 502 || status === 503 || status === 504;
+
+/**
+ * Creates the workspace and its owner through first-run setup, while the one-time setup token
+ * exists, then deletes the token.
+ */
+async function createOwner(
+  config: Deployment,
+  stacks: Map<string, Stack>,
+  { say, ask, askHidden }: ReturnType<typeof prompter>,
+) {
+  const token = await parameter(config, "setup-token");
+  if (!token) return say("The deployment has its owner.");
+  // The dashboard's CloudFront address works before any DNS record does.
+  const dashboard = need(
+    stacks.get(`galena-${config.stage}-web`)?.outputs ?? {},
+    "DistributionDomain",
+  );
+  say("\nNow the owner: the first person to sign in.");
+  const filled = (answer: string) => (answer ? undefined : "This one is needed.");
+  const workspaceName = await ask("Workspace name, as the dashboard shows it", filled);
+  const name = await ask("Your name", filled);
+  const email = await ask("Your email", (answer) =>
+    z.email().safeParse(answer).success ? undefined : "That doesn't look like an email address.",
+  );
+  const password = await askHidden("Password, at least 12 characters", (answer) =>
+    answer.length >= 12 && answer.length <= 128 ? undefined : "Use 12 to 128 characters.",
+  );
+  for (let attempt = 1; ; attempt++) {
+    const response = await fetch(`https://${dashboard}/v1/setup`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-galena-setup-token": token },
+      body: JSON.stringify({ workspaceName, name, email, password }),
+    });
+    if (retryable(response.status) && attempt < 4) {
+      say("The API is still starting; trying again in 10 seconds.");
+      await setTimeout(10_000);
+      continue;
+    }
+    if (response.status === 201 || response.status === 409) {
+      await deleteParameter(config, "setup-token");
+      return say(
+        response.status === 201
+          ? `Created ${workspaceName}, owned by ${email}.`
+          : "The deployment already had an owner.",
+      );
+    }
+    const problem = (await response.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(
+      `First-run setup answered ${response.status}${problem.detail ? `: ${problem.detail}` : ""}. Run deploy again to retry.`,
+    );
+  }
+}
+
+/** The records the DNS host still needs: domains to their distributions, then email's. */
+export function dnsRecords(config: StageConfig, stacks: Map<string, Stack>): string[] {
+  const outputs = (stack: string) => stacks.get(`galena-${config.stage}-${stack}`)?.outputs ?? {};
+  const domains: [string | undefined, string][] = [
+    [config.pageDomain, "page"],
+    [config.webDomain, "web"],
+    [config.siteDomain, "site"],
+  ];
+  const records = domains.flatMap(([domain, stack]) => {
+    const target = outputs(stack).DistributionDomain;
+    return domain && target ? [`CNAME  ${domain}  ${target}`] : [];
+  });
+  // The email stack's outputs read `name -> value`.
+  const email = outputs("email");
+  const kinds: [string, string][] = [
+    ["DkimCname1", "CNAME"],
+    ["DkimCname2", "CNAME"],
+    ["DkimCname3", "CNAME"],
+    ["MailFromMx", "MX"],
+    ["MailFromSpf", "TXT"],
+    ["Dmarc", "TXT"],
+  ];
+  for (const [output, kind] of kinds) {
+    const [name, value] = email[output]?.split(" -> ") ?? [];
+    if (name && value) records.push(`${kind.padEnd(5)}  ${name}  ${value}`);
+  }
+  return records;
+}
+
+function summarize(config: Deployment, stacks: Map<string, Stack>, say: Say) {
+  const outputs = (stack: string) => stacks.get(`galena-${config.stage}-${stack}`)?.outputs ?? {};
+  const page = config.pageDomain ?? outputs("page").DistributionDomain;
+  say(`\nDashboard: ${outputs("web").DashboardUrl ?? "not deployed"}`);
+  say(`Status page: ${page ? `https://${page}` : "not deployed"}`);
+  const records = dnsRecords(config, stacks);
+  if (records.length) {
+    say("\nAt your DNS host, DNS only (skip any that already exist):");
+    for (const record of records) say(`  ${record}`);
+  }
+}
+
 /**
  * Deploys the config's deployment, or upgrades it: each step checks first and skips what is
  * already done. It prints no secret, and stores the ones it makes only in SSM.
@@ -286,7 +384,8 @@ export async function deploy(
   path: string,
   { input, output }: { input?: Readable; output?: Writable } = {},
 ): Promise<number> {
-  const { say, askHidden } = prompter(input, output);
+  const prompt = prompter(input, output);
+  const { say, askHidden } = prompt;
   try {
     const loaded = loadConfig(path);
     const { triggerProjectRef } = loaded;
@@ -308,9 +407,14 @@ export async function deploy(
     await createSecrets(config, await readStacks(config), say, askHidden);
     await deployStacks(config, configPath, say);
     await deployWorkers(config, say);
-    return 0;
+    const stacks = await readStacks(config);
+    await createOwner(config, stacks, prompt);
+    summarize(config, stacks, say);
   } catch (error) {
     say(describeError(error));
     return 1;
   }
+  say("\nChecking the deployment:\n");
+  await doctor(path, output ? { output } : {});
+  return 0;
 }
