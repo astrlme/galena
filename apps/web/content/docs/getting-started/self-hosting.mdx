@@ -3,15 +3,34 @@ title: Self-hosting on AWS
 description: Deploy Galena into your own AWS account, from an empty account to a live status page.
 ---
 
-Galena deploys with the AWS CDK from a GitHub Actions workflow that signs in to AWS with OIDC, so
-no AWS keys are stored in GitHub. Background work runs on trigger.dev, which reaches your
+Galena deploys with the AWS CDK, from your machine with `galena deploy` or from a GitHub Actions
+workflow that signs in to AWS with OIDC. Background work runs on trigger.dev, which reaches your
 account through one narrowly scoped IAM user.
 
 <Callout title="Before you start">
-You need an AWS account that holds nothing but Galena, a GitHub fork of the repository, a
-trigger.dev account, and a domain whose DNS you control (the examples use Cloudflare). Plan on
-about an hour, plus a day for AWS to approve SES production access.
+You need an AWS account that holds nothing but Galena, with credentials on your machine (for
+example `aws configure sso`), a clone of the repository (a fork, to deploy from GitHub Actions),
+a trigger.dev project, and a domain whose DNS you control (the examples use Cloudflare). Allow
+a day for AWS to approve SES production access if you send email.
 </Callout>
+
+## Two commands
+
+```bash
+pnpm install
+pnpm --filter @galena/workers exec trigger login
+pnpm galena init
+pnpm galena deploy
+```
+
+`init` writes the config. `deploy` does everything in the steps below except the DNS records,
+which it prints for you to add: it asks for your trigger.dev production secret key and, on the
+first run, for the owner's details. Run it again after pulling a new version to upgrade. See
+the [CLI reference](/docs/reference/cli/#galena-deploy) for each step.
+
+## Step by step
+
+The same deployment by hand, or with deploys from GitHub Actions.
 
 <Steps>
 <Step>

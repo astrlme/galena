@@ -1,10 +1,11 @@
 ---
 title: CLI
-description: galena init writes a deployment's config; galena doctor checks the deployment against it.
+description: galena init writes a deployment's config, galena deploy deploys or upgrades it, and galena doctor checks it.
 ---
 
-Run the CLI from the repository root with `pnpm galena <command>`. Both commands read and write
-`galena.config.json` there; pass `--config <path>` for another file.
+Run the CLI from the repository root with `pnpm galena <command>`. `init` writes
+`galena.config.json` there and the other commands read it; pass `--config <path>` for another
+file.
 
 ## galena init
 
@@ -28,6 +29,29 @@ It sets 5 read and 5 write telemetry units and an Aurora ceiling of 2 ACU, and l
 deploys and the smoke test off; edit the file for those (see
 [Configuration](/docs/reference/configuration/)). An answer the config would refuse is asked
 again. It never replaces an existing file unless you pass `--force`.
+
+## galena deploy
+
+Deploys the config's deployment with your AWS credentials, or upgrades it: run it again after
+pulling a new version. Each step checks first and skips what is already done.
+
+1. Checks Node, your AWS credentials, and that the config names a trigger.dev project
+   (`triggerProjectRef`).
+2. Bootstraps CDK in every region that needs it.
+3. Stores secrets as SecureStrings under `/galena/<stage>/`: a new auth secret and app key, a
+   one-time setup token on the first deploy, and your trigger.dev production secret key, which
+   it asks for without echoing it.
+4. Builds the dashboard and deploys every stack. With custom domains, it prints each
+   certificate's validation CNAME while CloudFormation waits for it; add them at your DNS host.
+5. Gives the workers an access key if trigger.dev doesn't have one yet, sets their variables in
+   your trigger.dev project's production environment, and deploys them. The trigger.dev CLI must
+   be signed in (`pnpm --filter @galena/workers exec trigger login`).
+6. On the first deploy, asks for the workspace name and the owner's name, email and password,
+   creates them through first-run setup, and deletes the setup token.
+7. Prints the dashboard and status page addresses and the DNS records still needed, then runs
+   `galena doctor`.
+
+It prints no secret, and keeps the ones it makes only in SSM and in trigger.dev.
 
 ## galena doctor
 
