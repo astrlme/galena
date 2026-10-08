@@ -223,5 +223,14 @@ export function incidentRepository(db: Db): IncidentRepository {
     async setApprovalToken(workspaceId, id, tokenId) {
       await db.update(incident).set({ approvalTokenId: tokenId }).where(scoped(workspaceId, id));
     },
+
+    async findApprovalToken(workspaceId, id) {
+      const [row] = await db
+        .select({ tokenId: incident.approvalTokenId })
+        .from(incident)
+        .where(scoped(workspaceId, id))
+        .limit(1);
+      return row?.tokenId ?? null;
+    },
   };
 }

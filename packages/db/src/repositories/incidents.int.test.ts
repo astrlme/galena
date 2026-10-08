@@ -199,6 +199,10 @@ test("one open incident per dedup key; a dismissed draft frees it, and only draf
 
   const two = draft(60);
   expect(await repo.createOnce(two, first(60))).toEqual({ id: two.id, created: true });
+  // The approval run stores its token, so an answer from Slack can wake it.
+  expect(await repo.findApprovalToken(acme, two.id)).toBeNull();
+  await repo.setApprovalToken(acme, two.id, "waitpoint_123");
+  expect(await repo.findApprovalToken(acme, two.id)).toBe("waitpoint_123");
   expect(await repo.decide(acme, two.id, "published")).toBe(true);
   const published = await repo.findById(acme, two.id);
   expect(published).toMatchObject({ visibility: "published", approvalDeadline: null });

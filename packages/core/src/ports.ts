@@ -173,6 +173,8 @@ export interface IncidentRepository {
   ): Promise<boolean>;
   /** The waitpoint token a person's answer to the draft completes. */
   setApprovalToken(workspaceId: WorkspaceId, id: IncidentId, tokenId: string): Promise<void>;
+  /** That token's id, once the approval run has stored it. */
+  findApprovalToken(workspaceId: WorkspaceId, id: IncidentId): Promise<string | null>;
 }
 
 export type Maintenance = {
