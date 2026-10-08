@@ -107,35 +107,38 @@ const pastMore = s.incidents.recent.slice(5);
     )}
   </section>
 
-  <!-- A dialog (a bottom sheet on phones) with JavaScript; without it, a plain section here. -->
-  <dialog id="subscribe" class="sheet" aria-labelledby="subscribe-title">
-    <div class="sheet-grip" data-grip aria-hidden="true"><span class="sheet-handle"></span></div>
-    <div class="sheet-head">
-      <h2 id="subscribe-title">Get updates by email</h2>
-      <button type="button" class="sheet-close" data-close aria-label="Close">
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-      </button>
-    </div>
-    <form class="subscribe" method="post" action="/public/subscribe" data-subscribe>
-      <label for="subscribe-email">Email address</label>
-      <div class="subscribe-row">
-        <input id="subscribe-email" name="email" type="email" autocomplete="email" required />
-        <button type="submit">Subscribe</button>
+  <!-- A dialog (a bottom sheet on phones) with JavaScript; without it, a plain section here.
+       A deployment without email has nothing to send, so it offers no form. -->
+  {s.page.subscribe && (
+    <dialog id="subscribe" class="sheet" aria-labelledby="subscribe-title">
+      <div class="sheet-grip" data-grip aria-hidden="true"><span class="sheet-handle"></span></div>
+      <div class="sheet-head">
+        <h2 id="subscribe-title">Get updates by email</h2>
+        <button type="button" class="sheet-close" data-close aria-label="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
       </div>
-      {s.components.length > 1 && (
-        <details>
-          <summary>Only some components</summary>
-          <fieldset>
-            <legend class="sr-only">Components to hear about</legend>
-            {s.components.map((c) => (
-              <label class="choice"><input type="checkbox" name="component" value={c.id} />{c.name}</label>
-            ))}
-          </fieldset>
-        </details>
-      )}
-      <p class="secondary" data-subscribe-status role="status">We'll email a link to confirm. Every email has a one-click unsubscribe.</p>
-    </form>
-  </dialog>
+      <form class="subscribe" method="post" action="/public/subscribe" data-subscribe>
+        <label for="subscribe-email">Email address</label>
+        <div class="subscribe-row">
+          <input id="subscribe-email" name="email" type="email" autocomplete="email" required />
+          <button type="submit">Subscribe</button>
+        </div>
+        {s.components.length > 1 && (
+          <details>
+            <summary>Only some components</summary>
+            <fieldset>
+              <legend class="sr-only">Components to hear about</legend>
+              {s.components.map((c) => (
+                <label class="choice"><input type="checkbox" name="component" value={c.id} />{c.name}</label>
+              ))}
+            </fieldset>
+          </details>
+        )}
+        <p class="secondary" data-subscribe-status role="status">We'll email a link to confirm. Every email has a one-click unsubscribe.</p>
+      </form>
+    </dialog>
+  )}
 </Page>
 
 <script>

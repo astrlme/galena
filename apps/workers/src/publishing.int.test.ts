@@ -51,7 +51,14 @@ test("publishes the page, and a late run for an older change leaves the newer pa
   const { writes, store, published } = memoryStore();
   const rebuilds: number[] = [];
   const rebuildHtml = async (version: number) => void rebuilds.push(version);
-  const deps = { db, clock, store, url: "https://status.example.com", rebuildHtml };
+  const deps = {
+    db,
+    clock,
+    store,
+    url: "https://status.example.com",
+    subscribe: false,
+    rebuildHtml,
+  };
 
   // A change commits, then its dispatch takes a version and starts the publish.
   const first = await nextSnapshotVersion(db);
@@ -59,7 +66,7 @@ test("publishes the page, and a late run for an older change leaves the newer pa
   expect(result).toEqual({ outcome: "published", published: first + 1 });
   expect(published()).toMatchObject({
     snapshotVersion: first + 1,
-    page: { slug: "status", name: "Acme", url: "https://status.example.com" },
+    page: { slug: "status", name: "Acme", url: "https://status.example.com", subscribe: false },
     indicator: "none",
     components: [{ id: web, name: "Web", status: "operational" }],
   });

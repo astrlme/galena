@@ -13,7 +13,7 @@ interface Props {
   publishedAt?: string;
 }
 const { title, description, pageName, snapshotVersion, publishedAt } = Astro.props;
-const pageUrl = readSnapshot().page.url;
+const { url: pageUrl, subscribe } = readSnapshot().page;
 const feeds = [
   { id: "feed-rss", name: "RSS", url: new URL("/feed.rss", pageUrl).href },
   { id: "feed-atom", name: "Atom", url: new URL("/feed.atom", pageUrl).href },
@@ -42,7 +42,7 @@ const feeds = [
             ></path>
           </svg>{pageName} status
         </a>
-        <a href="/#subscribe" class="subscribe-link" data-open="subscribe">Subscribe</a>
+        {subscribe && <a href="/#subscribe" class="subscribe-link" data-open="subscribe">Subscribe</a>}
       </header>
       <slot />
       <footer>

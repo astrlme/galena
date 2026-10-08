@@ -28,6 +28,8 @@ export const pagePublish = task({
       clock: { now: () => new Date() },
       store: pageStore,
       url: env.GLN_PAGE_URL,
+      // Locally mail lands in GLN_MAIL_DIR; a deployment without an address has none to send.
+      subscribe: Boolean(env.GLN_EMAIL_FROM) || !env.GLN_DB_CLUSTER_ARN,
       rebuildHtml: async (version) => {
         await tasks.trigger(
           "page.rebuild-html",

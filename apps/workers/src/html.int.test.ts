@@ -35,7 +35,7 @@ afterAll(async () => {
   await container?.stop();
 });
 
-test("builds the HTML from the published snapshot, once per version", async () => {
+test("builds the HTML from the published snapshot once per version, with no form when email is off", async () => {
   const store = localPageStore(dir);
   const asked: number[] = [];
   const clock = fixedClock("2026-09-29T12:00:00.000Z");
@@ -43,7 +43,7 @@ test("builds the HTML from the published snapshot, once per version", async () =
   const rebuild = async (version: number) => void asked.push(version);
   await publishPage(
     { version: await nextSnapshotVersion(db) },
-    { db, clock, store, url, rebuildHtml: rebuild },
+    { db, clock, store, url, subscribe: false, rebuildHtml: rebuild },
   );
   const version = asked[0] ?? 0;
 
@@ -52,5 +52,7 @@ test("builds the HTML from the published snapshot, once per version", async () =
   const html = await readFile(join(dir, "status", "index.html"), "utf8");
   expect(html).toContain("Checkout");
   expect(html).toContain(`data-snapshot-version="${version}"`);
+  expect(html).not.toContain('id="subscribe"');
+  expect(html).not.toContain("subscribe-link");
   expect(await rebuildHtml({ version }, deps)).toEqual({ outcome: "superseded" });
 }, 120_000);

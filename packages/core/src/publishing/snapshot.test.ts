@@ -63,7 +63,7 @@ const window = (n: number, overrides: Partial<Maintenance>): Maintenance => ({
 
 const inputs: SnapshotInputs = {
   snapshotVersion: 42,
-  page: { slug: "acme", name: "Acme", url: "https://status.example.com" },
+  page: { slug: "acme", name: "Acme", url: "https://status.example.com", subscribe: true },
   groups: [{ id: core, workspaceId: ws, name: "Core", position: 0 }],
   components: [
     {

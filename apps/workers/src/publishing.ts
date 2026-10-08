@@ -37,6 +37,8 @@ export type PublishDeps = {
   clock: Clock;
   store: PageStore;
   url: string;
+  /** Whether the page offers email updates. */
+  subscribe: boolean;
   /** Starts `page.rebuild-html` for the version just published. */
   rebuildHtml: (version: number) => Promise<void>;
 };
@@ -59,6 +61,7 @@ export async function publishPage(
   const inputs = await loadSnapshotInputs(deps.db, target, {
     snapshotVersion: current,
     url: deps.url,
+    subscribe: deps.subscribe,
     now: deps.clock.now(),
   });
   await deps.store.write(target.slug, pageFiles(buildSnapshot(inputs, deps.clock)));

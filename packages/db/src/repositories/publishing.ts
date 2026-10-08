@@ -218,7 +218,7 @@ export async function ensurePage(db: Db): Promise<PageRow | undefined> {
 export async function loadSnapshotInputs(
   db: Db,
   target: PageRow,
-  options: { snapshotVersion: number; url: string; now: Date },
+  options: { snapshotVersion: number; url: string; subscribe: boolean; now: Date },
 ): Promise<SnapshotInputs> {
   const ws = target.workspaceId;
   const recentFrom = new Date(options.now.getTime() - 14 * DAY);
@@ -242,7 +242,7 @@ export async function loadSnapshotInputs(
   ]);
   return {
     snapshotVersion: options.snapshotVersion,
-    page: { slug: target.slug, name: target.name, url: options.url },
+    page: { slug: target.slug, name: target.name, url: options.url, subscribe: options.subscribe },
     groups,
     components,
     monitors,

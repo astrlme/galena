@@ -182,9 +182,15 @@ test("loads open incidents with their updates and those resolved in the last 14 
   const inputs = await loadSnapshotInputs(db, target, {
     snapshotVersion: 9,
     url: "https://status.example.com",
+    subscribe: true,
     now,
   });
-  expect(inputs.page).toEqual({ slug: "status", name: "Acme", url: "https://status.example.com" });
+  expect(inputs.page).toEqual({
+    slug: "status",
+    name: "Acme",
+    url: "https://status.example.com",
+    subscribe: true,
+  });
   expect(inputs.components.map((c) => c.id)).toEqual([web]);
   expect(inputs.monitors).toEqual([
     {

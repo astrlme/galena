@@ -34,7 +34,7 @@ export type UptimeDay = {
 /** Everything the page shows, as loaded from the database. */
 export type SnapshotInputs = {
   snapshotVersion: number;
-  page: { slug: string; name: string; url: string };
+  page: { slug: string; name: string; url: string; subscribe: boolean };
   /** In page order. */
   groups: readonly ComponentGroup[];
   /** In page order. */

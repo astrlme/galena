@@ -88,7 +88,13 @@ export const snapshot = z.object({
   /** Allocated with the change being published; a newer page never loses to an older one. */
   snapshotVersion: z.int().min(1),
   publishedAt: iso,
-  page: z.object({ slug: z.string(), name: z.string(), url: z.url() }),
+  page: z.object({
+    slug: z.string(),
+    name: z.string(),
+    url: z.url(),
+    /** Whether the page offers email updates: a deployment without email has nothing to send. */
+    subscribe: z.boolean().default(true),
+  }),
   indicator: z.enum(pageIndicators),
   /** In page order; components with no group come first. */
   groups: z.array(
