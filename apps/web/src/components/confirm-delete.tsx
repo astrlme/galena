@@ -21,13 +21,13 @@ export function ConfirmDelete({
   onConfirm,
   onClose,
 }: {
-  kind: "component" | "group" | "monitor" | "window" | "destination" | "subscriber";
+  kind: "component" | "group" | "monitor" | "window" | "destination" | "subscriber" | "Slack";
   name: string;
   /** What to type, when it isn't "the {kind} name". */
   noun?: string;
   consequence: string;
   /** The action's own word, kept from the button that opened the dialog. */
-  verb?: "Delete" | "Cancel";
+  verb?: "Delete" | "Cancel" | "Disconnect";
   onConfirm: () => void;
   onClose: () => void;
 }) {

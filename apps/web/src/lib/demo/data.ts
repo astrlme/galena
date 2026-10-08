@@ -356,6 +356,10 @@ export function demoData(now: Date) {
       subscriber(2, "m***@example.net", "pending_confirmation"),
       subscriber(3, "s***@example.com", "unsubscribed"),
     ] satisfies Answer<"/v1/subscribers">,
+    slack: {
+      available: true,
+      connection: { teamName: "Acme", channelName: "#incidents", connectedAt: at(60 * 24 * 20) },
+    } satisfies Answer<"/v1/slack">,
     webhookEndpoints: [
       {
         id: id(0x81),

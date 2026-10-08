@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { authGet } from "../../../lib/api.ts";
 import { Password } from "./password.tsx";
 import { Sessions } from "./sessions.tsx";
+import { SlackConnection } from "./slack.tsx";
 import { TwoFactor } from "./two-factor.tsx";
 
 /** What Better Auth's `get-session` returns for the signed-in person. */
@@ -41,6 +42,7 @@ export function SettingsEditor() {
       <TwoFactor enabled={current.data.user.twoFactorEnabled === true} />
       <Password />
       <Sessions currentId={current.data.session.id} />
+      <SlackConnection />
     </>
   );
 }

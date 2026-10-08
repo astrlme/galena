@@ -15,6 +15,9 @@ const base =
 
 type Variant = keyof typeof styles;
 
+/** A button's look, for a plain link the browser follows itself (an API route, not a page). */
+export const buttonClass = (variant: Variant = "secondary") => `${base} ${styles[variant]}`;
+
 export function Button({
   variant = "secondary",
   className = "",
@@ -33,7 +36,7 @@ export function ButtonLink({
   children: ReactNode;
 }) {
   return (
-    <Link href={href} className={`${base} ${styles[variant]}`}>
+    <Link href={href} className={buttonClass(variant)}>
       {children}
     </Link>
   );

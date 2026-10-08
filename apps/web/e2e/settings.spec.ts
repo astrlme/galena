@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import { expect, type Page, test } from "@playwright/test";
-import { expectAccessible, totp } from "./helpers.ts";
+import { expectAccessible, signIn, totp } from "./helpers.ts";
 
 // Each run signs in as a member of its own (`member:local`), so the seeded owner every other
 // spec uses never has two-factor turned on or its password changed.
@@ -91,4 +91,29 @@ test("turn on two-factor, sign in with a backup code, change the password", asyn
   await dialog.getByLabel("Your password").fill(NEW_PASSWORD);
   await dialog.getByRole("button", { name: "Turn off two-factor" }).click();
   await expect(page.getByText(/^Off\. Sign-in asks only for your password/)).toBeVisible();
+});
+
+test("an admin sees how to set up Slack; a viewer doesn't see Slack at all", async ({
+  page,
+  context,
+}, testInfo) => {
+  await signIn(page);
+  await expect(page).toHaveURL(/\/dashboard\/$/);
+  await page.goto("/dashboard/settings/");
+  await expect(page.getByRole("heading", { name: "Slack" })).toBeVisible();
+  // Local development has no Slack app, so the card says what to do first.
+  await expect(page.getByText("Slack isn't set up for this deployment yet.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Set up the Slack app" })).toHaveAttribute(
+    "href",
+    "/docs/guides/slack-app/",
+  );
+  await expectAccessible(page);
+
+  await context.clearCookies();
+  const email = member(`slack-${testInfo.project.name}-${Date.now()}@example.com`);
+  await signInAs(page, email, PASSWORD);
+  await expect(page).toHaveURL(/\/dashboard\/$/);
+  await page.goto("/dashboard/settings/");
+  await expect(page.getByRole("heading", { name: "Where you're signed in" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Slack" })).toHaveCount(0);
 });

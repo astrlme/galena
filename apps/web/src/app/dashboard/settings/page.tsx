@@ -8,7 +8,8 @@ export default function Settings() {
     <>
       <h1 className="text-[24px] font-semibold leading-[1.25]">Settings</h1>
       <p className="mt-2 max-w-[72ch] text-[16px] text-slate">
-        Your own account: how you sign in, your password and where you're signed in.
+        Your own account: how you sign in, your password and where you're signed in. Admins also
+        connect Slack here.
       </p>
       <SettingsEditor />
     </>
