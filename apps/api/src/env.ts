@@ -47,6 +47,10 @@ export const env = z
     // AWS: the address notification email comes from. Without it the deployment sends no email,
     // so the status page takes no subscriptions.
     GLN_EMAIL_FROM: z.email().optional(),
+    // The Slack app's client id, client secret and signing secret as JSON: from the env locally,
+    // from this SecureString in AWS. Without either, Slack is off.
+    GLN_SLACK_APP: z.string().min(1).optional(),
+    GLN_SLACK_APP_PARAM: z.string().startsWith("/").optional(),
     // AWS: the SecureString first-run setup must be sent; setup is refused until it exists.
     GLN_SETUP_TOKEN_PARAM: z.string().startsWith("/").optional(),
     // AWS: the secret CloudFront adds to every request it forwards, read through SSM's

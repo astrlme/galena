@@ -28,6 +28,7 @@ export const slackSlashCommand = z.object({
   command: z.string(),
   team_id: slackId,
   user_id: slackId,
+  trigger_id: z.string().min(1),
   response_url: responseUrl,
   text: z.string().default(""),
 });
@@ -45,6 +46,23 @@ export type SlackClick = z.infer<typeof slackClick>;
 /** What the API hands `slack.command`: one `/incident`. */
 export const slackCommandRequest = z.object({ teamId: slackId, userId: slackId, responseUrl });
 export type SlackCommandRequest = z.infer<typeof slackCommandRequest>;
+
+/** The deployment's Slack app, from the `/galena/<name>/slack-app` SecureString (JSON). */
+export const slackAppConfig = z.object({
+  clientId: z.string().min(1),
+  clientSecret: z.string().min(1),
+  signingSecret: z.string().min(1),
+});
+export type SlackAppConfig = z.infer<typeof slackAppConfig>;
+
+/** What Settings shows: whether the app is set up, and the Slack workspace it's connected to. */
+export const slackConnectionView = z.object({
+  available: z.boolean(),
+  connection: z
+    .object({ teamName: z.string(), channelName: z.string(), connectedAt: z.iso.datetime() })
+    .nullable(),
+});
+export type SlackConnectionView = z.infer<typeof slackConnectionView>;
 
 /** `oauth.v2.access`: the bot's token, its Slack workspace and the channel picked on install. */
 export const slackOAuthAccess = z.object({

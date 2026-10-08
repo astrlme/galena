@@ -22,6 +22,7 @@ import { registerMaintenanceRoutes } from "./routes/maintenance.ts";
 import { registerMonitorRoutes } from "./routes/monitors.ts";
 import { registerNotificationRoutes } from "./routes/notifications.ts";
 import { registerPublicRoutes } from "./routes/public.ts";
+import { registerSlackRoutes } from "./routes/slack.ts";
 
 export { type Deps, problemResponse, requireRole } from "./http.ts";
 
@@ -34,7 +35,10 @@ export const openApiConfig = {
     { name: "Monitors", description: "HTTP monitors, their settings and their latest results." },
     { name: "Incidents", description: "Incidents and their updates." },
     { name: "Maintenance", description: "Scheduled maintenance windows." },
-    { name: "Notifications", description: "Slack and webhook endpoints, and email subscribers." },
+    {
+      name: "Notifications",
+      description: "Slack and webhook endpoints, email subscribers, and the Slack app.",
+    },
   ],
 };
 
@@ -226,6 +230,7 @@ export function createApp(deps: Deps) {
   registerMaintenanceRoutes(app, deps);
   registerNotificationRoutes(app, deps);
   registerPublicRoutes(app, deps);
+  registerSlackRoutes(app, deps);
 
   app.doc31("/openapi.json", openApiConfig);
 

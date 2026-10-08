@@ -49,7 +49,7 @@ export function open(keys: AppKeys, sealed: string): string {
   );
 }
 
-export type LinkPurpose = "confirm" | "unsubscribe";
+export type LinkPurpose = "confirm" | "unsubscribe" | "slack-install";
 
 const mac = (keys: AppKeys, text: string) => createHmac("sha256", keys.link).update(text).digest();
 

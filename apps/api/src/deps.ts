@@ -2,9 +2,12 @@ import { randomBytes } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetParameterCommand, ParameterNotFound, SSMClient } from "@aws-sdk/client-ssm";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { slackAppConfig } from "@galena/contracts";
 import type { WorkflowEngine } from "@galena/core";
 import { createDb, type DbConfig } from "@galena/db";
+import { guard } from "@galena/integrations/net";
 import { appKeys, LOCAL_APP_KEY } from "@galena/integrations/secrets";
+import { slackApi } from "@galena/integrations/slack";
 import { configure, tasks } from "@trigger.dev/sdk";
 import type { Deps } from "./app.ts";
 import { createAuth } from "./auth.ts";
@@ -93,6 +96,23 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
       })
     : undefined;
 
+  // Optional, like the setup token: without the Slack app's secrets its routes answer 404.
+  const slackJson =
+    env.GLN_SLACK_APP ??
+    (env.GLN_SLACK_APP_PARAM
+      ? await parameter(env.GLN_SLACK_APP_PARAM).catch((error: unknown) => {
+          if (error instanceof ParameterNotFound) return undefined;
+          throw error;
+        })
+      : undefined);
+  const slackApp = slackJson ? slackAppConfig.safeParse(safeJson(slackJson)) : undefined;
+  if (slackApp && !slackApp.success) {
+    // Names the fields only: the value holds secrets.
+    throw new Error(
+      "The Slack app's secrets must be JSON with clientId, clientSecret and signingSecret.",
+    );
+  }
+
   // DynamoDB Local takes any credentials; AWS uses the function's role.
   const endpoint =
     env.GLN_DYNAMODB_ENDPOINT ?? (env.GLN_STAGE === "local" ? "http://localhost:8000" : undefined);
@@ -120,10 +140,19 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     publicUrl: baseURL,
     ...(originSecret ? { originSecret } : {}),
     setup: env.GLN_STAGE === "local" ? "open" : setupToken ? { token: setupToken } : {},
+    ...(slackApp?.success ? { slack: { ...slackApp.data, api: slackApi({ guard }) } } : {}),
     // Locally the workers put mail in a directory, so subscribing always works.
     subscriptions: env.GLN_STAGE === "local" || Boolean(env.GLN_EMAIL_FROM),
     close,
   };
+}
+
+function safeJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
 }
 
 const triggerDev: WorkflowEngine = {

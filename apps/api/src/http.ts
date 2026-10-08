@@ -1,10 +1,11 @@
 import { timingSafeEqual } from "node:crypto";
-import type { MemberRole, ProblemDetails, WorkspaceId } from "@galena/contracts";
+import type { MemberRole, ProblemDetails, SlackAppConfig, WorkspaceId } from "@galena/contracts";
 import { problemContentType } from "@galena/contracts";
 import { roleAtLeast, type WorkflowEngine } from "@galena/core";
 import { type Db, findMembership } from "@galena/db";
 import type { Guard } from "@galena/integrations/net";
 import type { AppKeys } from "@galena/integrations/secrets";
+import type { SlackApi } from "@galena/integrations/slack";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -35,6 +36,8 @@ export type Deps = {
   setup: "open" | { token?: string };
   /** Whether the status page takes subscriptions: not in a deployment that sends no email. */
   subscriptions: boolean;
+  /** The deployment's Slack app, when its secrets exist; without them Slack's routes answer 404. */
+  slack?: SlackAppConfig & { api: Pick<SlackApi, "exchangeCode" | "revoke"> };
 };
 
 /** Infra's CloudFront distributions add this header to requests they send to the API. */

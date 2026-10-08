@@ -27,7 +27,7 @@
     },
     {
       "name": "Notifications",
-      "description": "Slack and webhook endpoints, and email subscribers."
+      "description": "Slack and webhook endpoints, email subscribers, and the Slack app."
     }
   ],
   "components": {
@@ -3570,6 +3570,71 @@
             "in": "path"
           }
         ],
+        "responses": {
+          "204": {
+            "description": "Done"
+          }
+        }
+      }
+    },
+    "/v1/slack": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "The Slack app's connection",
+        "description": "`available` is false until the deployment has its Slack app's secrets. `connection` names the Slack workspace and the channel approval cards go to.",
+        "responses": {
+          "200": {
+            "description": "Whether Slack is set up and connected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "connection": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "teamName": {
+                          "type": "string"
+                        },
+                        "channelName": {
+                          "type": "string"
+                        },
+                        "connectedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "teamName",
+                        "channelName",
+                        "connectedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "available",
+                    "connection"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Disconnect Slack",
+        "description": "Forgets the install and revokes its token at Slack.",
         "responses": {
           "204": {
             "description": "Done"
