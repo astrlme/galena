@@ -7,6 +7,7 @@
 
 <p align="center">
   <a href="https://galena.astrl.me">Website</a>&nbsp;&nbsp;&nbsp;
+  <a href="https://demo.astrl.me/dashboard/">Demo</a>&nbsp;&nbsp;&nbsp;
   <a href="https://galena.astrl.me/docs/">Documentation</a>&nbsp;&nbsp;&nbsp;
   <a href="https://galena.astrl.me/docs/getting-started/self-hosting/">Deploy to AWS</a>&nbsp;&nbsp;&nbsp;
   <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-0A0A0A?labelColor=6B6B6B" align="center"></a>
