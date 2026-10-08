@@ -9,4 +9,5 @@ export * from "./monitors.ts";
 export * from "./notice-copy.ts";
 export * from "./notifications.ts";
 export * from "./problem.ts";
+export * from "./slack.ts";
 export * from "./snapshot.ts";
