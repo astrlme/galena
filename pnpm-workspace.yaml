@@ -18,3 +18,9 @@ overrides:
   # fumadocs-openapi (the docs' OpenAPI pages, build time only) resolves undici 7.24, which has
   # TLS and request-handling fixes since, within the same major.
   "@scalar/json-magic>undici": ^7.29.1
+  # Patched releases inside the ranges that already ask for them, which the lockfile had pinned
+  # below: sharp's bundled librsvg, the MCP SDK's OAuth server selection (trigger.dev CLI), and
+  # ansi-regex's ReDoS (testcontainers, tests only).
+  "sharp@<0.35.5": ^0.35.5
+  "@modelcontextprotocol/sdk@<1.31.0": ^1.31.0
+  "ansi-regex@>=5.0.0 <5.0.1": ^5.0.1
