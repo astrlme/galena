@@ -53,7 +53,7 @@ for the presets.
 | `webDomain` | Optional: the dashboard's own hostname, for example `galena.example.com`. Without it, the dashboard is on its CloudFront address. |
 | `email` | Optional: the domain and address notification email is sent from. Without it, email subscriptions are off. |
 | `stage` | Your deployment's name, used in every stack and parameter. The steps below use `dev`. |
-| `telemetryCapacity` | DynamoDB read and write units. Deployments in one account and region share the free tier of 25 each. |
+| `telemetryCapacity` | DynamoDB read and write units. Deployments in one account and region share the free tier of 25 each, and so do the accounts of an AWS Organization. |
 | `smoke`, `retainData` | Leave `smoke` out (it's the maintainer's deployed test). `retainData` keeps the table and config bucket if their stack is deleted. |
 
 A new AWS account allows 10 concurrent Lambda executions per region. Galena's API, evaluator and

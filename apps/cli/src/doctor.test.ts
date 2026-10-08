@@ -74,6 +74,7 @@ test("capacity past the free tier is a warning naming each table that uses some"
   const planned = capacityCheck(tables, "eu-central-1", { read: 5, write: 5 });
   expect(planned.status).toBe("warn");
   expect(planned.summary).toContain("30 read and 20 write");
+  expect(planned.summary).toContain("shared by every account in an AWS Organization");
   expect(planned.details).toEqual([
     "galena-dev-telemetry: 5 read, 5 write",
     "other-app: 20 read, 10 write",

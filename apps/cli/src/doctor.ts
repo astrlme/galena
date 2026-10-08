@@ -74,7 +74,10 @@ export function requiredTriggerEnv(config: StageConfig): string[] {
 type Table = { name: string; read: number; write: number };
 const FREE_UNITS = 25;
 
-/** Provisioned capacity in the home region against the always-free 25 read and 25 write units. */
+/**
+ * Provisioned capacity in the home region against the always-free 25 read and 25 write units.
+ * Consolidated billing gives an AWS Organization one free tier, so a member account shares it.
+ */
 export function capacityCheck(
   tables: Table[],
   region: string,
@@ -82,7 +85,7 @@ export function capacityCheck(
 ): Finding {
   const all = planned ? [...tables, { name: "telemetry (not deployed yet)", ...planned }] : tables;
   const total = (unit: "read" | "write") => all.reduce((sum, table) => sum + table[unit], 0);
-  const summary = `${total("read")} read and ${total("write")} write units provisioned in ${region}; the free tier covers ${FREE_UNITS} of each`;
+  const summary = `${total("read")} read and ${total("write")} write units provisioned in ${region}; the free tier covers ${FREE_UNITS} of each, shared by every account in an AWS Organization`;
   if (total("read") <= FREE_UNITS && total("write") <= FREE_UNITS) return ok(summary);
   return judge(
     summary,

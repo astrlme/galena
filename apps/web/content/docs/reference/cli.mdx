@@ -69,7 +69,7 @@ which it uses to list the names of your production variables and never prints.
 | `trigger` | The variable names in your trigger.dev project's production environment | One the workers need is missing. Without `triggerProjectRef` it's a warning |
 | `dns` | The CNAME of each custom domain | It doesn't point at its CloudFront distribution (with Cloudflare, also when the record is proxied) |
 | `email` | Your SES identity and account | The domain, DKIM or MAIL FROM isn't verified. SES still in the sandbox is a warning |
-| `telemetry` | Provisioned DynamoDB capacity of every table in the home region, any app's | Past the free tier's 25 read or write units: a warning |
+| `telemetry` | Provisioned DynamoDB capacity of every table in the home region, any app's | Past the free tier's 25 read or write units (one free tier for a whole AWS Organization): a warning |
 | `lambda` | Concurrent Lambda executions allowed in the home region | Fewer than 100: a warning |
 
 Each check prints one line, `ok`, `warn` or `fail`, with what to fix under it. `--json` prints
