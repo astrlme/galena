@@ -6,6 +6,7 @@
     "maintenance",
     "email-subscribers",
     "slack",
+    "slack-app",
     "webhooks",
     "badge-and-feeds"
   ]

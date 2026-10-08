@@ -1,0 +1,107 @@
+---
+title: Approvals in Slack
+description: Approve or dismiss a monitor's draft from a Slack channel, and see what's open with /incident.
+---
+
+When a monitor whose publish policy is **Ask a person first** goes down, Galena opens a draft and
+waits for someone before it tells your customers. With the Slack app, that draft also arrives as
+a card in a Slack channel, with **Approve and publish** and **Dismiss** buttons. The card states its
+deadline: the draft publishes on its own at that time if the monitor is still down, and is
+dismissed if it has recovered.
+
+This is a different thing from [Slack notifications](/docs/guides/slack/), which post what your
+status page publishes through an incoming webhook. You can use both.
+
+Each deployment uses a Slack app of its own, because Slack sends button presses to your
+deployment's address.
+
+<Steps>
+<Step>
+
+### Create the Slack app
+
+From the repository root, print the app's manifest:
+
+```sh
+pnpm galena slack-manifest
+```
+
+In Slack, go to [api.slack.com/apps](https://api.slack.com/apps), choose **Create New App →
+From a manifest**, pick your Slack workspace, and paste it. The manifest sets the request URLs to
+your dashboard's address and asks for these permissions:
+
+| Scope | Why |
+| --- | --- |
+| `chat:write`, `chat:write.public` | Post approval cards, also to a public channel the app hasn't joined |
+| `commands` | `/incident` |
+| `users:read`, `users:read.email` | Check that whoever presses a button is a Galena member, by their Slack email |
+| `incoming-webhook` | Ask, while installing, which channel approval cards go to |
+
+</Step>
+<Step>
+
+### Store the app's secrets
+
+On the app's **Basic Information** page, copy the client ID, client secret and signing secret
+into one SecureString, as JSON:
+
+```sh
+aws ssm put-parameter --region <home region> --type SecureString \
+  --name /galena/<name>/slack-app \
+  --value '{"clientId":"…","clientSecret":"…","signingSecret":"…"}'
+```
+
+The API reads it when it starts, so store it before you deploy; an API that's already running
+picks it up with your next upgrade. Without this parameter, Slack stays off and its addresses
+answer 404.
+
+</Step>
+<Step>
+
+### Connect Slack
+
+In **Settings → Slack**, an admin chooses **Connect Slack**. Slack asks which channel approval
+cards go to; choose it and allow. Back in Settings, the card names your Slack workspace and the
+channel.
+
+**Disconnect Slack** forgets the connection and revokes the app's token in Slack.
+
+</Step>
+</Steps>
+
+## Who can decide a draft
+
+Galena matches the Slack user who presses a button to a member of your Galena workspace by their
+Slack email. Only editors, admins and owners can decide; the audit log records that member as
+the one who published or dismissed it. Anyone else gets a reply only they can see, and the draft
+stays as it was:
+
+- a Slack email that isn't a member's: "Galena doesn't know your Slack email";
+- a viewer: "viewers can't publish or dismiss";
+- a draft someone already decided, in Slack or in the dashboard, or that published at its
+  deadline: "This draft was already published or dismissed".
+
+Once someone decides in Slack, the card changes to say who did it and when, and the monitor's
+own wait ends at once instead of at the deadline.
+
+## `/incident`
+
+`/incident` replies, only to you, with every open incident and every draft waiting for
+approval, newest first, each linking to the dashboard. Drafts get the same two buttons. It works
+for members only.
+
+## When Aurora is paused
+
+Slack expects an answer within 3 seconds, and the database can take about 15 to resume after a
+quiet period. Galena answers Slack before it touches the database and does the rest in the
+background, so a press doesn't wait for it; the card updates once the database is back.
+
+## When something goes wrong
+
+- **Settings says "Couldn't connect Slack"**: check the three values in
+  `/galena/<name>/slack-app`, then connect again.
+- **No card arrives in a private channel**: invite the app to the channel (`/invite @Galena`).
+  Public channels don't need it.
+- **A card still shows its buttons after the draft was decided in the dashboard or at its
+  deadline**: cards change only when someone presses them. A press then says, only to you, that
+  the draft was already decided; the dashboard shows what happened.

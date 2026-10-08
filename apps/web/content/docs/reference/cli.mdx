@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: galena init writes a deployment's config, galena deploy deploys or upgrades it, and galena doctor checks it.
+description: galena init writes a deployment's config, galena deploy deploys or upgrades it, galena doctor checks it, and galena slack-manifest describes its Slack app.
 ---
 
 Run the CLI from the repository root with `pnpm galena <command>`. `init` writes
@@ -75,3 +75,10 @@ which it uses to list the names of your production variables and never prints.
 Each check prints one line, `ok`, `warn` or `fail`, with what to fix under it. `--json` prints
 the checks as an array of `{ id, status, summary, details }` instead. The exit code is 1 when a
 check fails; warnings leave it at 0.
+
+## galena slack-manifest
+
+Prints the manifest for the deployment's own Slack app, as JSON, with every request URL pointing
+at its dashboard: `webDomain` when the config has one, otherwise the dashboard's CloudFront
+address (so deploy first). Paste it into Slack's **Create an app → From a manifest**. See
+[Approvals in Slack](/docs/guides/slack-app/).
