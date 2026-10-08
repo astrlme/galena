@@ -1,0 +1,67 @@
+{
+  "text": "Published: Checkout is not responding",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "✕︎ Major outage: Checkout"
+      }
+    }
+  ],
+  "attachments": [
+    {
+      "color": "#EF4444",
+      "blocks": [
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*Published* by <@U0ADA> at 15:58 UTC."
+          }
+        },
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*Checkout is not responding*\n\nWe're seeing timeouts on Checkout from 3 regions. We're investigating &amp; will update by 16:23 UTC."
+          }
+        },
+        {
+          "type": "section",
+          "fields": [
+            {
+              "type": "mrkdwn",
+              "text": "*Status*\nInvestigating"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "*Impact*\nMajor impact"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "*Components*\nCheckout"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "*Started*\n8 Oct 2026, 15:53 UTC"
+            }
+          ]
+        },
+        {
+          "type": "actions",
+          "elements": [
+            {
+              "type": "button",
+              "text": {
+                "type": "plain_text",
+                "text": "Open in the dashboard"
+              },
+              "url": "https://dashboard.example.com/dashboard/incidents/view/?id=01920000-0000-7000-8000-000000000042"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

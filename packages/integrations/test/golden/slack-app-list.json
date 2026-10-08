@@ -1,0 +1,55 @@
+{
+  "text": "Open incidents: 2",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Open incidents (2)"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*<https://dashboard.example.com/dashboard/incidents/view/?id=01920000-0000-7000-8000-000000000042|✕︎ Major outage: Checkout>*\nCheckout is not responding\nDraft from a monitor. Publishes automatically at 16:08 UTC unless you approve or dismiss it sooner."
+      }
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": {
+            "type": "plain_text",
+            "text": "Approve and publish"
+          },
+          "action_id": "approve",
+          "value": "01920000-0000-7000-8000-000000000042"
+        },
+        {
+          "type": "button",
+          "text": {
+            "type": "plain_text",
+            "text": "Dismiss"
+          },
+          "action_id": "dismiss",
+          "value": "01920000-0000-7000-8000-000000000042"
+        }
+      ]
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*<https://dashboard.example.com/dashboard/incidents/view/?id=01920000-0000-7000-8000-000000000041|▲︎ Partial outage: API>*\nElevated errors on the API\nIdentified. Major impact. Started 8 Oct 2026, 15:53 UTC."
+      }
+    }
+  ]
+}
