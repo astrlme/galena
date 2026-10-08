@@ -1,13 +1,10 @@
 import { incidentRepository } from "@galena/db";
 import { logger, queue, task, tasks, wait } from "@trigger.dev/sdk";
-import { type DraftPayload, draftPayload, settleDraft } from "../autopilot.ts";
+import { type DraftAnswer, type DraftPayload, draftPayload, settleDraft } from "../autopilot.ts";
 import { db } from "../db.ts";
 import { globalKey } from "./keys.ts";
 
 export const incidents = queue({ name: "incidents", concurrencyLimit: 5 });
-
-/** What a person sends when they answer a draft (from Slack or the dashboard). */
-export type DraftAnswer = { decision: "approve" | "dismiss" };
 
 /** Hands a committed outbox row to `outbox.dispatch`. */
 export async function dispatchOutbox(outboxId: string) {
@@ -15,6 +12,15 @@ export async function dispatchOutbox(outboxId: string) {
     "outbox.dispatch",
     { outboxId },
     { idempotencyKey: await globalKey(`outbox:${outboxId}`) },
+  );
+}
+
+/** Posts a draft's Slack approval card once, keyed `card:{incidentId}`. */
+async function triggerApprovalCard({ workspaceId, incidentId }: DraftPayload) {
+  await tasks.trigger(
+    "slack.approval-card",
+    { workspaceId, incidentId },
+    { idempotencyKey: await globalKey(`card:${incidentId}`) },
   );
 }
 
@@ -44,6 +50,8 @@ export const incidentAutopilot = task({
           timeout: deadline,
         });
         await incidentRepository(db).setApprovalToken(workspaceId, incidentId, token.id);
+        // Stored first, so a press in Slack always finds the token to complete.
+        await triggerApprovalCard({ workspaceId, incidentId, monitorId: draft.monitorId });
         const answer = await wait.forToken<DraftAnswer>(token);
         if (!answer.ok) return "timed_out";
         return answer.output.decision === "approve" ? "approved" : "dismissed";

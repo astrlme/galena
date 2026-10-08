@@ -23,6 +23,8 @@ export const env = z
     GLN_PAGE_DIR: z.string().min(1).default(".local/pages"),
     /** Where readers find the page, for feed links. */
     GLN_PAGE_URL: z.url().default("http://localhost:4321"),
+    /** The dashboard's origin, for links from Slack messages. */
+    GLN_DASHBOARD_URL: z.url().default("http://localhost:3000"),
     /** The app key (32 bytes, base64) the API also holds: signs links, seals credentials. */
     GLN_APP_KEY: z.string().min(1).optional(),
     /** Set in AWS stages: email goes through SES from this address. Unset: to GLN_MAIL_DIR. */

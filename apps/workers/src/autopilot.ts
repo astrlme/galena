@@ -33,6 +33,9 @@ import {
 import { v7 } from "uuid";
 import { z } from "zod";
 
+/** A person's answer, sent to a draft's waiting approval run (from Slack or the dashboard). */
+export type DraftAnswer = { decision: "approve" | "dismiss" };
+
 /** What `incident.autopilot` waits on: one draft a monitor opened. */
 export const draftPayload = z.object({ workspaceId, incidentId, monitorId });
 export type DraftPayload = z.infer<typeof draftPayload>;
@@ -205,33 +208,62 @@ export async function settleDraft(
     answer === "timed_out" ? await findMonitorState(deps.db, workspaceId, monitor) : undefined;
   const visibility =
     approvalOutcome(answer, state ?? "unknown") === "publish" ? "published" : "dismissed";
-  const latest = draft.updates[0];
-  if (!latest) throw new Error(`Draft ${id} has no update.`);
+  const decided = await decideDraft(
+    { workspaceId, incidentId: id, visibility, actorUserId: null },
+    deps,
+  );
+  return decided ? visibility : "decided_elsewhere";
+}
+
+/**
+ * Publishes or dismisses a draft, with its audit entry (by `actorUserId`, or autopilot when
+ * null) and its outbox event. False when it was no longer a draft: someone, or the deadline, got
+ * there first.
+ */
+export async function decideDraft(
+  input: {
+    workspaceId: WorkspaceId;
+    incidentId: IncidentId;
+    visibility: "published" | "dismissed";
+    actorUserId: string | null;
+  },
+  deps: Pick<AutopilotDeps, "db" | "clock" | "dispatch">,
+): Promise<boolean> {
+  const { workspaceId, incidentId: id, visibility, actorUserId } = input;
+  const draft = await incidentRepository(deps.db).findById(workspaceId, id);
+  const latest = draft?.updates[0];
+  if (draft?.visibility !== "draft" || !latest) return false;
   const outboxId = await deps.db.transaction(async (tx) => {
     if (!(await incidentRepository(tx).decide(workspaceId, id, visibility))) return null;
     return recordChange(
       tx,
       incidentChange(
-        { workspaceId, incidentId: id, updateId: latest.id, now: deps.clock.now() },
+        { workspaceId, incidentId: id, updateId: latest.id, now: deps.clock.now(), actorUserId },
         "incident.updated",
         { status: draft.status, impact: draft.impact, visibility },
       ),
     );
   });
-  if (!outboxId) return "decided_elsewhere";
+  if (!outboxId) return false;
   await deps.dispatch(outboxId);
-  return visibility;
+  return true;
 }
 
-/** The audit entry and `incident.*` outbox event for a change autopilot makes, by no person. */
+/** The audit entry and `incident.*` outbox event for a change: autopilot's unless an actor is named. */
 function incidentChange(
-  at: { workspaceId: WorkspaceId; incidentId: IncidentId; updateId: IncidentUpdateId; now: Date },
+  at: {
+    workspaceId: WorkspaceId;
+    incidentId: IncidentId;
+    updateId: IncidentUpdateId;
+    now: Date;
+    actorUserId?: string | null;
+  },
   type: IncidentEventType,
   state: { status: IncidentStatus; impact: IncidentImpact; visibility: IncidentVisibility },
 ) {
   return {
     workspaceId: at.workspaceId,
-    actorUserId: null,
+    actorUserId: at.actorUserId ?? null,
     action: type,
     targetType: "incident",
     targetId: at.incidentId,

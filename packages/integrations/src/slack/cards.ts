@@ -143,7 +143,7 @@ export function decidedCard(
 /** Private answers to a press that changed nothing. */
 export const slackRefusals = {
   notMember:
-    "Couldn't decide this draft: your Slack email doesn't belong to a member of this Galena workspace. Ask an admin to invite it.",
+    "Galena doesn't know your Slack email: it doesn't belong to a member of this workspace. Ask an admin to invite it.",
   viewer:
     "Couldn't decide this draft: viewers can't publish or dismiss. Ask an admin for the editor role.",
   decided:
