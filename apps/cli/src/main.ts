@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { deploy } from "./deploy.ts";
 import { doctor } from "./doctor.ts";
 import { init } from "./init.ts";
+import { printSlackManifest } from "./slack.ts";
 
 const HELP = `Usage: galena <command> [options]
 
@@ -11,6 +12,7 @@ Commands:
   init     Write galena.config.json for a new deployment
   doctor   Check a deployment against its config, changing nothing
   deploy   Deploy the config's deployment, or upgrade it
+  slack-manifest  Print the Slack app manifest for the config's dashboard
 
 Options:
   --config <path>  The deployment's config file (default: galena.config.json)
@@ -45,6 +47,9 @@ switch (values.help ? "help" : positionals[0]) {
     break;
   case "doctor":
     process.exitCode = await doctor(path, { json: values.json });
+    break;
+  case "slack-manifest":
+    process.exitCode = await printSlackManifest(path);
     break;
   case "help":
     console.log(HELP);
