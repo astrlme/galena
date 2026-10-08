@@ -124,6 +124,9 @@ The API reads them when a Lambda container starts. Keep the app key: the workers
 value, and a new key makes stored Slack URLs, webhook secrets and old subscription links
 unreadable.
 
+A fifth, `/galena/dev/slack-app`, is optional: it holds your Slack app's secrets for
+[approvals in Slack](/docs/guides/slack-app/).
+
 </Step>
 <Step>
 
@@ -169,6 +172,7 @@ variables to your trigger.dev project's production environment:
 | `GLN_CONFIG_BUCKET` | From SSM: `/galena/dev/config-bucket` |
 | `GLN_PAGE_BUCKET`, `GLN_PAGE_REGION` | The primary page bucket and its region |
 | `GLN_PAGE_URL` | Where the status page is reached, for links in feeds and email |
+| `GLN_DASHBOARD_URL` | Where the dashboard is reached, for links in Slack messages |
 | `GLN_APP_KEY` | The same value as `/galena/dev/app-key` (secret) |
 | `GLN_TELEMETRY_TABLE` | From SSM: `/galena/dev/telemetry-table` |
 | `GLN_EMAIL_FROM`, `GLN_SES_CONFIGURATION_SET` | The `from` address and `galena-dev`, when email is on |
