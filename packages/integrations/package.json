@@ -8,7 +8,8 @@
     "./config": "./src/config/monitors-file.ts",
     "./net": "./src/net/index.ts",
     "./secrets": "./src/secrets/keys.ts",
-    "./channels": "./src/channels/index.ts"
+    "./channels": "./src/channels/index.ts",
+    "./slack": "./src/slack/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

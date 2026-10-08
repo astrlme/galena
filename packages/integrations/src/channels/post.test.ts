@@ -13,6 +13,10 @@ const server = createServer((req, res) => {
   });
   req.on("end", () => {
     received.push({ headers: req.headers, body });
+    if (req.url === "/answer") {
+      res.setHeader("content-type", "application/json");
+      return res.end('{"ok":true}');
+    }
     res.statusCode = req.url === "/busy" ? 503 : 204;
     res.end();
   });
@@ -43,6 +47,15 @@ test("posts the body and headers, and reports the status", async () => {
     headers: { "content-type": "application/json", "webhook-id": "m1" },
   });
   expect(await postJson({ url: `${url}/busy`, body: "{}", guard: local })).toEqual({ status: 503 });
+});
+
+test("reads the answer only when asked", async () => {
+  expect(await postJson({ url: `${url}/answer`, body: "{}", guard: local })).toEqual({
+    status: 200,
+  });
+  expect(
+    await postJson({ url: `${url}/answer`, body: "{}", guard: local, readBody: true }),
+  ).toEqual({ status: 200, body: '{"ok":true}' });
 });
 
 test("refuses private addresses with the default guard", async () => {

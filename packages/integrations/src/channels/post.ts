@@ -4,9 +4,13 @@ import { BlockedByGuardError, type Guard } from "../net/ssrf.ts";
 
 const USER_AGENT = "Galena-Webhooks/1 (+https://github.com/astrlme/galena)";
 
+// An answer worth reading (Slack's Web API) is small; anything bigger is cut off here.
+const MAX_BODY = 1_000_000;
+
 /**
  * POSTs JSON to a member's endpoint through the SSRF guard: the URL is checked, and every DNS
- * answer too, so a host can't point at a private address after the check. 8 s at most.
+ * answer too, so a host can't point at a private address after the check. 8 s at most. With
+ * `readBody` the answer's text comes back too.
  */
 export function postJson(input: {
   url: string;
@@ -14,7 +18,8 @@ export function postJson(input: {
   headers?: Record<string, string>;
   guard: Guard;
   timeoutMs?: number;
-}): Promise<{ status: number }> {
+  readBody?: boolean;
+}): Promise<{ status: number; body?: string }> {
   const checked = input.guard.checkUrl(input.url);
   if (!checked.ok) return Promise.reject(new BlockedByGuardError(checked.error.message));
   const url = checked.value;
@@ -33,8 +38,19 @@ export function postJson(input: {
     });
     req.on("error", reject);
     req.on("response", (response) => {
-      response.resume(); // the body says nothing we act on
-      resolve({ status: response.statusCode ?? 0 });
+      const status = response.statusCode ?? 0;
+      if (!input.readBody) {
+        response.resume(); // the body says nothing we act on
+        return resolve({ status });
+      }
+      let body = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk: string) => {
+        body += chunk;
+        if (body.length > MAX_BODY) req.destroy(new Error("The answer was too large to read."));
+      });
+      response.on("end", () => resolve({ status, body }));
+      response.on("error", reject);
     });
     req.end(input.body);
   });
