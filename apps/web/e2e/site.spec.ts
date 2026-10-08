@@ -10,6 +10,10 @@ test("the landing page pitches Galena and leads to the docs", async ({ page }) =
     "href",
     "/docs/getting-started/self-hosting/",
   );
+  await expect(page.getByRole("link", { name: "Explore the demo" })).toHaveAttribute(
+    "href",
+    "https://demo.astrl.me/dashboard/",
+  );
   await expect(page.getByRole("figure", { name: "An example page" })).toBeVisible();
   await expectAccessible(page);
 });

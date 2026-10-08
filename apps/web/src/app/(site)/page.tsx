@@ -79,6 +79,7 @@ export default function Home() {
               <ButtonLink href="/docs/getting-started/self-hosting/" variant="primary">
                 Deploy to AWS
               </ButtonLink>
+              <ButtonLink href="https://demo.astrl.me/dashboard/">Explore the demo</ButtonLink>
               <ButtonLink href="/docs/">Read the docs</ButtonLink>
               <ButtonLink href="https://github.com/astrlme/galena" variant="quiet">
                 GitHub
