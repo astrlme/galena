@@ -50,5 +50,15 @@ export {
   recordMonitorTransition,
   saveUptimeDays,
 } from "./repositories/publishing.ts";
-export { createWorkspace, findMembership, workspaceExists } from "./repositories/workspace.ts";
+export {
+  type SlackInstall,
+  type SlackInstallRow,
+  slackRepository,
+} from "./repositories/slack.ts";
+export {
+  createWorkspace,
+  findMemberByEmail,
+  findMembership,
+  workspaceExists,
+} from "./repositories/workspace.ts";
 export * as schema from "./schema/index.ts";

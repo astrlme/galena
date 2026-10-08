@@ -1,7 +1,7 @@
 import type { MemberId, MemberRole, WorkspaceId } from "@galena/contracts";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "../client.ts";
-import { member, workspace } from "../schema/index.ts";
+import { member, user, workspace } from "../schema/index.ts";
 
 /** Whether first-run setup has happened (one workspace per deployment). */
 export async function workspaceExists(db: Db): Promise<boolean> {
@@ -18,6 +18,23 @@ export async function findMembership(
     .select({ role: member.role, workspaceId: member.workspaceId })
     .from(member)
     .where(eq(member.userId, userId))
+    .limit(1);
+  return row;
+}
+
+/** The member of `workspaceId` who signs in with `email`, matched without regard to case. */
+export async function findMemberByEmail(
+  db: Db,
+  workspaceId: WorkspaceId,
+  email: string,
+): Promise<{ userId: string; role: MemberRole } | undefined> {
+  const [row] = await db
+    .select({ userId: member.userId, role: member.role })
+    .from(member)
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(
+      and(eq(member.workspaceId, workspaceId), sql`lower(${user.email}) = ${email.toLowerCase()}`),
+    )
     .limit(1);
   return row;
 }

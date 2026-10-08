@@ -71,6 +71,13 @@
       "when": 1791148406137,
       "tag": "0009_autopilot",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791482764988,
+      "tag": "0010_slack",
+      "breakpoints": true
     }
   ]
 }
