@@ -215,7 +215,10 @@ export class WebStack extends Stack {
     new CfnOutput(this, "SiteBucket", { value: site.bucketName });
   }
 
-  /** /auth/* and /v1/* to the HTTP API, uncached, with the origin secret only CloudFront knows. */
+  /**
+   * /auth/*, /v1/* and /slack/* to the HTTP API, uncached, with the origin secret only CloudFront
+   * knows. Slack's button presses and commands reach the API this way too.
+   */
   private apiBehaviors(httpApi: HttpApi, stage: string) {
     const origin = new HttpOrigin(Fn.select(2, Fn.split("/", httpApi.apiEndpoint)), {
       customHeaders: {
@@ -234,6 +237,9 @@ export class WebStack extends Stack {
         "Content-Type",
         "Accept",
         SETUP_TOKEN_HEADER,
+        // Slack signs its requests with these; without them the API refuses every press.
+        "X-Slack-Signature",
+        "X-Slack-Request-Timestamp",
       ),
       cookieBehavior: OriginRequestCookieBehavior.all(),
       queryStringBehavior: OriginRequestQueryStringBehavior.all(),
@@ -245,7 +251,7 @@ export class WebStack extends Stack {
       cachePolicy: CachePolicy.CACHING_DISABLED,
       originRequestPolicy: apiRequests,
     };
-    return { "/auth/*": behavior, "/v1/*": behavior };
+    return { "/auth/*": behavior, "/v1/*": behavior, "/slack/*": behavior };
   }
 }
 

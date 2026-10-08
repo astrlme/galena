@@ -61,11 +61,14 @@ export class ApiStack extends Stack {
     const appKey = `/galena/${stage}/app-key`;
     const setupToken = `/galena/${stage}/setup-token`;
     const publicUrl = `/galena/${stage}/public-url`;
+    // Optional: the Slack app's client id and secrets, as JSON. Without it, Slack is off.
+    const slackApp = `/galena/${stage}/slack-app`;
     role.addToPolicy(
       new PolicyStatement({
         actions: ["ssm:GetParameter"],
-        resources: [authSecret, triggerSecret, appKey, setupToken, publicUrl].map((name) =>
-          this.formatArn({ service: "ssm", resource: "parameter", resourceName: name.slice(1) }),
+        resources: [authSecret, triggerSecret, appKey, setupToken, publicUrl, slackApp].map(
+          (name) =>
+            this.formatArn({ service: "ssm", resource: "parameter", resourceName: name.slice(1) }),
         ),
       }),
     );
@@ -114,6 +117,7 @@ export class ApiStack extends Stack {
         GLN_TRIGGER_SECRET_PARAM: triggerSecret,
         GLN_APP_KEY_PARAM: appKey,
         GLN_SETUP_TOKEN_PARAM: setupToken,
+        GLN_SLACK_APP_PARAM: slackApp,
         GLN_PUBLIC_URL_PARAM: publicUrl,
         GLN_ORIGIN_SECRET_PARAM: originSecretParam,
         GLN_TELEMETRY_TABLE: telemetryTable,

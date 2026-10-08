@@ -78,6 +78,7 @@ test("the API reads its database from Foundation's parameters and its secrets fr
         GLN_TRIGGER_SECRET_PARAM: "/galena/dev/trigger-secret-key",
         GLN_APP_KEY_PARAM: "/galena/dev/app-key",
         GLN_SETUP_TOKEN_PARAM: "/galena/dev/setup-token",
+        GLN_SLACK_APP_PARAM: "/galena/dev/slack-app",
         GLN_PUBLIC_URL_PARAM: "/galena/dev/public-url",
         GLN_PROBE_REGIONS: "eu-west-1,eu-west-3,eu-north-1",
         GLN_EMAIL_FROM: "status@mail.example.com",
@@ -85,7 +86,7 @@ test("the API reads its database from Foundation's parameters and its secrets fr
     },
   });
   const policies = JSON.stringify(template.findResources("AWS::IAM::Policy"));
-  for (const name of ["auth-secret", "trigger-secret-key", "app-key", "setup-token"]) {
+  for (const name of ["auth-secret", "trigger-secret-key", "app-key", "setup-token", "slack-app"]) {
     expect(policies).toContain(`parameter/galena/dev/${name}`);
   }
 });
