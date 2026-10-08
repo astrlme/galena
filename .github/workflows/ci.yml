@@ -42,6 +42,9 @@ jobs:
       - run: pnpm --filter @galena/web build && pnpm --filter @galena/web check:links
         env:
           GLN_SITE: project
+      - run: pnpm --filter @galena/web build && pnpm --filter @galena/web check:links
+        env:
+          GLN_SITE: demo
 
   # Testcontainers starts Postgres and DynamoDB Local itself; the runner only needs Docker.
   integration:

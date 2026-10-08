@@ -1,5 +1,5 @@
 // `pnpm --filter @galena/web check:links`: every same-site link in the built site (out/, or
-// out-site/ with GLN_SITE=project) must reach a file, the way CloudFront serves it (a directory
+// out-site/ with GLN_SITE=project, out-demo/ with GLN_SITE=demo) must reach a file, the way CloudFront serves it (a directory
 // means its index.html), and every `#fragment` must name an element on the target page. Run after
 // `next build`.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -7,7 +7,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const site = process.env.GLN_SITE === "project";
-const OUT = fileURLToPath(new URL(site ? "../out-site/" : "../out/", import.meta.url));
+const dir = { project: "../out-site/", demo: "../out-demo/" }[process.env.GLN_SITE] ?? "../out/";
+const OUT = fileURLToPath(new URL(dir, import.meta.url));
 // The project's site is uploaded without these, so links to them would break there.
 const left = site ? ["dashboard/", "sign-in/"] : [];
 const uploaded = (file) => !left.some((dir) => file.startsWith(dir));
