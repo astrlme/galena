@@ -10,8 +10,12 @@ const config: NextConfig = {
   transpilePackages: ["@galena/contracts", "@galena/core", "@galena/ui"],
   // The dev badge sits over the bottom-left corner, where a phone's form buttons are.
   devIndicators: false,
-  // The project's own site (landing page and docs) is exported next to the dashboard's build.
+  // The project's own site (landing page and docs) and the demo dashboard are exported next to
+  // the dashboard's build.
   ...(process.env.GLN_SITE === "project" ? { distDir: "out-site" } : {}),
+  ...(process.env.GLN_SITE === "demo" ? { distDir: "out-demo" } : {}),
+  // Inlined, so client code can tell the demo build apart.
+  env: { GLN_SITE: process.env.GLN_SITE ?? "" },
   ...(process.env.NODE_ENV === "development"
     ? {
         rewrites: async () => [

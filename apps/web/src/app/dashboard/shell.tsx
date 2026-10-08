@@ -21,7 +21,7 @@ import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
 import { Drawer } from "vaul";
 import { DraftDock, forgetDrafts } from "../../components/drafts.tsx";
 import { Wordmark } from "../../components/wordmark.tsx";
-import { api, authPost } from "../../lib/api.ts";
+import { api, authPost, demo } from "../../lib/api.ts";
 import { sections } from "./sections.ts";
 
 // No triangle for incidents: ▲ is the partial-outage glyph.
@@ -124,6 +124,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    // There is no one to sign out in the demo: back to the project's site.
+    if (demo) return window.location.assign("https://galena.astrl.me/");
     await authPost("sign-out", {});
     forgetDrafts();
     window.location.assign("/sign-in/");
@@ -208,7 +210,17 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </div>
         </nav>
         {/* Room at the foot for the drafts dock. */}
-        <main className="w-full max-w-[1080px] p-4 pb-24 md:p-8 md:pb-24">{children}</main>
+        <main className="w-full max-w-[1080px] p-4 pb-24 md:p-8 md:pb-24">
+          {demo && (
+            <p className="mb-6 rounded-xl border border-mist bg-surface px-4 py-3 text-[14px] text-graphite">
+              A demo with sample data. Changes aren't saved.{" "}
+              <a href="https://galena.astrl.me/" className="text-ink underline">
+                About Galena
+              </a>
+            </p>
+          )}
+          {children}
+        </main>
       </div>
       <DraftDock />
     </QueryClientProvider>

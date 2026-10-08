@@ -156,7 +156,7 @@ module.exports = {
     // Our own build output and generated files only. npm packages often resolve through dist/,
     // and excluding those would drop them from the graph and blind the npm rules too.
     exclude: {
-      path: "^(?:apps|packages)/[^/]+/(?:dist|out|out-site|coverage|\\.next|\\.astro|\\.turbo|\\.trigger)/|^infra/cdk\\.out/|^apps/web/next-env\\.d\\.ts$",
+      path: "^(?:apps|packages)/[^/]+/(?:dist|out|out-site|out-demo|coverage|\\.next|\\.astro|\\.turbo|\\.trigger)/|^infra/cdk\\.out/|^apps/web/next-env\\.d\\.ts$",
     },
     doNotFollow: { path: "(?:^|/)node_modules/" },
     tsPreCompilationDeps: true,

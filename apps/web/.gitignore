@@ -1,6 +1,7 @@
 .next/
 out/
 out-site/
+out-demo/
 next-env.d.ts
 test-results/
 playwright-report/
