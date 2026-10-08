@@ -120,6 +120,8 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     publicUrl: baseURL,
     ...(originSecret ? { originSecret } : {}),
     setup: env.GLN_STAGE === "local" ? "open" : setupToken ? { token: setupToken } : {},
+    // Locally the workers put mail in a directory, so subscribing always works.
+    subscriptions: env.GLN_STAGE === "local" || Boolean(env.GLN_EMAIL_FROM),
     close,
   };
 }

@@ -6,10 +6,10 @@ description: Let visitors subscribe to incident and maintenance emails.
 Email subscriptions need SES. Set `email` in your stage config and finish the DNS and production
 access steps in [Self-hosting](/docs/getting-started/self-hosting/#point-dns-at-it).
 
-<Callout type="warn">
-Without `GLN_EMAIL_FROM` the workers write emails to a local folder instead of sending them. That
-is what you want in development (`apps/workers/.local/mail/`), but in a deployment without email
-the page still shows **Subscribe**, and confirmations go nowhere.
+<Callout>
+A deployment without `email` sends no email, so its status page shows no **Subscribe** and the API
+refuses subscriptions. In development the workers write emails to `apps/workers/.local/mail/`
+instead of sending them, and subscribing works.
 </Callout>
 
 ## What a visitor sees

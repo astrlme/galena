@@ -44,6 +44,9 @@ export const env = z
     GLN_APP_KEY: z.string().min(1).optional(),
     GLN_APP_KEY_PARAM: z.string().startsWith("/").optional(),
     GLN_TRIGGER_SECRET_PARAM: z.string().startsWith("/").optional(),
+    // AWS: the address notification email comes from. Without it the deployment sends no email,
+    // so the status page takes no subscriptions.
+    GLN_EMAIL_FROM: z.email().optional(),
     // AWS: the SecureString first-run setup must be sent; setup is refused until it exists.
     GLN_SETUP_TOKEN_PARAM: z.string().startsWith("/").optional(),
     // AWS: the secret CloudFront adds to every request it forwards, read through SSM's

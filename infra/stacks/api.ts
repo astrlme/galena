@@ -118,6 +118,8 @@ export class ApiStack extends Stack {
         GLN_ORIGIN_SECRET_PARAM: originSecretParam,
         GLN_TELEMETRY_TABLE: telemetryTable,
         GLN_PROBE_REGIONS: probeRegions.join(","),
+        // Without it the deployment sends no email, and the API takes no subscriptions.
+        ...(props.config.email ? { GLN_EMAIL_FROM: props.config.email.from } : {}),
       },
       bundling,
     });

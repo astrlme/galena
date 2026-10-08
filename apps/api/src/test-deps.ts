@@ -49,6 +49,7 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
       keys: appKeys(LOCAL_APP_KEY),
       publicUrl: TEST_BASE_URL,
       setup: "open",
+      subscriptions: true,
     } satisfies Deps,
     triggered,
     readings,

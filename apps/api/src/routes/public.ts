@@ -15,7 +15,7 @@ import { keyedHash, readLinkToken } from "@galena/integrations/secrets";
 import type { Context } from "hono";
 import { v7 } from "uuid";
 import { z } from "zod";
-import { type App, type Deps, viewerAddress } from "../http.ts";
+import { type App, type Deps, problemResponse, viewerAddress } from "../http.ts";
 import { dispatch } from "./shared.ts";
 
 // The status page's subscription forms, reached on the page's own origin (its CloudFront sends
@@ -51,6 +51,15 @@ export function registerPublicRoutes(app: App, deps: Deps) {
   const { db, keys } = deps;
 
   app.post("/public/subscribe", async (c) => {
+    // The page shows no form then; this answers a stale page or a direct post, and stores nothing.
+    if (!deps.subscriptions) {
+      return problemResponse({
+        status: 404,
+        code: "subscriptions_off",
+        title: "Subscriptions are off",
+        detail: "This deployment sends no email, so its status page takes no subscriptions.",
+      });
+    }
     const json = (c.req.header("accept") ?? "").includes("application/json");
     const form = await readForm(c);
     const parsed = subscribeForm.safeParse({

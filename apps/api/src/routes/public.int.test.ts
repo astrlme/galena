@@ -76,6 +76,14 @@ test("the form subscribes an address pending confirmation and asks for one email
   expect(await requests()).toHaveLength(1);
 });
 
+test("a deployment that sends no email takes no subscriptions", async () => {
+  const quiet = createApp({ ...deps, subscriptions: false });
+  const res = await quiet.request("/public/subscribe", form({ email: "edsger@example.com" }));
+  expect(res.status).toBe(404);
+  expect(((await res.json()) as { code: string }).code).toBe("subscriptions_off");
+  expect(await subscriber("edsger@example.com")).toBeUndefined();
+});
+
 test("the page's script gets JSON, and a bad address is refused either way", async () => {
   const ok = await app.request("/public/subscribe", {
     ...form({ email: "linus@example.com" }),

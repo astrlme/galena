@@ -33,6 +33,8 @@ export type Deps = {
    * start; without that parameter there is no token and setup is refused.
    */
   setup: "open" | { token?: string };
+  /** Whether the status page takes subscriptions: not in a deployment that sends no email. */
+  subscriptions: boolean;
 };
 
 /** Infra's CloudFront distributions add this header to requests they send to the API. */
