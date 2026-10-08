@@ -64,6 +64,7 @@ test("sets exactly the variables doctor checks the workers for, secrets apart", 
         "galena-demo-page",
         { outputs: { PageBucket: "pages", DistributionDomain: "d1.cloudfront.net" } },
       ],
+      ["galena-demo-web", { outputs: { DashboardUrl: "https://d2.cloudfront.net" } }],
       ...(email
         ? [["galena-demo-email", { outputs: { ConfigurationSetName: "galena-demo" } }] as const]
         : []),
@@ -90,6 +91,7 @@ test("sets exactly the variables doctor checks the workers for, secrets apart", 
       "GLN_APP_KEY",
     ]);
     expect(plain.GLN_PAGE_URL).toBe("https://d1.cloudfront.net");
+    expect(plain.GLN_DASHBOARD_URL).toBe("https://d2.cloudfront.net");
   }
 });
 

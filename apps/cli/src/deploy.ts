@@ -209,6 +209,8 @@ export function workerVariables(config: Deployment, sources: Sources) {
     GLN_PAGE_BUCKET: need(page, "PageBucket"),
     GLN_PAGE_REGION: config.pageRegions.primary,
     GLN_PAGE_URL: `https://${config.pageDomain ?? need(page, "DistributionDomain")}`,
+    // Where Slack messages link to.
+    GLN_DASHBOARD_URL: need(outputs("web"), "DashboardUrl"),
     GLN_TRIGGER_PROJECT_REF: config.triggerProjectRef,
   };
   if (config.email) {
