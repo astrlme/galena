@@ -85,7 +85,7 @@ const press = (actionId: string, value = incident) => ({
   payload: JSON.stringify({
     type: "block_actions",
     team: { id: "T0ACME" },
-    user: { id: "U0ADA" },
+    user: { id: "U0ADA", team_id: "T0ACME" },
     response_url: "https://hooks.slack.com/actions/T0ACME/1/abc",
     actions: [{ action_id: actionId, value, action_ts: "1728390000.123456" }],
   }),
@@ -111,6 +111,7 @@ test("a press of Approve becomes one slack.interaction run, keyed by the press",
       payload: {
         teamId: "T0ACME",
         userId: "U0ADA",
+        userTeamId: "T0ACME",
         decision: "publish",
         incidentId: incident,
         responseUrl: "https://hooks.slack.com/actions/T0ACME/1/abc",

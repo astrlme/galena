@@ -16,7 +16,8 @@ export type SlackDecisionAction = keyof typeof slackDecisionActions;
 export const slackBlockActions = z.object({
   type: z.literal("block_actions"),
   team: z.object({ id: slackId }),
-  user: z.object({ id: slackId }),
+  /** `team` is the Slack workspace the app is installed in; `user.team_id` is the presser's own. */
+  user: z.object({ id: slackId, team_id: slackId }),
   response_url: responseUrl,
   actions: z
     .array(z.object({ action_id: z.string(), value: z.string().optional(), action_ts: z.string() }))
@@ -37,6 +38,8 @@ export const slackSlashCommand = z.object({
 export const slackClick = z.object({
   teamId: slackId,
   userId: slackId,
+  /** Differs from `teamId` for someone from another organisation, in a Slack Connect channel. */
+  userTeamId: slackId,
   decision: z.enum(["publish", "dismiss"]),
   incidentId,
   responseUrl,

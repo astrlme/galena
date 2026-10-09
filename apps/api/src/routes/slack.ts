@@ -90,6 +90,7 @@ export function registerSlackRoutes(app: App, deps: Deps) {
       const click: SlackClick = {
         teamId: team.id,
         userId: user.id,
+        userTeamId: user.team_id,
         decision,
         incidentId: id.data,
         responseUrl,

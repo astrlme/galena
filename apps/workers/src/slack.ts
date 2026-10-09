@@ -125,6 +125,11 @@ export async function answerClick(click: SlackClick, deps: SlackDeps) {
     await reply(slackRefusals.notInstalled);
     return "not_installed" as const;
   }
+  // Someone from another organisation's Slack has an email their own admin controls.
+  if (click.userTeamId !== install.teamId) {
+    await reply(slackRefusals.otherTeam);
+    return "other_team" as const;
+  }
   const member = await memberOf(deps, install, click.userId);
   if (!member) {
     await reply(slackRefusals.notMember);

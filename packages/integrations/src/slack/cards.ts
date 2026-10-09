@@ -144,6 +144,8 @@ export function decidedCard(
 export const slackRefusals = {
   notMember:
     "Galena doesn't know your Slack email: it doesn't belong to a member of this workspace. Ask an admin to invite it.",
+  otherTeam:
+    "Couldn't decide this draft: only people in this Slack workspace can publish or dismiss it. Open it in the dashboard instead.",
   viewer:
     "Couldn't decide this draft: viewers can't publish or dismiss. Ask an admin for the editor role.",
   decided:

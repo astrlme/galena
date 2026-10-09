@@ -128,6 +128,7 @@ async function draft(token: string): Promise<IncidentId> {
 const click = (id: IncidentId, userId: string, decision: "publish" | "dismiss" = "publish") => ({
   teamId: "T0ACME",
   userId,
+  userTeamId: "T0ACME",
   decision,
   incidentId: id,
   responseUrl: "https://hooks.slack.com/actions/T0ACME/1/abc",
@@ -175,6 +176,16 @@ test("a viewer or someone who isn't a member changes nothing, and is told why", 
   expect(responded.at(-1)?.message.text).toBe(slackRefusals.notMember);
   expect(await visibilityOf(id)).toBe("draft");
   expect(completed.map(([token]) => token)).not.toContain("waitpoint_vic");
+});
+
+test("someone from another Slack workspace changes nothing, even with a member's email", async () => {
+  const id = await draft("waitpoint_shared");
+  expect(await answerClick({ ...click(id, "U0ADA"), userTeamId: "T0OTHER" }, deps)).toBe(
+    "other_team",
+  );
+  expect(responded.at(-1)?.message.text).toBe(slackRefusals.otherTeam);
+  expect(await visibilityOf(id)).toBe("draft");
+  expect(completed.map(([token]) => token)).not.toContain("waitpoint_shared");
 });
 
 test("a press from a Slack workspace that isn't connected is told to reconnect", async () => {
