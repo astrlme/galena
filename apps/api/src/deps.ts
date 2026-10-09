@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetParameterCommand, ParameterNotFound, SSMClient } from "@aws-sdk/client-ssm";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { slackAppConfig } from "@galena/contracts";
+import { type SlackAppConfig, slackAppConfig } from "@galena/contracts";
 import type { WorkflowEngine } from "@galena/core";
 import { createDb, type DbConfig } from "@galena/db";
 import { guard } from "@galena/integrations/net";
@@ -105,13 +105,7 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
           throw error;
         })
       : undefined);
-  const slackApp = slackJson ? slackAppConfig.safeParse(safeJson(slackJson)) : undefined;
-  if (slackApp && !slackApp.success) {
-    // Names the fields only: the value holds secrets.
-    throw new Error(
-      "The Slack app's secrets must be JSON with clientId, clientSecret and signingSecret.",
-    );
-  }
+  const slackApp = slackAppFrom(slackJson);
 
   // DynamoDB Local takes any credentials; AWS uses the function's role.
   const endpoint =
@@ -140,11 +134,26 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     publicUrl: baseURL,
     ...(originSecret ? { originSecret } : {}),
     setup: env.GLN_STAGE === "local" ? "open" : setupToken ? { token: setupToken } : {},
-    ...(slackApp?.success ? { slack: { ...slackApp.data, api: slackApi({ guard }) } } : {}),
+    ...(slackApp ? { slack: { ...slackApp, api: slackApi({ guard }) } } : {}),
     // Locally the workers put mail in a directory, so subscribing always works.
     subscriptions: env.GLN_STAGE === "local" || Boolean(env.GLN_EMAIL_FROM),
     close,
   };
+}
+
+/**
+ * The Slack app's secrets, or undefined (Slack off) when they're absent or not the JSON it needs.
+ * A bad value only turns Slack off: sign-in and the dashboard don't depend on it.
+ */
+export function slackAppFrom(text: string | undefined): SlackAppConfig | undefined {
+  if (!text) return undefined;
+  const parsed = slackAppConfig.safeParse(safeJson(text));
+  if (parsed.success) return parsed.data;
+  // Names the fields only: the value holds secrets.
+  console.error(
+    "Slack is off: its secrets must be JSON with clientId, clientSecret and signingSecret.",
+  );
+  return undefined;
 }
 
 function safeJson(text: string): unknown {

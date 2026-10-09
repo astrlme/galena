@@ -51,9 +51,12 @@ aws ssm put-parameter --region <home region> --type SecureString \
   --value '{"clientId":"…","clientSecret":"…","signingSecret":"…"}'
 ```
 
+PowerShell removes the double quotes inside `--value` before the AWS CLI sees them. There, save
+the JSON to a file, pass `--value file://slack-app.json`, then delete the file.
+
 The API reads it when it starts, so store it before you deploy; an API that's already running
 picks it up with your next upgrade. Without this parameter, Slack stays off and its addresses
-answer 404.
+answer 404. A value that isn't valid JSON does the same, and the API logs why.
 
 </Step>
 <Step>
