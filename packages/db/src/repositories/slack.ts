@@ -77,5 +77,19 @@ export function slackRepository(db: Db) {
         .returning(columns);
       return row;
     },
+
+    /** Forgets an install whose token Slack refused, unless it was reinstalled since. */
+    async removeRevoked(workspaceId: WorkspaceId, botTokenSealed: string): Promise<boolean> {
+      const removed = await db
+        .delete(slackInstallation)
+        .where(
+          and(
+            eq(slackInstallation.workspaceId, workspaceId),
+            eq(slackInstallation.botTokenSealed, botTokenSealed),
+          ),
+        )
+        .returning({ id: slackInstallation.id });
+      return removed.length > 0;
+    },
   };
 }

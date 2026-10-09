@@ -9,7 +9,7 @@ import {
 } from "@galena/contracts";
 import { createDb, type Db, incidentRepository, schema, slackRepository } from "@galena/db";
 import { appKeys, LOCAL_APP_KEY, seal } from "@galena/integrations/secrets";
-import { type SlackMessage, slackRefusals } from "@galena/integrations/slack";
+import { SlackApiError, type SlackMessage, slackRefusals } from "@galena/integrations/slack";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -36,6 +36,15 @@ const emails: Record<string, string> = {
 const completed: [string, DraftAnswer][] = [];
 const dispatched: OutboxId[] = [];
 let deps: SlackDeps;
+const acmeInstall = {
+  teamId: "T0ACME",
+  teamName: "Acme",
+  botUserId: "U0BOT",
+  botTokenSealed: seal(keys, "xoxb-test"),
+  channelId: "C0INC",
+  channelName: "#incidents",
+  installedByUserId: "u-ada",
+};
 
 beforeAll(async () => {
   container = await new PostgreSqlContainer("postgres:16-alpine").start();
@@ -58,15 +67,7 @@ beforeAll(async () => {
     { id: memberId.parse(v7()), workspaceId: acme, userId: "u-ada", role: "editor" },
     { id: memberId.parse(v7()), workspaceId: acme, userId: "u-vic", role: "viewer" },
   ]);
-  await slackRepository(db).save(acme, {
-    teamId: "T0ACME",
-    teamName: "Acme",
-    botUserId: "U0BOT",
-    botTokenSealed: seal(keys, "xoxb-test"),
-    channelId: "C0INC",
-    channelName: "#incidents",
-    installedByUserId: "u-ada",
-  });
+  await slackRepository(db).save(acme, acmeInstall);
   deps = {
     db,
     keys,
@@ -142,6 +143,29 @@ test("posts a draft's card to the channel picked on install, with the bot's toke
   expect(posted.at(-1)).toMatchObject({ token: "xoxb-test", channel: "C0INC" });
   expect(posted.at(-1)?.message.text).toContain("Publishes automatically at 16:03 UTC");
   expect(await postApprovalCard({ workspaceId: quiet, incidentId: id }, deps)).toBe("no_install");
+});
+
+test("a card refused for a revoked token forgets the install; other failures don't", async () => {
+  const refusing = (code: string): SlackDeps => ({
+    ...deps,
+    api: {
+      ...deps.api,
+      postMessage: async () => {
+        throw new SlackApiError("chat.postMessage", code, false);
+      },
+    },
+  });
+  const id = await draft("waitpoint_revoked");
+  const card = { workspaceId: acme, incidentId: id };
+  await expect(postApprovalCard(card, refusing("channel_not_found"))).rejects.toThrow(
+    "channel_not_found",
+  );
+  expect(await slackRepository(db).findByWorkspace(acme)).toBeDefined();
+
+  expect(await postApprovalCard(card, refusing("token_revoked"))).toBe("token_revoked");
+  expect(await slackRepository(db).findByWorkspace(acme)).toBeUndefined();
+  // Reconnected, as an admin would from Settings, for the tests that follow.
+  await slackRepository(db).save(acme, acmeInstall);
 });
 
 test("an editor's press publishes the draft as them, wakes the run and replaces the card", async () => {

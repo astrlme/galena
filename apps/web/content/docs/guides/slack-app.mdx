@@ -103,6 +103,9 @@ background, so a press doesn't wait for it; the card updates once the database i
 
 - **Settings says "Couldn't connect Slack"**: check the three values in
   `/galena/<name>/slack-app`, then connect again.
+- **Settings shows Slack as not connected, though nobody disconnected it**: someone removed the
+  app in Slack. Galena forgets the connection the first time Slack refuses its token; connect
+  again from Settings.
 - **No card arrives in a private channel**: invite the app to the channel (`/invite @Galena`).
   Public channels don't need it.
 - **A card still shows its buttons after the draft was decided in the dashboard or at its

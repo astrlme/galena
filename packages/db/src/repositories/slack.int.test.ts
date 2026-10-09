@@ -71,6 +71,15 @@ test("removing returns the sealed token, so the caller can revoke it", async () 
   expect(await slack.remove(acme)).toBeUndefined();
 });
 
+test("forgets a revoked install only while it still holds that token", async () => {
+  const slack = slackRepository(db);
+  await slack.save(acme, { ...install("T0ACME"), botTokenSealed: "sealed-new" });
+  expect(await slack.removeRevoked(acme, "sealed-old")).toBe(false);
+  expect(await slack.findByWorkspace(acme)).toBeDefined();
+  expect(await slack.removeRevoked(acme, "sealed-new")).toBe(true);
+  expect(await slack.findByWorkspace(acme)).toBeUndefined();
+});
+
 test("finds a member by email, in that workspace only, whatever the case", async () => {
   expect(await findMemberByEmail(db, acme, "ADA@example.com")).toEqual({
     userId: "u-ada",

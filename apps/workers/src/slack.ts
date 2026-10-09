@@ -23,6 +23,7 @@ import {
   decidedCard,
   incidentList,
   type SlackApi,
+  SlackApiError,
   slackRefusals,
 } from "@galena/integrations/slack";
 import { z } from "zod";
@@ -87,20 +88,32 @@ async function draftCard(
   return incident ? toCard(deps.db, incident, deps.dashboardUrl) : undefined;
 }
 
-/** Posts the draft's approval card to the channel picked on install. */
+// What Slack answers once the app is removed from its workspace: the token never works again.
+const DEAD_TOKEN = new Set(["token_revoked", "invalid_auth", "account_inactive"]);
+
+/**
+ * Posts the draft's approval card to the channel picked on install. When Slack refuses the
+ * token, the install is forgotten, so Settings shows Slack as disconnected.
+ */
 export async function postApprovalCard(
   { workspaceId: workspace, incidentId: id }: CardPayload,
   deps: SlackDeps,
-): Promise<"posted" | "no_install" | "not_a_draft"> {
+): Promise<"posted" | "no_install" | "not_a_draft" | "token_revoked"> {
   const install = await slackRepository(deps.db).findByWorkspace(workspace);
   if (!install) return "no_install";
   const card = await draftCard(deps, workspace, id);
   if (!card?.approvalDeadline) return "not_a_draft";
-  await deps.api.postMessage(
-    open(deps.keys, install.botTokenSealed),
-    install.channelId,
-    approvalCard({ ...card, approvalDeadline: card.approvalDeadline }),
-  );
+  try {
+    await deps.api.postMessage(
+      open(deps.keys, install.botTokenSealed),
+      install.channelId,
+      approvalCard({ ...card, approvalDeadline: card.approvalDeadline }),
+    );
+  } catch (error) {
+    if (!(error instanceof SlackApiError && DEAD_TOKEN.has(error.code))) throw error;
+    await slackRepository(deps.db).removeRevoked(workspace, install.botTokenSealed);
+    return "token_revoked";
+  }
   return "posted";
 }
 
