@@ -51,6 +51,16 @@ export class WorkerAccessStack extends Stack {
         resources: [`${pageBucket}/pages/*`],
       }),
       new PolicyStatement({ actions: ["s3:ListBucket"], resources: [pageBucket] }),
+      // page.publish notes which monitor states the page shows; page.heartbeat reads the note
+      // back. Listing lets the note read as absent, not forbidden, before the first publish.
+      new PolicyStatement({
+        actions: ["s3:PutObject", "s3:GetObject"],
+        resources: [`arn:${this.partition}:s3:::${configBucket}/published.json`],
+      }),
+      new PolicyStatement({
+        actions: ["s3:ListBucket"],
+        resources: [`arn:${this.partition}:s3:::${configBucket}`],
+      }),
       // rollup.uptime catches monitor states up with what the evaluator wrote; read only.
       new PolicyStatement({
         actions: ["dynamodb:BatchGetItem"],

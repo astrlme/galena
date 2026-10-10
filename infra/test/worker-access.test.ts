@@ -32,7 +32,10 @@ test("the workers may use the Data API, the database secret, monitors.json, the 
     "rds-data:ExecuteStatement",
     "rds-data:RollbackTransaction",
     "s3:GetObject",
+    "s3:GetObject",
     "s3:ListBucket",
+    "s3:ListBucket",
+    "s3:PutObject",
     "s3:PutObject",
     "s3:PutObject",
     "secretsmanager:GetSecretValue",
@@ -40,6 +43,11 @@ test("the workers may use the Data API, the database secret, monitors.json, the 
   ]);
   const s3 = statements.find((s) => s.Action === "s3:PutObject");
   expect(JSON.stringify(s3.Resource)).toContain("/monitors.json");
+});
+
+test("in the config bucket, the workers write monitors.json and keep only published.json", () => {
+  const note = statements.filter((s) => JSON.stringify(s.Resource).includes("/published.json"));
+  expect(note.map((s) => [s.Action].flat().sort())).toEqual([["s3:GetObject", "s3:PutObject"]]);
 });
 
 test("page files are the only wildcard, and only under pages/ in the page bucket", () => {
