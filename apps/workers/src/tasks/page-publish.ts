@@ -6,7 +6,8 @@ import { globalKey } from "./keys.ts";
 import { noteFile, pageStore } from "./page-store.ts";
 
 // One run at a time, so each publish reads the database after the one before it wrote.
-const publisher = queue({ name: "publisher", concurrencyLimit: 1 });
+// `page.heartbeat` shares it, so it never stamps snapshot.json while a publish writes it.
+export const publisher = queue({ name: "publisher", concurrencyLimit: 1 });
 
 /** Starts a publish for `version`, keyed `pub:{version}`. */
 export async function triggerPublish(version: number): Promise<void> {

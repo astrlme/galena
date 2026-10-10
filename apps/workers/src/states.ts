@@ -1,14 +1,11 @@
 import { BatchGetCommand, type DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { type MonitorId, type MonitorState, monitorId } from "@galena/contracts";
-import type { Clock } from "@galena/core";
+import { type Clock, TRANSITION_SETTLE_MS } from "@galena/core";
 import { type Db, listMonitorStates, recordMonitorTransition } from "@galena/db";
 
 /** The state detection holds for a monitor: `MON#<id>` / `STATE` in the telemetry table. */
 export type DetectedState = { state: MonitorState; transitionSeq: number; enteredAt: number };
 export type ReadStates = (ids: readonly MonitorId[]) => Promise<Map<MonitorId, DetectedState>>;
-
-// A transition this recent may still be on its way through `monitor.state-changed`.
-const SETTLE_MS = 5 * 60_000;
 
 /**
  * Records the state detection holds for each monitor whose recorded state fell behind it. A
@@ -22,7 +19,7 @@ export async function catchUpStates(deps: {
 }): Promise<{ caughtUp: number }> {
   const monitors = await listMonitorStates(deps.db);
   const detected = await deps.readStates(monitors.map((m) => m.id));
-  const settled = deps.clock.now().getTime() - SETTLE_MS;
+  const settled = deps.clock.now().getTime() - TRANSITION_SETTLE_MS;
   let caughtUp = 0;
   for (const m of monitors) {
     const d = detected.get(m.id);
@@ -52,7 +49,7 @@ export function dynamoStates(doc: DynamoDBDocumentClient, table: string): ReadSt
         }),
       );
       if (Object.keys(UnprocessedKeys ?? {}).length > 0) {
-        throw new Error("DynamoDB left monitor states unread; the next hour reads them again.");
+        throw new Error("DynamoDB left monitor states unread; the next run reads them again.");
       }
       for (const item of Responses?.[table] ?? []) {
         // Our own item, written by the evaluator.

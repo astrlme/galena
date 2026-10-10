@@ -19,28 +19,35 @@ const dynamo = new DynamoDBClient(
       }
     : { region: env.GLN_HOME_REGION },
 );
-const readStates = dynamoStates(DynamoDBDocumentClient.from(dynamo), env.GLN_TELEMETRY_TABLE);
+/** Detection's monitor states, as the evaluator wrote them; read only. */
+export const readStates = dynamoStates(
+  DynamoDBDocumentClient.from(dynamo),
+  env.GLN_TELEMETRY_TABLE,
+);
 
 /**
- * Hourly, at minute 5 (the one minute an hour anything scheduled reads Aurora). Monitor states
- * that fell behind detection are caught up first, so the rollup counts them. Saving a day's
- * rollup replaces it, so a retried run writes the same rows.
+ * Catches monitor states that fell behind detection up, so the rollup counts them, then rolls
+ * up uptime and publishes. Saving a day's rollup replaces it, so a retried run writes the same
+ * rows. `page.heartbeat` runs it too, when the page may be behind detection.
  */
+export async function runRollup() {
+  const clock = { now: () => new Date() };
+  // A failed read must not hold up the rollup; the next run tries again.
+  const states = await catchUpStates({ db, clock, readStates }).catch((error: unknown) => {
+    const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+    logger.error("monitor states not caught up", { reason });
+    return undefined;
+  });
+  const result = await rollUpUptime({ db, clock, publish: triggerPublish });
+  logger.info("rollup.uptime", { ...(result ?? { outcome: "no_page" }), ...states });
+  return result;
+}
+
+/** Hourly, at minute 5 (the one minute an hour anything scheduled reads Aurora). */
 export const rollupUptimeTask = schedules.task({
   id: "rollup.uptime",
   // Zero window: trigger.dev spreads new schedules across the hour by default, and both hourly
   // tasks must share minute 5 so Aurora wakes once.
   cron: { pattern: "5 * * * *", window: "0m" },
-  run: async () => {
-    const clock = { now: () => new Date() };
-    // A failed read must not hold up the rollup; the next hour tries again.
-    const states = await catchUpStates({ db, clock, readStates }).catch((error: unknown) => {
-      const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-      logger.error("monitor states not caught up", { reason });
-      return undefined;
-    });
-    const result = await rollUpUptime({ db, clock, publish: triggerPublish });
-    logger.info("rollup.uptime", { ...(result ?? { outcome: "no_page" }), ...states });
-    return result;
-  },
+  run: runRollup,
 });
