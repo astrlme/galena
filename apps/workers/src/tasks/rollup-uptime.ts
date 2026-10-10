@@ -43,11 +43,14 @@ export async function runRollup() {
   return result;
 }
 
-/** Hourly, at minute 5 (the one minute an hour anything scheduled reads Aurora). */
+/**
+ * Every six hours, at five past (the only times anything scheduled reads Aurora). The hourly
+ * `page.heartbeat` runs it sooner when the page may be behind detection.
+ */
 export const rollupUptimeTask = schedules.task({
   id: "rollup.uptime",
-  // Zero window: trigger.dev spreads new schedules across the hour by default, and both hourly
-  // tasks must share minute 5 so Aurora wakes once.
-  cron: { pattern: "5 * * * *", window: "0m" },
+  // Zero window: trigger.dev spreads new schedules across the hour by default, and both tasks
+  // must share the minute so Aurora wakes once.
+  cron: { pattern: "5 */6 * * *", window: "0m" },
   run: runRollup,
 });

@@ -115,7 +115,7 @@ export function wholeMinutes(
   );
 }
 
-/** What the hourly rollup reads: enough to replay yesterday and today for every component. */
+/** What the uptime rollup reads: enough to replay yesterday and today for every component. */
 export type RollupInputs = {
   components: ReadonlyArray<{ id: ComponentId }>;
   monitors: ReadonlyArray<{

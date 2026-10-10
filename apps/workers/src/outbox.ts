@@ -88,7 +88,7 @@ export async function dispatchOutbox(id: OutboxId, deps: DispatchDeps): Promise<
 
 /** How long a row may stay pending before the sweep takes it: its own runs come well before. */
 const SWEEP_AFTER_MS = 5 * 60_000;
-// Known limit: this many rows per hourly sweep; the rest wait for the next one.
+// Known limit: this many rows per sweep; the rest wait for the next one, six hours later.
 const SWEEP_LIMIT = 500;
 
 /**

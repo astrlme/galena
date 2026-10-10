@@ -67,7 +67,7 @@ export function eventChange(
  * the dispatcher. Before the transaction, a dispatch delayed by a minute is armed for the row's
  * id, so the event still goes out if this process dies between the commit and the trigger after
  * it; if the transaction rolls back, that run finds no row and stops. If trigger.dev is
- * unreachable, the request still succeeds and the hourly sweep picks the pending row up.
+ * unreachable, the request still succeeds and the outbox sweep picks the pending row up.
  */
 export async function commit(deps: Deps, change: Change, write: (tx: Db) => Promise<unknown>) {
   const id = outboxId.parse(v7());

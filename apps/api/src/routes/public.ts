@@ -123,7 +123,7 @@ export function registerPublicRoutes(app: App, deps: Deps) {
       });
     });
     // No delayed backstop here: arming one per form post would let anyone start runs. A lost
-    // confirmation waits for the hourly sweep.
+    // confirmation waits for the outbox sweep, at most six hours.
     if (outboxId) await dispatch(deps, outboxId);
     console.info("public.subscribe", { address: keyedHash(keys, email), confirming: !!outboxId });
     return accepted();

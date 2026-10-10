@@ -102,7 +102,7 @@ export const pageComponent = pgTable(
   ],
 );
 
-/** Minutes one component spent in each status on one UTC day, from the hourly rollup. */
+/** Minutes one component spent in each status on one UTC day, from the uptime rollup. */
 export const uptimeDaily = pgTable(
   "uptime_daily",
   {

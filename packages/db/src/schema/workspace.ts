@@ -77,7 +77,7 @@ export const outbox = pgTable(
   },
   (t) => [
     index().on(t.workspaceId),
-    // The hourly sweep reads only pending rows.
+    // The outbox sweep reads only pending rows.
     index("outbox_pending_idx").on(t.createdAt).where(sql`${t.dispatchedAt} is null`),
   ],
 );
