@@ -16,8 +16,8 @@ seconds, and mustn't run once per keystroke of an incident update.
 - `page.rebuild-html` runs `astro build` one at a time, and the newest snapshot wins.
 - Versions come from a Postgres sequence, taken only after the change has committed, and both
   tasks stop early when a newer version is already out.
-- The hourly uptime rollup republishes, so the page's "Updated" time is at most about an hour old
-  while everything is healthy.
+- An hourly heartbeat confirms the page from detection's states without reading the database, so
+  the page's "Updated" time is at most about an hour old while everything is healthy.
 
 See [Publishing](/docs/architecture/publishing/).
 

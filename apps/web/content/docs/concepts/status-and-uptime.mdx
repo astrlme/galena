@@ -61,7 +61,7 @@ monitor reported, has no data rather than counting as up. A component with no da
 Galena doesn't add up check results to draw the history. It replays what happened:
 
 1. Each monitor's confirmed state changes are kept in the database.
-2. Once an hour, at five past, a background job replays yesterday and today for every component:
+2. Every six hours, at five past, a background job replays yesterday and today for every component:
    at each moment a monitor changed state, an incident opened or resolved, or a window started or
    ended, it applies the same rule the live status uses, and adds up the minutes spent in each
    status. Minutes in which no monitor had a verdict are skipped.
@@ -75,5 +75,6 @@ numbers.
 
 The page says when its data was published: "Updated 14:02 UTC". An open page checks
 `snapshot.json` every 30 seconds and updates its headline and component statuses in place,
-announcing the change to screen readers. Since the hourly job republishes the page, a page that
-hasn't been confirmed for two hours says so: "Status not confirmed since 12:05 UTC".
+announcing the change to screen readers. A background job confirms the page every hour, checking
+that it still shows every state detection holds, so a page that hasn't been confirmed for two
+hours says so: "Status not confirmed since 12:35 UTC".

@@ -69,7 +69,20 @@ The only part of the page that reaches the API is the subscribe form, which post
 on the page's own domain; CloudFront forwards those paths to the API without caching. If the API
 is down, the form says so and the rest of the page is unaffected.
 
-## The hourly republish
+## The hourly confirmation
 
-The uptime rollup republishes the page every hour. That keeps the history current and lets the
-page's "Updated" time be trusted: a page that hasn't been confirmed for two hours says so.
+The page's "Updated" time can be trusted: a page that hasn't been confirmed for two hours says so.
+Rebuilding it from the database every hour would wake Aurora every hour, so `page.heartbeat`
+confirms it at 35 past each hour from S3 and DynamoDB alone.
+
+Each publish leaves a private note, `published.json` in the config bucket, with the transition
+each monitor was on when the page was built. The heartbeat compares it with the states detection
+holds:
+
+- When they match, it stamps `snapshot.json` with the current time and changes nothing else.
+- When a transition younger than five minutes hasn't reached the page, it waits: that
+  transition's own publish is on its way.
+- Otherwise, or without a note, it runs the uptime rollup, which catches the states up and
+  publishes from the database.
+
+The rollup also runs every six hours, which keeps the uptime history current to within six hours.

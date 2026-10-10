@@ -24,8 +24,8 @@ Two more safeguards:
   API also triggers a dispatch delayed by one minute, which finds the row already handled, or
   missing if the transaction rolled back. The public subscribe form arms none, so a stranger
   can't start runs by posting it; the sweep covers it.
-- **An hourly sweep** of rows still pending after five minutes, at the same minute as the other
-  hourly job, covering trigger.dev being unreachable when the change was written.
+- **A sweep every six hours** of rows still pending after five minutes, at the same minute as the
+  uptime rollup, covering trigger.dev being unreachable when the change was written.
 
 ## Alternatives
 
@@ -40,8 +40,8 @@ Two more safeguards:
 - Every consumer must be safe to run twice; they are, through their keys.
 - Every change costs two `outbox.dispatch` runs instead of one.
 - After a crash between commit and trigger, the event arrives about a minute late. If trigger.dev
-  is unreachable when a change is saved, the event waits for the first hourly sweep after it
-  comes back.
+  is unreachable when a change is saved, the event waits for the first sweep after it comes
+  back, at most six hours.
 
 ## Revisit when
 

@@ -57,8 +57,9 @@ message doesn't redeliver the batch. For each result it:
 
 A transition is first stored as **pending** on the state item, then triggered. If triggering
 fails, the next delivery for that monitor triggers it again, and the idempotency key makes the
-repeat harmless. If the task itself fails for good, the hourly uptime rollup records the state
-item's state for any monitor whose recorded state fell behind it.
+repeat harmless. If the task itself fails for good, the uptime rollup records the state item's
+state for any monitor whose recorded state fell behind it. The rollup runs every six hours, and
+within the hour when the heartbeat finds the page behind detection.
 
 Canary results update a per-region health item; a failing canary excludes the region from every
 monitor's vote until it passes three times in a row.

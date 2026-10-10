@@ -36,8 +36,8 @@ deployment cheap. Scripts calling the API should allow at least 20 seconds.
 
 1. In trigger.dev, find the `outbox.dispatch` run for the change. If there is none, the API
    couldn't reach trigger.dev when you saved: the API's log says `outbox.dispatch was not
-   triggered`. The change is saved and its event is still pending; the hourly `outbox.sweep` at
-   five past the hour dispatches it, or save the change again to publish sooner.
+   triggered`. The change is saved and its event is still pending; `outbox.sweep` dispatches it
+   within six hours, or save the change again to publish sooner.
 2. Check the `page.publish` run that followed. `superseded` means a newer publish already covered
    the change.
 3. Check `page.rebuild-html` for the HTML. The data files (`snapshot.json`) land first, so an open
@@ -80,8 +80,9 @@ answers now. A 4xx other than 429 is not retried; fix the receiver, then send a 
 
 ## The page says "Status not confirmed"
 
-The page hasn't been republished for two hours, though the hourly rollup should republish it.
-Check the `rollup.uptime` schedule and its runs in trigger.dev, and the workers' AWS access key.
+The page hasn't been confirmed for two hours, though `page.heartbeat` should confirm it every hour.
+Check its schedule and runs in trigger.dev, and the workers' AWS access key. A run that answered
+`rollup` read the database, so a paused or unreachable Aurora shows up there.
 
 ## `403 not_through_cloudfront`
 

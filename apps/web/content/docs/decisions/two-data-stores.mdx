@@ -26,7 +26,7 @@ domain, every confirmed state change, and daily uptime. The hot path never touch
 ## Consequences
 
 - Two data models. The page's history comes from confirmed state changes in Postgres, rolled up
-  hourly, not from raw results.
+  every six hours, not from raw results.
 - Concurrent evaluations of one monitor are guarded by a version on its state item.
 
 ## Revisit when

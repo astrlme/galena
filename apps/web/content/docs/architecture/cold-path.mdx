@@ -53,8 +53,8 @@ committed state is always written last.
 
 <Callout>
 If trigger.dev is unreachable at the moment of the trigger, the request still succeeds and the row
-stays pending. The hourly `outbox.sweep` hands every row still pending after five minutes back to
-the dispatcher, keyed `outbox:{outboxId}:sweep:{hour}`, so each hour tries again.
+stays pending. `outbox.sweep`, every six hours, hands every row still pending after five minutes
+back to the dispatcher, keyed `outbox:{outboxId}:sweep:{hour}`, so each run tries again.
 </Callout>
 
 ## Why nothing polls the database
@@ -62,7 +62,10 @@ the dispatcher, keyed `outbox:{outboxId}:sweep:{hour}`, so each hour tries again
 Aurora Serverless v2 pauses after five idle minutes and costs nothing for compute while paused. A
 dispatcher that polled the outbox every minute would keep it awake around the clock. So the cold
 path is event-driven: the API triggers dispatch directly, and the only scheduled jobs that read
-Aurora are the hourly uptime rollup and outbox sweep, both at five past the hour.
+Aurora are the uptime rollup and the outbox sweep, together at 00:05, 06:05, 12:05 and 18:05 UTC.
+Each wake costs about ten minutes of capacity, so they run four times a day rather than hourly. In
+between, the hourly `page.heartbeat` keeps the page confirmed without reading Aurora; see
+[Publishing](/docs/architecture/publishing/).
 
 The first query after a pause can take around 15 seconds, and the Data API fails fast with
 `DatabaseResumingException` meanwhile. The database client retries that error for up to 30
@@ -75,14 +78,15 @@ seconds, and the dashboard explains the wait after 10.
 | `monitor.state-changed` | The evaluator, on a transition | Records the transition; opens an incident when the monitor goes down, moves the one it opened to Monitoring, back to Investigating or resolved, or leaves it to an incident already open on the component; republishes unless suppressed | `mon:{monitorId}:{transitionSeq}` |
 | `incident.autopilot` | `monitor.state-changed`, for a draft | Waits for a person until the draft's deadline (a waitpoint token keyed `approve:{incidentId}`), then publishes or dismisses it | `auto:{incidentId}` |
 | `outbox.dispatch` | The API, after each commit and a minute later as a backstop; the sweep | One at a time | `outbox:{outboxId}`, `outbox:{outboxId}:backstop`, `outbox:{outboxId}:sweep:{hour}` |
-| `outbox.sweep` | Cron, five past every hour | Re-dispatches rows pending for over five minutes | |
+| `outbox.sweep` | Cron, every six hours at five past | Re-dispatches rows pending for over five minutes | |
 | `page.publish` | Dispatch, state changes, the rollup | One at a time; latest wins | `pub:{snapshotVersion}` |
 | `page.rebuild-html` | Each publish | One at a time; latest wins | `html:{snapshotVersion}` |
+| `page.heartbeat` | Cron, 35 past every hour | Confirms the page from detection's states, or runs the rollup; shares the publisher's queue | |
 | `notify.fanout` | Dispatch, for incident and maintenance events | | `fan:{eventId}` |
 | `notify.email` | Fan-out, and subscription requests | Up to 5 attempts | `send:{eventId}:{subscriberId}` |
 | `notify.slack`, `notify.webhook` | Fan-out | Up to 5 attempts, 10 at a time per channel | `send:{eventId}:{endpointId}` |
 | `maintenance.lifecycle` | Dispatch, when a window is scheduled or edited | Sleeps until start and end | `mnt:{maintenanceId}:{version}` |
-| `rollup.uptime` | Cron, five past every hour | Catches monitor states up with detection, replays yesterday and today, then publishes | |
+| `rollup.uptime` | Cron, every six hours at five past; the heartbeat, when the page may be behind | Catches monitor states up with detection, replays yesterday and today, then publishes | |
 
 trigger.dev tasks run on trigger.dev's machines, not in AWS. They reach AWS only as the
 `galena-<stage>-worker-access` IAM user, whose policy allows exactly what the tasks need.
