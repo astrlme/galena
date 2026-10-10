@@ -11,6 +11,7 @@ export * from "./monitors/monitors-file.ts";
 export * from "./notifications/audience.ts";
 export * from "./notifications/subscriber.ts";
 export * from "./ports.ts";
+export * from "./publishing/heartbeat.ts";
 export * from "./publishing/snapshot.ts";
 export * from "./publishing/uptime.ts";
 export * from "./result.ts";
