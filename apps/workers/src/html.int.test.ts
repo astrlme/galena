@@ -43,7 +43,15 @@ test("builds the HTML from the published snapshot once per version, with no form
   const rebuild = async (version: number) => void asked.push(version);
   await publishPage(
     { version: await nextSnapshotVersion(db) },
-    { db, clock, store, url, subscribe: false, rebuildHtml: rebuild },
+    {
+      db,
+      clock,
+      store,
+      note: { read: async () => undefined, write: async () => {} },
+      url,
+      subscribe: false,
+      rebuildHtml: rebuild,
+    },
   );
   const version = asked[0] ?? 0;
 

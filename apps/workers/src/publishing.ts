@@ -6,6 +6,7 @@ import {
   advancePageVersion,
   type Db,
   ensurePage,
+  listMonitorStates,
   loadSnapshotInputs,
   nextSnapshotVersion,
 } from "@galena/db";
@@ -29,6 +30,25 @@ export type PageStore = {
   read: (slug: string, path: string) => Promise<string | undefined>;
 };
 
+/**
+ * What `page.publish` leaves for `page.heartbeat` in the private config bucket: the page it
+ * wrote, and the transition each monitor was on when it read the database. The heartbeat
+ * compares it with detection's states to confirm the page without reading the database.
+ */
+export const publishedNote = z.object({
+  version: z.literal(1),
+  slug: z.string().min(1),
+  snapshotVersion: z.int().min(1),
+  monitors: z.record(z.string(), z.int().min(0)),
+});
+export type PublishedNote = z.infer<typeof publishedNote>;
+
+/** Where the note lives. A note that is missing or unreadable reads as undefined. */
+export type NoteFile = {
+  read: () => Promise<PublishedNote | undefined>;
+  write: (note: PublishedNote) => Promise<void>;
+};
+
 export const publishPayload = z.object({ version: z.int().min(1) });
 export type PublishPayload = z.infer<typeof publishPayload>;
 
@@ -36,6 +56,7 @@ export type PublishDeps = {
   db: Db;
   clock: Clock;
   store: PageStore;
+  note: NoteFile;
   url: string;
   /** Whether the page offers email updates. */
   subscribe: boolean;
@@ -57,6 +78,9 @@ export async function publishPage(
   const target = await ensurePage(deps.db);
   if (!target) return { outcome: "no_page" };
   if (target.publishedVersion >= version) return { outcome: "superseded" };
+  // Read before the snapshot: a transition recorded in between then looks unpublished, which
+  // costs the heartbeat a rollup rather than confirming a page that lacks it.
+  const states = await listMonitorStates(deps.db);
   const current = await nextSnapshotVersion(deps.db);
   const inputs = await loadSnapshotInputs(deps.db, target, {
     snapshotVersion: current,
@@ -65,6 +89,18 @@ export async function publishPage(
     now: deps.clock.now(),
   });
   await deps.store.write(target.slug, pageFiles(buildSnapshot(inputs, deps.clock)));
+  // The page is out either way. Without a note for this version the heartbeat runs the rollup,
+  // whose publish writes the note again.
+  await deps.note
+    .write({
+      version: 1,
+      slug: target.slug,
+      snapshotVersion: current,
+      monitors: Object.fromEntries(states.map((m) => [m.id, m.stateSeq])),
+    })
+    .catch((error: unknown) => {
+      console.warn("page.publish note not written", { error: String(error) });
+    });
   // Runs of this task queue one at a time, so nothing newer went out while this one wrote.
   await advancePageVersion(deps.db, target.id, "data", current);
   await deps.rebuildHtml(current);
@@ -122,6 +158,63 @@ export function s3PageStore(options: { region: string; bucket: string }): PageSt
         if (error instanceof NoSuchKey) return undefined;
         throw error;
       }
+    },
+  };
+}
+
+const NOTE = "published.json";
+const readNote = (text: string | undefined) => {
+  if (text === undefined) return undefined;
+  try {
+    const parsed = publishedNote.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/** Local development: `published.json` next to `monitors.json`. */
+export function localNoteFile(dir: string): NoteFile {
+  const path = resolve(dir, NOTE);
+  return {
+    async read() {
+      try {
+        return readNote(await readFile(path, "utf8"));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+        throw error;
+      }
+    },
+    async write(note) {
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(`${path}.tmp`, `${JSON.stringify(note)}\n`);
+      await rename(`${path}.tmp`, path);
+    },
+  };
+}
+
+/** AWS stages: `published.json` in the private config bucket, next to `monitors.json`. */
+export function s3NoteFile(options: { region: string; bucket: string }): NoteFile {
+  const s3 = new S3Client({ region: options.region });
+  return {
+    async read() {
+      try {
+        const object = await s3.send(new GetObjectCommand({ Bucket: options.bucket, Key: NOTE }));
+        return readNote(await object.Body?.transformToString());
+      } catch (error) {
+        if (error instanceof NoSuchKey) return undefined;
+        throw error;
+      }
+    },
+    async write(note) {
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: options.bucket,
+          Key: NOTE,
+          Body: JSON.stringify(note),
+          ContentType: "application/json",
+        }),
+      );
     },
   };
 }
