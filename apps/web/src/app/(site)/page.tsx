@@ -176,7 +176,13 @@ export default function Home() {
       </main>
       <footer className="border-t border-mist">
         <div className="mx-auto flex w-full max-w-[1120px] flex-wrap justify-between gap-4 px-4 py-8 text-[14px] text-slate sm:px-6">
-          <span>Galena is open source under the Apache License 2.0.</span>
+          <span>
+            Galena is open source under the Apache License 2.0, made by{" "}
+            <a href="https://astrl.me/" rel="author" className="underline">
+              Furkan Küçükoğlu
+            </a>
+            .
+          </span>
           <span className="flex gap-6">
             <Link href="/docs/" className="hover:underline">
               Docs
