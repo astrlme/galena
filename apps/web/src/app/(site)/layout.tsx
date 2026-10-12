@@ -1,5 +1,12 @@
 import { RootProvider } from "fumadocs-ui/provider/next";
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { siteUrl } from "../../lib/layout.shared.tsx";
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  twitter: { card: "summary_large_image" },
+};
 
 // The landing page and the docs. Search is a prebuilt index the browser downloads, since the
 // site is a static export; the theme follows the reader's system unless they pick one, and sets

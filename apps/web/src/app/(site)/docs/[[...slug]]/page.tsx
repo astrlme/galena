@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { APIPage } from "../../../../components/api-page.tsx";
 import { getMDXComponents } from "../../../../components/mdx.tsx";
+import { openGraph } from "../../../../lib/layout.shared.tsx";
 import { source } from "../../../../lib/source.ts";
 
 type Props = { params: Promise<{ slug?: string[] }> };
@@ -43,5 +44,12 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const { slug } = await props.params;
   const page = source.getPage(slug);
   if (!page) notFound();
-  return { title: page.data.title, description: page.data.description };
+  const { title, description } = page.data;
+  const url = `${page.url}/`;
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { ...openGraph, title, description, url },
+  };
 }

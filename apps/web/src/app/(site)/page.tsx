@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ButtonLink } from "../../components/button.tsx";
 import { Diagram } from "../../components/diagram.tsx";
 import { PagePreview } from "../../components/landing/page-preview.tsx";
-import { baseOptions } from "../../lib/layout.shared.tsx";
+import { baseOptions, openGraph } from "../../lib/layout.shared.tsx";
 
 // The project's own site builds with GLN_SITE=project and gets this landing page. Every other
 // deployment's address opens its dashboard.
@@ -16,11 +16,10 @@ const pitch =
 
 export const metadata: Metadata = project
   ? {
-      metadataBase: new URL("https://galena.astrl.me"),
       title: "Galena: a status page that stays up",
       description: pitch,
-      openGraph: { title: "Galena", description: pitch, images: ["/social-card.png"] },
-      twitter: { card: "summary_large_image", images: ["/social-card.png"] },
+      alternates: { canonical: "/" },
+      openGraph: { ...openGraph, title: "Galena", description: pitch, url: "/" },
     }
   : { title: "Galena" };
 
