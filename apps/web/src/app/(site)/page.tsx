@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ButtonLink } from "../../components/button.tsx";
 import { Diagram } from "../../components/diagram.tsx";
 import { PagePreview } from "../../components/landing/page-preview.tsx";
-import { baseOptions, openGraph } from "../../lib/layout.shared.tsx";
+import { baseOptions, openGraph, siteUrl } from "../../lib/layout.shared.tsx";
 
 // The project's own site builds with GLN_SITE=project and gets this landing page. Every other
 // deployment's address opens its dashboard.
@@ -22,6 +22,29 @@ export const metadata: Metadata = project
       openGraph: { ...openGraph, title: "Galena", description: pitch, url: "/" },
     }
   : { title: "Galena" };
+
+// Gives search results the site's name and ties the project to its repository and author.
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "WebSite", "@id": `${siteUrl}/#website`, url: `${siteUrl}/`, name: "Galena" },
+    {
+      "@type": "SoftwareSourceCode",
+      name: "Galena",
+      description: pitch,
+      url: `${siteUrl}/`,
+      codeRepository: "https://github.com/astrlme/galena",
+      programmingLanguage: "TypeScript",
+      license: "https://www.apache.org/licenses/LICENSE-2.0",
+      author: {
+        "@type": "Person",
+        "@id": "https://astrl.me/#person",
+        name: "Furkan Küçükoğlu",
+        url: "https://astrl.me/",
+      },
+    },
+  ],
+};
 
 const features = [
   {
@@ -67,6 +90,13 @@ export default function Home() {
       links={[{ text: "Docs", url: "/docs/" }, ...(baseOptions().links ?? [])]}
     >
       <main className="mx-auto w-full max-w-[1120px] px-4 sm:px-6">
+        <script
+          type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: our own constants, with `<` escaped
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+          }}
+        />
         <section className="grid items-center gap-12 py-16 md:grid-cols-[1.05fr_1fr] md:py-24">
           <div>
             <p className="font-mono text-[13px] text-slate">Open source, Apache-2.0</p>
