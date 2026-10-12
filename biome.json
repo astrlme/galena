@@ -93,7 +93,7 @@
       }
     },
     {
-      "includes": ["apps/web/src/app/**/*.tsx"],
+      "includes": ["apps/web/src/app/**/*.{ts,tsx}"],
       "linter": {
         "rules": {
           "style": {

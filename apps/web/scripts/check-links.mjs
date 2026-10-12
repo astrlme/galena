@@ -1,7 +1,7 @@
 // `pnpm --filter @galena/web check:links`: every same-site link in the built site (out/, or
 // out-site/ with GLN_SITE=project, out-demo/ with GLN_SITE=demo) must reach a file, the way CloudFront serves it (a directory
-// means its index.html), and every `#fragment` must name an element on the target page. Run after
-// `next build`.
+// means its index.html), and every `#fragment` must name an element on the target page. Every
+// address in sitemap.xml must reach a page too. Run after `next build`.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -50,6 +50,15 @@ for (const page of pages) {
     } else if (fragment && !idsOf(target).has(decodeURIComponent(fragment))) {
       broken.push(`${page}: ${href} (no #${fragment} there)`);
     }
+  }
+}
+
+// Every address in the sitemap must be a page too.
+const sitemap = join(OUT, "sitemap.xml");
+if (existsSync(sitemap)) {
+  for (const [, loc] of readFileSync(sitemap, "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)) {
+    if (resolve(new URL(loc).pathname) === undefined)
+      broken.push(`sitemap.xml: ${loc} (no such page)`);
   }
 }
 
