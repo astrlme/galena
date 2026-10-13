@@ -61,7 +61,7 @@ describe("migrations", () => {
       "verification",
       "workspace",
     ];
-    expect(rows).toHaveLength(27);
+    expect(rows).toHaveLength(28);
     for (const { table_name, has_workspace } of rows) {
       expect(has_workspace, table_name).toBe(!exempt.includes(table_name));
     }

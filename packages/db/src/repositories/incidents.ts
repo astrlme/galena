@@ -183,6 +183,30 @@ export function incidentRepository(db: Db): IncidentRepository {
       return rows.map((row): Incident => ({ ...row, components: components.get(row.id) ?? [] }));
     },
 
+    async findOpen(workspaceId, dedupKey) {
+      const [row] = await db
+        .select(columns)
+        .from(incident)
+        .where(
+          and(eq(incident.workspaceId, workspaceId), eq(incident.dedupKey, dedupKey), openIncident),
+        )
+        .limit(1);
+      if (!row) return undefined;
+      const components = await componentsOf([row.id]);
+      return { ...row, components: components.get(row.id) ?? [] };
+    },
+
+    async noteSignal(workspaceId, incidentId, note, occurredAt) {
+      await db.insert(timelineEvent).values({
+        id: v7(),
+        workspaceId,
+        incidentId,
+        kind: "signal",
+        data: note,
+        occurredAt,
+      });
+    },
+
     async createOnce(value, first) {
       const [created] = await db
         .insert(incident)

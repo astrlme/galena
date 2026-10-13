@@ -3,6 +3,7 @@ import {
   type IncidentStatus,
   incidentId,
   incidentUpdateId,
+  integrationId,
   workspaceId,
 } from "@galena/contracts";
 import type { IncidentChange } from "@galena/core";
@@ -206,4 +207,47 @@ test("one open incident per dedup key; a dismissed draft frees it, and only draf
   expect(await repo.decide(acme, two.id, "published")).toBe(true);
   const published = await repo.findById(acme, two.id);
   expect(published).toMatchObject({ visibility: "published", approvalDeadline: null });
+});
+
+test("an alert group's incident is found by its key until it resolves, with its notes", async () => {
+  const repo = incidentRepository(db);
+  const id = incidentId.parse(v7());
+  const key = `sig:${v7()}:grp`;
+  expect(await repo.findOpen(acme, key)).toBeUndefined();
+  await repo.createOnce(
+    {
+      id,
+      workspaceId: acme,
+      title: "Web is down",
+      impact: "major",
+      visibility: "published",
+      source: "signal",
+      startedAt: at(70),
+      dedupKey: key,
+      approvalDeadline: null,
+    },
+    change("investigating", 70, { components: [{ componentId: web, status: "partial_outage" }] }),
+  );
+  expect(await repo.findOpen(acme, key)).toMatchObject({
+    id,
+    source: "signal",
+    components: [{ componentId: web, status: "partial_outage" }],
+  });
+  expect(await repo.findOpen(other, key)).toBeUndefined();
+
+  const note = {
+    integrationId: integrationId.parse(v7()),
+    title: "HighErrorRate",
+    status: "firing" as const,
+    alerts: [{ service: "web" }],
+  };
+  await repo.noteSignal(acme, id, note, at(70));
+  const notes = await db
+    .select({ kind: timelineEvent.kind, data: timelineEvent.data })
+    .from(timelineEvent)
+    .where(eq(timelineEvent.incidentId, id));
+  expect(notes).toContainEqual({ kind: "signal", data: note });
+
+  expect(await repo.append(acme, id, "investigating", change("resolved", 80))).toBe(true);
+  expect(await repo.findOpen(acme, key)).toBeUndefined();
 });

@@ -10,10 +10,13 @@ import type {
   IncidentStatus,
   IncidentUpdateId,
   IncidentVisibility,
+  IntegrationId,
+  Labels,
   MaintenanceId,
   MaintenanceStatus,
   MonitorConfig,
   MonitorId,
+  SignalStatus,
   WorkspaceId,
 } from "@galena/contracts";
 
@@ -120,6 +123,14 @@ export type IncidentChange = {
   statusChange?: { from: IncidentStatus | null; to: IncidentStatus };
 };
 
+/** What the timeline keeps of an alert group: its name, state and labels. */
+export type SignalNote = {
+  integrationId: IntegrationId;
+  title: string;
+  status: SignalStatus;
+  alerts: Labels[];
+};
+
 export interface IncidentRepository {
   /**
    * Open incidents (not resolved or dismissed), or past ones (resolved or dismissed), newest
@@ -155,6 +166,15 @@ export interface IncidentRepository {
   ): Promise<boolean>;
   /** Open incidents (not resolved, dismissed or deleted) that affect the component. */
   openAffecting(workspaceId: WorkspaceId, componentId: ComponentId): Promise<Incident[]>;
+  /** The open incident holding `dedupKey`: the one a monitor or an alert group opened. */
+  findOpen(workspaceId: WorkspaceId, dedupKey: string): Promise<Incident | undefined>;
+  /** An alert group on the incident's internal timeline: never on the page or in notices. */
+  noteSignal(
+    workspaceId: WorkspaceId,
+    id: IncidentId,
+    note: SignalNote,
+    occurredAt: Date,
+  ): Promise<void>;
   /**
    * Creates the incident unless one with its `dedupKey` is still open, and returns the open one
    * either way, so a retried transition finds the incident it already opened.

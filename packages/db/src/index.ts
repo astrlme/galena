@@ -2,6 +2,16 @@ export { createDb, type Db, type DbConfig } from "./client.ts";
 export { type Change, recordChange } from "./repositories/changes.ts";
 export { componentGroupRepository, componentRepository } from "./repositories/components.ts";
 export { incidentRepository } from "./repositories/incidents.ts";
+export {
+  createIntegration,
+  deleteIntegration,
+  findIntegration,
+  type IntegrationRow,
+  listIntegrations,
+  recordSignalOutcome,
+  setIntegrationToken,
+  updateIntegration,
+} from "./repositories/integrations.ts";
 export { maintenanceRepository } from "./repositories/maintenance.ts";
 export { listEnabledMonitors, monitorRepository } from "./repositories/monitors.ts";
 export {
