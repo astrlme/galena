@@ -12,6 +12,7 @@ import {
 import {
   createIntegration,
   deleteIntegration,
+  findIntegration,
   type IntegrationRow,
   listIntegrations,
   setIntegrationToken,
@@ -41,8 +42,10 @@ export function registerIntegrationRoutes(app: App, deps: Deps) {
   const admin = requireRole(deps, "admin");
   const urlOf = (source: SignalSource, id: IntegrationId, issuedAt: Date) =>
     new URL(`/hooks/${source}/${linkToken(keys, "hook", id, issuedAt)}`, deps.publicUrl).href;
-  const owned = async (workspaceId: WorkspaceId, id: IntegrationId) =>
-    (await listIntegrations(db, workspaceId)).find((i) => i.id === id) ?? notFound("Integration");
+  const owned = async (workspaceId: WorkspaceId, id: IntegrationId) => {
+    const found = await findIntegration(db, id);
+    return found?.workspaceId === workspaceId ? found : notFound("Integration");
+  };
 
   app.openapi(
     createRoute({
