@@ -209,11 +209,11 @@ test("one open incident per dedup key; a dismissed draft frees it, and only draf
   expect(published).toMatchObject({ visibility: "published", approvalDeadline: null });
 });
 
-test("an alert group's incident is found by its key until it resolves, with its notes", async () => {
+test("an alert group's incident is found by its key until it resolves, dismissed or not, and notes it once per key", async () => {
   const repo = incidentRepository(db);
   const id = incidentId.parse(v7());
   const key = `sig:${v7()}:grp`;
-  expect(await repo.findOpen(acme, key)).toBeUndefined();
+  expect(await repo.findUnresolved(acme, key)).toBeUndefined();
   await repo.createOnce(
     {
       id,
@@ -228,12 +228,12 @@ test("an alert group's incident is found by its key until it resolves, with its 
     },
     change("investigating", 70, { components: [{ componentId: web, status: "partial_outage" }] }),
   );
-  expect(await repo.findOpen(acme, key)).toMatchObject({
+  expect(await repo.findUnresolved(acme, key)).toMatchObject({
     id,
     source: "signal",
     components: [{ componentId: web, status: "partial_outage" }],
   });
-  expect(await repo.findOpen(other, key)).toBeUndefined();
+  expect(await repo.findUnresolved(other, key)).toBeUndefined();
 
   const note = {
     integrationId: integrationId.parse(v7()),
@@ -241,13 +241,18 @@ test("an alert group's incident is found by its key until it resolves, with its 
     status: "firing" as const,
     alerts: [{ service: "web" }],
   };
-  await repo.noteSignal(acme, id, note, at(70));
+  await repo.noteSignal(acme, id, { ...note, key: "run-1" }, at(70));
+  // A retried run notes nothing more.
+  await repo.noteSignal(acme, id, { ...note, key: "run-1" }, at(71));
   const notes = await db
     .select({ kind: timelineEvent.kind, data: timelineEvent.data })
     .from(timelineEvent)
     .where(eq(timelineEvent.incidentId, id));
-  expect(notes).toContainEqual({ kind: "signal", data: note });
+  expect(notes.filter((n) => n.kind === "signal")).toEqual([{ kind: "signal", data: note }]);
 
+  // A person dismissing it doesn't end it: only resolving does.
+  await db.update(incident).set({ visibility: "dismissed" }).where(eq(incident.id, id));
+  expect(await repo.findUnresolved(acme, key)).toMatchObject({ id, visibility: "dismissed" });
   expect(await repo.append(acme, id, "investigating", change("resolved", 80))).toBe(true);
-  expect(await repo.findOpen(acme, key)).toBeUndefined();
+  expect(await repo.findUnresolved(acme, key)).toBeUndefined();
 });

@@ -1,7 +1,7 @@
 import type { AffectedComponent, IncidentId, WorkspaceId } from "@galena/contracts";
 import type { Incident, IncidentChange, IncidentRepository } from "@galena/core";
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
-import { v7 } from "uuid";
+import { v5, v7 } from "uuid";
 import type { Db } from "../client.ts";
 import { incident, incidentComponent, incidentUpdate, timelineEvent } from "../schema/index.ts";
 
@@ -23,6 +23,9 @@ const columns = {
   approvalDeadline: incident.approvalDeadline,
   dedupKey: incident.dedupKey,
 };
+
+// Timeline notes about alert groups take ids derived from their run's key, so a retry writes none.
+const SIGNAL_NOTES = "6f1d8a2e-3b4c-4d5e-8f60-718293a4b5c6";
 
 // Open: not resolved, deleted or dismissed, as in the partial unique index on dedup keys. The
 // visibility is compared as text: the Data API sends parameters as text.
@@ -183,28 +186,37 @@ export function incidentRepository(db: Db): IncidentRepository {
       return rows.map((row): Incident => ({ ...row, components: components.get(row.id) ?? [] }));
     },
 
-    async findOpen(workspaceId, dedupKey) {
+    async findUnresolved(workspaceId, dedupKey) {
       const [row] = await db
         .select(columns)
         .from(incident)
         .where(
-          and(eq(incident.workspaceId, workspaceId), eq(incident.dedupKey, dedupKey), openIncident),
+          and(
+            eq(incident.workspaceId, workspaceId),
+            eq(incident.dedupKey, dedupKey),
+            isNull(incident.resolvedAt),
+            isNull(incident.deletedAt),
+          ),
         )
+        .orderBy(desc(incident.startedAt))
         .limit(1);
       if (!row) return undefined;
       const components = await componentsOf([row.id]);
       return { ...row, components: components.get(row.id) ?? [] };
     },
 
-    async noteSignal(workspaceId, incidentId, note, occurredAt) {
-      await db.insert(timelineEvent).values({
-        id: v7(),
-        workspaceId,
-        incidentId,
-        kind: "signal",
-        data: note,
-        occurredAt,
-      });
+    async noteSignal(workspaceId, incidentId, { key, ...note }, occurredAt) {
+      await db
+        .insert(timelineEvent)
+        .values({
+          id: v5(`${incidentId}:${key}`, SIGNAL_NOTES),
+          workspaceId,
+          incidentId,
+          kind: "signal",
+          data: note,
+          occurredAt,
+        })
+        .onConflictDoNothing();
     },
 
     async createOnce(value, first) {

@@ -166,13 +166,19 @@ export interface IncidentRepository {
   ): Promise<boolean>;
   /** Open incidents (not resolved, dismissed or deleted) that affect the component. */
   openAffecting(workspaceId: WorkspaceId, componentId: ComponentId): Promise<Incident[]>;
-  /** The open incident holding `dedupKey`: the one a monitor or an alert group opened. */
-  findOpen(workspaceId: WorkspaceId, dedupKey: string): Promise<Incident | undefined>;
-  /** An alert group on the incident's internal timeline: never on the page or in notices. */
+  /**
+   * The incident holding `dedupKey` that hasn't resolved, dismissed drafts included: an alert
+   * group a person dismissed stays dismissed until it resolves.
+   */
+  findUnresolved(workspaceId: WorkspaceId, dedupKey: string): Promise<Incident | undefined>;
+  /**
+   * An alert group on the incident's internal timeline: never on the page or in notices. Once per
+   * `key`, so a retried run notes it once.
+   */
   noteSignal(
     workspaceId: WorkspaceId,
     id: IncidentId,
-    note: SignalNote,
+    note: SignalNote & { key: string },
     occurredAt: Date,
   ): Promise<void>;
   /**

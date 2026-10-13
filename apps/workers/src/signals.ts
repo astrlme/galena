@@ -1,6 +1,11 @@
-import type { SignalIngest, SignalOutcome } from "@galena/contracts";
-import type { Incident, SignalNote } from "@galena/core";
-import { inMaintenance, planSignal, routeAlerts, signalDedupKey } from "@galena/core";
+import {
+  type IncidentId,
+  type SignalIngest,
+  type SignalOutcome,
+  signalIdempotencyKey,
+} from "@galena/contracts";
+import type { Incident } from "@galena/core";
+import { assertNever, inMaintenance, planSignal, routeAlerts, signalDedupKey } from "@galena/core";
 import {
   componentRepository,
   findIntegration,
@@ -14,12 +19,11 @@ import { type AutopilotDeps, openIncident, postUpdate } from "./autopilot.ts";
  * After `signal.ingest` takes an alert group from an integration's hook URL: opens an incident on
  * the components the group's routes mark, leaves the group to an incident already open there,
  * or resolves the incident the group opened. Safe to repeat: the group's dedup key holds one
- * open incident, and the resolve applies only while the incident is where it was.
+ * unresolved incident (a dismissed draft included, so a group a person dismissed stays
+ * dismissed while it fires), and the resolve applies only while the incident is where it was.
  */
-export async function actOnSignal(
-  { integrationId, tokenIssuedAt, signal }: SignalIngest,
-  deps: AutopilotDeps,
-) {
+export async function actOnSignal(ingest: SignalIngest, deps: AutopilotDeps) {
+  const { integrationId, tokenIssuedAt, signal } = ingest;
   const integration = await findIntegration(deps.db, integrationId);
   // Deleted, or sent to a URL that a newer one has replaced.
   if (
@@ -34,19 +38,26 @@ export async function actOnSignal(
   const incidents = incidentRepository(deps.db);
   const dedupKey = signalDedupKey(integrationId, signal.fingerprint);
   const routed = routeAlerts(signal.alerts, integration.routes);
-  const routedIds = new Set(routed.map((c) => c.componentId));
 
-  const own = (await incidents.findOpen(workspaceId, dedupKey)) ?? null;
-  const covering = new Map<string, Incident>();
-  for (const { componentId } of routed) {
-    for (const incident of await incidents.openAffecting(workspaceId, componentId)) {
-      if (incident.id !== own?.id) covering.set(incident.id, incident);
-    }
-  }
+  const own = (await incidents.findUnresolved(workspaceId, dedupKey)) ?? null;
   const components = await componentRepository(deps.db).listByWorkspace(workspaceId);
-  const windows = (await maintenanceRepository(deps.db).list(workspaceId)).filter(
-    (w) => !w.cancelledAt && w.componentIds.some((id) => routedIds.has(id)),
-  );
+  // Only a firing group without an incident of its own may open one, so only it needs to know
+  // what else is open on its components and whether they're in maintenance.
+  const mayOpen = signal.status === "firing" && !own;
+  const covering = new Map<IncidentId, Incident>();
+  let windows: { startsAt: string; endsAt: string }[] = [];
+  if (mayOpen) {
+    // Known limit: one query per routed component; a route rarely marks more than a few.
+    for (const { componentId } of routed) {
+      for (const incident of await incidents.openAffecting(workspaceId, componentId)) {
+        covering.set(incident.id, incident);
+      }
+    }
+    const routedIds = new Set(routed.map((c) => c.componentId));
+    windows = (await maintenanceRepository(deps.db).list(workspaceId))
+      .filter((w) => !w.cancelledAt && w.componentIds.some((id) => routedIds.has(id)))
+      .map((w) => ({ startsAt: w.startsAt.toISOString(), endsAt: w.endsAt.toISOString() }));
+  }
 
   const plan = planSignal({
     status: signal.status,
@@ -54,38 +65,50 @@ export async function actOnSignal(
     policy: integration.publishPolicy,
     routed,
     componentNames: new Map(components.map((c) => [c.id, c.name])),
-    inMaintenance: inMaintenance(
-      windows.map((w) => ({ startsAt: w.startsAt.toISOString(), endsAt: w.endsAt.toISOString() })),
-      now,
-    ),
+    inMaintenance: inMaintenance(windows, now),
     own,
     covering: [...covering.values()],
     now,
   });
 
-  const note: SignalNote = {
-    integrationId,
-    title: signal.title,
-    status: signal.status,
-    alerts: signal.alerts,
-  };
   let outcome: SignalOutcome;
   let incidentId = own?.id;
-  if (plan.action === "open") {
-    const opened = await openIncident(workspaceId, plan, { source: "signal" }, now, deps);
-    incidentId = opened.incidentId;
-    outcome = opened.created ? "opened" : "repeat";
-  } else if (plan.action === "attach") {
-    incidentId = plan.incidentId;
-    outcome = "attached";
-  } else if (plan.action === "update" && own) {
-    await postUpdate(workspaceId, own, plan, deps);
-    outcome = "resolved";
-  } else {
-    outcome = plan.action === "none" ? plan.outcome : "repeat";
+  switch (plan.action) {
+    case "open": {
+      const opened = await openIncident(workspaceId, plan, { source: "signal" }, now, deps);
+      incidentId = opened.incidentId;
+      outcome = opened.created ? "opened" : "repeat";
+      break;
+    }
+    case "attach":
+      incidentId = plan.incidentId;
+      outcome = "attached";
+      break;
+    case "update": {
+      // planSignal plans an update only on the group's own incident.
+      const updated = own ? await postUpdate(workspaceId, own, plan, deps) : undefined;
+      outcome = updated?.applied ? "resolved" : "repeat";
+      break;
+    }
+    case "none":
+      outcome = plan.outcome;
+      break;
+    default:
+      return assertNever(plan);
   }
-  if (incidentId && outcome !== "repeat") {
-    await incidents.noteSignal(workspaceId, incidentId, note, now);
+  if (incidentId && (outcome === "opened" || outcome === "attached" || outcome === "resolved")) {
+    const note = {
+      integrationId,
+      title: signal.title,
+      status: signal.status,
+      alerts: signal.alerts,
+    };
+    await incidents.noteSignal(
+      workspaceId,
+      incidentId,
+      { ...note, key: signalIdempotencyKey(ingest) },
+      now,
+    );
   }
   await recordSignalOutcome(deps.db, integrationId, outcome, now);
   return { action: plan.action, outcome, incidentId };

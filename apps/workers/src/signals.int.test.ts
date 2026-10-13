@@ -95,15 +95,16 @@ function recorder() {
   };
 }
 
-/** One Alertmanager notification, read as the API reads it, handed to the workflow. */
+/** One Alertmanager notification (a fixture, or a body), read as the API reads it, handed on. */
 function send(
   integration: IntegrationId,
-  name: Notification,
+  body: Notification | object,
   deps: ReturnType<typeof recorder>["deps"],
   issued = ISSUED,
 ) {
-  const [signal] = readSignals("alertmanager", fixture(name)) ?? [];
-  if (!signal) throw new Error(`The ${name} fixture reads as no signal.`);
+  const [signal] =
+    readSignals("alertmanager", typeof body === "string" ? fixture(body) : body) ?? [];
+  if (!signal) throw new Error("The body reads as no signal.");
   return actOnSignal(
     { integrationId: integration, tokenIssuedAt: issued.toISOString(), signal },
     deps,
@@ -270,4 +271,30 @@ test("an alert sent to a replaced URL is dropped without a trace", async () => {
   });
   expect(dispatched).toEqual([]);
   expect(await findIntegration(db, integration.id)).toMatchObject({ lastOutcome: null });
+});
+
+test("a group a person dismissed stays dismissed while it fires, and opens afresh once it resolves", async () => {
+  const integration = await integrationWith("approve");
+  const { deps, approvals } = recorder();
+  const opened = await send(integration.id, "firing", deps);
+  const id = incidentId.parse(opened.incidentId);
+  expect(await incidentRepository(db).decide(acme, id, "dismissed")).toBe(true);
+
+  // Alertmanager leaves a resolved alert out of the next notification, so the group's earliest
+  // start moves and a new run starts: it must not draft the group again.
+  const firing = fixture("firing") as { alerts: { startsAt: string }[] };
+  const moved = {
+    ...firing,
+    alerts: firing.alerts.filter((a) => !a.startsAt.startsWith("2026-10-13T10:01")),
+  };
+  expect(await send(integration.id, moved, deps)).toMatchObject({ outcome: "repeat" });
+  expect(approvals).toHaveLength(1);
+
+  expect(await send(integration.id, "resolved", deps)).toMatchObject({
+    outcome: "resolved",
+    incidentId: id,
+  });
+  const again = await send(integration.id, "firing", deps);
+  expect(again).toMatchObject({ action: "open", outcome: "opened" });
+  expect(again.incidentId).not.toBe(id);
 });

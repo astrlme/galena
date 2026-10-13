@@ -1,4 +1,4 @@
-import { signalIngest } from "@galena/contracts";
+import { signalIdempotencyKey, signalIngest } from "@galena/contracts";
 import { logger, queue, task } from "@trigger.dev/sdk";
 import { db } from "../db.ts";
 import { actOnSignal } from "../signals.ts";
@@ -23,6 +23,7 @@ export const signalIngestTask = task({
       awaitApproval,
     });
     logger.info("signal.ingest", {
+      key: signalIdempotencyKey(ingest),
       integrationId: ingest.integrationId,
       fingerprint: ingest.signal.fingerprint,
       status: ingest.signal.status,
