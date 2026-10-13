@@ -1,0 +1,56 @@
+{
+  "receiver": "galena",
+  "status": "resolved",
+  "alerts": [
+    {
+      "status": "resolved",
+      "labels": {
+        "alertname": "HighErrorRate",
+        "severity": "critical",
+        "service": "api",
+        "instance": "api-1:9100"
+      },
+      "annotations": {
+        "summary": "More than 5% of requests to the API fail",
+        "runbook_url": "https://runbooks.example.com/high-error-rate"
+      },
+      "startsAt": "2026-10-13T10:02:30.512345678Z",
+      "endsAt": "2026-10-13T10:25:00.000000000Z",
+      "generatorURL": "https://prometheus.example.com/graph?g0.expr=job%3Aerrors%3Arate5m+%3E+0.05",
+      "fingerprint": "5c8f1e2a9b3d4f60"
+    },
+    {
+      "status": "resolved",
+      "labels": {
+        "alertname": "HighErrorRate",
+        "severity": "critical",
+        "service": "api",
+        "instance": "api-2:9100"
+      },
+      "annotations": {
+        "summary": "More than 5% of requests to the API fail",
+        "runbook_url": "https://runbooks.example.com/high-error-rate"
+      },
+      "startsAt": "2026-10-13T10:01:00.000000000Z",
+      "endsAt": "2026-10-13T10:20:00.000000000Z",
+      "generatorURL": "https://prometheus.example.com/graph?g0.expr=job%3Aerrors%3Arate5m+%3E+0.05",
+      "fingerprint": "7d0a3b4c5e6f7182"
+    }
+  ],
+  "groupLabels": {
+    "alertname": "HighErrorRate"
+  },
+  "commonLabels": {
+    "alertname": "HighErrorRate",
+    "severity": "critical",
+    "service": "api"
+  },
+  "commonAnnotations": {
+    "summary": "More than 5% of requests to the API fail"
+  },
+  "externalURL": "https://alertmanager.example.com",
+  "version": "4",
+  "groupKey": "{}/{severity=\"critical\"}:{alertname=\"HighErrorRate\"}",
+  "truncatedAlerts": 0,
+  "notification_reason": "group_interval"
+}

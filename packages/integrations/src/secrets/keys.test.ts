@@ -46,6 +46,13 @@ describe("link tokens", () => {
       expect(readLinkToken(keys, "unsubscribe", junk)).toBeUndefined();
     }
   });
+
+  test("a hook token fits a URL path and opens only as a hook", () => {
+    const token = linkToken(keys, "hook", subscriber, issued);
+    expect(token).toMatch(/^[\w.-]+$/);
+    expect(readLinkToken(keys, "hook", token)).toEqual({ id: subscriber, issuedAt: issued });
+    expect(readLinkToken(keys, "confirm", token)).toBeUndefined();
+  });
 });
 
 test("keyed hashes are stable per key and say nothing about the input", () => {

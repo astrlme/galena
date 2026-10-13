@@ -49,7 +49,8 @@ export function open(keys: AppKeys, sealed: string): string {
   );
 }
 
-export type LinkPurpose = "confirm" | "unsubscribe" | "slack-install";
+/** `hook` is an integration's alert URL: the API checks it without reading the database. */
+export type LinkPurpose = "confirm" | "unsubscribe" | "slack-install" | "hook";
 
 const mac = (keys: AppKeys, text: string) => createHmac("sha256", keys.link).update(text).digest();
 
