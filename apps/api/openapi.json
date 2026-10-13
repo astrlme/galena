@@ -28,6 +28,10 @@
     {
       "name": "Notifications",
       "description": "Slack and webhook endpoints, email subscribers, and the Slack app."
+    },
+    {
+      "name": "Integrations",
+      "description": "Alert sources: Alertmanager or generic JSON, routed to components by label."
     }
   ],
   "components": {
@@ -3573,6 +3577,591 @@
         "responses": {
           "204": {
             "description": "Done"
+          }
+        }
+      }
+    },
+    "/v1/integrations": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Alert sources, oldest first",
+        "responses": {
+          "200": {
+            "description": "Integrations, without their hook URLs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "alertmanager",
+                          "generic"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "publishPolicy": {
+                        "type": "string",
+                        "enum": [
+                          "auto",
+                          "approve",
+                          "internal_only"
+                        ]
+                      },
+                      "routes": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "match": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "maxLength": 1000
+                              }
+                            },
+                            "componentIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "minItems": 1,
+                              "maxItems": 100
+                            },
+                            "downStatus": {
+                              "type": "string",
+                              "enum": [
+                                "partial_outage",
+                                "major_outage"
+                              ],
+                              "default": "major_outage"
+                            }
+                          },
+                          "required": [
+                            "match",
+                            "componentIds"
+                          ]
+                        }
+                      },
+                      "lastSignalAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "date-time"
+                      },
+                      "lastOutcome": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "enum": [
+                          "opened",
+                          "attached",
+                          "repeat",
+                          "resolved",
+                          "no_incident",
+                          "no_route",
+                          "suppressed",
+                          "internal_only",
+                          null
+                        ]
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "source",
+                      "name",
+                      "publishPolicy",
+                      "routes",
+                      "lastSignalAt",
+                      "lastOutcome",
+                      "createdAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Add an alert source",
+        "description": "The hook URL is in this answer only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "alertmanager",
+                      "generic"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "publishPolicy": {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "approve",
+                      "internal_only"
+                    ],
+                    "default": "approve"
+                  },
+                  "routes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "match": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 1000
+                          }
+                        },
+                        "componentIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "minItems": 1,
+                          "maxItems": 100
+                        },
+                        "downStatus": {
+                          "type": "string",
+                          "enum": [
+                            "partial_outage",
+                            "major_outage"
+                          ],
+                          "default": "major_outage"
+                        }
+                      },
+                      "required": [
+                        "match",
+                        "componentIds"
+                      ]
+                    },
+                    "maxItems": 50,
+                    "default": []
+                  }
+                },
+                "required": [
+                  "source",
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The integration and its hook URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "integration": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "alertmanager",
+                            "generic"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "publishPolicy": {
+                          "type": "string",
+                          "enum": [
+                            "auto",
+                            "approve",
+                            "internal_only"
+                          ]
+                        },
+                        "routes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "match": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string",
+                                  "maxLength": 1000
+                                }
+                              },
+                              "componentIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "minItems": 1,
+                                "maxItems": 100
+                              },
+                              "downStatus": {
+                                "type": "string",
+                                "enum": [
+                                  "partial_outage",
+                                  "major_outage"
+                                ],
+                                "default": "major_outage"
+                              }
+                            },
+                            "required": [
+                              "match",
+                              "componentIds"
+                            ]
+                          }
+                        },
+                        "lastSignalAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
+                        "lastOutcome": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "opened",
+                            "attached",
+                            "repeat",
+                            "resolved",
+                            "no_incident",
+                            "no_route",
+                            "suppressed",
+                            "internal_only",
+                            null
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "source",
+                        "name",
+                        "publishPolicy",
+                        "routes",
+                        "lastSignalAt",
+                        "lastOutcome",
+                        "createdAt"
+                      ]
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "integration",
+                    "url"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/integrations/{id}": {
+      "put": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Rename an integration, or change its policy or routes",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "publishPolicy": {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "approve",
+                      "internal_only"
+                    ],
+                    "default": "approve"
+                  },
+                  "routes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "match": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 1000
+                          }
+                        },
+                        "componentIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "minItems": 1,
+                          "maxItems": 100
+                        },
+                        "downStatus": {
+                          "type": "string",
+                          "enum": [
+                            "partial_outage",
+                            "major_outage"
+                          ],
+                          "default": "major_outage"
+                        }
+                      },
+                      "required": [
+                        "match",
+                        "componentIds"
+                      ]
+                    },
+                    "maxItems": 50,
+                    "default": []
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated integration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "alertmanager",
+                        "generic"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "publishPolicy": {
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "approve",
+                        "internal_only"
+                      ]
+                    },
+                    "routes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "match": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string",
+                              "maxLength": 1000
+                            }
+                          },
+                          "componentIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "minItems": 1,
+                            "maxItems": 100
+                          },
+                          "downStatus": {
+                            "type": "string",
+                            "enum": [
+                              "partial_outage",
+                              "major_outage"
+                            ],
+                            "default": "major_outage"
+                          }
+                        },
+                        "required": [
+                          "match",
+                          "componentIds"
+                        ]
+                      }
+                    },
+                    "lastSignalAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "lastOutcome": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "opened",
+                        "attached",
+                        "repeat",
+                        "resolved",
+                        "no_incident",
+                        "no_route",
+                        "suppressed",
+                        "internal_only",
+                        null
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "source",
+                    "name",
+                    "publishPolicy",
+                    "routes",
+                    "lastSignalAt",
+                    "lastOutcome",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Remove an integration; its hook URL stops working",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done"
+          }
+        }
+      }
+    },
+    "/v1/integrations/{id}/url": {
+      "post": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Make a new hook URL",
+        "description": "The old URL stops working at once. The new one is in this answer only.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The new hook URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "url"
+                  ]
+                }
+              }
+            }
           }
         }
       }

@@ -1883,6 +1883,294 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Alert sources, oldest first */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Integrations, without their hook URLs */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            source: "alertmanager" | "generic";
+                            name: string;
+                            /** @enum {string} */
+                            publishPolicy: "auto" | "approve" | "internal_only";
+                            routes: {
+                                match: {
+                                    [key: string]: string;
+                                };
+                                componentIds: string[];
+                                /**
+                                 * @default major_outage
+                                 * @enum {string}
+                                 */
+                                downStatus: "partial_outage" | "major_outage";
+                            }[];
+                            /** Format: date-time */
+                            lastSignalAt: string | null;
+                            /** @enum {string|null} */
+                            lastOutcome: "opened" | "attached" | "repeat" | "resolved" | "no_incident" | "no_route" | "suppressed" | "internal_only" | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add an alert source
+         * @description The hook URL is in this answer only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        source: "alertmanager" | "generic";
+                        name: string;
+                        /**
+                         * @default approve
+                         * @enum {string}
+                         */
+                        publishPolicy?: "auto" | "approve" | "internal_only";
+                        /** @default [] */
+                        routes?: {
+                            match: {
+                                [key: string]: string;
+                            };
+                            componentIds: string[];
+                            /**
+                             * @default major_outage
+                             * @enum {string}
+                             */
+                            downStatus?: "partial_outage" | "major_outage";
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description The integration and its hook URL */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            integration: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                source: "alertmanager" | "generic";
+                                name: string;
+                                /** @enum {string} */
+                                publishPolicy: "auto" | "approve" | "internal_only";
+                                routes: {
+                                    match: {
+                                        [key: string]: string;
+                                    };
+                                    componentIds: string[];
+                                    /**
+                                     * @default major_outage
+                                     * @enum {string}
+                                     */
+                                    downStatus: "partial_outage" | "major_outage";
+                                }[];
+                                /** Format: date-time */
+                                lastSignalAt: string | null;
+                                /** @enum {string|null} */
+                                lastOutcome: "opened" | "attached" | "repeat" | "resolved" | "no_incident" | "no_route" | "suppressed" | "internal_only" | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                            };
+                            /** Format: uri */
+                            url: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Rename an integration, or change its policy or routes */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        /**
+                         * @default approve
+                         * @enum {string}
+                         */
+                        publishPolicy?: "auto" | "approve" | "internal_only";
+                        /** @default [] */
+                        routes?: {
+                            match: {
+                                [key: string]: string;
+                            };
+                            componentIds: string[];
+                            /**
+                             * @default major_outage
+                             * @enum {string}
+                             */
+                            downStatus?: "partial_outage" | "major_outage";
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description The updated integration */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            source: "alertmanager" | "generic";
+                            name: string;
+                            /** @enum {string} */
+                            publishPolicy: "auto" | "approve" | "internal_only";
+                            routes: {
+                                match: {
+                                    [key: string]: string;
+                                };
+                                componentIds: string[];
+                                /**
+                                 * @default major_outage
+                                 * @enum {string}
+                                 */
+                                downStatus: "partial_outage" | "major_outage";
+                            }[];
+                            /** Format: date-time */
+                            lastSignalAt: string | null;
+                            /** @enum {string|null} */
+                            lastOutcome: "opened" | "attached" | "repeat" | "resolved" | "no_incident" | "no_route" | "suppressed" | "internal_only" | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** Remove an integration; its hook URL stops working */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Done */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/{id}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a new hook URL
+         * @description The old URL stops working at once. The new one is in this answer only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The new hook URL */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uri */
+                            url: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/slack": {
         parameters: {
             query?: never;

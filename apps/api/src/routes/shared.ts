@@ -18,7 +18,13 @@ export const noContent = { 204: { description: "Done" } };
 /** The audit entry and `{target}.changed` outbox event for one change. */
 export function changeOf(
   member: Member,
-  target: "component" | "component_group" | "monitor" | "webhook_endpoint" | "subscriber",
+  target:
+    | "component"
+    | "component_group"
+    | "monitor"
+    | "webhook_endpoint"
+    | "subscriber"
+    | "integration",
   action: ChangeAction,
   ids: string[],
   data?: unknown,

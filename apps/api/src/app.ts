@@ -17,7 +17,9 @@ import {
   viewerAddress,
 } from "./http.ts";
 import { registerComponentRoutes } from "./routes/components.ts";
+import { registerHookRoutes } from "./routes/hooks.ts";
 import { registerIncidentRoutes } from "./routes/incidents.ts";
+import { registerIntegrationRoutes } from "./routes/integrations.ts";
 import { registerMaintenanceRoutes } from "./routes/maintenance.ts";
 import { registerMonitorRoutes } from "./routes/monitors.ts";
 import { registerNotificationRoutes } from "./routes/notifications.ts";
@@ -38,6 +40,10 @@ export const openApiConfig = {
     {
       name: "Notifications",
       description: "Slack and webhook endpoints, email subscribers, and the Slack app.",
+    },
+    {
+      name: "Integrations",
+      description: "Alert sources: Alertmanager or generic JSON, routed to components by label.",
     },
   ],
 };
@@ -229,8 +235,10 @@ export function createApp(deps: Deps) {
   registerIncidentRoutes(app, deps);
   registerMaintenanceRoutes(app, deps);
   registerNotificationRoutes(app, deps);
+  registerIntegrationRoutes(app, deps);
   registerPublicRoutes(app, deps);
   registerSlackRoutes(app, deps);
+  registerHookRoutes(app, deps);
 
   app.doc31("/openapi.json", openApiConfig);
 
