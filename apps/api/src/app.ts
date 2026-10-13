@@ -256,7 +256,8 @@ export function createApp(deps: Deps) {
     // The cause goes to the logs only, and only the statement: a failed query's message ends with
     // its bound parameters (session tokens, email addresses).
     console.error("unhandled error", {
-      path: c.req.path,
+      // A hook URL's last segment is its credential.
+      path: c.req.path.replace(/^(\/hooks\/[^/]+\/).+$/, "$1<token>"),
       name: error.name,
       message: error.message.split("\nparams:")[0],
     });

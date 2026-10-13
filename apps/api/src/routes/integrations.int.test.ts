@@ -4,7 +4,7 @@ import { schema } from "@galena/db";
 import { linkToken } from "@galena/integrations/secrets";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { createApp, type Deps } from "../app.ts";
 import { TEST_BASE_URL, type Triggered, testDeps } from "../test-deps.ts";
 import { expectProblem, Session } from "../test-session.ts";
@@ -161,4 +161,27 @@ test("a hook refuses a URL that isn't one, a body its source wouldn't send, and 
   await expectProblem(await post(url, "not json"), 400, "bad_alert_body");
   await expectProblem(await post(url, JSON.stringify({ key: "x" })), 400, "bad_alert_body");
   await expectProblem(await post(url, " ".repeat(300 * 1024)), 413, "body_too_large");
+});
+
+test("a hook whose run can't be started answers 500 and keeps its token out of the log", async () => {
+  const { url } = await created("Unreachable");
+  const token = new URL(url).pathname.split("/").at(-1) ?? "";
+  const { engine } = deps;
+  const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  deps.engine = {
+    trigger: async () => {
+      throw new Error("trigger.dev is unreachable");
+    },
+  };
+  try {
+    await expectProblem(await post(url, firing), 500, "internal_error");
+    expect(logged).toHaveBeenCalledWith(
+      "unhandled error",
+      expect.objectContaining({ path: "/hooks/alertmanager/<token>" }),
+    );
+    expect(JSON.stringify(logged.mock.calls)).not.toContain(token);
+  } finally {
+    deps.engine = engine;
+    logged.mockRestore();
+  }
 });
