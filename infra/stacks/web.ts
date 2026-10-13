@@ -216,8 +216,9 @@ export class WebStack extends Stack {
   }
 
   /**
-   * /auth/*, /v1/* and /slack/* to the HTTP API, uncached, with the origin secret only CloudFront
-   * knows. Slack's button presses and commands reach the API this way too.
+   * /auth/*, /v1/*, /slack/* and /hooks/* to the HTTP API, uncached, with the origin secret only
+   * CloudFront knows. Slack's button presses and commands, and alerts sent to an integration's
+   * hook URL, reach the API this way too.
    */
   private apiBehaviors(httpApi: HttpApi, stage: string) {
     const origin = new HttpOrigin(Fn.select(2, Fn.split("/", httpApi.apiEndpoint)), {
@@ -251,7 +252,7 @@ export class WebStack extends Stack {
       cachePolicy: CachePolicy.CACHING_DISABLED,
       originRequestPolicy: apiRequests,
     };
-    return { "/auth/*": behavior, "/v1/*": behavior, "/slack/*": behavior };
+    return { "/auth/*": behavior, "/v1/*": behavior, "/slack/*": behavior, "/hooks/*": behavior };
   }
 }
 

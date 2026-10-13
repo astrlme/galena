@@ -49,13 +49,18 @@ test("serves the export over HTTPS with a CSP, HSTS and no framing, and the inde
   expect(security.FrameOptions.FrameOption).toBe("DENY");
 });
 
-test("forwards /auth/*, /v1/* and /slack/* to the API uncached, with every method", () => {
+test("forwards /auth/*, /v1/*, /slack/* and /hooks/* to the API uncached, with every method", () => {
   const behaviors = distribution().CacheBehaviors as {
     PathPattern: string;
     AllowedMethods: string[];
     CachePolicyId: string;
   }[];
-  expect(behaviors.map((b) => b.PathPattern).sort()).toEqual(["/auth/*", "/slack/*", "/v1/*"]);
+  expect(behaviors.map((b) => b.PathPattern).sort()).toEqual([
+    "/auth/*",
+    "/hooks/*",
+    "/slack/*",
+    "/v1/*",
+  ]);
   for (const behavior of behaviors) {
     expect(behavior.AllowedMethods).toContain("POST");
     expect(behavior.CachePolicyId).toBe("4135ea2d-6df8-44a3-9df3-4b5a84be39ad"); // CachingDisabled
