@@ -12,6 +12,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  Plug,
   Settings,
   Wrench,
 } from "lucide-react";
@@ -31,6 +32,7 @@ const ICONS: Record<(typeof sections)[number]["slug"], LucideIcon> = {
   monitors: Activity,
   components: Boxes,
   subscribers: Bell,
+  integrations: Plug,
   settings: Settings,
 };
 const nav = [

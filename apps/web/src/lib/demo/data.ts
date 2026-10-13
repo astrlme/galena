@@ -380,5 +380,38 @@ export function demoData(now: Date) {
         createdAt: at(60 * 24 * 14),
       },
     ] satisfies Answer<"/v1/webhook-endpoints">,
+    integrations: [
+      {
+        id: id(0x91),
+        source: "alertmanager",
+        name: "Production Prometheus",
+        publishPolicy: "approve",
+        routes: [
+          {
+            match: { service: "checkout" },
+            componentIds: [component.checkout],
+            downStatus: "major_outage",
+          },
+          {
+            match: { service: "api" },
+            componentIds: [component.api],
+            downStatus: "partial_outage",
+          },
+        ],
+        lastSignalAt: at(41),
+        lastOutcome: "opened",
+        createdAt: at(60 * 24 * 18),
+      },
+      {
+        id: id(0x92),
+        source: "generic",
+        name: "Nightly backups",
+        publishPolicy: "internal_only",
+        routes: [],
+        lastSignalAt: null,
+        lastOutcome: null,
+        createdAt: at(60 * 24 * 6),
+      },
+    ] satisfies Answer<"/v1/integrations">,
   };
 }
