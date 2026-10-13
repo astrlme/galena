@@ -19,7 +19,7 @@ In the dashboard, go to **Integrations** and choose **Add integration**.
 | When an alert fires | **Ask a person first** drafts the incident and publishes it after 10 minutes if the alert is still firing. **Publish automatically** publishes at once. **Internal only** opens nothing. |
 | Routes | Which components an alert marks (below). |
 
-The hook URL appears once, after you add the integration. Copy it then. **New URL** replaces it:
+The hook URL appears once, after you add the integration. Copy it then. **Make new URL** replaces it:
 the old URL stops working at once, and alerts sent to it are dropped. Only admins and owners
 manage integrations.
 
@@ -96,18 +96,19 @@ curl -X POST "$GALENA_HOOK_URL" \
 | `title` | No | A short name for the dashboard. |
 | `labels` | No | String values the routes match on. |
 
-## Answers
+## Responses
 
 | Status | Code | Meaning |
 | --- | --- | --- |
 | 202 | | Accepted. The body says how many alert groups it read: `{ "accepted": 1 }`. |
 | 400 | `bad_alert_body` | Not a body this source sends. |
-| 404 | `unknown_hook` | Not a hook URL, or not for this source. |
+| 404 | `unknown_hook` | Not a hook URL. |
 | 413 | `body_too_large` | More than 256 KB. |
 
-The hook answers before it opens anything, so a 202 doesn't mean an incident opened. The
-integration's row in the dashboard shows when its last alert arrived and what Galena did with it,
-for example "No route matched its labels".
+The hook responds before it opens anything, so a 202 doesn't mean an incident opened. A URL
+that a newer one replaced, or whose integration was deleted, still gets a 202, and Galena drops
+what it sent. The integration's row in the dashboard shows when its last alert arrived and what
+Galena did with it, for example "No route matched its labels".
 
 ## What customers see
 
