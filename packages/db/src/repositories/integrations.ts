@@ -36,6 +36,9 @@ const columns = {
   createdAt: integration.createdAt,
 };
 
+// Known limit: a deployment lists its first 100 integrations; one alert source rarely needs many.
+const MAX_INTEGRATIONS = 100;
+
 const scoped = (workspaceId: WorkspaceId, id: IntegrationId) =>
   and(eq(integration.workspaceId, workspaceId), eq(integration.id, id));
 
@@ -47,7 +50,8 @@ export async function listIntegrations(
     .select(columns)
     .from(integration)
     .where(eq(integration.workspaceId, workspaceId))
-    .orderBy(asc(integration.createdAt), asc(integration.id));
+    .orderBy(asc(integration.createdAt), asc(integration.id))
+    .limit(MAX_INTEGRATIONS);
 }
 
 /** By id alone: the hook URL carries the id, signed. */
