@@ -21,7 +21,15 @@ export function ConfirmDelete({
   onConfirm,
   onClose,
 }: {
-  kind: "component" | "group" | "monitor" | "window" | "destination" | "subscriber" | "Slack";
+  kind:
+    | "component"
+    | "group"
+    | "monitor"
+    | "window"
+    | "destination"
+    | "subscriber"
+    | "integration"
+    | "Slack";
   name: string;
   /** What to type, when it isn't "the {kind} name". */
   noun?: string;

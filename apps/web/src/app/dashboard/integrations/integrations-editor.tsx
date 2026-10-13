@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "../../../components/button.tsx";
+import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { control, Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
@@ -102,6 +103,8 @@ export function IntegrationsEditor() {
   const [problem, setProblem] = useState<string>();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Integration>();
+  const [renewing, setRenewing] = useState<Integration>();
+  const [deleting, setDeleting] = useState<Integration>();
   const [shown, setShown] = useState<{
     name: string;
     source: Integration["source"];
@@ -226,6 +229,12 @@ export function IntegrationsEditor() {
                   >
                     Edit<span className="sr-only"> {i.name}</span>
                   </Button>
+                  <Button className={small} onClick={() => setRenewing(i)}>
+                    New URL<span className="sr-only"> for {i.name}</span>
+                  </Button>
+                  <Button className={small} onClick={() => setDeleting(i)}>
+                    Delete<span className="sr-only"> {i.name}</span>
+                  </Button>
                 </div>
               </li>
             ))}
@@ -244,6 +253,44 @@ export function IntegrationsEditor() {
           onSave={save}
           onCancel={closeForm}
         />
+      </Modal.Root>
+
+      <Modal.Root
+        kind="dialog"
+        open={renewing !== undefined}
+        onClose={() => setRenewing(undefined)}
+      >
+        {renewing && (
+          <>
+            <Modal.Title>New URL for {renewing.name}</Modal.Title>
+            <p className="mt-4 text-[16px]">
+              The current URL stops working at once. Alerts sent to it are dropped until your source
+              uses the new one.
+            </p>
+            <div className="mt-6 flex gap-4">
+              <Button
+                variant="primary"
+                onClick={() => {
+                  const target = renewing;
+                  setRenewing(undefined);
+                  void run(async () => {
+                    const { url } = await unwrap(
+                      api.POST("/v1/integrations/{id}/url", {
+                        params: { path: { id: target.id } },
+                      }),
+                    );
+                    setShown({ name: target.name, source: target.source, url });
+                  });
+                }}
+              >
+                Make new URL
+              </Button>
+              <Button variant="quiet" onClick={() => setRenewing(undefined)}>
+                Cancel
+              </Button>
+            </div>
+          </>
+        )}
       </Modal.Root>
 
       <Modal.Root
@@ -283,6 +330,20 @@ export function IntegrationsEditor() {
           </>
         )}
       </Modal.Root>
+
+      {deleting && (
+        <ConfirmDelete
+          kind="integration"
+          name={deleting.name}
+          consequence="Its hook URL stops working at once. Incidents it opened stay as they are."
+          onConfirm={() => {
+            const params = { path: { id: deleting.id } };
+            void run(() => unwrap(api.DELETE("/v1/integrations/{id}", { params })));
+            setDeleting(undefined);
+          }}
+          onClose={() => setDeleting(undefined)}
+        />
+      )}
     </>
   );
 }
