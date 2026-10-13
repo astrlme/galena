@@ -103,6 +103,22 @@ export type DeliveryStatus = (typeof deliveryStatuses)[number];
 export const signalSources = ["alertmanager", "generic"] as const; // post-v1: "grafana", "cloudwatch", "sentry"
 export type SignalSource = (typeof signalSources)[number];
 
+export const signalStatuses = ["firing", "resolved"] as const;
+export type SignalStatus = (typeof signalStatuses)[number];
+
+// What `signal.ingest` did with an alert group, shown on its integration.
+export const signalOutcomes = [
+  "opened",
+  "attached",
+  "repeat",
+  "resolved",
+  "no_incident",
+  "no_route",
+  "suppressed",
+  "internal_only",
+] as const;
+export type SignalOutcome = (typeof signalOutcomes)[number];
+
 // What a `*.changed` event says happened.
 export const changeActions = ["created", "updated", "deleted", "reordered"] as const;
 export type ChangeAction = (typeof changeActions)[number];
