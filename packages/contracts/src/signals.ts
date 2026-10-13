@@ -40,6 +40,39 @@ export const signal = z.object({
 });
 export type Signal = z.infer<typeof signal>;
 
+/** Labels as a source sends them; the reader trims them to `labels`' limits. */
+const sentLabels = z.record(z.string(), z.string());
+/** RFC 3339 with any offset and precision (Alertmanager sends nanoseconds). */
+const sentTime = z.iso.datetime({ offset: true });
+
+/** Alertmanager's webhook body, version 4. Fields Galena doesn't read are dropped. */
+export const alertmanagerPayload = z.object({
+  version: z.literal("4"),
+  groupKey: z.string().min(1),
+  status: z.enum(signalStatuses),
+  commonLabels: sentLabels.default({}),
+  alerts: z
+    .array(z.object({ status: z.enum(signalStatuses), labels: sentLabels, startsAt: sentTime }))
+    .min(1),
+});
+export type AlertmanagerPayload = z.infer<typeof alertmanagerPayload>;
+
+/** One alert in Galena's own JSON format: every notification about it repeats its `key`. */
+export const genericAlert = z.object({
+  key: z.string().min(1).max(200),
+  status: z.enum(signalStatuses),
+  startsAt: sentTime,
+  title: z.string().max(200).optional(),
+  labels: sentLabels.default({}),
+});
+export type GenericAlert = z.infer<typeof genericAlert>;
+
+/** One alert, or a list of them. */
+export const genericPayload = z.union([
+  genericAlert.transform((alert) => [alert]),
+  z.array(genericAlert).min(1).max(MAX_SIGNAL_ALERTS),
+]);
+
 const components = z
   .array(componentId)
   .min(1, "Pick at least one component.")

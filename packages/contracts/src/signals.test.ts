@@ -1,5 +1,7 @@
 import { expect, test } from "vitest";
 import {
+  alertmanagerPayload,
+  genericPayload,
   integrationInput,
   integrationUpdate,
   route,
@@ -70,4 +72,33 @@ test("the idempotency key names the integration, the group, its status and its s
   expect(signalIdempotencyKey(ingest)).toBe(
     "sig:01920000-0000-7000-8000-0000000000b1:dGhlLWdyb3VwLWtleQ:firing:2026-10-13T10:00:00.000Z",
   );
+});
+
+test("an Alertmanager body needs version 4, a group key and alerts with RFC 3339 times", () => {
+  const body = {
+    version: "4",
+    groupKey: '{}:{alertname="HighErrorRate"}',
+    status: "firing",
+    receiver: "galena",
+    alerts: [{ status: "firing", labels: {}, startsAt: "2026-10-13T12:00:00.123456789+02:00" }],
+  };
+  expect(alertmanagerPayload.parse(body)).toEqual({
+    version: "4",
+    groupKey: '{}:{alertname="HighErrorRate"}',
+    status: "firing",
+    commonLabels: {},
+    alerts: body.alerts,
+  });
+  expect(alertmanagerPayload.safeParse({ ...body, version: "3" }).success).toBe(false);
+  expect(alertmanagerPayload.safeParse({ ...body, alerts: [] }).success).toBe(false);
+  const noZone = [{ status: "firing", labels: {}, startsAt: "2026-10-13 12:00" }];
+  expect(alertmanagerPayload.safeParse({ ...body, alerts: noZone }).success).toBe(false);
+});
+
+test("a generic body is one alert or a list of them", () => {
+  const alert = { key: "disk-full", status: "firing", startsAt: "2026-10-13T10:00:00Z" };
+  expect(genericPayload.parse(alert)).toEqual([{ ...alert, labels: {} }]);
+  expect(genericPayload.parse([alert, alert])).toHaveLength(2);
+  expect(genericPayload.safeParse([]).success).toBe(false);
+  expect(genericPayload.safeParse({ ...alert, key: "" }).success).toBe(false);
 });
