@@ -32,7 +32,7 @@ export async function awaitApproval(draft: DraftPayload) {
 }
 
 /**
- * One draft a monitor opened: waits for a person until its deadline, then publishes or
+ * One draft a monitor or an alert group opened: waits for a person until its deadline, then publishes or
  * dismisses it. The token's id is stored on the incident, so an answer can complete it.
  */
 export const incidentAutopilot = task({
@@ -51,7 +51,7 @@ export const incidentAutopilot = task({
         });
         await incidentRepository(db).setApprovalToken(workspaceId, incidentId, token.id);
         // Stored first, so a press in Slack always finds the token to complete.
-        await triggerApprovalCard({ workspaceId, incidentId, monitorId: draft.monitorId });
+        await triggerApprovalCard({ workspaceId, incidentId });
         const answer = await wait.forToken<DraftAnswer>(token);
         if (!answer.ok) return "timed_out";
         return answer.output.decision === "approve" ? "approved" : "dismissed";

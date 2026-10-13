@@ -8,6 +8,7 @@ import {
   type IncidentVisibility,
   incidentId,
   incidentUpdateId,
+  type MonitorId,
   type MonitorTransitioned,
   monitorId,
   type OutboxId,
@@ -36,8 +37,8 @@ import { z } from "zod";
 /** A person's answer, sent to a draft's waiting approval run (from Slack or the dashboard). */
 export type DraftAnswer = { decision: "approve" | "dismiss" };
 
-/** What `incident.autopilot` waits on: one draft a monitor opened. */
-export const draftPayload = z.object({ workspaceId, incidentId, monitorId });
+/** What `incident.autopilot` waits on: one draft a monitor (`monitorId`) or an alert group opened. */
+export const draftPayload = z.object({ workspaceId, incidentId, monitorId: monitorId.optional() });
 export type DraftPayload = z.infer<typeof draftPayload>;
 
 export type AutopilotDeps = {
@@ -96,7 +97,20 @@ export async function actOnTransition(
     return incident ? postUpdate(workspaceId, incident, plan, deps) : plan;
   }
   if (plan.action !== "open") return plan;
+  return openIncident(workspaceId, plan, { source: "monitor", monitorId: monitor.id }, now, deps);
+}
 
+/**
+ * Opens the planned incident unless its dedup key already holds an open one, then starts the
+ * approval wait for a draft (keyed by the incident, so a retry arms it once).
+ */
+export async function openIncident(
+  workspaceId: WorkspaceId,
+  plan: Extract<AutopilotPlan, { action: "open" }>,
+  opener: { source: "monitor"; monitorId: MonitorId } | { source: "signal" },
+  now: Date,
+  deps: AutopilotDeps,
+) {
   const update = {
     id: incidentUpdateId.parse(v7()),
     status: "investigating" as const,
@@ -112,7 +126,7 @@ export async function actOnTransition(
         title: plan.title,
         impact: plan.impact,
         visibility: plan.visibility,
-        source: "monitor",
+        source: opener.source,
         startedAt: now,
         dedupKey: plan.dedupKey,
         approvalDeadline: plan.approvalDeadline,
@@ -140,7 +154,8 @@ export async function actOnTransition(
   // stays pending until the outbox sweep exists.
   if (opened.outboxId) await deps.dispatch(opened.outboxId);
   if (plan.visibility === "draft") {
-    await deps.awaitApproval({ workspaceId, incidentId: opened.id, monitorId: monitor.id });
+    const monitorId = opener.source === "monitor" ? { monitorId: opener.monitorId } : {};
+    await deps.awaitApproval({ workspaceId, incidentId: opened.id, ...monitorId });
   }
   return {
     action: "open" as const,
@@ -150,8 +165,8 @@ export async function actOnTransition(
   };
 }
 
-/** One update on the incident the monitor opened, if it is still where autopilot found it. */
-async function postUpdate(
+/** One update on the incident autopilot opened, if it is still where autopilot found it. */
+export async function postUpdate(
   workspaceId: WorkspaceId,
   incident: Incident,
   plan: Extract<AutopilotPlan, { action: "update" }>,
@@ -194,18 +209,17 @@ async function postUpdate(
 
 /**
  * Waits for a person to approve or dismiss the draft, then publishes or dismisses it. With no
- * answer by the deadline it publishes only if the monitor is still down.
+ * answer by the deadline it publishes only if what opened it is still down.
  */
 export async function settleDraft(
   payload: DraftPayload,
   deps: ApprovalDeps,
 ): Promise<"published" | "dismissed" | "decided_elsewhere"> {
-  const { workspaceId, incidentId: id, monitorId: monitor } = payload;
+  const { workspaceId, incidentId: id } = payload;
   const draft = await incidentRepository(deps.db).findById(workspaceId, id);
   if (draft?.visibility !== "draft" || !draft.approvalDeadline) return "decided_elsewhere";
   const answer = await deps.waitForAnswer({ ...payload, deadline: draft.approvalDeadline });
-  const state =
-    answer === "timed_out" ? await findMonitorState(deps.db, workspaceId, monitor) : undefined;
+  const state = answer === "timed_out" ? await stateAtDeadline(payload, deps.db) : undefined;
   const visibility =
     approvalOutcome(answer, state ?? "unknown") === "publish" ? "published" : "dismissed";
   const decided = await decideDraft(
@@ -213,6 +227,19 @@ export async function settleDraft(
     deps,
   );
   return decided ? visibility : "decided_elsewhere";
+}
+
+/**
+ * Whether what opened the draft is still down: the monitor's state, or for an alert group, down
+ * unless its resolve message has resolved the incident.
+ */
+async function stateAtDeadline(
+  { workspaceId, incidentId: id, monitorId: monitor }: DraftPayload,
+  db: Db,
+) {
+  if (monitor) return findMonitorState(db, workspaceId, monitor);
+  const incident = await incidentRepository(db).findById(workspaceId, id);
+  return incident?.status === "resolved" ? "up" : "down";
 }
 
 /**
