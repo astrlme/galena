@@ -7,6 +7,9 @@ import { type App, type Deps, problemResponse } from "../http.ts";
 // Alerts from an integration's source. The URL's token is checked by its signature alone and
 // each alert group handed to `signal.ingest`, never waiting on Postgres: Aurora can take 15 s to
 // resume, and a source that times out sends again. Routes and policy are applied in the task.
+// Known limit: a deleted integration's URL, or one a newer URL replaced, is refused only in the
+// task, after it reads the integration; a source that keeps sending new alert groups there wakes
+// Aurora for each. Store a revocation list in the config bucket if that ever matters.
 
 const MAX_BODY_BYTES = 256 * 1024;
 /** Triggers at a time for a generic list of up to 100 alerts. */
