@@ -1,0 +1,117 @@
+---
+title: Alerts
+description: Open incidents from Alertmanager, or anything that can send JSON, routed to components by label.
+---
+
+An integration gives an alert source a hook URL of its own. When an alert group fires, Galena
+opens one incident on the components the integration's routes mark, following its publish
+policy, the same three choices a monitor has. When the group resolves, Galena resolves the
+incident it opened.
+
+## Add an integration
+
+In the dashboard, go to **Integrations** and choose **Add integration**.
+
+| Field | What it does |
+| --- | --- |
+| Source | **Alertmanager** or **Generic JSON**. The hook URL names it, so it can't change later. |
+| Name | What your team calls it, like Production Prometheus. |
+| When an alert fires | **Ask a person first** drafts the incident and publishes it after 10 minutes if the alert is still firing. **Publish automatically** publishes at once. **Internal only** opens nothing. |
+| Routes | Which components an alert marks (below). |
+
+The hook URL appears once, after you add the integration. Copy it then. **New URL** replaces it:
+the old URL stops working at once, and alerts sent to it are dropped. Only admins and owners
+manage integrations.
+
+With the [Slack app](/docs/guides/slack-app/), a draft opened by an alert arrives in Slack as an
+approval card, as a monitor's does.
+
+## Routes
+
+A route has labels, written as `name=value` pairs separated by commas, the components it marks,
+and the status they show while the alert fires: **Major outage** or **Partial outage**.
+
+Each alert takes the first route whose labels it has, all of them. A route with no labels takes
+every alert the routes above it missed. An incident covers every component its group's alerts
+mark, at the worst status any of them gives.
+
+| Labels | Components | Status |
+| --- | --- | --- |
+| `service=checkout, severity=critical` | Checkout | Major outage |
+| `service=checkout` | Checkout | Partial outage |
+| `service=api` | API, Dashboard | Major outage |
+
+An alert group that no route matches opens nothing.
+
+Galena opens no second incident where one is already open: when a person or a monitor has an
+incident open on a routed component, the alert group is left to that incident. Alerts on a component inside a
+maintenance window open nothing.
+
+## Alertmanager
+
+Add a webhook receiver with the hook URL, and route the alerts you want on the status page to it:
+
+```yaml
+route:
+  receiver: galena
+  group_by: [alertname, service]
+receivers:
+  - name: galena
+    webhook_configs:
+      - url_file: /etc/alertmanager/galena-hook-url
+        send_resolved: true
+        max_alerts: 100
+```
+
+The URL carries its own credential, so keep it in a file with `url_file` rather than in the
+configuration itself.
+
+Each Alertmanager group is one alert group in Galena: its first notification opens the incident,
+and the notification that says every alert in it has resolved resolves the incident. That needs
+`send_resolved: true`. Alertmanager's repeat notifications change nothing.
+Galena reads the first 100 alerts of a group; `max_alerts` keeps bodies small.
+
+## Generic JSON
+
+Anything that can send an HTTP request can use a **Generic JSON** integration. Send one alert,
+or a list of up to 100:
+
+```sh
+curl -X POST "$GALENA_HOOK_URL" \
+  -H 'content-type: application/json' \
+  -d '{
+    "key": "backup-nightly",
+    "status": "firing",
+    "startsAt": "2026-10-13T02:00:00Z",
+    "title": "Nightly backup failed",
+    "labels": { "service": "backups" }
+  }'
+```
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `key` | Yes | Names the problem. Every message about it repeats the same key. Up to 200 characters. |
+| `status` | Yes | `firing` or `resolved`. |
+| `startsAt` | Yes | When the problem started, in RFC 3339. A problem that fires again after it resolved has a later start, and opens a new incident. |
+| `title` | No | A short name for the dashboard. |
+| `labels` | No | String values the routes match on. |
+
+## Answers
+
+| Status | Code | Meaning |
+| --- | --- | --- |
+| 202 | | Accepted. The body says how many alert groups it read: `{ "accepted": 1 }`. |
+| 400 | `bad_alert_body` | Not a body this source sends. |
+| 404 | `unknown_hook` | Not a hook URL, or not for this source. |
+| 413 | `body_too_large` | More than 256 KB. |
+
+The hook answers before it opens anything, so a 202 doesn't mean an incident opened. The
+integration's row in the dashboard shows when its last alert arrived and what Galena did with it,
+for example "No route matched its labels".
+
+## What customers see
+
+Text that reaches the status page, notifications and Slack names only components: "We're seeing
+errors on API from our monitoring", then "API has worked normally since 10:25 UTC. Our alerts
+have cleared." Alert names and labels stay with the incident in Galena; they never reach the page
+or a notification.

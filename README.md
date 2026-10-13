@@ -69,10 +69,13 @@ still serves.
   reports on shows "No data" rather than a made-up 100%.
 - Email subscribers, Slack incoming webhooks and signed outgoing webhooks.
 - A dashboard whose forms open in a side sheet and keep what you typed as a draft.
+- Approvals in Slack: a draft's approval card in a channel, and `/incident`.
+- Alerts from Alertmanager or any source that sends JSON, routed to components by label: one
+  incident per alert group, following the integration's publish policy, resolved when the group
+  resolves.
 
-Next: approvals in Slack and a live demo. After that: alert ingest, Statuspage-compatible
-files, API keys, and members, roles and GitHub sign-in in Settings. See the
-[roadmap](https://galena.astrl.me/docs/roadmap/).
+Next: Statuspage-compatible files, API keys, and members, roles and GitHub sign-in in Settings.
+See the [roadmap](https://galena.astrl.me/docs/roadmap/).
 
 ## Run it locally
 

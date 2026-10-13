@@ -7,6 +7,7 @@
     "email-subscribers",
     "slack",
     "slack-app",
+    "alerts",
     "webhooks",
     "badge-and-feeds"
   ]

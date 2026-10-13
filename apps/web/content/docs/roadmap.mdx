@@ -6,17 +6,8 @@ description: What's built, what's next, and what comes after the first release.
 Galena has no release yet. Everything elsewhere in these docs describes what works today; this
 page is the only place that describes what doesn't yet.
 
-## Next: autopilot
+## Next: ecosystem
 
-- **Approvals in Slack.** A Slack app with the dashboard's approval card and an `/incident`
-  command, so a person can publish or dismiss a monitor's draft from Slack.
-- **A live demo** where anyone can break a demo API and watch detection, approval and the page
-  update.
-
-## Then: ecosystem
-
-- **Alert ingest.** Generic JSON and Alertmanager webhooks, routed to components by label, with
-  one draft per alert group.
 - **Statuspage-compatible files.** `/api/v2/*.json` on the status page, with the same field names
   and values as Atlassian Statuspage, so existing tools and widgets keep working.
 - **Webhook endpoints, fully.** A delivery log, replay, a longer retry schedule and automatic
