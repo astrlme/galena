@@ -21,7 +21,8 @@ import { fillTemplate } from "./templates.ts";
 
 /** How long an `approve` draft waits for a person before the timeout decides. */
 export const APPROVAL_WAIT_MINUTES = 10;
-const NEXT_UPDATE_MINUTES = 30;
+/** When a first update promises the next one. */
+export const NEXT_UPDATE_MINUTES = 30;
 const MINUTE = 60_000;
 
 export type AutopilotMonitor = {
@@ -66,8 +67,10 @@ export type AutopilotPlan =
 /** The monitor's own incidents carry this key; others are never updated by autopilot. */
 export const monitorDedupKey = (monitorId: MonitorId) => `mon:${monitorId}`;
 
-const utcTime = (date: Date) => `${date.toISOString().slice(11, 16)} UTC`;
-const minutesFrom = (date: Date, minutes: number) => new Date(date.getTime() + minutes * MINUTE);
+/** `10:30 UTC`: the time of day in update text. */
+export const utcTime = (date: Date) => `${date.toISOString().slice(11, 16)} UTC`;
+export const minutesFrom = (date: Date, minutes: number) =>
+  new Date(date.getTime() + minutes * MINUTE);
 
 export function planAutopilot(input: {
   from: MonitorState;

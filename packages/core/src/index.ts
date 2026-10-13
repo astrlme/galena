@@ -5,6 +5,7 @@ export * from "./detection/evaluate.ts";
 export * from "./incidents/autopilot.ts";
 export * from "./incidents/body.ts";
 export * from "./incidents/lifecycle.ts";
+export * from "./incidents/signals.ts";
 export * from "./incidents/templates.ts";
 export * from "./maintenance/lifecycle.ts";
 export * from "./monitors/monitors-file.ts";
