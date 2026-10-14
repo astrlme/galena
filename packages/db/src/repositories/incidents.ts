@@ -258,7 +258,7 @@ export function incidentRepository(db: Db): IncidentRepository {
   };
 }
 
-/** Every draft still waiting for its deadline, across the deployment. */
+/** The drafts still waiting for their deadlines, across the deployment, soonest first. */
 export function listDrafts(db: Db) {
   return db
     .select({
@@ -275,5 +275,7 @@ export function listDrafts(db: Db) {
         isNotNull(incident.approvalDeadline),
         isNull(incident.deletedAt),
       ),
-    );
+    )
+    .orderBy(asc(incident.approvalDeadline), asc(incident.id))
+    .limit(MAX_INCIDENTS);
 }

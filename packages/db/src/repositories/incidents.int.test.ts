@@ -13,7 +13,7 @@ import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createDb, type Db } from "../client.ts";
 import { component, incident, timelineEvent, workspace } from "../schema/index.ts";
-import { incidentRepository } from "./incidents.ts";
+import { incidentRepository, listDrafts } from "./incidents.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
 let db: Db;
@@ -251,4 +251,40 @@ test("an alert group's incident is found by its key until it resolves, dismissed
   expect(await repo.findUnresolved(acme, key)).toMatchObject({ id, visibility: "dismissed" });
   expect(await repo.append(acme, id, "investigating", change("resolved", 80))).toBe(true);
   expect(await repo.findUnresolved(acme, key)).toBeUndefined();
+});
+
+test("the drafts still waiting are listed across workspaces, soonest deadline first", async () => {
+  const repo = incidentRepository(db);
+  const draft = (workspace: typeof acme, key: string, deadline: number) => ({
+    id: incidentId.parse(v7()),
+    workspaceId: workspace,
+    title: `${key} is down`,
+    impact: "major" as const,
+    visibility: "draft" as const,
+    source: "monitor" as const,
+    startedAt: at(0),
+    dedupKey: `mon:${key}`,
+    approvalDeadline: at(deadline),
+  });
+  const later = draft(acme, "later", 30);
+  const sooner = draft(acme, "sooner", 20);
+  const elsewhere = draft(other, "elsewhere", 25);
+  const decided = draft(acme, "decided", 10);
+  const deleted = draft(acme, "deleted", 15);
+  for (const d of [later, sooner, elsewhere, decided, deleted]) {
+    await repo.createOnce(d, change("investigating", 0));
+  }
+  expect(await repo.decide(acme, decided.id, "published")).toBe(true);
+  await db
+    .update(incident)
+    .set({ deletedAt: at(1) })
+    .where(eq(incident.id, deleted.id));
+
+  const mine = new Set([later, sooner, elsewhere, decided, deleted].map((d) => d.id));
+  const listed = (await listDrafts(db)).filter((d) => mine.has(d.id));
+  expect(listed.map((d) => [d.id, d.approvalDeadline])).toEqual([
+    [sooner.id, at(20)],
+    [elsewhere.id, at(25)],
+    [later.id, at(30)],
+  ]);
 });
