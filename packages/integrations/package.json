@@ -10,7 +10,8 @@
     "./secrets": "./src/secrets/keys.ts",
     "./channels": "./src/channels/index.ts",
     "./slack": "./src/slack/index.ts",
-    "./signals": "./src/signals/index.ts"
+    "./signals": "./src/signals/index.ts",
+    "./jobs": "./src/jobs/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

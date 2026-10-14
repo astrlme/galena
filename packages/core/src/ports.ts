@@ -52,6 +52,14 @@ export interface WorkflowEngine {
   ): Promise<void>;
 }
 
+/** The workers' engine, which also starts many jobs of one kind at once (fan-out, the sweep). */
+export interface JobEngine extends WorkflowEngine {
+  triggerAll(
+    task: string,
+    jobs: { payload: unknown; options: { idempotencyKey: string; at?: Date } }[],
+  ): Promise<void>;
+}
+
 export type Component = {
   id: ComponentId;
   workspaceId: WorkspaceId;
