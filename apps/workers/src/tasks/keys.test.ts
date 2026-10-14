@@ -8,7 +8,7 @@ test("every trigger inside a task keys through globalKey", () => {
     .flatMap((name) =>
       readFileSync(new URL(name, dir), "utf8")
         .split("\n")
-        .filter((line) => /idempotencyKey:/.test(line) && !/globalKey\(|approve:/.test(line))
+        .filter((line) => /idempotencyKey:/.test(line) && !/globalKey\(/.test(line))
         .map((line) => `${name}: ${line.trim()}`),
     );
   expect(plain).toEqual([]);

@@ -82,7 +82,7 @@ async function integrationWith(publishPolicy: PublishPolicy, match = { service: 
 /** Fake ports that record what the workflow handed on. */
 function recorder() {
   const dispatched: OutboxId[] = [];
-  const approvals: DraftPayload[] = [];
+  const approvals: (DraftPayload & { deadline: Date })[] = [];
   return {
     dispatched,
     approvals,
@@ -90,7 +90,7 @@ function recorder() {
       db,
       clock,
       dispatch: async (id: OutboxId) => void dispatched.push(id),
-      awaitApproval: async (draft: DraftPayload) => void approvals.push(draft),
+      awaitApproval: async (draft: DraftPayload & { deadline: Date }) => void approvals.push(draft),
     },
   };
 }
@@ -132,7 +132,9 @@ test("approve: one firing group opens one draft, repeats change nothing, and its
     approvalDeadline: new Date("2026-10-13T10:15:00.000Z"),
     components: [{ componentId: integration.component, status: "major_outage" }],
   });
-  expect(approvals).toEqual([{ workspaceId: acme, incidentId: id }]);
+  expect(approvals).toEqual([
+    { workspaceId: acme, incidentId: id, deadline: new Date("2026-10-13T10:15:00.000Z") },
+  ]);
   expect((await findOutboxRow(db, dispatched[0] as OutboxId))?.payload).toMatchObject({
     type: "incident.created",
     data: { incidentId: id, visibility: "draft" },
@@ -169,7 +171,6 @@ test("approve: one firing group opens one draft, repeats change nothing, and its
     db,
     clock,
     dispatch: deps.dispatch,
-    waitForAnswer: async () => "timed_out",
   });
   expect(settled).toBe("dismissed");
 });
@@ -182,7 +183,6 @@ test("approve: a group still firing at the deadline publishes its draft", async 
     db,
     clock,
     dispatch: deps.dispatch,
-    waitForAnswer: async () => "timed_out",
   });
   expect(settled).toBe("published");
 });

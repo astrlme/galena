@@ -34,10 +34,7 @@ import {
 import { v7 } from "uuid";
 import { z } from "zod";
 
-/** A person's answer, sent to a draft's waiting approval run (from Slack or the dashboard). */
-export type DraftAnswer = { decision: "approve" | "dismiss" };
-
-/** What `incident.autopilot` waits on: one draft a monitor (`monitorId`) or an alert group opened. */
+/** What `incident.autopilot` settles: one draft a monitor (`monitorId`) or an alert group opened. */
 export const draftPayload = z.object({ workspaceId, incidentId, monitorId: monitorId.optional() });
 export type DraftPayload = z.infer<typeof draftPayload>;
 
@@ -46,16 +43,14 @@ export type AutopilotDeps = {
   clock: Clock;
   /** Hands a committed outbox row to `outbox.dispatch`. */
   dispatch: (outboxId: OutboxId) => Promise<void>;
-  /** Starts `incident.autopilot` for a draft, keyed `auto:{incidentId}`. */
-  awaitApproval: (draft: DraftPayload) => Promise<void>;
+  /**
+   * Posts the draft's approval card and starts `incident.autopilot` at the deadline, keyed
+   * `card:{incidentId}` and `auto:{incidentId}`.
+   */
+  awaitApproval: (draft: DraftPayload & { deadline: Date }) => Promise<void>;
 };
 
-export type ApprovalDeps = Pick<AutopilotDeps, "db" | "clock" | "dispatch"> & {
-  /** Waits durably for a person's answer until the deadline (a waitpoint token). */
-  waitForAnswer: (
-    draft: DraftPayload & { deadline: Date },
-  ) => Promise<"approved" | "dismissed" | "timed_out">;
-};
+export type ApprovalDeps = Pick<AutopilotDeps, "db" | "clock" | "dispatch">;
 
 /**
  * After `monitor.state-changed` records a transition: opens an incident for an outage, moves the
@@ -101,8 +96,8 @@ export async function actOnTransition(
 }
 
 /**
- * Opens the planned incident unless its dedup key already holds an open one, then starts the
- * approval wait for a draft (keyed by the incident, so a retry arms it once).
+ * Opens the planned incident unless its dedup key already holds an open one, then arms the
+ * draft's deadline (keyed by the incident, so a retry arms it once).
  */
 export async function openIncident(
   workspaceId: WorkspaceId,
@@ -153,9 +148,10 @@ export async function openIncident(
   // Known limit: if this trigger fails, a retry finds the incident already opened and the row
   // stays pending until the outbox sweep exists.
   if (opened.outboxId) await deps.dispatch(opened.outboxId);
-  if (plan.visibility === "draft") {
+  if (plan.visibility === "draft" && plan.approvalDeadline) {
     const monitorId = opener.source === "monitor" ? { monitorId: opener.monitorId } : {};
-    await deps.awaitApproval({ workspaceId, incidentId: opened.id, ...monitorId });
+    const deadline = plan.approvalDeadline;
+    await deps.awaitApproval({ workspaceId, incidentId: opened.id, ...monitorId, deadline });
   }
   return {
     action: "open" as const,
@@ -208,8 +204,8 @@ export async function postUpdate(
 }
 
 /**
- * Waits for a person to approve or dismiss the draft, then publishes or dismisses it. With no
- * answer by the deadline it publishes only if what opened it is still down.
+ * Runs at the draft's deadline. A person's answer (Slack or the dashboard) decides the draft
+ * before then; with none it publishes only if what opened it is still down.
  */
 export async function settleDraft(
   payload: DraftPayload,
@@ -218,10 +214,9 @@ export async function settleDraft(
   const { workspaceId, incidentId: id } = payload;
   const draft = await incidentRepository(deps.db).findById(workspaceId, id);
   if (draft?.visibility !== "draft" || !draft.approvalDeadline) return "decided_elsewhere";
-  const answer = await deps.waitForAnswer({ ...payload, deadline: draft.approvalDeadline });
-  const state = answer === "timed_out" ? await stateAtDeadline(payload, deps.db) : undefined;
+  const state = await stateAtDeadline(payload, deps.db);
   const visibility =
-    approvalOutcome(answer, state ?? "unknown") === "publish" ? "published" : "dismissed";
+    approvalOutcome("timed_out", state ?? "unknown") === "publish" ? "published" : "dismissed";
   const decided = await decideDraft(
     { workspaceId, incidentId: id, visibility, actorUserId: null },
     deps,

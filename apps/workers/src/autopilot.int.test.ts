@@ -23,7 +23,7 @@ import {
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { actOnTransition, type DraftPayload, settleDraft } from "./autopilot.ts";
+import { actOnTransition, type DraftPayload, decideDraft, settleDraft } from "./autopilot.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
 let db: Db;
@@ -93,7 +93,7 @@ const transition = (
 /** Fake ports that record what the workflow handed on. */
 function recorder() {
   const dispatched: OutboxId[] = [];
-  const approvals: DraftPayload[] = [];
+  const approvals: (DraftPayload & { deadline: Date })[] = [];
   return {
     dispatched,
     approvals,
@@ -101,7 +101,7 @@ function recorder() {
       db,
       clock,
       dispatch: async (id: OutboxId) => void dispatched.push(id),
-      awaitApproval: async (draft: DraftPayload) => void approvals.push(draft),
+      awaitApproval: async (draft: DraftPayload & { deadline: Date }) => void approvals.push(draft),
     },
   };
 }
@@ -137,26 +137,31 @@ test("auto: a monitor going down publishes an incident at once, and a retry open
 });
 
 test.each([
-  ["approved", "up", "published"],
-  ["dismissed", "down", "dismissed"],
-  ["timed_out", "down", "published"],
-  ["timed_out", "recovering", "dismissed"],
+  ["down", "published"],
+  ["recovering", "dismissed"],
 ] as const)(
-  "approve: answered %s while the monitor is %s, the draft is %s",
-  async (answer, state, outcome) => {
+  "approve: unanswered at its deadline while the monitor is %s, the draft is %s",
+  async (state, outcome) => {
     const monitor = await monitorWith("approve");
     const { deps, dispatched, approvals } = recorder();
 
     const opened = await actOnTransition(transition(monitor.id, "down", 1), deps);
     expect(opened).toMatchObject({ action: "open", created: true, visibility: "draft" });
     const id = (opened as { incidentId: IncidentId }).incidentId;
-    expect(approvals).toEqual([{ workspaceId: acme, incidentId: id, monitorId: monitor.id }]);
+    expect(approvals).toEqual([
+      {
+        workspaceId: acme,
+        incidentId: id,
+        monitorId: monitor.id,
+        deadline: new Date("2026-10-05T10:10:00.000Z"),
+      },
+    ]);
     expect(await incidentRepository(db).findById(acme, id)).toMatchObject({
       visibility: "draft",
       approvalDeadline: new Date("2026-10-05T10:10:00.000Z"),
     });
 
-    // Where the monitor stands when the answer, or the deadline, comes.
+    // Where the monitor stands when the deadline comes.
     await recordMonitorTransition(db, {
       workspaceId: acme,
       monitorId: monitor.id,
@@ -165,18 +170,9 @@ test.each([
       seq: 2,
       at: NOW,
     });
-    const deadlines: Date[] = [];
-    const settled = await settleDraft(approvals[0] as DraftPayload, {
-      db,
-      clock,
-      dispatch: deps.dispatch,
-      waitForAnswer: async ({ deadline }) => {
-        deadlines.push(deadline);
-        return answer;
-      },
-    });
+    const { deadline: _, ...draft } = approvals[0] as DraftPayload & { deadline: Date };
+    const settled = await settleDraft(draft, { db, clock, dispatch: deps.dispatch });
     expect(settled).toBe(outcome);
-    expect(deadlines).toEqual([new Date("2026-10-05T10:10:00.000Z")]);
     expect(await incidentRepository(db).findById(acme, id)).toMatchObject({
       visibility: outcome,
       approvalDeadline: null,
@@ -188,31 +184,31 @@ test.each([
   },
 );
 
-test("a draft someone already decided is left alone, without waiting", async () => {
-  const monitor = await monitorWith("approve");
-  const { deps, approvals } = recorder();
-  await actOnTransition(transition(monitor.id, "down", 1), deps);
-  const draft = approvals[0] as DraftPayload;
-  await incidentRepository(db).decide(acme, draft.incidentId, "published");
-  let waited = false;
-  const settled = await settleDraft(draft, {
-    ...deps,
-    waitForAnswer: async () => {
-      waited = true;
-      return "timed_out";
-    },
-  });
-  expect([settled, waited]).toEqual(["decided_elsewhere", false]);
-});
+test.each(["published", "dismissed"] as const)(
+  "a draft a person %s before its deadline keeps their answer when the deadline comes",
+  async (answer) => {
+    const monitor = await monitorWith("approve");
+    const { deps, approvals } = recorder();
+    await actOnTransition(transition(monitor.id, "down", 1), deps);
+    const { deadline: _, ...draft } = approvals[0] as DraftPayload & { deadline: Date };
+    await decideDraft({ ...draft, visibility: answer, actorUserId: null }, deps);
+
+    expect(await settleDraft(draft, deps)).toBe("decided_elsewhere");
+    expect(await incidentRepository(db).findById(acme, draft.incidentId)).toMatchObject({
+      visibility: answer,
+    });
+  },
+);
 
 test("a dismissed draft frees the monitor to draft again when it next goes down", async () => {
   const monitor = await monitorWith("approve");
   const { deps, approvals } = recorder();
   await actOnTransition(transition(monitor.id, "down", 1), deps);
-  await settleDraft(approvals[0] as DraftPayload, {
-    ...deps,
-    waitForAnswer: async () => "dismissed",
-  });
+  const first = approvals[0] as DraftPayload & { deadline: Date };
+  await decideDraft(
+    { workspaceId: acme, incidentId: first.incidentId, visibility: "dismissed", actorUserId: null },
+    deps,
+  );
 
   const next = await actOnTransition(transition(monitor.id, "down", 3), deps);
   expect(next).toMatchObject({ action: "open", created: true, visibility: "draft" });

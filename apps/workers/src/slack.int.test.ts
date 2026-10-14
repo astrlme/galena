@@ -13,7 +13,6 @@ import { SlackApiError, type SlackMessage, slackRefusals } from "@galena/integra
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import type { DraftAnswer } from "./autopilot.ts";
 import { answerClick, answerCommand, postApprovalCard, type SlackDeps } from "./slack.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
@@ -33,7 +32,6 @@ const emails: Record<string, string> = {
   U0VIC: "vic@example.com",
   U0STR: "stranger@example.com",
 };
-const completed: [string, DraftAnswer][] = [];
 const dispatched: OutboxId[] = [];
 let deps: SlackDeps;
 const acmeInstall = {
@@ -74,7 +72,6 @@ beforeAll(async () => {
     clock: { now: () => NOW },
     dashboardUrl: "https://dashboard.example.com",
     dispatch: async (id) => void dispatched.push(id),
-    completeToken: async (tokenId, answer) => void completed.push([tokenId, answer]),
     api: {
       postMessage: async (token, channel, message) => {
         posted.push({ token, channel, message });
@@ -95,7 +92,7 @@ afterAll(async () => {
 });
 
 /** A draft a monitor opened on Checkout, waiting on approval token `token`. */
-async function draft(token: string): Promise<IncidentId> {
+async function draft(): Promise<IncidentId> {
   const id = incidentId.parse(v7());
   const startedAt = new Date("2026-10-08T15:53:00.000Z");
   await incidentRepository(db).createOnce(
@@ -123,7 +120,6 @@ async function draft(token: string): Promise<IncidentId> {
       statusChange: { from: null, to: "investigating" },
     },
   );
-  await incidentRepository(db).setApprovalToken(acme, id, token);
   return id;
 }
 const click = (id: IncidentId, userId: string, decision: "publish" | "dismiss" = "publish") => ({
@@ -138,7 +134,7 @@ const visibilityOf = async (id: IncidentId) =>
   (await incidentRepository(db).findById(acme, id))?.visibility;
 
 test("posts a draft's card to the channel picked on install, with the bot's token", async () => {
-  const id = await draft("waitpoint_card");
+  const id = await draft();
   expect(await postApprovalCard({ workspaceId: acme, incidentId: id }, deps)).toBe("posted");
   expect(posted.at(-1)).toMatchObject({ token: "xoxb-test", channel: "C0INC" });
   expect(posted.at(-1)?.message.text).toContain("Publishes automatically at 16:03 UTC");
@@ -155,7 +151,7 @@ test("a card refused for a revoked token forgets the install; other failures don
       },
     },
   });
-  const id = await draft("waitpoint_revoked");
+  const id = await draft();
   const card = { workspaceId: acme, incidentId: id };
   await expect(postApprovalCard(card, refusing("channel_not_found"))).rejects.toThrow(
     "channel_not_found",
@@ -168,8 +164,8 @@ test("a card refused for a revoked token forgets the install; other failures don
   await slackRepository(db).save(acme, acmeInstall);
 });
 
-test("an editor's press publishes the draft as them, wakes the run and replaces the card", async () => {
-  const id = await draft("waitpoint_ada");
+test("an editor's press publishes the draft as them and replaces the card", async () => {
+  const id = await draft();
   expect(await answerClick(click(id, "U0ADA"), deps)).toBe("published");
   expect(await visibilityOf(id)).toBe("published");
   const audit = (await db.select().from(schema.auditLog)).find(
@@ -177,7 +173,6 @@ test("an editor's press publishes the draft as them, wakes the run and replaces 
   );
   expect(audit?.actorUserId).toBe("u-ada");
   expect(dispatched).toHaveLength(1);
-  expect(completed).toEqual([["waitpoint_ada", { decision: "approve" }]]);
   const card = responded.at(-1);
   expect(card?.message.replace_original).toBe(true);
   expect(JSON.stringify(card?.message)).toContain("*Published* by <@U0ADA> at 15:55 UTC.");
@@ -193,27 +188,25 @@ test("an editor's press publishes the draft as them, wakes the run and replaces 
 });
 
 test("a viewer or someone who isn't a member changes nothing, and is told why", async () => {
-  const id = await draft("waitpoint_vic");
+  const id = await draft();
   expect(await answerClick(click(id, "U0VIC"), deps)).toBe("viewer");
   expect(responded.at(-1)?.message.text).toBe(slackRefusals.viewer);
   expect(await answerClick(click(id, "U0STR"), deps)).toBe("not_a_member");
   expect(responded.at(-1)?.message.text).toBe(slackRefusals.notMember);
   expect(await visibilityOf(id)).toBe("draft");
-  expect(completed.map(([token]) => token)).not.toContain("waitpoint_vic");
 });
 
 test("someone from another Slack workspace changes nothing, even with a member's email", async () => {
-  const id = await draft("waitpoint_shared");
+  const id = await draft();
   expect(await answerClick({ ...click(id, "U0ADA"), userTeamId: "T0OTHER" }, deps)).toBe(
     "other_team",
   );
   expect(responded.at(-1)?.message.text).toBe(slackRefusals.otherTeam);
   expect(await visibilityOf(id)).toBe("draft");
-  expect(completed.map(([token]) => token)).not.toContain("waitpoint_shared");
 });
 
 test("a press from a Slack workspace that isn't connected is told to reconnect", async () => {
-  const id = await draft("waitpoint_gone");
+  const id = await draft();
   expect(await answerClick({ ...click(id, "U0ADA"), teamId: "T0GONE" }, deps)).toBe(
     "not_installed",
   );

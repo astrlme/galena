@@ -27,7 +27,7 @@ import {
   slackRefusals,
 } from "@galena/integrations/slack";
 import { z } from "zod";
-import { type DraftAnswer, decideDraft } from "./autopilot.ts";
+import { decideDraft } from "./autopilot.ts";
 
 // The Slack app's side of approvals: posting a draft's card, answering a press of Approve or
 // Dismiss, and `/incident`. The API only checked Slack's signature; everything that needs the
@@ -46,8 +46,6 @@ export type SlackDeps = {
   dashboardUrl: string;
   /** Hands a committed outbox row to `outbox.dispatch`. */
   dispatch: (outboxId: OutboxId) => Promise<void>;
-  /** Wakes the draft's approval run with the answer. */
-  completeToken: (tokenId: string, answer: DraftAnswer) => Promise<void>;
 };
 
 /** One incident as the cards show it, with component names and a dashboard link. */
@@ -167,31 +165,24 @@ export async function answerClick(click: SlackClick, deps: SlackDeps) {
     await reply(slackRefusals.decided);
     return "already_decided" as const;
   }
-  // The decision is committed. What follows only saves time and tidies the card, so a failure
-  // is logged, not retried: a retry would find the draft decided and say so to the person.
-  const tokenId = await incidentRepository(deps.db).findApprovalToken(workspace, click.incidentId);
-  const answer: DraftAnswer = { decision: click.decision === "publish" ? "approve" : "dismiss" };
-  await Promise.allSettled([
-    tokenId ? deps.completeToken(tokenId, answer) : Promise.resolve(),
-    draftCard(deps, workspace, click.incidentId).then((card) =>
-      card
-        ? deps.api.respond(click.responseUrl, {
-            ...decidedCard(card, {
-              action: answer.decision,
-              slackUserId: click.userId,
-              at: deps.clock.now().toISOString(),
-            }),
-            replace_original: true,
-          })
-        : undefined,
-    ),
-  ]).then((results) => {
-    for (const result of results) {
-      if (result.status === "rejected") {
-        console.warn("slack.interaction follow-up failed", { error: String(result.reason) });
-      }
+  // The decision is committed, and the deadline's run will find it decided. Tidying the card is
+  // all that follows, so a failure is logged, not retried: a retry would find the draft decided
+  // and say so to the person.
+  try {
+    const card = await draftCard(deps, workspace, click.incidentId);
+    if (card) {
+      await deps.api.respond(click.responseUrl, {
+        ...decidedCard(card, {
+          action: click.decision === "publish" ? "approve" : "dismiss",
+          slackUserId: click.userId,
+          at: deps.clock.now().toISOString(),
+        }),
+        replace_original: true,
+      });
     }
-  });
+  } catch (error) {
+    console.warn("slack.interaction follow-up failed", { error: String(error) });
+  }
   return visibility;
 }
 

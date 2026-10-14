@@ -1,6 +1,5 @@
-import { incidentRepository } from "@galena/db";
-import { logger, queue, task, tasks, wait } from "@trigger.dev/sdk";
-import { type DraftAnswer, type DraftPayload, draftPayload, settleDraft } from "../autopilot.ts";
+import { logger, queue, task, tasks } from "@trigger.dev/sdk";
+import { type DraftPayload, draftPayload, settleDraft } from "../autopilot.ts";
 import { db } from "../db.ts";
 import { globalKey } from "./keys.ts";
 
@@ -24,16 +23,21 @@ async function triggerApprovalCard({ workspaceId, incidentId }: DraftPayload) {
   );
 }
 
-/** Starts the approval wait for a draft once, however often the transition is retried. */
-export async function awaitApproval(draft: DraftPayload) {
+/**
+ * Posts the draft's approval card and arms its deadline once, however often the transition is
+ * retried.
+ */
+export async function awaitApproval({ deadline, ...draft }: DraftPayload & { deadline: Date }) {
+  await triggerApprovalCard(draft);
   await tasks.trigger("incident.autopilot", draft, {
     idempotencyKey: await globalKey(`auto:${draft.incidentId}`),
+    delay: deadline,
   });
 }
 
 /**
- * One draft a monitor or an alert group opened: waits for a person until its deadline, then publishes or
- * dismisses it. The token's id is stored on the incident, so an answer can complete it.
+ * One draft a monitor or an alert group opened, at its deadline: publishes or dismisses it,
+ * unless a person decided it first.
  */
 export const incidentAutopilot = task({
   id: "incident.autopilot",
@@ -44,18 +48,6 @@ export const incidentAutopilot = task({
       db,
       clock: { now: () => new Date() },
       dispatch: dispatchOutbox,
-      waitForAnswer: async ({ workspaceId, incidentId, deadline }) => {
-        const token = await wait.createToken({
-          idempotencyKey: `approve:${incidentId}`,
-          timeout: deadline,
-        });
-        await incidentRepository(db).setApprovalToken(workspaceId, incidentId, token.id);
-        // Stored first, so a press in Slack always finds the token to complete.
-        await triggerApprovalCard({ workspaceId, incidentId });
-        const answer = await wait.forToken<DraftAnswer>(token);
-        if (!answer.ok) return "timed_out";
-        return answer.output.decision === "approve" ? "approved" : "dismissed";
-      },
     });
     logger.info("incident.autopilot", { ...draft, outcome });
     return { outcome };

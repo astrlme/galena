@@ -2,7 +2,7 @@ import { slackClick, slackCommandRequest } from "@galena/contracts";
 import { guard } from "@galena/integrations/net";
 import { appKeys, LOCAL_APP_KEY } from "@galena/integrations/secrets";
 import { SlackApiError, slackApi } from "@galena/integrations/slack";
-import { AbortTaskRunError, logger, queue, task, wait } from "@trigger.dev/sdk";
+import { AbortTaskRunError, logger, queue, task } from "@trigger.dev/sdk";
 import { db } from "../db.ts";
 import { env } from "../env.ts";
 import {
@@ -26,9 +26,6 @@ const deps: SlackDeps = {
   api: slackApi({ guard }),
   dashboardUrl: env.GLN_DASHBOARD_URL,
   dispatch: dispatchOutbox,
-  completeToken: async (tokenId, answer) => {
-    await wait.completeToken(tokenId, answer);
-  },
 };
 
 /** Runs `work`, ending the run at once when Slack's answer won't change on a retry. */
