@@ -70,14 +70,17 @@ export function listMonitorStates(db: Db) {
     .orderBy(asc(monitor.id));
 }
 
-/** The monitor's last confirmed state, or undefined once it has been deleted. */
+/**
+ * The monitor's last confirmed state and the transition (`seq`) it came from, or undefined once
+ * the monitor has been deleted.
+ */
 export async function findMonitorState(db: Db, workspaceId: WorkspaceId, monitorId: MonitorId) {
   const [row] = await db
-    .select({ state: monitor.state })
+    .select({ state: monitor.state, seq: monitor.stateSeq })
     .from(monitor)
     .where(and(eq(monitor.workspaceId, workspaceId), eq(monitor.id, monitorId)))
     .limit(1);
-  return row?.state;
+  return row;
 }
 
 /**

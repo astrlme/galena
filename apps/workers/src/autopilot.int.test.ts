@@ -215,6 +215,25 @@ test("a dismissed draft frees the monitor to draft again when it next goes down"
   expect((next as { incidentId: IncidentId }).incidentId).not.toBe(approvals[0]?.incidentId);
 });
 
+test("a transition older than the monitor's last one opens nothing", async () => {
+  const monitor = await monitorWith("auto");
+  const { deps, dispatched } = recorder();
+  // Recovery (6) is recorded; the down that came before it (5) arrives late.
+  await recordMonitorTransition(db, {
+    workspaceId: acme,
+    monitorId: monitor.id,
+    from: "down",
+    to: "up",
+    seq: 6,
+    at: NOW,
+  });
+  expect(await actOnTransition(transition(monitor.id, "down", 5), deps)).toEqual({
+    action: "none",
+    reason: "stale",
+  });
+  expect(dispatched).toEqual([]);
+});
+
 test("an open incident on the component takes the monitor; no second incident opens", async () => {
   const monitor = await monitorWith("auto");
   const manual = incidentId.parse(v7());

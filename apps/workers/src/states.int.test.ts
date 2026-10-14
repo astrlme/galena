@@ -70,9 +70,9 @@ test("a monitor whose transition never reached Postgres catches up once; recent 
   const deps = { db, clock: { now: () => now }, readStates: async () => detected };
 
   expect(await catchUpStates(deps)).toEqual({ caughtUp: 1 });
-  expect(await findMonitorState(db, acme, lost)).toBe("up");
-  expect(await findMonitorState(db, acme, inFlight)).toBe("unknown");
-  expect(await findMonitorState(db, acme, unseen)).toBe("unknown");
+  expect((await findMonitorState(db, acme, lost))?.state).toBe("up");
+  expect((await findMonitorState(db, acme, inFlight))?.state).toBe("unknown");
+  expect((await findMonitorState(db, acme, unseen))?.state).toBe("unknown");
   const history = await listMonitorTransitions(db, acme, new Date(minutesAgo(120)));
   expect(history.filter((t) => t.monitorId === lost)).toEqual([
     { monitorId: lost, state: "up", at: new Date(minutesAgo(60)) },

@@ -65,6 +65,12 @@ export async function actOnTransition(
 ) {
   const monitor = await monitorRepository(deps.db).findById(workspaceId, data.monitorId);
   if (!monitor) return { action: "none" as const, reason: "deleted" as const };
+  // A transition older than the monitor's recorded one is a late repeat: acting on it would undo
+  // what the newer transition settled.
+  const recorded = await findMonitorState(deps.db, workspaceId, monitor.id);
+  if (recorded && recorded.seq > data.transitionSeq) {
+    return { action: "none" as const, reason: "stale" as const };
+  }
   const component = monitor.componentId
     ? await componentRepository(deps.db).findById(workspaceId, monitor.componentId)
     : undefined;
@@ -232,7 +238,7 @@ async function stateAtDeadline(
   { workspaceId, incidentId: id, monitorId: monitor }: DraftPayload,
   db: Db,
 ) {
-  if (monitor) return findMonitorState(db, workspaceId, monitor);
+  if (monitor) return (await findMonitorState(db, workspaceId, monitor))?.state;
   const incident = await incidentRepository(db).findById(workspaceId, id);
   return incident?.status === "resolved" ? "up" : "down";
 }
