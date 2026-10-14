@@ -1,7 +1,8 @@
 import type { JobEngine } from "@galena/core";
 import { laneOf } from "@galena/integrations/jobs";
-import { AbortTaskRunError, type Queue, schedules, task, tasks } from "@trigger.dev/sdk";
+import { AbortTaskRunError, logger, type Queue, schedules, task, tasks } from "@trigger.dev/sdk";
 import { setEngine } from "../engine.ts";
+import { setLog } from "../log.ts";
 import { FinalError, type Job } from "../runner.ts";
 import { globalKey } from "./keys.ts";
 
@@ -11,7 +12,8 @@ const perDestination = new Set(["notify.slack", "notify.webhook"]);
 // trigger.dev takes up to this many runs per batch call.
 const BATCH = 500;
 
-async function runOptions(
+/** The trigger.dev options for one run: the key made global, `at` as its delay, a lane's key. */
+export async function runOptions(
   task: string,
   { idempotencyKey, at }: { idempotencyKey: string; at?: Date },
 ) {
@@ -45,6 +47,10 @@ const triggerDev: JobEngine = {
   },
 };
 setEngine(triggerDev);
+setLog({
+  info: (message, fields) => logger.info(message, fields),
+  error: (message, fields) => logger.error(message, fields),
+});
 
 /** A job as a trigger.dev task, with trigger.dev retrying it by the job's own settings. */
 export function shim<P>(job: Job<P>, settings: { queue?: Queue; machine?: "small-2x" } = {}) {

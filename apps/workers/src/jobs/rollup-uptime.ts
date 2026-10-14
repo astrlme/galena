@@ -3,7 +3,7 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { db } from "../db.ts";
 import { triggerPublish } from "../engine.ts";
 import { env } from "../env.ts";
-import { log } from "../log.ts";
+import { errorFields, log } from "../log.ts";
 import { rollUpUptime } from "../rollup.ts";
 import { cronPayload, defineJob } from "../runner.ts";
 import { catchUpStates, dynamoStates } from "../states.ts";
@@ -35,8 +35,7 @@ export async function runRollup() {
   const clock = { now: () => new Date() };
   // A failed read must not hold up the rollup; the next run tries again.
   const states = await catchUpStates({ db, clock, readStates }).catch((error: unknown) => {
-    const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-    log.error("monitor states not caught up", { reason });
+    log.error("monitor states not caught up", errorFields(error));
     return undefined;
   });
   const result = await rollUpUptime({ db, clock, publish: triggerPublish });

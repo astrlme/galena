@@ -1,6 +1,6 @@
 import type { JobEngine } from "@galena/core";
 import { laneOf } from "@galena/integrations/jobs";
-import { log } from "./log.ts";
+import { errorFields, log } from "./log.ts";
 import { type Job, runAttempt } from "./runner.ts";
 
 // The longest wait setTimeout takes (about 24.8 days); later starts wait in steps.
@@ -19,10 +19,11 @@ export function localEngine(jobs: ReadonlyMap<string, Job<unknown>>): JobEngine 
   const enqueue = (lane: string, work: () => Promise<void>) => {
     const next = (lanes.get(lane) ?? Promise.resolve()).then(() =>
       work().catch((error: unknown) =>
-        log.error("local job crashed", { lane, error: String(error) }),
+        log.error("local job crashed", { lane, ...errorFields(error) }),
       ),
     );
     lanes.set(lane, next);
+    // Forgets an idle lane; `next` never rejects, the work's errors are caught above.
     void next.then(() => {
       if (lanes.get(lane) === next) lanes.delete(lane);
     });
@@ -33,7 +34,7 @@ export function localEngine(jobs: ReadonlyMap<string, Job<unknown>>): JobEngine 
       const result = await runAttempt(job, payload, attempt);
       if (result.outcome === "done") return;
       if (result.outcome === "failed") {
-        log.error(`${job.name} failed`, { key, attempt, error: String(result.error) });
+        log.error(`${job.name} failed`, { key, attempt, ...errorFields(result.error) });
         return;
       }
       // The wait holds the lane, as a queue holds a message it will deliver again.
@@ -71,7 +72,10 @@ export function localEngine(jobs: ReadonlyMap<string, Job<unknown>>): JobEngine 
  * a step (every n) or a number; day, month and weekday must be stars, as in every schedule here.
  */
 export function cronMatches(pattern: string, at: Date): boolean {
-  const [minute = "", hour = ""] = pattern.split(" ");
+  const [minute = "", hour = "", ...rest] = pattern.split(" ");
+  if (rest.length !== 3 || rest.some((field) => field !== "*")) {
+    throw new Error(`Only minute and hour are read in "${pattern}"; the other fields must be *.`);
+  }
   const field = (spec: string, value: number) =>
     spec === "*" ||
     (spec.startsWith("*/") ? value % Number(spec.slice(2)) === 0 : Number(spec) === value);
@@ -94,7 +98,7 @@ export function startCrons(
       engine
         .trigger(job.name, { timestamp }, { idempotencyKey: `cron:${job.name}:${timestamp}` })
         .catch((error: unknown) =>
-          log.error("cron not started", { job: job.name, error: String(error) }),
+          log.error("cron not started", { job: job.name, ...errorFields(error) }),
         );
     }
     timer = setTimeout(tick, untilNextMinute());
