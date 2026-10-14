@@ -154,10 +154,17 @@ export async function openIncident(
   // Known limit: if this trigger fails, a retry finds the incident already opened and the row
   // stays pending until the outbox sweep exists.
   if (opened.outboxId) await deps.dispatch(opened.outboxId);
-  if (plan.visibility === "draft" && plan.approvalDeadline) {
-    const monitorId = opener.source === "monitor" ? { monitorId: opener.monitorId } : {};
-    const deadline = plan.approvalDeadline;
-    await deps.awaitApproval({ workspaceId, incidentId: opened.id, ...monitorId, deadline });
+  if (plan.visibility === "draft") {
+    // A retry arms the deadline the draft was opened with, the one its card states, and
+    // nothing once a person has decided it.
+    const deadline = opened.created
+      ? plan.approvalDeadline
+      : ((await incidentRepository(deps.db).findById(workspaceId, opened.id))?.approvalDeadline ??
+        null);
+    if (deadline) {
+      const monitorId = opener.source === "monitor" ? { monitorId: opener.monitorId } : {};
+      await deps.awaitApproval({ workspaceId, incidentId: opened.id, ...monitorId, deadline });
+    }
   }
   return {
     action: "open" as const,

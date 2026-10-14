@@ -23,7 +23,13 @@ import {
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { actOnTransition, type DraftPayload, decideDraft, settleDraft } from "./autopilot.ts";
+import {
+  actOnTransition,
+  type DraftPayload,
+  decideDraft,
+  openIncident,
+  settleDraft,
+} from "./autopilot.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
 let db: Db;
@@ -213,6 +219,37 @@ test("a dismissed draft frees the monitor to draft again when it next goes down"
   const next = await actOnTransition(transition(monitor.id, "down", 3), deps);
   expect(next).toMatchObject({ action: "open", created: true, visibility: "draft" });
   expect((next as { incidentId: IncidentId }).incidentId).not.toBe(approvals[0]?.incidentId);
+});
+
+test("an open that loses a race arms the draft's own deadline, and nothing once it is decided", async () => {
+  const monitor = await monitorWith("approve");
+  const { deps, approvals } = recorder();
+  const plan = (approvalDeadline: Date) => ({
+    action: "open" as const,
+    dedupKey: `mon:${monitor.id}`,
+    visibility: "draft" as const,
+    title: `${monitor.name} is down`,
+    body: "We're looking into it.",
+    impact: "major" as const,
+    components: [{ componentId: monitor.component, status: "major_outage" as const }],
+    approvalDeadline,
+  });
+  const opener = { source: "monitor" as const, monitorId: monitor.id };
+  const first = new Date("2026-10-05T10:10:00.000Z");
+  await openIncident(acme, plan(first), opener, NOW, deps);
+
+  // A second run for the same monitor, planned three minutes later, finds the draft opened.
+  const later = plan(new Date("2026-10-05T10:13:00.000Z"));
+  expect(await openIncident(acme, later, opener, NOW, deps)).toMatchObject({ created: false });
+  expect(approvals.map((a) => a.deadline)).toEqual([first, first]);
+
+  const { incidentId: id } = approvals[0] as DraftPayload;
+  await decideDraft(
+    { workspaceId: acme, incidentId: id, visibility: "published", actorUserId: null },
+    deps,
+  );
+  await openIncident(acme, later, opener, NOW, deps);
+  expect(approvals).toHaveLength(2);
 });
 
 test("a transition older than the monitor's last one opens nothing", async () => {
