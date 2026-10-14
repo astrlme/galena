@@ -24,7 +24,7 @@ import { readSignals } from "@galena/integrations/signals";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { type DraftPayload, settleDraft } from "./autopilot.ts";
+import { type DraftDeadline, type DraftPayload, settleDraft } from "./autopilot.ts";
 import { actOnSignal } from "./signals.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
@@ -82,7 +82,7 @@ async function integrationWith(publishPolicy: PublishPolicy, match = { service: 
 /** Fake ports that record what the workflow handed on. */
 function recorder() {
   const dispatched: OutboxId[] = [];
-  const approvals: (DraftPayload & { deadline: Date })[] = [];
+  const approvals: DraftDeadline[] = [];
   return {
     dispatched,
     approvals,
@@ -90,7 +90,7 @@ function recorder() {
       db,
       clock,
       dispatch: async (id: OutboxId) => void dispatched.push(id),
-      awaitApproval: async (draft: DraftPayload & { deadline: Date }) => void approvals.push(draft),
+      armDraft: async (draft: DraftDeadline) => void approvals.push(draft),
     },
   };
 }

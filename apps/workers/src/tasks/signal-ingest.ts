@@ -2,7 +2,7 @@ import { signalIdempotencyKey, signalIngest } from "@galena/contracts";
 import { logger, queue, task } from "@trigger.dev/sdk";
 import { db } from "../db.ts";
 import { actOnSignal } from "../signals.ts";
-import { awaitApproval, dispatchOutbox } from "./incident-autopilot.ts";
+import { armDraft, dispatchOutbox } from "./incident-autopilot.ts";
 
 // Known limit: one alert group at a time across every integration, so a group's firing and
 // resolve messages never race; a burst waits its turn. Key the queue by fingerprint if bursts grow.
@@ -20,7 +20,7 @@ export const signalIngestTask = task({
       db,
       clock: { now: () => new Date() },
       dispatch: dispatchOutbox,
-      awaitApproval,
+      armDraft,
     });
     logger.info("signal.ingest", {
       key: signalIdempotencyKey(ingest),

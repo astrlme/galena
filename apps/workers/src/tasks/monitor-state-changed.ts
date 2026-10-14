@@ -3,7 +3,7 @@ import { nextSnapshotVersion, recordMonitorTransition } from "@galena/db";
 import { logger, task } from "@trigger.dev/sdk";
 import { actOnTransition } from "../autopilot.ts";
 import { db } from "../db.ts";
-import { awaitApproval, dispatchOutbox, incidents } from "./incident-autopilot.ts";
+import { armDraft, dispatchOutbox, incidents } from "./incident-autopilot.ts";
 import { triggerPublish } from "./page-publish.ts";
 
 // Triggered by the evaluator on every transition, keyed `mon:{monitorId}:{transitionSeq}`.
@@ -27,7 +27,7 @@ export const monitorStateChanged = task({
       db,
       clock: { now: () => new Date() },
       dispatch: dispatchOutbox,
-      awaitApproval,
+      armDraft,
     });
     if (!data.suppressed) await triggerPublish(await nextSnapshotVersion(db));
     logger.info("monitor.state-changed", { eventId: id, ...data, recorded, autopilot });

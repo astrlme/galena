@@ -1,5 +1,5 @@
 import { logger, queue, task, tasks } from "@trigger.dev/sdk";
-import { type DraftPayload, draftPayload, settleDraft } from "../autopilot.ts";
+import { type DraftDeadline, type DraftPayload, draftPayload, settleDraft } from "../autopilot.ts";
 import { db } from "../db.ts";
 import { globalKey } from "./keys.ts";
 
@@ -27,7 +27,7 @@ async function triggerApprovalCard({ workspaceId, incidentId }: DraftPayload) {
  * Posts the draft's approval card and arms its deadline once, however often the transition is
  * retried.
  */
-export async function awaitApproval({ deadline, ...draft }: DraftPayload & { deadline: Date }) {
+export async function armDraft({ deadline, ...draft }: DraftDeadline) {
   await triggerApprovalCard(draft);
   await tasks.trigger("incident.autopilot", draft, {
     idempotencyKey: await globalKey(`auto:${draft.incidentId}`),

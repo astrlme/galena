@@ -18,8 +18,8 @@ import {
 import {
   type AutopilotPlan,
   applyUpdate,
-  approvalOutcome,
   type Clock,
+  deadlineOutcome,
   type Incident,
   planAutopilot,
 } from "@galena/core";
@@ -37,6 +37,8 @@ import { z } from "zod";
 /** What `incident.autopilot` settles: one draft a monitor (`monitorId`) or an alert group opened. */
 export const draftPayload = z.object({ workspaceId, incidentId, monitorId: monitorId.optional() });
 export type DraftPayload = z.infer<typeof draftPayload>;
+/** A draft with the deadline its card states. */
+export type DraftDeadline = DraftPayload & { deadline: Date };
 
 export type AutopilotDeps = {
   db: Db;
@@ -47,7 +49,7 @@ export type AutopilotDeps = {
    * Posts the draft's approval card and starts `incident.autopilot` at the deadline, keyed
    * `card:{incidentId}` and `auto:{incidentId}`.
    */
-  awaitApproval: (draft: DraftPayload & { deadline: Date }) => Promise<void>;
+  armDraft: (draft: DraftDeadline) => Promise<void>;
 };
 
 export type ApprovalDeps = Pick<AutopilotDeps, "db" | "clock" | "dispatch">;
@@ -163,7 +165,7 @@ export async function openIncident(
         null);
     if (deadline) {
       const monitorId = opener.source === "monitor" ? { monitorId: opener.monitorId } : {};
-      await deps.awaitApproval({ workspaceId, incidentId: opened.id, ...monitorId, deadline });
+      await deps.armDraft({ workspaceId, incidentId: opened.id, ...monitorId, deadline });
     }
   }
   return {
@@ -228,8 +230,7 @@ export async function settleDraft(
   const draft = await incidentRepository(deps.db).findById(workspaceId, id);
   if (draft?.visibility !== "draft" || !draft.approvalDeadline) return "decided_elsewhere";
   const state = await stateAtDeadline(payload, deps.db);
-  const visibility =
-    approvalOutcome("timed_out", state ?? "unknown") === "publish" ? "published" : "dismissed";
+  const visibility = deadlineOutcome(state ?? "unknown") === "publish" ? "published" : "dismissed";
   const decided = await decideDraft(
     { workspaceId, incidentId: id, visibility, actorUserId: null },
     deps,

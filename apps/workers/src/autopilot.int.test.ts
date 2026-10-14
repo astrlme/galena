@@ -25,6 +25,7 @@ import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import {
   actOnTransition,
+  type DraftDeadline,
   type DraftPayload,
   decideDraft,
   openIncident,
@@ -99,7 +100,7 @@ const transition = (
 /** Fake ports that record what the workflow handed on. */
 function recorder() {
   const dispatched: OutboxId[] = [];
-  const approvals: (DraftPayload & { deadline: Date })[] = [];
+  const approvals: DraftDeadline[] = [];
   return {
     dispatched,
     approvals,
@@ -107,7 +108,7 @@ function recorder() {
       db,
       clock,
       dispatch: async (id: OutboxId) => void dispatched.push(id),
-      awaitApproval: async (draft: DraftPayload & { deadline: Date }) => void approvals.push(draft),
+      armDraft: async (draft: DraftDeadline) => void approvals.push(draft),
     },
   };
 }
@@ -176,7 +177,7 @@ test.each([
       seq: 2,
       at: NOW,
     });
-    const { deadline: _, ...draft } = approvals[0] as DraftPayload & { deadline: Date };
+    const { deadline: _, ...draft } = approvals[0] as DraftDeadline;
     const settled = await settleDraft(draft, { db, clock, dispatch: deps.dispatch });
     expect(settled).toBe(outcome);
     expect(await incidentRepository(db).findById(acme, id)).toMatchObject({
@@ -196,7 +197,7 @@ test.each(["published", "dismissed"] as const)(
     const monitor = await monitorWith("approve");
     const { deps, approvals } = recorder();
     await actOnTransition(transition(monitor.id, "down", 1), deps);
-    const { deadline: _, ...draft } = approvals[0] as DraftPayload & { deadline: Date };
+    const { deadline: _, ...draft } = approvals[0] as DraftDeadline;
     await decideDraft({ ...draft, visibility: answer, actorUserId: null }, deps);
 
     expect(await settleDraft(draft, deps)).toBe("decided_elsewhere");
@@ -210,7 +211,7 @@ test("a dismissed draft frees the monitor to draft again when it next goes down"
   const monitor = await monitorWith("approve");
   const { deps, approvals } = recorder();
   await actOnTransition(transition(monitor.id, "down", 1), deps);
-  const first = approvals[0] as DraftPayload & { deadline: Date };
+  const first = approvals[0] as DraftDeadline;
   await decideDraft(
     { workspaceId: acme, incidentId: first.incidentId, visibility: "dismissed", actorUserId: null },
     deps,

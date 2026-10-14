@@ -13,7 +13,7 @@ import { describe, expect, test } from "vitest";
 import type { Incident } from "../ports.ts";
 import {
   type AutopilotMonitor,
-  approvalOutcome,
+  deadlineOutcome,
   monitorDedupKey,
   planAutopilot,
 } from "./autopilot.ts";
@@ -210,16 +210,11 @@ test("properties: it opens only for an outage nothing covers, and updates only i
   );
 });
 
-describe("approvalOutcome", () => {
-  test("a person's answer decides", () => {
-    expect(approvalOutcome("approved", "up")).toBe("publish");
-    expect(approvalOutcome("dismissed", "down")).toBe("dismiss");
-  });
-
-  test("with no answer it publishes only while the monitor is still down", () => {
-    expect(approvalOutcome("timed_out", "down")).toBe("publish");
+describe("deadlineOutcome", () => {
+  test("an unanswered draft publishes only while the monitor is still down", () => {
+    expect(deadlineOutcome("down")).toBe("publish");
     for (const state of monitorStates.filter((s) => s !== "down")) {
-      expect(approvalOutcome("timed_out", state)).toBe("dismiss");
+      expect(deadlineOutcome(state)).toBe("dismiss");
     }
   });
 });

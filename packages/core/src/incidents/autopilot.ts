@@ -158,13 +158,9 @@ export function planAutopilot(input: {
 }
 
 /**
- * What a waiting draft becomes. A person's answer decides; without one, it publishes only if
- * the monitor is still down (transparency first), and a monitor that recovered meanwhile dismisses it.
+ * What a draft nobody answered becomes at its deadline: published only if the monitor is still
+ * down (transparency first); a monitor that recovered meanwhile dismisses it.
  */
-export function approvalOutcome(
-  answer: "approved" | "dismissed" | "timed_out",
-  monitorState: MonitorState,
-): "publish" | "dismiss" {
-  if (answer === "timed_out") return monitorState === "down" ? "publish" : "dismiss";
-  return answer === "approved" ? "publish" : "dismiss";
+export function deadlineOutcome(monitorState: MonitorState): "publish" | "dismiss" {
+  return monitorState === "down" ? "publish" : "dismiss";
 }
