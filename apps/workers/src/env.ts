@@ -2,7 +2,10 @@ import { fileURLToPath } from "node:url";
 import { awsRegion } from "@galena/contracts";
 import { z } from "zod";
 
-/** A folder under apps/workers/.local, wherever the process started. */
+/**
+ * A folder under apps/workers/.local, wherever the process started. Known limit: under
+ * `pnpm trigger:dev` this file runs from its bundle, so the folders land in `.trigger/tmp/`.
+ */
 const local = (folder: string) => fileURLToPath(new URL(`../.local/${folder}`, import.meta.url));
 
 // The only place in apps/workers that reads process.env (trigger.config.ts aside). `pnpm

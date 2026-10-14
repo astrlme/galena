@@ -48,6 +48,20 @@ const env = z
 if (!/@(localhost|127\.0\.0\.1)[:/]/.test(env.GLN_DATABASE_URL)) {
   throw new Error("dev:local only runs against the local docker-compose database.");
 }
+// The jobs run here: with a deployment's settings they would send real email, wake its Aurora
+// and settle its drafts. Locally they write to apps/workers/.local instead.
+const deployment = [
+  "GLN_DB_CLUSTER_ARN",
+  "GLN_DB_SECRET_ARN",
+  "GLN_EMAIL_FROM",
+  "GLN_PAGE_BUCKET",
+  "GLN_CONFIG_BUCKET",
+].filter((name) => process.env[name]);
+if (deployment.length > 0) {
+  throw new Error(
+    `dev:local refuses a deployment's settings: unset ${deployment.join(", ")} (in apps/api/.env or the shell).`,
+  );
+}
 
 const { db } = createDb({ kind: "postgres", url: env.GLN_DATABASE_URL });
 const dynamo = new DynamoDBClient({
