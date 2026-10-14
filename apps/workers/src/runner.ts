@@ -1,4 +1,4 @@
-import type { ZodType } from "zod";
+import { type ZodType, z } from "zod";
 
 /** Thrown when trying again cannot help: the job fails at once, with its failure hook. */
 export class FinalError extends Error {}
@@ -19,6 +19,9 @@ export type Job<P = unknown> = {
 };
 
 export const defineJob = <P>(job: Job<P>): Job<P> => job;
+
+/** What a scheduled job receives: the time it was scheduled for. */
+export const cronPayload = z.object({ timestamp: z.iso.datetime() });
 
 export type AttemptResult =
   | { outcome: "done"; result: unknown }

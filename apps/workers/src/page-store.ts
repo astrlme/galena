@@ -1,5 +1,5 @@
-import { env } from "../env.ts";
-import { localNoteFile, localPageStore, s3NoteFile, s3PageStore } from "../publishing.ts";
+import { env } from "./env.ts";
+import { localNoteFile, localPageStore, s3NoteFile, s3PageStore } from "./publishing.ts";
 
 /** The primary page bucket in AWS stages, a folder on disk locally. */
 export const pageStore = env.GLN_PAGE_BUCKET

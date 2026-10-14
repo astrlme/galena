@@ -80,6 +80,14 @@ module.exports = {
       to: { path: TRIGGER_DEV },
     },
     {
+      name: "jobs-engine-neutral",
+      comment:
+        "worker jobs start others through their engine; only the task wrappers in apps/workers/src/tasks/ know trigger.dev",
+      severity: "error",
+      from: { path: "(?:^|/)apps/workers/src/", pathNot: "(?:^|/)apps/workers/src/tasks/" },
+      to: { path: TRIGGER_DEV },
+    },
+    {
       name: "status-page-static",
       comment: "the status page reads published files only",
       severity: "error",

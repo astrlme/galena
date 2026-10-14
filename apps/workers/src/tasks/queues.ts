@@ -12,4 +12,14 @@ export const queues = {
   // resolve messages never race; a burst waits its turn. Key the queue by fingerprint if bursts grow.
   signals: queue({ name: "signals", concurrencyLimit: 1 }),
   slackApp: queue({ name: "slack-app", concurrencyLimit: 5 }),
+  // One run at a time, so each publish reads the database after the one before it wrote.
+  // `page.heartbeat` shares it, so it never stamps snapshot.json while a publish writes it.
+  publisher: queue({ name: "publisher", concurrencyLimit: 1 }),
+  // One build at a time; a queued run for an older version stops once newer HTML is out.
+  builder: queue({ name: "builder", concurrencyLimit: 1 }),
+  notify: queue({ name: "notify", concurrencyLimit: 5 }),
+  // A few at a time: SES's send rate is 1 per second in the sandbox and 14 after that.
+  email: queue({ name: "email", concurrencyLimit: 5 }),
+  slack: queue({ name: "slack", concurrencyLimit: 10 }),
+  webhook: queue({ name: "webhook", concurrencyLimit: 10 }),
 };
