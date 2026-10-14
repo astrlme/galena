@@ -15,14 +15,16 @@ export const lifecyclePayload = z.object({
   maintenanceId: maintenanceEventData.shape.maintenanceId,
   workspaceId,
   version: maintenanceEventData.shape.version,
+  /** For a wake, the time it was asked for. */
+  at: z.iso.datetime().optional(),
 });
 export type LifecyclePayload = z.infer<typeof lifecyclePayload>;
 
 export type LifecycleDeps = {
   db: Db;
   clock: Clock;
-  /** Runs this job again, with the same payload, at `date`. */
-  wakeAt: (date: Date, idempotencyKey: string) => Promise<void>;
+  /** Runs this job again at `next.at`. */
+  wakeAt: (next: LifecyclePayload & { at: string }, idempotencyKey: string) => Promise<void>;
   /** Hands a committed outbox row to `outbox.dispatch`. */
   dispatch: (outboxId: OutboxId) => Promise<void>;
 };
@@ -33,7 +35,7 @@ export type LifecycleDeps = {
  * version, which has its own run) or a cancel stops this one.
  */
 export async function runMaintenance(
-  { maintenanceId, workspaceId, version }: LifecyclePayload,
+  { maintenanceId, workspaceId, version, at }: LifecyclePayload,
   deps: LifecycleDeps,
 ): Promise<"completed" | "superseded" | "waiting"> {
   const windows = maintenanceRepository(deps.db);
@@ -41,10 +43,16 @@ export async function runMaintenance(
     const window = await windows.findById(workspaceId, maintenanceId);
     if (!window || window.version !== version) return "superseded";
     if (window.status === "completed") return "completed";
-    const step = maintenanceStep(window, deps.clock.now());
+    // A wake acts as of the time it was asked for: a worker clock a moment behind would
+    // otherwise ask again under this run's own key, which starts nothing.
+    const now = new Date(Math.max(deps.clock.now().getTime(), at ? Date.parse(at) : 0));
+    const step = maintenanceStep(window, now);
     if (!step) {
       const wake = window.status === "scheduled" ? window.startsAt : window.endsAt;
-      await deps.wakeAt(wake, `mnt:${maintenanceId}:${version}:${window.status}`);
+      await deps.wakeAt(
+        { maintenanceId, workspaceId, version, at: wake.toISOString() },
+        `mnt:${maintenanceId}:${version}:${window.status}`,
+      );
       return "waiting";
     }
     const outboxId = await deps.db.transaction(async (tx) => {

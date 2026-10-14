@@ -69,14 +69,18 @@ async function schedule(): Promise<Maintenance> {
  * Runs a window's job as the engine does: each wake it asks for runs it again, at that time,
  * until it stops asking. `onWake` changes the window while the job waits.
  */
-function waker(onWake?: (date: Date) => Promise<void>) {
+function waker(onWake?: (date: Date) => Promise<void>, { lateMs = 0 } = {}) {
   let now = at(0);
   const wakes: { at: Date; key: string }[] = [];
   const dispatched: OutboxId[] = [];
+  let pending: (LifecyclePayload & { at: string }) | undefined;
   const deps = {
     db,
     clock: { now: () => now },
-    wakeAt: async (date: Date, key: string) => void wakes.push({ at: date, key }),
+    wakeAt: async (next: LifecyclePayload & { at: string }, key: string) => {
+      pending = next;
+      wakes.push({ at: new Date(next.at), key });
+    },
     dispatch: async (id: OutboxId) => void dispatched.push(id),
   };
   return {
@@ -84,12 +88,15 @@ function waker(onWake?: (date: Date) => Promise<void>) {
     dispatched,
     run: async (payload: LifecyclePayload) => {
       let outcome = await runMaintenance(payload, deps);
-      while (outcome === "waiting") {
-        const next = wakes.at(-1);
+      for (let wakes = 0; outcome === "waiting"; wakes++) {
+        const next = pending;
         if (!next) throw new Error("Waiting with no wake.");
-        await onWake?.(next.at);
-        now = next.at;
-        outcome = await runMaintenance(payload, deps);
+        // A window has two wakes; more means it asked again at the same time and is stuck.
+        if (wakes === 2) throw new Error("The window never moved.");
+        await onWake?.(new Date(next.at));
+        // `lateMs` below zero: the worker's clock runs a moment behind the engine's.
+        now = new Date(Date.parse(next.at) + lateMs);
+        outcome = await runMaintenance(next, deps);
       }
       return outcome;
     },
@@ -115,6 +122,18 @@ test("a window starts at startsAt and completes at endsAt, each with its event",
   ).filter((e) => e.type.startsWith("maintenance."));
   expect(events.map((e) => e.type)).toEqual(["maintenance.started", "maintenance.completed"]);
   expect(run.dispatched).toEqual(events.map((e) => e.id));
+});
+
+test("a wake that runs while the worker's clock is a moment behind still moves the window", async () => {
+  const window = await schedule();
+  const run = waker(undefined, { lateMs: -5 });
+  const payload = { maintenanceId: window.id, workspaceId: acme, version: 1 };
+
+  expect(await run.run(payload)).toBe("completed");
+  expect(run.wakes.map((w) => w.key)).toEqual([
+    `mnt:${window.id}:1:scheduled`,
+    `mnt:${window.id}:1:in_progress`,
+  ]);
 });
 
 test("an edit while the job waits supersedes it: the old version stops and moves nothing", async () => {

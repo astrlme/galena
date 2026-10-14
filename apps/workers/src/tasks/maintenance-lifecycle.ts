@@ -14,10 +14,10 @@ export const maintenanceLifecycle = task({
     const outcome = await runMaintenance(window, {
       db,
       clock: { now: () => new Date() },
-      wakeAt: async (date, idempotencyKey) => {
-        await tasks.trigger("maintenance.lifecycle", window, {
+      wakeAt: async (next, idempotencyKey) => {
+        await tasks.trigger("maintenance.lifecycle", next, {
           idempotencyKey: await globalKey(idempotencyKey),
-          delay: date,
+          delay: new Date(next.at),
         });
       },
       dispatch: async (outboxId) => {
