@@ -55,7 +55,6 @@ const window = (n: number, overrides: Partial<Maintenance>): Maintenance => ({
   startsAt: daysAgo(-1),
   endsAt: daysAgo(-1.1),
   version: 1,
-  runId: null,
   cancelledAt: null,
   componentIds: [web],
   ...overrides,

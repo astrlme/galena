@@ -137,7 +137,7 @@ export function registerMaintenanceRoutes(app: App, deps: Deps) {
       const member = c.get("member");
       const input = c.req.valid("json");
       await validate(member, input);
-      const window: Omit<Maintenance, "runId"> = {
+      const window: Maintenance = {
         ...input,
         id: maintenanceId.parse(v7()),
         workspaceId: member.workspaceId,
@@ -150,7 +150,7 @@ export function registerMaintenanceRoutes(app: App, deps: Deps) {
       await write(maintenanceChange(member, "maintenance.scheduled", window), (repo) =>
         repo.save(window, null),
       );
-      return c.json(toView({ ...window, runId: null }), 201);
+      return c.json(toView(window), 201);
     },
   );
 

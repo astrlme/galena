@@ -37,7 +37,7 @@ afterAll(async () => {
 });
 
 const at = (hour: number) => new Date(Date.UTC(2026, 8, 29, hour));
-const newWindow = (overrides: Partial<Maintenance> = {}): Omit<Maintenance, "runId"> => ({
+const newWindow = (overrides: Partial<Maintenance> = {}): Maintenance => ({
   id: maintenanceId.parse(v7()),
   workspaceId: acme,
   title: "Database upgrade",
@@ -55,18 +55,16 @@ test("a window is scheduled, edited, started and completed, each step checked", 
   const repo = maintenanceRepository(db);
   const window = newWindow();
   expect(await repo.save(window, null)).toBe(true);
-  expect(await repo.findById(acme, window.id)).toEqual({ ...window, runId: null });
+  expect(await repo.findById(acme, window.id)).toEqual(window);
 
   // An edit bumps the version and replaces the components; a stale edit is refused.
   const edited = { ...window, endsAt: at(24), version: 2, componentIds: [api, web] };
   expect(await repo.save(edited, 1)).toBe(true);
   expect(await repo.save({ ...window, title: "Stale", version: 2 }, 1)).toBe(false);
-  await repo.setRunId(window.id, 2, "run_2");
   expect(await repo.findById(acme, window.id)).toMatchObject({
     title: "Database upgrade",
     endsAt: at(24),
     version: 2,
-    runId: "run_2",
     componentIds: [api, web],
   });
   expect((await repo.listUnfinished()).map((m) => m.id)).toContain(window.id);

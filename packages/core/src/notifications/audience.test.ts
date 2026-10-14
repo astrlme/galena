@@ -155,7 +155,6 @@ test("a maintenance notice carries the window's times and message and links to t
     startsAt: at("2026-10-01T22:00:00Z"),
     endsAt: at("2026-10-01T23:00:00Z"),
     version: 1,
-    runId: null,
     cancelledAt: null,
     componentIds: [api, web],
   };

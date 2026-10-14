@@ -112,7 +112,6 @@ export const inputs: SnapshotInputs = {
       startsAt: at("2026-09-30T22:00:00.000Z"),
       endsAt: at("2026-09-30T23:00:00.000Z"),
       version: 1,
-      runId: null,
       cancelledAt: null,
       componentIds: [api],
     },

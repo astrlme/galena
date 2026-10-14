@@ -83,7 +83,6 @@ const noRuns = {
   start: async () => {
     throw new Error("No lifecycle run expected.");
   },
-  cancel: async () => {},
 };
 
 /** The versions each dispatch asked `page.publish` for. */

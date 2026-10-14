@@ -1,11 +1,11 @@
-import { logger, queue, task, tasks, wait } from "@trigger.dev/sdk";
+import { logger, queue, task, tasks } from "@trigger.dev/sdk";
 import { db } from "../db.ts";
 import { lifecyclePayload, runMaintenance } from "../maintenance.ts";
 import { globalKey } from "./keys.ts";
 
 const maintenance = queue({ name: "maintenance", concurrencyLimit: 5 });
 
-/** One version of one window, from scheduled to completed; started by outbox.dispatch. */
+/** One version of one window, run by outbox.dispatch and again at startsAt and endsAt. */
 export const maintenanceLifecycle = task({
   id: "maintenance.lifecycle",
   queue: maintenance,
@@ -14,7 +14,12 @@ export const maintenanceLifecycle = task({
     const outcome = await runMaintenance(window, {
       db,
       clock: { now: () => new Date() },
-      waitUntil: (date) => wait.until({ date }),
+      wakeAt: async (date, idempotencyKey) => {
+        await tasks.trigger("maintenance.lifecycle", window, {
+          idempotencyKey: await globalKey(idempotencyKey),
+          delay: date,
+        });
+      },
       dispatch: async (outboxId) => {
         await tasks.trigger(
           "outbox.dispatch",

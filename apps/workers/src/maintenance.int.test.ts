@@ -20,7 +20,7 @@ import {
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { runMaintenance } from "./maintenance.ts";
+import { type LifecyclePayload, runMaintenance } from "./maintenance.ts";
 import { dispatchOutbox } from "./outbox.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
@@ -48,7 +48,7 @@ afterAll(async () => {
   await container?.stop();
 });
 
-async function schedule(): Promise<Omit<Maintenance, "runId">> {
+async function schedule(): Promise<Maintenance> {
   const window = {
     id: maintenanceId.parse(v7()),
     workspaceId: acme,
@@ -65,34 +65,47 @@ async function schedule(): Promise<Omit<Maintenance, "runId">> {
   return window;
 }
 
-/** A clock the run's waits move forward, as trigger.dev's durable waits do in real time. */
-function sleeper(onWait?: (date: Date) => Promise<void>) {
+/**
+ * Runs a window's job as the engine does: each wake it asks for runs it again, at that time,
+ * until it stops asking. `onWake` changes the window while the job waits.
+ */
+function waker(onWake?: (date: Date) => Promise<void>) {
   let now = at(0);
-  const waits: Date[] = [];
+  const wakes: { at: Date; key: string }[] = [];
   const dispatched: OutboxId[] = [];
+  const deps = {
+    db,
+    clock: { now: () => now },
+    wakeAt: async (date: Date, key: string) => void wakes.push({ at: date, key }),
+    dispatch: async (id: OutboxId) => void dispatched.push(id),
+  };
   return {
-    waits,
+    wakes,
     dispatched,
-    deps: {
-      db,
-      clock: { now: () => now },
-      waitUntil: async (date: Date) => {
-        waits.push(date);
-        await onWait?.(date);
-        now = date;
-      },
-      dispatch: async (id: OutboxId) => void dispatched.push(id),
+    run: async (payload: LifecyclePayload) => {
+      let outcome = await runMaintenance(payload, deps);
+      while (outcome === "waiting") {
+        const next = wakes.at(-1);
+        if (!next) throw new Error("Waiting with no wake.");
+        await onWake?.(next.at);
+        now = next.at;
+        outcome = await runMaintenance(payload, deps);
+      }
+      return outcome;
     },
   };
 }
 
 test("a window starts at startsAt and completes at endsAt, each with its event", async () => {
   const window = await schedule();
-  const run = sleeper();
+  const run = waker();
   const payload = { maintenanceId: window.id, workspaceId: acme, version: 1 };
 
-  expect(await runMaintenance(payload, run.deps)).toBe("completed");
-  expect(run.waits).toEqual([at(10), at(40)]);
+  expect(await run.run(payload)).toBe("completed");
+  expect(run.wakes).toEqual([
+    { at: at(10), key: `mnt:${window.id}:1:scheduled` },
+    { at: at(40), key: `mnt:${window.id}:1:in_progress` },
+  ]);
   expect((await maintenanceRepository(db).findById(acme, window.id))?.status).toBe("completed");
   const events = (
     await db
@@ -104,19 +117,19 @@ test("a window starts at startsAt and completes at endsAt, each with its event",
   expect(run.dispatched).toEqual(events.map((e) => e.id));
 });
 
-test("an edit while the run sleeps supersedes it: the old run stops and moves nothing", async () => {
+test("an edit while the job waits supersedes it: the old version stops and moves nothing", async () => {
   const window = await schedule();
-  const run = sleeper(async () => {
+  const run = waker(async () => {
     await maintenanceRepository(db).save({ ...window, endsAt: at(60), version: 2 }, 1);
   });
   const payload = { maintenanceId: window.id, workspaceId: acme, version: 1 };
 
-  expect(await runMaintenance(payload, run.deps)).toBe("superseded");
+  expect(await run.run(payload)).toBe("superseded");
   expect((await maintenanceRepository(db).findById(acme, window.id))?.status).toBe("scheduled");
   expect(run.dispatched).toEqual([]);
 });
 
-test("dispatch starts a run per version, cancels the one it replaces, and a cancel stops it", async () => {
+test("dispatch starts a run per version, and a cancel starts none", async () => {
   const window = await schedule();
   const onApi = monitorId.parse(v7());
   await monitorRepository(db).save(
@@ -131,14 +144,7 @@ test("dispatch starts a run per version, cancels the one it replaces, and a canc
   );
   const files: MonitorsFile[] = [];
   const started: string[] = [];
-  const cancelled: string[] = [];
-  const runs = {
-    start: async (_: unknown, key: string) => {
-      started.push(key);
-      return `run-${started.length}`;
-    },
-    cancel: async (runId: string) => void cancelled.push(runId),
-  };
+  const runs = { start: async (_: unknown, key: string) => void started.push(key) };
   const dispatch = async (type: MaintenanceEventType, version: number) => {
     const id = await recordChange(db, {
       workspaceId: acme,
@@ -173,13 +179,11 @@ test("dispatch starts a run per version, cancels the one it replaces, and a canc
     startsAt: at(10).toISOString(),
     endsAt: at(40).toISOString(),
   });
-  expect((await maintenanceRepository(db).findById(acme, window.id))?.runId).toBe("run-1");
 
   await maintenanceRepository(db).save({ ...window, endsAt: at(50), version: 2 }, 1);
   await dispatch("maintenance.scheduled", 2);
   expect(started).toEqual([`mnt:${window.id}:1`, `mnt:${window.id}:2`]);
-  expect(cancelled).toEqual(["run-1"]);
 
   await dispatch("maintenance.cancelled", 2);
-  expect(cancelled).toEqual(["run-1", "run-2"]);
+  expect(started).toHaveLength(2);
 });

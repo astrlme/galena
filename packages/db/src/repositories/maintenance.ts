@@ -17,7 +17,6 @@ const columns = {
   startsAt: maintenance.startsAt,
   endsAt: maintenance.endsAt,
   version: maintenance.version,
-  runId: maintenance.runId,
   cancelledAt: maintenance.cancelledAt,
 };
 type Row = Omit<Maintenance, "componentIds">;
@@ -122,13 +121,6 @@ export function maintenanceRepository(db: Db): MaintenanceRepository {
         )
         .returning({ id: maintenance.id });
       return moved.length === 1;
-    },
-
-    async setRunId(id, version, runId) {
-      await db
-        .update(maintenance)
-        .set({ runId })
-        .where(and(eq(maintenance.id, id), eq(maintenance.version, version)));
     },
 
     async listUnfinished() {

@@ -212,8 +212,6 @@ export type Maintenance = {
   endsAt: Date;
   /** Counts edits; the lifecycle run for an older version stops when it wakes. */
   version: number;
-  /** The lifecycle run for the current version, once started. */
-  runId: string | null;
   cancelledAt: Date | null;
   componentIds: ComponentId[];
 };
@@ -226,7 +224,7 @@ export interface MaintenanceRepository {
    * Inserts (`expectedVersion` null) or replaces a window that hasn't completed, components
    * included. False when someone else edited it first or it has completed.
    */
-  save(window: Omit<Maintenance, "runId">, expectedVersion: number | null): Promise<boolean>;
+  save(window: Maintenance, expectedVersion: number | null): Promise<boolean>;
   /** Moves the status only while the version and status are still the ones read. */
   transition(
     workspaceId: WorkspaceId,
@@ -234,7 +232,6 @@ export interface MaintenanceRepository {
     from: { version: number; status: MaintenanceStatus },
     to: { status: MaintenanceStatus; cancelledAt?: Date },
   ): Promise<boolean>;
-  setRunId(id: MaintenanceId, version: number, runId: string): Promise<void>;
   /** Every window not yet completed, across the deployment, for `monitors.json`. */
   listUnfinished(): Promise<Maintenance[]>;
 }

@@ -1,5 +1,5 @@
 import { outboxId } from "@galena/contracts";
-import { logger, queue, runs, task, tasks } from "@trigger.dev/sdk";
+import { logger, queue, task, tasks } from "@trigger.dev/sdk";
 import { z } from "zod";
 import { db } from "../db.ts";
 import { env } from "../env.ts";
@@ -31,14 +31,10 @@ export const outboxDispatch = task({
       clock: { now: () => new Date() },
       writeMonitorsFile,
       runs: {
-        start: async (window, idempotencyKey) =>
-          (
-            await tasks.trigger("maintenance.lifecycle", window, {
-              idempotencyKey: await globalKey(idempotencyKey),
-            })
-          ).id,
-        cancel: async (runId) => {
-          await runs.cancel(runId);
+        start: async (window, idempotencyKey) => {
+          await tasks.trigger("maintenance.lifecycle", window, {
+            idempotencyKey: await globalKey(idempotencyKey),
+          });
         },
       },
       publish: triggerPublish,
