@@ -1,6 +1,7 @@
 {
   "extends": "../packages/config/tsconfig.base.json",
-  "compilerOptions": { "types": ["node"] },
+  // The dev process loads the email templates, which are .tsx.
+  "compilerOptions": { "types": ["node"], "jsx": "react-jsx", "lib": ["es2024", "dom"] },
   "include": ["*.ts"],
   "exclude": ["*.test.ts"]
 }

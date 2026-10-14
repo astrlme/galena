@@ -1,5 +1,9 @@
+import { fileURLToPath } from "node:url";
 import { awsRegion } from "@galena/contracts";
 import { z } from "zod";
+
+/** A folder under apps/workers/.local, wherever the process started. */
+const local = (folder: string) => fileURLToPath(new URL(`../.local/${folder}`, import.meta.url));
 
 // The only place in apps/workers that reads process.env (trigger.config.ts aside). `pnpm
 // trigger:dev` loads apps/workers/.env; in trigger.dev's cloud these come from the project's
@@ -16,11 +20,11 @@ export const env = z
     GLN_CONFIG_BUCKET: z.string().min(1).optional(),
     GLN_CONFIG_KEY: z.string().min(1).default("monitors.json"),
     GLN_HOME_REGION: awsRegion.default("eu-central-1"),
-    GLN_CONFIG_DIR: z.string().min(1).default(".local/config"),
+    GLN_CONFIG_DIR: z.string().min(1).default(local("config")),
     /** Set in AWS stages: the primary page bucket. Unset: page files go to GLN_PAGE_DIR on disk. */
     GLN_PAGE_BUCKET: z.string().min(1).optional(),
     GLN_PAGE_REGION: awsRegion.default("eu-west-1"),
-    GLN_PAGE_DIR: z.string().min(1).default(".local/pages"),
+    GLN_PAGE_DIR: z.string().min(1).default(local("pages")),
     /** Where readers find the page, for feed links. */
     GLN_PAGE_URL: z.url().default("http://localhost:4321"),
     /** The dashboard's origin, for links from Slack messages. */
@@ -30,7 +34,7 @@ export const env = z
     /** Set in AWS stages: email goes through SES from this address. Unset: to GLN_MAIL_DIR. */
     GLN_EMAIL_FROM: z.email().optional(),
     GLN_SES_CONFIGURATION_SET: z.string().min(1).default("galena-dev"),
-    GLN_MAIL_DIR: z.string().min(1).default(".local/mail"),
+    GLN_MAIL_DIR: z.string().min(1).default(local("mail")),
     /** The table the evaluator writes monitor states to. Locally DynamoDB Local's `telemetry`. */
     GLN_TELEMETRY_TABLE: z.string().min(1).default("telemetry"),
     GLN_DYNAMODB_ENDPOINT: z.url().optional(),

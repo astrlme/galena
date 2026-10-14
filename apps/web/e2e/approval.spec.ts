@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import { expectAccessible, signIn } from "./helpers.ts";
 
-/** A monitor's draft on the local database (local development runs no autopilot). */
+/** A monitor's draft on the local database, written as autopilot would but with no deadline job. */
 const draft = (title: string) =>
   execSync("pnpm --filter @galena/api --silent draft:local", {
     encoding: "utf8",

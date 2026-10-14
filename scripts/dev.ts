@@ -1,7 +1,9 @@
-// Local development: the hot path in one process. Each tick stands for one scheduled minute:
-// three simulated probe regions check every enabled monitor, an in-memory FIFO carries their
-// messages, and the evaluator writes state and results to DynamoDB Local, where the API reads
-// them. Monitors come straight from the local database, so trigger.dev isn't needed.
+// Local development in one process: the API, the background jobs and the hot path, sharing one
+// in-process job engine, so no trigger.dev account is needed. Each tick stands for one scheduled
+// minute: three simulated probe regions check every enabled monitor, an in-memory FIFO carries
+// their messages, and the evaluator writes state and results to DynamoDB Local, where the API
+// reads them, and starts a job on each transition. Monitors come straight from the local
+// database. Run it as `pnpm dev:local` (or `pnpm dev`, which starts the database first).
 import { setTimeout as sleep } from "node:timers/promises";
 import {
   CreateTableCommand,
@@ -10,15 +12,17 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { awsRegion, eventId } from "@galena/contracts";
-import { buildMonitorsFile, type WorkflowEngine } from "@galena/core";
+import { buildMonitorsFile } from "@galena/core";
 import { createDb, listEnabledMonitors, maintenanceRepository } from "@galena/db";
 import { checkHttp } from "@galena/integrations/net";
 import { v7 } from "uuid";
 import { z } from "zod";
+import { startApi } from "../apps/api/src/server.ts";
 import { targetGuard } from "../apps/api/src/targets.ts";
 import { processBatch, type SqsRecord } from "../apps/evaluator/src/evaluator.ts";
 import { createStore } from "../apps/evaluator/src/store.ts";
 import { runProbe } from "../apps/probe/src/probe.ts";
+import { startLocalJobs } from "../apps/workers/src/local.ts";
 
 const MINUTE = 60_000;
 
@@ -36,11 +40,13 @@ const env = z
     /** Real seconds per simulated minute. Below 60 (tests), time runs ahead of the clock. */
     GLN_TICK_SECONDS: z.coerce.number().min(1).max(60).default(60),
     GLN_ALLOW_LOOPBACK: z.stringbool().default(false),
+    /** Build the status page's HTML on each publish; its dev server reads a fixture instead. */
+    GLN_LOCAL_HTML: z.stringbool().default(false),
   })
   .parse(process.env);
 
 if (!/@(localhost|127\.0\.0\.1)[:/]/.test(env.GLN_DATABASE_URL)) {
-  throw new Error("dev:hot-path only runs against the local docker-compose database.");
+  throw new Error("dev:local only runs against the local docker-compose database.");
 }
 
 const { db } = createDb({ kind: "postgres", url: env.GLN_DATABASE_URL });
@@ -72,8 +78,8 @@ const store = createStore(
   env.GLN_TELEMETRY_TABLE,
 );
 const guard = targetGuard("local", env.GLN_ALLOW_LOOPBACK);
-// Known limit: transitions are logged here, not triggered in trigger.dev.
-const engine: WorkflowEngine = { trigger: async () => {} };
+const engine = await startLocalJobs({ html: env.GLN_LOCAL_HTML });
+await startApi(engine);
 
 // Continue after the newest minute already stored: the evaluator skips a minute it has seen,
 // so a restart after fast ticks must not go back to the clock.

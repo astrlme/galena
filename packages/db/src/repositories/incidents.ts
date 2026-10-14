@@ -257,3 +257,23 @@ export function incidentRepository(db: Db): IncidentRepository {
     },
   };
 }
+
+/** Every draft still waiting for its deadline, across the deployment. */
+export function listDrafts(db: Db) {
+  return db
+    .select({
+      id: incident.id,
+      workspaceId: incident.workspaceId,
+      source: incident.source,
+      dedupKey: incident.dedupKey,
+      approvalDeadline: incident.approvalDeadline,
+    })
+    .from(incident)
+    .where(
+      and(
+        sql`${incident.visibility}::text = 'draft'`,
+        isNotNull(incident.approvalDeadline),
+        isNull(incident.deletedAt),
+      ),
+    );
+}
