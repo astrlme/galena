@@ -42,8 +42,10 @@ type EventEnvelope<Type extends string, Data> = {
 | `page.rebuild-html` | `html:{snapshotVersion}` | One HTML build per published version |
 | `notify.fanout` | `fan:{eventId}` | One fan-out per event |
 | `notify.email`, `notify.slack`, `notify.webhook` | `send:{eventId}:{subscriberId or endpointId}` | One send per event and target, backed by a unique delivery row |
-| `maintenance.lifecycle` | `mnt:{maintenanceId}:{version}` | One run per version of a window; an edit starts a new one |
-| `incident.autopilot` | `auto:{incidentId}` | One approval wait per draft; its waitpoint token is keyed `approve:{incidentId}` |
+| `maintenance.lifecycle` | `mnt:{maintenanceId}:{version}`; `mnt:{maintenanceId}:{version}:{status}` | One run per version of a window, and one wake at its start and one at its end; an edit starts a new version |
+| `incident.autopilot` | `auto:{incidentId}` | One run per draft, at its deadline |
+| `slack.approval-card` | `card:{incidentId}` | One approval card per draft, posted when it opens |
+| `signal.ingest` | `sig:{integrationId}:{fingerprint}:{status}:{startsAt}` | One run per alert notification; a repeat of it changes nothing |
 
 ## Change events
 

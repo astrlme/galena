@@ -75,8 +75,9 @@ seconds, and the dashboard explains the wait after 10.
 
 | Task | Started by | Runs | Idempotency key |
 | --- | --- | --- | --- |
-| `monitor.state-changed` | The evaluator, on a transition | Records the transition; opens an incident when the monitor goes down, moves the one it opened to Monitoring, back to Investigating or resolved, or leaves it to an incident already open on the component; republishes unless suppressed | `mon:{monitorId}:{transitionSeq}` |
-| `incident.autopilot` | `monitor.state-changed`, for a draft | Waits for a person until the draft's deadline (a waitpoint token keyed `approve:{incidentId}`), then publishes or dismisses it | `auto:{incidentId}` |
+| `monitor.state-changed` | The evaluator, on a transition | Records the transition; opens an incident when the monitor goes down, moves the one it opened to Monitoring, back to Investigating or resolved, or leaves it to an incident already open on the component; ignores a transition older than the one recorded; republishes unless suppressed | `mon:{monitorId}:{transitionSeq}` |
+| `signal.ingest` | The API, for each alert group a hook URL receives | One at a time; opens, attaches or resolves the group's incident; a notification it already acted on changes nothing | `sig:{integrationId}:{fingerprint}:{status}:{startsAt}` |
+| `incident.autopilot` | A draft opening, to run at its deadline | Publishes the draft if what opened it is still down, otherwise dismisses it; an answer in Slack or the dashboard decides it first | `auto:{incidentId}` |
 | `outbox.dispatch` | The API, after each commit and a minute later as a backstop; the sweep | One at a time | `outbox:{outboxId}`, `outbox:{outboxId}:backstop`, `outbox:{outboxId}:sweep:{hour}` |
 | `outbox.sweep` | Cron, every six hours at five past | Re-dispatches rows pending for over five minutes | |
 | `page.publish` | Dispatch, state changes, the rollup | One at a time; latest wins | `pub:{snapshotVersion}` |
@@ -85,7 +86,7 @@ seconds, and the dashboard explains the wait after 10.
 | `notify.fanout` | Dispatch, for incident and maintenance events | | `fan:{eventId}` |
 | `notify.email` | Fan-out, and subscription requests | Up to 5 attempts | `send:{eventId}:{subscriberId}` |
 | `notify.slack`, `notify.webhook` | Fan-out | Up to 5 attempts, 10 at a time per channel | `send:{eventId}:{endpointId}` |
-| `maintenance.lifecycle` | Dispatch, when a window is scheduled or edited | Sleeps until start and end | `mnt:{maintenanceId}:{version}` |
+| `maintenance.lifecycle` | Dispatch, when a window is scheduled or edited; again at its start and its end | Moves the window when it is due; a run for an older version, or a cancelled window, stops | `mnt:{maintenanceId}:{version}`, then `mnt:{maintenanceId}:{version}:{status}` for each wake |
 | `rollup.uptime` | Cron, every six hours at five past; the heartbeat, when the page may be behind | Catches monitor states up with detection, replays yesterday and today, then publishes | |
 
 trigger.dev tasks run on trigger.dev's machines, not in AWS. They reach AWS only as the

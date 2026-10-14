@@ -29,6 +29,7 @@ export const maintenance = pgTable(
     startsAt: at().notNull(),
     endsAt: at().notNull(),
     version: integer().notNull().default(1),
+    // No longer written: a run per step needs no stored id. Dropped in a later migration.
     runId: text(),
     cancelledAt: at(),
     // Soft delete: the audit trail keeps pointing at it.

@@ -50,9 +50,9 @@ export const incident = pgTable(
     // Set on incidents a monitor opened (`mon:{monitorId}`): one open incident per key, so a
     // retried transition finds the draft it already wrote.
     dedupKey: text(),
-    // A draft waiting for a person: when it publishes unless someone answers, and the waitpoint
-    // token their answer completes.
+    // A draft waiting for a person: when it publishes unless someone answers.
     approvalDeadline: at(),
+    // No longer written: approvals are a job at the deadline. Dropped in a later migration.
     approvalTokenId: text(),
     ...timestamps,
   },
