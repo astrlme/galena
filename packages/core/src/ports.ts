@@ -39,13 +39,16 @@ export interface EventBus {
   publish(event: EventEnvelope<string, unknown>): Promise<void>;
 }
 
-/** Starts durable workflows (trigger.dev in production), always with an idempotency key. */
+/** Starts background jobs, always with an idempotency key. */
 export interface WorkflowEngine {
   trigger(
     task: string,
     payload: unknown,
-    /** `tags` label the run, e.g. with the correlation id, so it can be found later. */
-    options: { idempotencyKey: string; delay?: string; tags?: string[] },
+    /**
+     * `at` starts the job no earlier than that time; `tags` label the run, e.g. with the
+     * correlation id, so it can be found later.
+     */
+    options: { idempotencyKey: string; at?: Date; tags?: string[] },
   ): Promise<void>;
 }
 

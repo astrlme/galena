@@ -165,10 +165,10 @@ function safeJson(text: string): unknown {
 }
 
 const triggerDev: WorkflowEngine = {
-  async trigger(task, payload, { idempotencyKey, delay, tags }) {
+  async trigger(task, payload, { idempotencyKey, at, tags }) {
     await tasks.trigger(task, payload, {
       idempotencyKey,
-      ...(delay ? { delay } : {}),
+      ...(at ? { delay: at } : {}),
       ...(tags ? { tags } : {}),
     });
   },

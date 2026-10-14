@@ -77,7 +77,8 @@ export function eventChange(
  */
 export async function commit(deps: Deps, change: Change, write: (tx: Db) => Promise<unknown>) {
   const id = outboxId.parse(v7());
-  await trigger(deps, id, { idempotencyKey: `outbox:${id}:backstop`, delay: "1m" });
+  const backstop = new Date(Date.now() + 60_000);
+  await trigger(deps, id, { idempotencyKey: `outbox:${id}:backstop`, at: backstop });
   await deps.db.transaction(async (tx) => {
     await write(tx);
     await recordChange(tx, change, id);
@@ -90,11 +91,7 @@ export async function dispatch(deps: Deps, id: OutboxId) {
   await trigger(deps, id, { idempotencyKey: `outbox:${id}` });
 }
 
-async function trigger(
-  deps: Deps,
-  id: OutboxId,
-  options: { idempotencyKey: string; delay?: string },
-) {
+async function trigger(deps: Deps, id: OutboxId, options: { idempotencyKey: string; at?: Date }) {
   try {
     await deps.engine.trigger("outbox.dispatch", { outboxId: id }, options);
   } catch (error) {

@@ -142,16 +142,16 @@ test("a change arms a delayed dispatch first, so a crash after the commit still 
   const crashing: Deps = {
     ...deps,
     engine: {
-      async trigger(task, payload, { idempotencyKey, delay }) {
+      async trigger(task, payload, { idempotencyKey, at }) {
         const { outboxId } = payload as { outboxId: OutboxId };
         const rows = await deps.db
           .select({ id: schema.outbox.id })
           .from(schema.outbox)
           .where(eq(schema.outbox.id, outboxId));
         const rowExisted = rows.length === 1;
-        seen.push({ task, payload, idempotencyKey, rowExisted, ...(delay ? { delay } : {}) });
-        // The process dies after the commit, before the undelayed trigger reaches trigger.dev.
-        if (!delay) throw new Error("Task timed out after 29.03 seconds");
+        seen.push({ task, payload, idempotencyKey, rowExisted, ...(at ? { at } : {}) });
+        // The process dies after the commit, before the undelayed trigger reaches the queue.
+        if (!at) throw new Error("Task timed out after 29.03 seconds");
       },
     },
   };
@@ -160,6 +160,7 @@ test("a change arms a delayed dispatch first, so a crash after the commit still 
     email: "ada@example.com",
     password: "correct horse battery",
   });
+  const sent = Date.now();
   const response = await session.call("/v1/monitors", {
     name: "Crashed",
     http: { url: "https://example.com/crashed" },
@@ -171,9 +172,11 @@ test("a change arms a delayed dispatch first, so a crash after the commit still 
   expect(backstop).toMatchObject({
     task: "outbox.dispatch",
     idempotencyKey: `outbox:${outboxId}:backstop`,
-    delay: "1m",
     rowExisted: false,
   });
+  const wait = (backstop.at?.getTime() ?? 0) - sent;
+  expect(wait).toBeGreaterThanOrEqual(60_000);
+  expect(wait).toBeLessThan(70_000);
   expect(afterCommit).toMatchObject({ idempotencyKey: `outbox:${outboxId}`, rowExisted: true });
   // The delayed run finds this committed, still pending row and dispatches it.
   const [row] = await deps.db.select().from(schema.outbox).where(eq(schema.outbox.id, outboxId));
