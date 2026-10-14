@@ -54,6 +54,7 @@ test("the schema has exactly the expected tables", () => {
       "page_component",
       "rate_limit",
       "session",
+      "signal_receipt",
       "slack_installation",
       "subscriber",
       "timeline_event",

@@ -175,6 +175,38 @@ test("approve: one firing group opens one draft, repeats change nothing, and its
   expect(settled).toBe("dismissed");
 });
 
+test("a firing group a person resolved stays quiet when the same notification comes again", async () => {
+  const integration = await integrationWith("auto");
+  const { deps, dispatched } = recorder();
+  const opened = await send(integration.id, "firing", deps);
+  expect(opened).toMatchObject({ action: "open", outcome: "opened" });
+  // Someone resolves the incident in the dashboard while the alerts still fire.
+  const resolved = await incidentRepository(db).append(
+    acme,
+    incidentId.parse(opened.incidentId),
+    "investigating",
+    {
+      update: {
+        id: incidentUpdateId.parse(v7()),
+        status: "resolved",
+        body: "Fixed on our side.",
+        createdAt: NOW,
+        createdByUserId: null,
+      },
+      stage: { status: "resolved", resolvedAt: NOW },
+      statusChange: { from: "investigating", to: "resolved" },
+    },
+  );
+  expect(resolved).toBe(true);
+
+  // Alertmanager's repeat, hours later: the same notification, and no new incident.
+  expect(await send(integration.id, "firing", deps)).toMatchObject({
+    action: "none",
+    outcome: "repeat",
+  });
+  expect(dispatched).toHaveLength(1);
+});
+
 test("approve: a group still firing at the deadline publishes its draft", async () => {
   const integration = await integrationWith("approve");
   const { deps, approvals } = recorder();
@@ -294,7 +326,14 @@ test("a group a person dismissed stays dismissed while it fires, and opens afres
     outcome: "resolved",
     incidentId: id,
   });
-  const again = await send(integration.id, "firing", deps);
+  // Firing again later: the alerts start anew, so the notification is a new one.
+  const refired = {
+    ...firing,
+    alerts: firing.alerts.map((a) => ({ ...a, startsAt: "2026-10-13T12:00:00.000000000Z" })),
+  };
+  const again = await send(integration.id, refired, deps);
   expect(again).toMatchObject({ action: "open", outcome: "opened" });
   expect(again.incidentId).not.toBe(id);
+  // The first notification itself, sent again, is a repeat.
+  expect(await send(integration.id, "firing", deps)).toMatchObject({ outcome: "repeat" });
 });

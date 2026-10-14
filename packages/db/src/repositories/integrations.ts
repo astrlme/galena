@@ -7,8 +7,9 @@ import type {
   WorkspaceId,
 } from "@galena/contracts";
 import { and, asc, eq } from "drizzle-orm";
+import { v7 } from "uuid";
 import type { Db } from "../client.ts";
-import { integration } from "../schema/index.ts";
+import { integration, signalReceipt } from "../schema/index.ts";
 
 export type IntegrationRow = {
   id: IntegrationId;
@@ -123,4 +124,28 @@ export async function recordSignalOutcome(
     .update(integration)
     .set({ lastSignalAt: at, lastOutcome: outcome })
     .where(eq(integration.id, id));
+}
+
+/** Whether `signal.ingest` already acted on the notification with this idempotency key. */
+export async function hasSignalReceipt(db: Db, key: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: signalReceipt.id })
+    .from(signalReceipt)
+    .where(eq(signalReceipt.key, key))
+    .limit(1);
+  return row !== undefined;
+}
+
+/**
+ * Records that `signal.ingest` acted on the notification. Known limit: receipts are never
+ * purged; one row per distinct notification, so add a cleanup if they ever grow large.
+ */
+export async function recordSignalReceipt(
+  db: Db,
+  receipt: { workspaceId: WorkspaceId; integrationId: IntegrationId; key: string },
+): Promise<void> {
+  await db
+    .insert(signalReceipt)
+    .values({ id: v7(), ...receipt })
+    .onConflictDoNothing({ target: signalReceipt.key });
 }

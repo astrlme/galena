@@ -6,9 +6,11 @@ export {
   createIntegration,
   deleteIntegration,
   findIntegration,
+  hasSignalReceipt,
   type IntegrationRow,
   listIntegrations,
   recordSignalOutcome,
+  recordSignalReceipt,
   setIntegrationToken,
   updateIntegration,
 } from "./repositories/integrations.ts";

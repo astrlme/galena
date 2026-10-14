@@ -9,18 +9,21 @@ import { assertNever, inMaintenance, planSignal, routeAlerts, signalDedupKey } f
 import {
   componentRepository,
   findIntegration,
+  hasSignalReceipt,
   incidentRepository,
   maintenanceRepository,
   recordSignalOutcome,
+  recordSignalReceipt,
 } from "@galena/db";
 import { type AutopilotDeps, openIncident, postUpdate } from "./autopilot.ts";
 
 /**
  * After `signal.ingest` takes an alert group from an integration's hook URL: opens an incident on
  * the components the group's routes mark, leaves the group to an incident already open there,
- * or resolves the incident the group opened. Safe to repeat: the group's dedup key holds one
- * unresolved incident (a dismissed draft included, so a group a person dismissed stays
- * dismissed while it fires), and the resolve applies only while the incident is where it was.
+ * or resolves the incident the group opened. Safe to repeat: a notification already acted on
+ * (by its idempotency key) changes nothing, the group's dedup key holds one unresolved incident
+ * (a dismissed draft included, so a group a person dismissed stays dismissed while it fires),
+ * and the resolve applies only while the incident is where it was.
  */
 export async function actOnSignal(ingest: SignalIngest, deps: AutopilotDeps) {
   const { integrationId, tokenIssuedAt, signal } = ingest;
@@ -35,6 +38,12 @@ export async function actOnSignal(ingest: SignalIngest, deps: AutopilotDeps) {
   }
   const { workspaceId } = integration;
   const now = deps.clock.now();
+  const key = signalIdempotencyKey(ingest);
+  // A repeat after a person resolved the group's incident would otherwise open a new one.
+  if (await hasSignalReceipt(deps.db, key)) {
+    await recordSignalOutcome(deps.db, integrationId, "repeat", now);
+    return { action: "none" as const, outcome: "repeat" as const };
+  }
   const incidents = incidentRepository(deps.db);
   const dedupKey = signalDedupKey(integrationId, signal.fingerprint);
   const routed = routeAlerts(signal.alerts, integration.routes);
@@ -103,13 +112,10 @@ export async function actOnSignal(ingest: SignalIngest, deps: AutopilotDeps) {
       status: signal.status,
       alerts: signal.alerts,
     };
-    await incidents.noteSignal(
-      workspaceId,
-      incidentId,
-      { ...note, key: signalIdempotencyKey(ingest) },
-      now,
-    );
+    await incidents.noteSignal(workspaceId, incidentId, { ...note, key }, now);
   }
   await recordSignalOutcome(deps.db, integrationId, outcome, now);
+  // Last, so a run that failed before here acts on the notification when it is retried.
+  await recordSignalReceipt(deps.db, { workspaceId, integrationId, key });
   return { action: plan.action, outcome, incidentId };
 }
