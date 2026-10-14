@@ -1,10 +1,10 @@
 ---
 title: Local development
-description: Run the dashboard, API, status page and a simulated hot path on your machine.
+description: Run the dashboard, API, background jobs, status page and a simulated hot path on your machine.
 ---
 
-Everything but trigger.dev runs locally with one command. You need Node 24, pnpm 11 (Corepack
-picks the version in `package.json`) and Docker.
+Everything runs locally with one command, with no account anywhere. You need Node 24, pnpm 11
+(Corepack picks the version in `package.json`) and Docker.
 
 <Steps>
 <Step>
@@ -27,9 +27,10 @@ workspace, then runs every app:
 | 4321 | The status page (Astro), built from a fixture snapshot |
 | 8787 | The API (Hono on Node) |
 
-It also runs the hot path in one process: each minute, three simulated probe regions check
-every enabled monitor, and the evaluator writes results and state to DynamoDB Local, where the
-dashboard reads them.
+The API shares one process with the background jobs and the hot path. Each minute, three
+simulated probe regions check every enabled monitor, the evaluator writes results and state to
+DynamoDB Local, where the dashboard reads them, and a state change starts the same jobs a
+deployment runs: incidents, drafts and their deadlines, publishing, emails, Slack and webhooks.
 
 </Step>
 <Step>
@@ -43,17 +44,10 @@ never exists anywhere else.
 </Step>
 <Step>
 
-### Optional: background work
+### Background jobs
 
-Publishing the page, emails, Slack and webhooks run as trigger.dev tasks. Without a trigger.dev
-project, changes are saved and wait in the outbox. To run them:
-
-1. Create a project at [trigger.dev](https://trigger.dev) and put its ref in
-   `apps/workers/.env` as `GLN_TRIGGER_PROJECT_REF=proj_…`.
-2. Put the project's development secret key in `apps/api/.env` as `TRIGGER_SECRET_KEY=…`.
-3. Run `pnpm trigger:dev` in a second terminal.
-
-Locally, the workers write to disk instead of AWS:
+The jobs run in that process, one at a time per lane as in a deployment, and write to disk
+instead of AWS:
 
 | What | Where |
 | --- | --- |
@@ -61,14 +55,20 @@ Locally, the workers write to disk instead of AWS:
 | `monitors.json` | `apps/workers/.local/config/` |
 | Emails | `apps/workers/.local/mail/`, one `.txt` and one `.html` per email |
 
+The status page's dev server reads its fixture snapshot, so the page's HTML is built only with
+`GLN_LOCAL_HTML=1`. A draft's deadline is real time: an unanswered draft settles ten minutes
+after it opens. When the process restarts (it reloads on every saved file), it sends what the
+outbox still holds and arms again every open draft's deadline and every unfinished maintenance
+window.
+
 </Step>
 </Steps>
 
 ## Watching a local service
 
 The SSRF guard refuses private and loopback addresses everywhere. To point a monitor at a
-server on your own machine during development, start the API and the hot path with
-`GLN_ALLOW_LOOPBACK=1`. Every stage other than `local` ignores the switch.
+server on your own machine during development, start `pnpm dev` with `GLN_ALLOW_LOOPBACK=1`.
+Every stage other than `local` ignores the switch.
 
 ## Checks
 
@@ -76,7 +76,7 @@ server on your own machine during development, start the API and the hot path wi
 | --- | --- |
 | `pnpm check` | Biome, oxlint, TypeScript, unit tests and the dependency rules |
 | `pnpm test:int` | Integration tests against Postgres and DynamoDB Local in Testcontainers |
-| `pnpm test:e2e` | Playwright with axe against local dev, in light and dark |
+| `pnpm test:e2e` | Playwright with axe against local dev, in light and dark; stop `pnpm dev` first, it starts its own |
 | `pnpm check:page` | The status page's JavaScript and HTML budgets, Lighthouse and axe |
 | `pnpm replay` | The detection rules against recorded check results |
 | `pnpm infra:synth` | CDK synth with cdk-nag |

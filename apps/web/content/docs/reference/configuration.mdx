@@ -88,8 +88,8 @@ In AWS, CDK sets these on the Lambda. Locally, `pnpm dev` uses the defaults.
 ## Workers
 
 Set in the trigger.dev project's environment; see
-[Self-hosting](/docs/getting-started/self-hosting/#deploy-the-workers). Locally, from
-`apps/workers/.env`.
+[Self-hosting](/docs/getting-started/self-hosting/#deploy-the-workers). Locally, `pnpm dev`
+runs the jobs itself and every variable has a local default.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -98,12 +98,12 @@ Set in the trigger.dev project's environment; see
 | `GLN_DB_CLUSTER_ARN`, `GLN_DB_SECRET_ARN`, `GLN_DB_NAME` | name `galena` | In AWS: the Data API; both ARNs or neither |
 | `GLN_HOME_REGION` | `eu-central-1` | The Data API's and config bucket's region |
 | `GLN_CONFIG_BUCKET`, `GLN_CONFIG_KEY` | | Where `monitors.json` goes; unset, to `GLN_CONFIG_DIR` |
-| `GLN_CONFIG_DIR` | `.local/config` | Local `monitors.json` |
+| `GLN_CONFIG_DIR` | `apps/workers/.local/config` | Local `monitors.json` |
 | `GLN_PAGE_BUCKET`, `GLN_PAGE_REGION` | region `eu-west-1` | The primary page bucket; unset, files go to `GLN_PAGE_DIR` |
-| `GLN_PAGE_DIR` | `.local/pages` | Local page files |
+| `GLN_PAGE_DIR` | `apps/workers/.local/pages` | Local page files |
 | `GLN_PAGE_URL` | `http://localhost:4321` | The page's address, for links in feeds and email |
 | `GLN_APP_KEY` | a fixed local key | Required with the Data API; the same value as the API's |
 | `GLN_EMAIL_FROM` | | Sends through SES as this address; unset, to `GLN_MAIL_DIR` |
 | `GLN_SES_CONFIGURATION_SET` | `galena-dev` | The SES configuration set |
-| `GLN_MAIL_DIR` | `.local/mail` | Local email |
+| `GLN_MAIL_DIR` | `apps/workers/.local/mail` | Local email |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | | The worker access user's key |

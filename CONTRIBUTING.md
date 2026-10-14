@@ -6,12 +6,12 @@ You need Node 24, pnpm 11 (Corepack picks the version in `package.json`) and Doc
 
 ```bash
 pnpm install
-pnpm dev        # Postgres and DynamoDB Local in Docker, migrations, seed data, every app
+pnpm dev        # Postgres and DynamoDB Local in Docker, migrations, seed data, every app and job
 ```
 
 The seed signs you in as `owner@example.com` with the password `galena-local-owner`, locally
-only. Background tasks need a trigger.dev project: put its ref in `apps/workers/.env` as
-`GLN_TRIGGER_PROJECT_REF` and run `pnpm trigger:dev` in another terminal.
+only. The background jobs run in the same process as the API and the hot path, so no other
+account is needed.
 
 ## Checks
 

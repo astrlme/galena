@@ -98,13 +98,13 @@ local workspace and runs:
 | <http://localhost:4321> | The status page, built from a fixture snapshot |
 | <http://localhost:8787> | The API |
 
-It also runs the hot path in one process: three simulated probe regions check every enabled
-monitor each minute. Sign in as `owner@example.com` with `galena-local-owner`. The seed refuses
-any database but the local one, so this account exists nowhere else.
-
-Publishing, emails, Slack and webhooks run as trigger.dev tasks; the
-[local development guide](https://galena.astrl.me/docs/getting-started/local-development/) shows
-how to run them against a trigger.dev project of your own.
+The API, the background jobs and the hot path share one process: three simulated probe regions
+check every enabled monitor each minute, and a state change starts the same jobs a deployment
+runs, writing pages and emails to disk. Sign in as `owner@example.com` with
+`galena-local-owner`. The seed refuses any database but the local one, so this account exists
+nowhere else. The
+[local development guide](https://galena.astrl.me/docs/getting-started/local-development/) has
+the details.
 
 ## Deploy to AWS
 
