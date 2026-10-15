@@ -40,6 +40,7 @@ test("lists the stacks the app creates, in the regions they deploy to", () => {
     "galena-dev-page-replica",
     "galena-dev-page-certificate",
     "galena-dev-page",
+    "galena-dev-jobs",
   ]);
   expect(expectedStacks(plain)).toEqual([
     { id: "galena-prod-foundation", region: "eu-central-1" },
@@ -52,6 +53,7 @@ test("lists the stacks the app creates, in the regions they deploy to", () => {
     { id: "galena-prod-worker-access", region: "eu-central-1" },
     { id: "galena-prod-page-replica", region: "eu-north-1" },
     { id: "galena-prod-page", region: "eu-west-1" },
+    { id: "galena-prod-jobs", region: "eu-central-1" },
   ]);
 });
 

@@ -8,6 +8,7 @@ import { CiAccessStack } from "../stacks/ci-access.ts";
 import { DetectionStack } from "../stacks/detection.ts";
 import { EmailStack } from "../stacks/email.ts";
 import { FoundationStack } from "../stacks/foundation.ts";
+import { JobsStack } from "../stacks/jobs.ts";
 import { ProbeStack } from "../stacks/probe.ts";
 import { SmokeStack } from "../stacks/smoke.ts";
 import { CertificateStack, PageReplicaStack, StatusPageStack } from "../stacks/status-page.ts";
@@ -109,12 +110,23 @@ const certificate = config.pageDomain
       crossRegionReferences: true,
     }).certificate
   : undefined;
-new StatusPageStack(app, `galena-${config.stage}-page`, {
+const page = new StatusPageStack(app, `galena-${config.stage}-page`, {
   env: inRegion(config.pageRegions.primary),
   config,
   apiEndpoint: api.api.apiEndpoint,
   ...(certificate ? { certificate } : {}),
   crossRegionReferences: true,
-}).addStackDependency(replica);
+});
+page.addStackDependency(replica);
+// After Foundation's queues and Web, which writes the dashboard's URL the jobs link to, both
+// read from SSM when it deploys; the page's URL crosses regions only for a page without a domain.
+const jobs = new JobsStack(app, `galena-${config.stage}-jobs`, {
+  env,
+  config,
+  pageUrl: page.url,
+  crossRegionReferences: true,
+});
+jobs.addStackDependency(foundation);
+jobs.addStackDependency(web);
 
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app, { verbose: true }));

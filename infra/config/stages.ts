@@ -122,6 +122,7 @@ export function expectedStacks(config: StageConfig): { id: string; region: strin
     ["page-replica", pageRegions.replica],
     ["page-certificate", config.pageDomain && "us-east-1"],
     ["page", pageRegions.primary],
+    ["jobs", homeRegion],
   ];
   return stacks.flatMap(([name, region]) =>
     region ? [{ id: `galena-${stage}-${name}`, region }] : [],

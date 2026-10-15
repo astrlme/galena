@@ -114,6 +114,9 @@ export class CertificateStack extends Stack {
  * to the API.
  */
 export class StatusPageStack extends Stack {
+  /** Where readers find the page: its domain, or the distribution's own. */
+  readonly url: string;
+
   constructor(
     scope: Construct,
     id: string,
@@ -261,6 +264,8 @@ export class StatusPageStack extends Stack {
       reason:
         "The bucket holds public page files the workers rewrite; access logs would record nothing worth keeping.",
     });
+
+    this.url = `https://${config.pageDomain ?? distribution.distributionDomainName}`;
 
     new CfnOutput(this, "PageBucket", { value: primary.bucketName });
     new CfnOutput(this, "DistributionDomain", { value: distribution.distributionDomainName });

@@ -38,10 +38,13 @@ try {
   if (saved) writeFileSync(state, saved);
 }
 
-// Lambda runs glibc, but pnpm installs the musl build of each native package too; and nothing
-// calls a binary from .bin.
+// Lambda runs glibc, but pnpm installs the musl build of each native package too; nothing calls
+// a binary from .bin; and pnpm's own records carry the install time, which would change the
+// package, and so redeploy the builder, on every synth.
 const modules = join(outDir, "status", "node_modules");
-rmSync(join(modules, ".bin"), { recursive: true, force: true });
+for (const entry of [".bin", ".modules.yaml", ".pnpm"]) {
+  rmSync(join(modules, entry), { recursive: true, force: true });
+}
 for (const name of readdirSync(modules)) {
   const dirs = name.startsWith("@")
     ? readdirSync(join(modules, name)).map((n) => join(name, n))
