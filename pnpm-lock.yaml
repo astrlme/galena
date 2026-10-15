@@ -369,9 +369,18 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1141.0
         version: 3.1141.0
+      '@aws-sdk/client-scheduler':
+        specifier: ^3.1141.0
+        version: 3.1141.0
       '@aws-sdk/client-sesv2':
         specifier: ^3.1143.0
         version: 3.1143.0
+      '@aws-sdk/client-sqs':
+        specifier: ^3.1141.0
+        version: 3.1141.0
+      '@aws-sdk/client-ssm':
+        specifier: ^3.1141.0
+        version: 3.1141.0
       '@aws-sdk/lib-dynamodb':
         specifier: ^3.1141.0
         version: 3.1141.0(@aws-sdk/client-dynamodb@3.1141.0)
