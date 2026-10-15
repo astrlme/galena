@@ -14,9 +14,12 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const deploy = [
   "--filter",
   "@galena/status",
+  // Injected for this command only: deploy then installs from pnpm-lock.yaml, the versions CI
+  // tested, while the repository keeps linking its workspace packages.
+  "--config.inject-workspace-packages=true",
   "deploy",
-  "--legacy",
   "--prod",
+  "--frozen-lockfile",
   "--ignore-scripts",
   "--os=linux",
   "--cpu=arm64",
@@ -41,9 +44,17 @@ try {
 // Lambda runs glibc, but pnpm installs the musl build of each native package too; nothing calls
 // a binary from .bin; and pnpm's own records carry the install time, which would change the
 // package, and so redeploy the builder, on every synth.
-const modules = join(outDir, "status", "node_modules");
-for (const entry of [".bin", ".modules.yaml", ".pnpm"]) {
-  rmSync(join(modules, entry), { recursive: true, force: true });
+const app = join(outDir, "status");
+const modules = join(app, "node_modules");
+for (const entry of [
+  join(app, "pnpm-lock.yaml"),
+  join(app, "pnpm-workspace.yaml"),
+  join(modules, ".bin"),
+  join(modules, ".modules.yaml"),
+  join(modules, ".pnpm"),
+  join(modules, ".pnpm-workspace-state-v1.json"),
+]) {
+  rmSync(entry, { recursive: true, force: true });
 }
 for (const name of readdirSync(modules)) {
   const dirs = name.startsWith("@")
