@@ -3,6 +3,7 @@ import {
   SendMessageCommand,
   type SQSClient,
 } from "@aws-sdk/client-sqs";
+import { assertNever } from "@galena/core";
 import { z } from "zod";
 import { errorFields, log } from "./log.ts";
 import { type Job, type Retry, runAttempt } from "./runner.ts";
@@ -22,8 +23,8 @@ export type SqsJobRecord = {
 const message = z.object({ job: z.string(), key: z.string(), payload: z.unknown() });
 
 // On trigger.dev these jobs fail on the first throw and a backstop or the sweep picks them up;
-// here a transient fault gets two more tries first.
-const DEFAULT_RETRY: Retry = { attempts: 3, minMs: 1_000, maxMs: 30_000, factor: 4 };
+// here every job gets five attempts, waiting 1 s, 4 s, 16 s and 30 s between them.
+const DEFAULT_RETRY: Retry = { attempts: 5, minMs: 1_000, maxMs: 30_000, factor: 4 };
 
 export type SqsHostDeps = {
   sqs: Pick<SQSClient, "send">;
@@ -37,8 +38,8 @@ export type SqsHostDeps = {
  * Runs jobs from an SQS FIFO event source with `ReportBatchItemFailures`. SQS counts the
  * attempts (`ApproximateReceiveCount`); a retry hides the message for the job's backoff, which
  * holds its lane as a queue holds a message it will deliver again. A job that failed for good is
- * never handed back, or SQS would run it again: its failure hook records it, or it goes to the
- * dead-letter queue, where an alarm sees it. The queue's own redrive catches crashes and timeouts.
+ * never handed back, or SQS would run it again: its failure hook records it, or else it goes to
+ * the dead-letter queue, where an alarm sees it. The queue's redrive catches crashes and timeouts.
  */
 export function sqsHost({ sqs, jobs, queueUrl, deadLetterUrl }: SqsHostDeps) {
   const deadLetter = (record: SqsJobRecord) =>
@@ -67,21 +68,27 @@ export function sqsHost({ sqs, jobs, queueUrl, deadLetterUrl }: SqsHostDeps) {
       payload,
       attempt,
     );
-    if (result.outcome === "done") return false;
-    if (result.outcome === "retry") {
-      log.info(`${job.name} will retry`, { key, attempt, ...errorFields(result.error) });
-      await sqs.send(
-        new ChangeMessageVisibilityCommand({
-          QueueUrl: queueUrl,
-          ReceiptHandle: record.receiptHandle,
-          VisibilityTimeout: Math.ceil(result.afterMs / 1000),
-        }),
-      );
-      return true;
+    switch (result.outcome) {
+      case "done":
+        return false;
+      case "retry":
+        log.info(`${job.name} will retry`, { key, attempt, ...errorFields(result.error) });
+        await sqs.send(
+          new ChangeMessageVisibilityCommand({
+            QueueUrl: queueUrl,
+            ReceiptHandle: record.receiptHandle,
+            VisibilityTimeout: Math.ceil(result.afterMs / 1000),
+          }),
+        );
+        return true;
+      case "failed":
+        log.error(`${job.name} failed`, { key, attempt, ...errorFields(result.error) });
+        // No hook kept it (none, a payload that doesn't parse, or the hook failed too).
+        if (!result.recorded) await deadLetter(record);
+        return false;
+      default:
+        return assertNever(result);
     }
-    log.error(`${job.name} failed`, { key, attempt, ...errorFields(result.error) });
-    if (!job.onFailure) await deadLetter(record);
-    return false;
   }
 
   return async (event: { Records: SqsJobRecord[] }) => {

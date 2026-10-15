@@ -75,11 +75,11 @@ test("a failed attempt with retries left waits out its backoff, counted by recei
   });
 });
 
-test("a job with no retry settings gets three attempts", async () => {
+test("a job with no retry settings gets five attempts", async () => {
   const onFailure = vi.fn(async () => {});
   const { handle } = setup(failing({ onFailure }));
-  expect((await handle({ Records: [record(2)] })).batchItemFailures).toHaveLength(1);
-  expect((await handle({ Records: [record(3)] })).batchItemFailures).toHaveLength(0);
+  expect((await handle({ Records: [record(4)] })).batchItemFailures).toHaveLength(1);
+  expect((await handle({ Records: [record(5)] })).batchItemFailures).toHaveLength(0);
   expect(onFailure).toHaveBeenCalledOnce();
 });
 
@@ -120,10 +120,31 @@ test("a final failure nothing records goes to the dead-letter queue, once", asyn
 test.each([
   ["an unknown job", { job: "nope", key: "k", payload: {} }],
   ["a body that isn't a job message", "not json"],
+  [
+    "a payload the job refuses, though it has a failure hook",
+    { job: "test.job", key: "k", payload: { n: "1" } },
+  ],
 ])("%s goes to the dead-letter queue", async (_, body) => {
-  const { handle, sent } = setup(failing());
+  const { handle, sent } = setup(failing({ onFailure: async () => {} }));
   expect(await handle({ Records: [record(1, body)] })).toEqual({ batchItemFailures: [] });
   expect((sent[0] as SendMessageCommand).input.QueueUrl).toBe(DLQ);
+});
+
+test("a final failure whose hook fails too goes to the dead-letter queue, not back to SQS", async () => {
+  const run = vi.fn(async () => {
+    throw new FinalError("refused");
+  });
+  const { handle, sent } = setup(
+    failing({
+      run,
+      onFailure: async () => {
+        throw new Error("database resuming");
+      },
+    }),
+  );
+  expect(await handle({ Records: [record(1)] })).toEqual({ batchItemFailures: [] });
+  expect((sent[0] as SendMessageCommand).input.QueueUrl).toBe(DLQ);
+  expect(run).toHaveBeenCalledOnce();
 });
 
 test("when SQS can't take the retry or the dead letter, the message comes back", async () => {

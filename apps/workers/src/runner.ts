@@ -26,7 +26,8 @@ export const cronPayload = z.object({ timestamp: z.iso.datetime() });
 export type AttemptResult =
   | { outcome: "done"; result: unknown }
   | { outcome: "retry"; afterMs: number; error: unknown }
-  | { outcome: "failed"; error: unknown };
+  // `recorded`: the job's failure hook ran and kept the failure.
+  | { outcome: "failed"; error: unknown; recorded: boolean };
 
 /**
  * One attempt (counted from 1) of a job, for engines that retry by themselves. A payload that
@@ -38,7 +39,7 @@ export async function runAttempt<P>(
   attempt: number,
 ): Promise<AttemptResult> {
   const parsed = job.payload.safeParse(raw);
-  if (!parsed.success) return { outcome: "failed", error: parsed.error };
+  if (!parsed.success) return { outcome: "failed", error: parsed.error, recorded: false };
   try {
     return { outcome: "done", result: await job.run(parsed.data, { attempt }) };
   } catch (error) {
@@ -47,7 +48,13 @@ export async function runAttempt<P>(
       const afterMs = Math.min(retry.maxMs, retry.minMs * retry.factor ** (attempt - 1));
       return { outcome: "retry", afterMs, error };
     }
-    await job.onFailure?.(parsed.data, error);
-    return { outcome: "failed", error };
+    // A hook that fails too leaves the failure unrecorded, for the engine to keep some other way.
+    const recorded = job.onFailure
+      ? await job.onFailure(parsed.data, error).then(
+          () => true,
+          () => false,
+        )
+      : false;
+    return { outcome: "failed", error, recorded };
   }
 }

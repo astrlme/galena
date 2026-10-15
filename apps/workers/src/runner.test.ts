@@ -58,7 +58,7 @@ describe("runAttempt", () => {
       { id: "a" },
       5,
     );
-    expect(result).toEqual({ outcome: "failed", error });
+    expect(result).toEqual({ outcome: "failed", error, recorded: true });
     expect(failures).toEqual([[{ id: "a" }, error]]);
   });
 
@@ -70,8 +70,22 @@ describe("runAttempt", () => {
       { id: "a" },
       1,
     );
-    expect(result).toEqual({ outcome: "failed", error });
+    expect(result).toEqual({ outcome: "failed", error, recorded: true });
     expect(failures).toEqual([[{ id: "a" }, error]]);
+  });
+
+  test("a failure hook that fails too leaves the failure unrecorded", async () => {
+    const broken = defineJob({
+      name: "test.broken-hook",
+      payload: z.object({}),
+      run: async () => {
+        throw new FinalError("refused");
+      },
+      onFailure: async () => {
+        throw new Error("database resuming");
+      },
+    });
+    expect(await runAttempt(broken, {}, 1)).toMatchObject({ outcome: "failed", recorded: false });
   });
 
   test("a payload that doesn't parse fails at once and never runs the job or its hook", async () => {
@@ -84,7 +98,7 @@ describe("runAttempt", () => {
       { id: 42 },
       1,
     );
-    expect(result.outcome).toBe("failed");
+    expect(result).toMatchObject({ outcome: "failed", recorded: false });
     expect([ran, failures]).toEqual([false, []]);
   });
 
