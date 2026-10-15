@@ -68,12 +68,57 @@ test("telemetry is provisioned within the free tier, with TTL", () => {
 
 test("check results use a FIFO queue with a FIFO dead-letter queue", () => {
   const queues = resources("AWS::SQS::Queue");
-  expect(queues).toHaveLength(2);
+  expect(queues).toHaveLength(6);
   for (const queue of queues) expect(queue.Properties.FifoQueue).toBe(true);
   dev.template.hasResourceProperties("AWS::SQS::Queue", {
     ContentBasedDeduplication: false,
     RedrivePolicy: { maxReceiveCount: 5 },
   });
+});
+
+test.each([
+  ["Jobs", 720],
+  ["Builds", 1800],
+])(
+  "%s run from a FIFO queue that dedupes by content, dead letters after five receives",
+  (id, visibility) => {
+    const queues = dev.template.findResources("AWS::SQS::Queue");
+    const queue = Object.entries(queues).find(([key]) =>
+      new RegExp(`^${id}[0-9A-F]{8}$`).test(key),
+    );
+    expect(queue?.[1].Properties).toMatchObject({
+      FifoQueue: true,
+      ContentBasedDeduplication: true,
+      VisibilityTimeout: visibility,
+      MessageRetentionPeriod: 14 * 24 * 3600,
+      SqsManagedSseEnabled: true,
+      RedrivePolicy: { maxReceiveCount: 5 },
+    });
+  },
+);
+
+test("Scheduler sends jobs for later into the jobs queue only, from this account only", () => {
+  dev.template.hasResourceProperties("AWS::Scheduler::ScheduleGroup", { Name: "galena-dev-jobs" });
+  dev.template.hasResourceProperties("AWS::IAM::Role", {
+    AssumeRolePolicyDocument: {
+      Statement: [
+        Match.objectLike({
+          Principal: { Service: "scheduler.amazonaws.com" },
+          Condition: { StringEquals: { "aws:SourceAccount": Match.anyValue() } },
+        }),
+      ],
+    },
+  });
+  const policies = resources("AWS::IAM::Policy").map((p) => p.Properties.PolicyDocument.Statement);
+  expect(policies).toEqual([
+    [
+      {
+        Effect: "Allow",
+        Action: "sqs:SendMessage",
+        Resource: { "Fn::GetAtt": [expect.stringMatching(/^Jobs[0-9A-F]{8}$/), "Arn"] },
+      },
+    ],
+  ]);
 });
 
 test("the config bucket is private and refuses plain HTTP", () => {
@@ -97,7 +142,7 @@ test("the config bucket is private and refuses plain HTTP", () => {
   });
 });
 
-test("alarms on dead letters and on silent probes, to a TLS-only topic nobody is subscribed to in code", () => {
+test("alarms on dead letters, stuck jobs and silent probes, to a TLS-only topic nobody is subscribed to in code", () => {
   dev.template.hasResourceProperties("AWS::SNS::Topic", { TopicName: "galena-dev-alarms" });
   dev.template.resourceCountIs("AWS::SNS::Subscription", 0);
   dev.template.hasResourceProperties("AWS::SNS::TopicPolicy", {
@@ -114,6 +159,9 @@ test("alarms on dead letters and on silent probes, to a TLS-only topic nobody is
   expect(
     alarms.map((a) => [a.MetricName, a.ComparisonOperator, a.TreatMissingData]).sort(),
   ).toEqual([
+    ["ApproximateAgeOfOldestMessage", "GreaterThanThreshold", "notBreaching"],
+    ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],
+    ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],
     ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],
     ["NumberOfMessagesSent", "LessThanThreshold", "breaching"],
   ]);
@@ -127,11 +175,20 @@ test("publishes the identifiers other stacks and the workers read", () => {
   expect(names.sort()).toEqual(
     [
       "alarm-topic-arn",
+      "builds-dead-letter-arn",
+      "builds-dead-letter-url",
+      "builds-queue-arn",
+      "builds-queue-url",
       "check-results-queue-arn",
       "check-results-queue-url",
       "config-bucket",
       "database-cluster-arn",
       "database-secret-arn",
+      "job-scheduler-role-arn",
+      "jobs-dead-letter-arn",
+      "jobs-dead-letter-url",
+      "jobs-queue-arn",
+      "jobs-queue-url",
       "telemetry-table",
     ].map((name) => `/galena/dev/${name}`),
   );

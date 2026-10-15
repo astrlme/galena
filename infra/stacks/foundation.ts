@@ -3,6 +3,7 @@ import { ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch
 import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
 import { AttributeType, BillingMode, Table } from "aws-cdk-lib/aws-dynamodb";
 import { SubnetType, Vpc } from "aws-cdk-lib/aws-ec2";
+import { PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import {
   AuroraPostgresEngineVersion,
   type CfnDBCluster,
@@ -12,16 +13,20 @@ import {
   DatabaseClusterEngine,
 } from "aws-cdk-lib/aws-rds";
 import { BlockPublicAccess, Bucket, BucketEncryption } from "aws-cdk-lib/aws-s3";
+import { ScheduleGroup } from "aws-cdk-lib/aws-scheduler";
 import { Topic } from "aws-cdk-lib/aws-sns";
 import { Queue, QueueEncryption } from "aws-cdk-lib/aws-sqs";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
 
+/** The schedule group that holds a deployment's one-time job schedules. */
+export const jobScheduleGroup = (stage: string) => `galena-${stage}-jobs`;
+
 /**
  * The home region's stateful core: an isolated VPC for Aurora, the telemetry table, the
- * check-results queue and the private config bucket. No NAT gateway and no Lambda in
- * the VPC: everything reaches Aurora through the Data API.
+ * check-results queue, the job queues and the private config bucket. No NAT gateway and no
+ * Lambda in the VPC: everything reaches Aurora through the Data API.
  */
 export class FoundationStack extends Stack {
   readonly database: DatabaseCluster;
@@ -155,6 +160,73 @@ export class FoundationStack extends Stack {
       })
       .addAlarmAction(notify);
 
+    // Background jobs. Message groups are lanes: one job at a time each, side by side across
+    // groups. HTML builds have their own queue so a slow build holds up no other job. Scheduler
+    // sends jobs for later into the jobs queue; it can't set a deduplication id, so the queues
+    // dedupe by content (every message carries its key). Visibility is six times each function's
+    // timeout, as AWS advises for event sources.
+    const jobQueue = (id: string, visibilityTimeout: Duration) => {
+      const deadLetters = new Queue(this, `${id}Dlq`, {
+        fifo: true,
+        retentionPeriod: Duration.days(14),
+        encryption: QueueEncryption.SQS_MANAGED,
+        enforceSSL: true,
+      });
+      Validations.of(deadLetters).acknowledge({
+        id: "AwsSolutions-SQS3",
+        reason: "This is the dead-letter queue; an alarm on its depth replaces a queue behind it.",
+      });
+      // A job that failed for good, or crashed or timed out five times, is lost work.
+      deadLetters
+        .metricApproximateNumberOfMessagesVisible({ period: Duration.minutes(5) })
+        .createAlarm(this, `${id}DeadLetterAlarm`, {
+          alarmDescription: `A ${id.toLowerCase()} message failed for good and waits in the dead-letter queue.`,
+          threshold: 1,
+          evaluationPeriods: 1,
+          comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+          treatMissingData: TreatMissingData.NOT_BREACHING,
+        })
+        .addAlarmAction(notify);
+      const queue = new Queue(this, id, {
+        fifo: true,
+        contentBasedDeduplication: true,
+        visibilityTimeout,
+        retentionPeriod: Duration.days(14),
+        encryption: QueueEncryption.SQS_MANAGED,
+        enforceSSL: true,
+        deadLetterQueue: { queue: deadLetters, maxReceiveCount: 5 },
+      });
+      return { queue, deadLetters };
+    };
+    const jobs = jobQueue("Jobs", Duration.minutes(12));
+    const builds = jobQueue("Builds", Duration.minutes(30));
+    // The longest retry waits add up to about ten minutes; older means a lane stopped moving or
+    // the function can't start. A failing build ends in its dead-letter queue instead.
+    jobs.queue
+      .metricApproximateAgeOfOldestMessage({ period: Duration.minutes(5) })
+      .createAlarm(this, "JobsAgeAlarm", {
+        alarmDescription:
+          "A job has waited over 15 minutes: a lane is stuck or the jobs function can't start.",
+        threshold: Duration.minutes(15).toSeconds(),
+        evaluationPeriods: 2,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+      })
+      .addAlarmAction(notify);
+
+    new ScheduleGroup(this, "JobSchedules", {
+      scheduleGroupName: jobScheduleGroup(stage),
+    });
+    // Scheduler sends a job for later as this role, into the jobs queue only.
+    const scheduler = new Role(this, "JobScheduler", {
+      assumedBy: new ServicePrincipal("scheduler.amazonaws.com", {
+        conditions: { StringEquals: { "aws:SourceAccount": this.account } },
+      }),
+    });
+    scheduler.addToPolicy(
+      new PolicyStatement({ actions: ["sqs:SendMessage"], resources: [jobs.queue.queueArn] }),
+    );
+
     this.config = new Bucket(this, "Config", {
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
       encryption: BucketEncryption.S3_MANAGED,
@@ -176,6 +248,15 @@ export class FoundationStack extends Stack {
       "check-results-queue-arn": this.checkResults.queueArn,
       "config-bucket": this.config.bucketName,
       "alarm-topic-arn": alarms.topicArn,
+      "jobs-queue-url": jobs.queue.queueUrl,
+      "jobs-queue-arn": jobs.queue.queueArn,
+      "jobs-dead-letter-url": jobs.deadLetters.queueUrl,
+      "jobs-dead-letter-arn": jobs.deadLetters.queueArn,
+      "builds-queue-url": builds.queue.queueUrl,
+      "builds-queue-arn": builds.queue.queueArn,
+      "builds-dead-letter-url": builds.deadLetters.queueUrl,
+      "builds-dead-letter-arn": builds.deadLetters.queueArn,
+      "job-scheduler-role-arn": scheduler.roleArn,
     };
     for (const [name, value] of Object.entries(parameters)) {
       new StringParameter(this, `Param-${name}`, {
