@@ -27,10 +27,11 @@ export async function runOptions(
   };
 }
 
-// HTML builds already run on AWS where the deployment has a builds queue. They are the only
-// job sent there, never for later, so the engine's jobs queue and schedules go unused.
+// HTML builds already run on AWS where the deployment has a builds queue. Known limit: it sends
+// builds now only; it has no queue ARN or schedule group, so a build for later would fail at
+// Scheduler. Nothing asks for one, and this goes when every job runs on AWS.
 const builds = env.GLN_BUILDS_QUEUE_URL ? { url: env.GLN_BUILDS_QUEUE_URL, arn: "" } : undefined;
-const aws =
+const buildsOnAws =
   builds &&
   sqsEngine({
     sqs: new SQSClient({ region: env.GLN_HOME_REGION }),
@@ -43,7 +44,9 @@ const aws =
 /** Jobs started from inside a trigger.dev run go back to trigger.dev, builds to AWS if it has them. */
 const triggerDev: JobEngine = {
   async trigger(task, payload, options) {
-    if (task === "page.rebuild-html" && aws) return aws.trigger(task, payload, options);
+    if (task === "page.rebuild-html" && buildsOnAws) {
+      return buildsOnAws.trigger(task, payload, options);
+    }
     await tasks.trigger(task, payload, {
       ...(await runOptions(task, options)),
       ...(options.tags ? { tags: options.tags } : {}),
