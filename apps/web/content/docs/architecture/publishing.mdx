@@ -17,8 +17,8 @@ them.
 `snapshot.json` is the page's whole read model: the headline, every component with its status,
 90 days of history and uptime, open and recent incidents with their updates, and maintenance
 windows. Every other file is derived from it, including the HTML: `page.rebuild-html` runs
-`astro build` against the newest `snapshot.json` inside the task's container and uploads the
-result.
+`astro build` against the newest `snapshot.json` in the builder, a Lambda function that carries
+the status app, and uploads the result.
 
 The data layer lands within seconds of a change; the HTML follows a few seconds later. Open pages
 poll `snapshot.json` every 30 seconds and update in place, so readers see a change as soon as the
