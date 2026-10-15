@@ -91,7 +91,11 @@ if (config.siteDomain) {
     siteDir: fileURLToPath(new URL("../../apps/web/out-site", import.meta.url)),
   }).addStackDependency(web);
 }
-new WorkerAccessStack(app, `galena-${config.stage}-worker-access`, { env, config });
+// Reads Foundation's queue ARNs from SSM when it deploys.
+new WorkerAccessStack(app, `galena-${config.stage}-worker-access`, {
+  env,
+  config,
+}).addStackDependency(foundation);
 if (config.email) {
   new EmailStack(app, `galena-${config.stage}-email`, {
     env,

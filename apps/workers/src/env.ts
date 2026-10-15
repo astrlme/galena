@@ -42,6 +42,8 @@ export const env = z
     /** The table the evaluator writes monitor states to. Locally DynamoDB Local's `telemetry`. */
     GLN_TELEMETRY_TABLE: z.string().min(1).default("telemetry"),
     GLN_DYNAMODB_ENDPOINT: z.url().optional(),
+    /** Read by the trigger.dev tasks: HTML builds go to this queue, to run on AWS Lambda. */
+    GLN_BUILDS_QUEUE_URL: z.url().optional(),
   })
   .refine((e) => !e.GLN_DB_CLUSTER_ARN || e.GLN_APP_KEY, {
     message: "Workers reaching the Data API need GLN_APP_KEY, the same app key the API reads.",

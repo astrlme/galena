@@ -51,6 +51,8 @@ export class WorkerAccessStack extends Stack {
         resources: [`${pageBucket}/pages/*`],
       }),
       new PolicyStatement({ actions: ["s3:ListBucket"], resources: [pageBucket] }),
+      // page.publish hands each HTML build to the builder on AWS.
+      new PolicyStatement({ actions: ["sqs:SendMessage"], resources: [param("builds-queue-arn")] }),
       // page.publish notes which monitor states the page shows; page.heartbeat reads the note
       // back. Listing lets the note read as absent, not forbidden, before the first publish.
       new PolicyStatement({

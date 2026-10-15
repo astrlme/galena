@@ -1,7 +1,10 @@
+import { SchedulerClient } from "@aws-sdk/client-scheduler";
+import { SQSClient } from "@aws-sdk/client-sqs";
 import type { JobEngine } from "@galena/core";
-import { laneOf } from "@galena/integrations/jobs";
+import { laneOf, sqsEngine } from "@galena/integrations/jobs";
 import { AbortTaskRunError, logger, type Queue, schedules, task, tasks } from "@trigger.dev/sdk";
 import { setEngine } from "../engine.ts";
+import { env } from "../env.ts";
 import { setLog } from "../log.ts";
 import { FinalError, type Job } from "../runner.ts";
 import { globalKey } from "./keys.ts";
@@ -24,9 +27,23 @@ export async function runOptions(
   };
 }
 
-/** Jobs started from inside a trigger.dev run go back to trigger.dev. */
+// HTML builds already run on AWS where the deployment has a builds queue. They are the only
+// job sent there, never for later, so the engine's jobs queue and schedules go unused.
+const builds = env.GLN_BUILDS_QUEUE_URL ? { url: env.GLN_BUILDS_QUEUE_URL, arn: "" } : undefined;
+const aws =
+  builds &&
+  sqsEngine({
+    sqs: new SQSClient({ region: env.GLN_HOME_REGION }),
+    scheduler: new SchedulerClient({ region: env.GLN_HOME_REGION }),
+    clock: { now: () => new Date() },
+    queues: { jobs: builds, builds },
+    schedules: { group: "", roleArn: "" },
+  });
+
+/** Jobs started from inside a trigger.dev run go back to trigger.dev, builds to AWS if it has them. */
 const triggerDev: JobEngine = {
   async trigger(task, payload, options) {
+    if (task === "page.rebuild-html" && aws) return aws.trigger(task, payload, options);
     await tasks.trigger(task, payload, {
       ...(await runOptions(task, options)),
       ...(options.tags ? { tags: options.tags } : {}),

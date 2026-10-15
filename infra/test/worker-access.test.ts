@@ -22,7 +22,7 @@ test("one user, no managed policies, no access key in the template", () => {
   }
 });
 
-test("the workers may use the Data API, the database secret, monitors.json, the page files and read monitor states", () => {
+test("the workers may use the Data API, the database secret, monitors.json, the page files, read monitor states and hand builds to AWS", () => {
   const actions = statements.flatMap((s) => [s.Action].flat()).sort();
   expect(actions).toEqual([
     "dynamodb:BatchGetItem",
@@ -40,6 +40,7 @@ test("the workers may use the Data API, the database secret, monitors.json, the 
     "s3:PutObject",
     "secretsmanager:GetSecretValue",
     "ses:SendEmail",
+    "sqs:SendMessage",
   ]);
   const s3 = statements.find((s) => s.Action === "s3:PutObject");
   expect(JSON.stringify(s3.Resource)).toContain("/monitors.json");
