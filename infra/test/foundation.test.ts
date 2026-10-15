@@ -66,7 +66,7 @@ test("telemetry is provisioned within the free tier, with TTL", () => {
   expect(() => checkSharedFreeTier([fixture, greedy])).toThrow(/read capacity adds up to 26/);
 });
 
-test("check results use a FIFO queue with a FIFO dead-letter queue", () => {
+test("every queue is FIFO; check results dedupe by the probe's id, with a FIFO dead-letter queue", () => {
   const queues = resources("AWS::SQS::Queue");
   expect(queues).toHaveLength(6);
   for (const queue of queues) expect(queue.Properties.FifoQueue).toBe(true);
@@ -97,27 +97,31 @@ test.each([
   },
 );
 
-test("Scheduler sends jobs for later into the jobs queue only, from this account only", () => {
+test("Scheduler sends jobs for later only into the job queues, only for the group's schedules", () => {
   dev.template.hasResourceProperties("AWS::Scheduler::ScheduleGroup", { Name: "galena-dev-jobs" });
   dev.template.hasResourceProperties("AWS::IAM::Role", {
     AssumeRolePolicyDocument: {
       Statement: [
         Match.objectLike({
           Principal: { Service: "scheduler.amazonaws.com" },
-          Condition: { StringEquals: { "aws:SourceAccount": Match.anyValue() } },
+          Condition: {
+            StringEquals: { "aws:SourceAccount": Match.anyValue() },
+            ArnLike: {
+              "aws:SourceArn": {
+                "Fn::Join": ["", Match.arrayWith([":schedule/galena-dev-jobs/*"])],
+              },
+            },
+          },
         }),
       ],
     },
   });
   const policies = resources("AWS::IAM::Policy").map((p) => p.Properties.PolicyDocument.Statement);
+  const queue = (id: string) => ({
+    "Fn::GetAtt": [expect.stringMatching(new RegExp(`^${id}[0-9A-F]{8}$`)), "Arn"],
+  });
   expect(policies).toEqual([
-    [
-      {
-        Effect: "Allow",
-        Action: "sqs:SendMessage",
-        Resource: { "Fn::GetAtt": [expect.stringMatching(/^Jobs[0-9A-F]{8}$/), "Arn"] },
-      },
-    ],
+    [{ Effect: "Allow", Action: "sqs:SendMessage", Resource: [queue("Jobs"), queue("Builds")] }],
   ]);
 });
 
@@ -159,6 +163,7 @@ test("alarms on dead letters, stuck jobs and silent probes, to a TLS-only topic 
   expect(
     alarms.map((a) => [a.MetricName, a.ComparisonOperator, a.TreatMissingData]).sort(),
   ).toEqual([
+    ["ApproximateAgeOfOldestMessage", "GreaterThanThreshold", "notBreaching"],
     ["ApproximateAgeOfOldestMessage", "GreaterThanThreshold", "notBreaching"],
     ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],
     ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],

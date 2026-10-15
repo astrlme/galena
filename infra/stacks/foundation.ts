@@ -196,35 +196,47 @@ export class FoundationStack extends Stack {
         enforceSSL: true,
         deadLetterQueue: { queue: deadLetters, maxReceiveCount: 5 },
       });
+      // A job's retries wait under four minutes in all and a build takes a few; older means a
+      // lane stopped moving or the function can't start, long before five receives end in the
+      // dead-letter queue.
+      queue
+        .metricApproximateAgeOfOldestMessage({ period: Duration.minutes(5) })
+        .createAlarm(this, `${id}AgeAlarm`, {
+          alarmDescription: `A ${id.toLowerCase()} message has waited over 15 minutes: a lane is stuck or its function can't start.`,
+          threshold: Duration.minutes(15).toSeconds(),
+          evaluationPeriods: 2,
+          comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+          treatMissingData: TreatMissingData.NOT_BREACHING,
+        })
+        .addAlarmAction(notify);
       return { queue, deadLetters };
     };
     const jobs = jobQueue("Jobs", Duration.minutes(12));
     const builds = jobQueue("Builds", Duration.minutes(30));
-    // The longest retry waits add up to about ten minutes; older means a lane stopped moving or
-    // the function can't start. A failing build ends in its dead-letter queue instead.
-    jobs.queue
-      .metricApproximateAgeOfOldestMessage({ period: Duration.minutes(5) })
-      .createAlarm(this, "JobsAgeAlarm", {
-        alarmDescription:
-          "A job has waited over 15 minutes: a lane is stuck or the jobs function can't start.",
-        threshold: Duration.minutes(15).toSeconds(),
-        evaluationPeriods: 2,
-        comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
-        treatMissingData: TreatMissingData.NOT_BREACHING,
-      })
-      .addAlarmAction(notify);
 
     new ScheduleGroup(this, "JobSchedules", {
       scheduleGroupName: jobScheduleGroup(stage),
     });
-    // Scheduler sends a job for later as this role, into the jobs queue only.
+    // Scheduler sends a job for later into its queue as this role, for this group's schedules.
     const scheduler = new Role(this, "JobScheduler", {
       assumedBy: new ServicePrincipal("scheduler.amazonaws.com", {
-        conditions: { StringEquals: { "aws:SourceAccount": this.account } },
+        conditions: {
+          StringEquals: { "aws:SourceAccount": this.account },
+          ArnLike: {
+            "aws:SourceArn": this.formatArn({
+              service: "scheduler",
+              resource: "schedule",
+              resourceName: `${jobScheduleGroup(stage)}/*`,
+            }),
+          },
+        },
       }),
     });
     scheduler.addToPolicy(
-      new PolicyStatement({ actions: ["sqs:SendMessage"], resources: [jobs.queue.queueArn] }),
+      new PolicyStatement({
+        actions: ["sqs:SendMessage"],
+        resources: [jobs.queue.queueArn, builds.queue.queueArn],
+      }),
     );
 
     this.config = new Bucket(this, "Config", {
