@@ -82,6 +82,7 @@ const run = promisify(execFile);
 const BUILD_ENV = [
   "PATH",
   "HOME",
+  "ESBUILD_BINARY_PATH",
   "TMPDIR",
   "TMP",
   "TEMP",

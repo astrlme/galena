@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, rm, symlink } from "node:fs/promises";
+import { chmod, copyFile, cp, mkdir, readdir, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { sqsLambda } from "./lambda-host.ts";
 import type { Job } from "./runner.ts";
@@ -19,9 +19,16 @@ for (const entry of await readdir(packaged)) {
 for (const name of await readdir(join(packaged, "node_modules"))) {
   await symlink(join(packaged, "node_modules", name), join(work, "node_modules", name));
 }
-// `astroBuild` finds `status/` in the working directory; Astro keeps its settings under HOME.
+// Vite runs esbuild's binary, which loses its execute bit in a zip made on Windows: run a copy.
+const esbuild = "/tmp/esbuild";
+await copyFile(join(packaged, "node_modules/@esbuild/linux-arm64/bin/esbuild"), esbuild);
+await chmod(esbuild, 0o755);
+
+// `astroBuild` finds `status/` in the working directory and hands Astro these two variables;
+// Lambda sets no HOME.
 process.chdir("/tmp");
 process.env.HOME = "/tmp";
+process.env.ESBUILD_BINARY_PATH = esbuild;
 
 /** HTML builds only, without the app key: a message for any other job goes to the dead letters. */
 export const handler = sqsLambda(async () => {
