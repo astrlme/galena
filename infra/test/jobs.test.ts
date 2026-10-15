@@ -65,27 +65,47 @@ test("each function reads its own FIFO queue one message at a time, reporting fa
   ]);
 });
 
-test("the functions get the workers' settings and the queues they read and write", () => {
-  for (const name of ["Jobs", "Builder"]) {
-    const variables = Object.keys(fn(name).Environment.Variables).sort();
-    expect(variables).toEqual(
-      expect.arrayContaining([
-        "GLN_APP_KEY_PARAM",
-        "GLN_BUILDS_QUEUE_URL",
-        "GLN_CONFIG_BUCKET",
-        "GLN_DASHBOARD_URL",
-        "GLN_DB_CLUSTER_ARN",
-        "GLN_DEAD_LETTER_URL",
-        "GLN_EMAIL_FROM",
-        "GLN_PAGE_BUCKET",
-        "GLN_PAGE_URL",
-        "GLN_QUEUE_URL",
-        "GLN_SCHEDULER_ROLE_ARN",
-      ]),
-    );
-    expect(variables).not.toContain("GLN_APP_KEY");
-  }
+const variables = (name: string) => Object.keys(fn(name).Environment.Variables).sort();
+
+test("the jobs function gets the workers' settings, its queues and Scheduler, never the app key itself", () => {
+  expect(variables("Jobs")).toEqual([
+    "GLN_APP_KEY_PARAM",
+    "GLN_BUILDS_QUEUE_ARN",
+    "GLN_BUILDS_QUEUE_URL",
+    "GLN_CONFIG_BUCKET",
+    "GLN_DASHBOARD_URL",
+    "GLN_DB_CLUSTER_ARN",
+    "GLN_DB_NAME",
+    "GLN_DB_SECRET_ARN",
+    "GLN_DEAD_LETTER_URL",
+    "GLN_EMAIL_FROM",
+    "GLN_HOME_REGION",
+    "GLN_JOBS_QUEUE_ARN",
+    "GLN_JOBS_QUEUE_URL",
+    "GLN_PAGE_BUCKET",
+    "GLN_PAGE_REGION",
+    "GLN_PAGE_URL",
+    "GLN_QUEUE_URL",
+    "GLN_SCHEDULER_ROLE_ARN",
+    "GLN_SCHEDULE_GROUP",
+    "GLN_SES_CONFIGURATION_SET",
+    "GLN_TELEMETRY_TABLE",
+  ]);
   expect(fn("Jobs").Environment.Variables.GLN_PAGE_URL).toBe("https://status.example.com");
+});
+
+test("the builder gets only what a build reads: the database, the page bucket and its queue", () => {
+  expect(variables("Builder")).toEqual([
+    "GLN_DB_CLUSTER_ARN",
+    "GLN_DB_NAME",
+    "GLN_DB_SECRET_ARN",
+    "GLN_DEAD_LETTER_URL",
+    "GLN_HOME_REGION",
+    "GLN_PAGE_BUCKET",
+    "GLN_PAGE_REGION",
+    "GLN_QUEUE_URL",
+    "NODE_OPTIONS",
+  ]);
 });
 
 const actionsOf = (rolePrefix: string) =>
@@ -122,16 +142,26 @@ test("the jobs function may do what the jobs do, and no more", () => {
   ]);
 });
 
-test("the builder can't send email, schedule jobs or touch the config bucket", () => {
-  const actions = actionsOf("BuilderRole");
-  for (const action of [
-    "ses:SendEmail",
-    "scheduler:CreateSchedule",
-    "iam:PassRole",
-    "dynamodb:BatchGetItem",
-  ]) {
-    expect(actions).not.toContain(action);
-  }
+test("the builder may build and upload the page, and no more: no app key, email or Scheduler", () => {
+  expect([...new Set(actionsOf("BuilderRole"))]).toEqual([
+    "logs:CreateLogStream",
+    "logs:PutLogEvents",
+    "rds-data:BatchExecuteStatement",
+    "rds-data:BeginTransaction",
+    "rds-data:CommitTransaction",
+    "rds-data:ExecuteStatement",
+    "rds-data:RollbackTransaction",
+    "s3:GetObject",
+    "s3:ListBucket",
+    "s3:PutObject",
+    "secretsmanager:GetSecretValue",
+    "sqs:ChangeMessageVisibility",
+    "sqs:DeleteMessage",
+    "sqs:GetQueueAttributes",
+    "sqs:GetQueueUrl",
+    "sqs:ReceiveMessage",
+    "sqs:SendMessage",
+  ]);
   const resources = JSON.stringify(
     Object.values(template.findResources("AWS::IAM::Policy")).filter((p) =>
       p.Properties.Roles.some((r: { Ref: string }) => r.Ref.startsWith("BuilderRole")),

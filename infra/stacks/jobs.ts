@@ -58,45 +58,21 @@ export class JobsStack extends Stack {
     const appKey = `/galena/${stage}/app-key`;
     const database = dataApiAccess(this, stage);
 
-    const environment = (reads: ReturnType<typeof queue>) => ({
+    // What both functions read: the database, the page bucket, their queue and its dead letters.
+    const shared = (reads: ReturnType<typeof queue>) => ({
       ...database.environment,
       GLN_HOME_REGION: this.region,
-      GLN_CONFIG_BUCKET: param("config-bucket"),
-      GLN_TELEMETRY_TABLE: param("telemetry-table"),
       GLN_PAGE_BUCKET: pageBucketName(stage, this.account),
       GLN_PAGE_REGION: config.pageRegions.primary,
-      GLN_PAGE_URL: props.pageUrl,
-      // Where Slack messages link to; the Web stack writes it.
-      GLN_DASHBOARD_URL: param("public-url"),
-      ...(config.email
-        ? { GLN_EMAIL_FROM: config.email.from, GLN_SES_CONFIGURATION_SET: `galena-${stage}` }
-        : {}),
-      GLN_APP_KEY_PARAM: appKey,
       GLN_QUEUE_URL: reads.url,
       GLN_DEAD_LETTER_URL: reads.deadLetterUrl,
-      GLN_JOBS_QUEUE_URL: jobs.url,
-      GLN_JOBS_QUEUE_ARN: jobs.arn,
-      GLN_BUILDS_QUEUE_URL: builds.url,
-      GLN_BUILDS_QUEUE_ARN: builds.arn,
-      GLN_SCHEDULE_GROUP: scheduleGroup,
-      GLN_SCHEDULER_ROLE_ARN: schedulerRole,
     });
 
-    // What both functions do: read the app key, write the page's files and read snapshot.json
-    // back (listing lets a missing file read as absent rather than forbidden), and set aside a
-    // message that failed for good.
-    const common = (role: IRole, reads: ReturnType<typeof queue>) => {
+    // What both functions may do: write the page's files and read snapshot.json back (listing
+    // lets a missing file read as absent rather than forbidden), and set aside a message that
+    // failed for good.
+    const grantShared = (role: IRole, reads: ReturnType<typeof queue>) => {
       for (const statement of [
-        new PolicyStatement({
-          actions: ["ssm:GetParameter"],
-          resources: [
-            this.formatArn({
-              service: "ssm",
-              resource: "parameter",
-              resourceName: appKey.slice(1),
-            }),
-          ],
-        }),
         new PolicyStatement({
           actions: ["s3:PutObject", "s3:GetObject"],
           resources: [`${pageBucket}/pages/*`],
@@ -110,8 +86,14 @@ export class JobsStack extends Stack {
 
     const jobsLogs = new LogGroup(this, "JobsLogs", { retention: RetentionDays.ONE_MONTH });
     const jobsRole = database.role("JobsRole", jobsLogs);
-    common(jobsRole, jobs);
+    grantShared(jobsRole, jobs);
     for (const statement of [
+      new PolicyStatement({
+        actions: ["ssm:GetParameter"],
+        resources: [
+          this.formatArn({ service: "ssm", resource: "parameter", resourceName: appKey.slice(1) }),
+        ],
+      }),
       // Jobs start other jobs: now on either queue, later through a one-time schedule.
       new PolicyStatement({ actions: ["sqs:SendMessage"], resources: [jobs.arn, builds.arn] }),
       new PolicyStatement({
@@ -185,7 +167,24 @@ export class JobsStack extends Stack {
       timeout: Duration.minutes(2),
       role: jobsRole,
       logGroup: jobsLogs,
-      environment: environment(jobs),
+      environment: {
+        ...shared(jobs),
+        GLN_CONFIG_BUCKET: param("config-bucket"),
+        GLN_TELEMETRY_TABLE: param("telemetry-table"),
+        GLN_PAGE_URL: props.pageUrl,
+        // Where Slack messages link to; the Web stack writes it.
+        GLN_DASHBOARD_URL: param("public-url"),
+        ...(config.email
+          ? { GLN_EMAIL_FROM: config.email.from, GLN_SES_CONFIGURATION_SET: `galena-${stage}` }
+          : {}),
+        GLN_APP_KEY_PARAM: appKey,
+        GLN_JOBS_QUEUE_URL: jobs.url,
+        GLN_JOBS_QUEUE_ARN: jobs.arn,
+        GLN_BUILDS_QUEUE_URL: builds.url,
+        GLN_BUILDS_QUEUE_ARN: builds.arn,
+        GLN_SCHEDULE_GROUP: scheduleGroup,
+        GLN_SCHEDULER_ROLE_ARN: schedulerRole,
+      },
       bundling,
     });
     // One message per call, so a failure retries only itself; ten lanes at a time at most.
@@ -197,11 +196,14 @@ export class JobsStack extends Stack {
     );
 
     const builderLogs = new LogGroup(this, "BuilderLogs", { retention: RetentionDays.ONE_MONTH });
+    // The builder runs Astro and Vite, so it gets no more than a build needs: no app key, no
+    // config bucket, no email, no Scheduler.
     const builderRole = database.role("BuilderRole", builderLogs);
-    common(builderRole, builds);
+    grantShared(builderRole, builds);
     const builder = new LambdaFunction(this, "Builder", {
-      // index.mjs beside a production install of the status app, built for this runtime by
-      // scripts/package-builder.ts. Hashed by its output, so an unchanged build uploads nothing.
+      // Not a NodejsFunction: index.mjs ships beside a production install of the status app,
+      // built for this runtime by scripts/package-builder.ts. Hashed by its output, so an
+      // unchanged build uploads nothing.
       code: Code.fromAsset(source("scripts"), {
         assetHashType: AssetHashType.OUTPUT,
         bundling: {
@@ -226,7 +228,7 @@ export class JobsStack extends Stack {
       timeout: Duration.minutes(5),
       role: builderRole,
       logGroup: builderLogs,
-      environment: { ...environment(builds), NODE_OPTIONS: "--enable-source-maps" },
+      environment: { ...shared(builds), NODE_OPTIONS: "--enable-source-maps" },
     });
     builder.addEventSource(
       new SqsEventSource(
@@ -236,10 +238,10 @@ export class JobsStack extends Stack {
     );
 
     // cdk-nag names a wildcard by its resource as synthesised: tokens become placeholders.
-    const shown = (value: string, placeholder: string) =>
+    const asNagShows = (value: string, placeholder: string) =>
       Token.isUnresolved(value) ? placeholder : value;
-    const account = shown(this.account, "<AWS::AccountId>");
-    const region = shown(this.region, "<AWS::Region>");
+    const account = asNagShows(this.account, "<AWS::AccountId>");
+    const region = asNagShows(this.region, "<AWS::Region>");
     for (const partition of ["aws", "<AWS::Partition>"]) {
       for (const role of [jobsRole, builderRole]) {
         Validations.of(role).acknowledge({
