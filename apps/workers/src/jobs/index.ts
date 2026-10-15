@@ -44,8 +44,8 @@ export const jobs: ReadonlyMap<string, Job<unknown>> = new Map(
  * The scheduled jobs, in cron syntax (UTC). The sweep and the rollup share a minute so Aurora
  * wakes once; each wake costs about ten minutes of capacity.
  */
-export const crons = [
-  { job: outboxSweepJob, pattern: "5 */6 * * *" },
-  { job: rollupUptimeJob, pattern: "5 */6 * * *" },
-  { job: pageHeartbeatJob, pattern: "35 * * * *" },
-] as const;
+export const crons = {
+  outboxSweep: { job: outboxSweepJob, pattern: "5 */6 * * *" },
+  rollupUptime: { job: rollupUptimeJob, pattern: "5 */6 * * *" },
+  pageHeartbeat: { job: pageHeartbeatJob, pattern: "35 * * * *" },
+};

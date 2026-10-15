@@ -26,6 +26,7 @@ test("each boundary rule fires on its fixture and nowhere else", { timeout: 30_0
       "core-no-node-builtins  packages/core/src/bad.ts  fs",
       "emails-no-core  packages/emails/src/incident.ts  packages/core/src/index.ts",
       "hot-path-integrations-net-only  apps/probe/src/handler.ts  packages/integrations/src/render/slack.ts",
+      "jobs-engine-neutral  apps/workers/src/jobs/bad.ts  node_modules/@trigger.dev/sdk/dist/index.js",
       "hot-path-isolated  apps/probe/src/handler.ts  node_modules/pg/index.js",
       "hot-path-isolated  apps/probe/src/handler.ts  packages/db/src/index.ts",
       "no-app-to-app  apps/web/src/page.ts  apps/status/src/page.ts",

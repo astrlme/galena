@@ -21,6 +21,7 @@ import {
   type Clock,
   deadlineOutcome,
   type Incident,
+  monitorDedupKey,
   planAutopilot,
 } from "@galena/core";
 import {
@@ -39,6 +40,26 @@ export const draftPayload = z.object({ workspaceId, incidentId, monitorId: monit
 export type DraftPayload = z.infer<typeof draftPayload>;
 /** A draft with the deadline its card states. */
 export type DraftDeadline = DraftPayload & { deadline: Date };
+
+/**
+ * The payload for a stored draft. A monitor's draft names its monitor, so its deadline reads the
+ * monitor's state instead of treating the draft as still down.
+ */
+export function draftPayloadOf(draft: {
+  id: IncidentId;
+  workspaceId: WorkspaceId;
+  source: string;
+  dedupKey: string | null;
+}): DraftPayload {
+  const id = draft.source === "monitor" ? draft.dedupKey?.split(":")[1] : undefined;
+  // Read back through the key's own format, so a change there can't slip past here.
+  const named = id && draft.dedupKey === monitorDedupKey(id as MonitorId);
+  return {
+    workspaceId: draft.workspaceId,
+    incidentId: draft.id,
+    ...(named ? { monitorId: id as MonitorId } : {}),
+  };
+}
 
 export type AutopilotDeps = {
   db: Db;

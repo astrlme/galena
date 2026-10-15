@@ -1,5 +1,6 @@
 import type { JobEngine } from "@galena/core";
 import { listDrafts, maintenanceRepository } from "@galena/db";
+import { draftPayloadOf } from "./autopilot.ts";
 import { db } from "./db.ts";
 import { setEngine } from "./engine.ts";
 import { crons, jobs } from "./jobs/index.ts";
@@ -18,7 +19,7 @@ export async function startLocalJobs({ html }: { html: boolean }): Promise<JobEn
     local.set("page.rebuild-html", { ...build, run: async () => ({ outcome: "skipped" }) });
   const engine = localEngine(local);
   setEngine(engine);
-  startCrons(crons, engine);
+  startCrons(Object.values(crons), engine);
   await rearm(engine);
   return engine;
 }
@@ -37,15 +38,10 @@ async function rearm(engine: JobEngine) {
   }
   const drafts = await listDrafts(db);
   for (const draft of drafts) {
-    const monitor =
-      draft.source === "monitor" && draft.dedupKey?.startsWith("mon:")
-        ? { monitorId: draft.dedupKey.slice("mon:".length) }
-        : {};
-    await engine.trigger(
-      "incident.autopilot",
-      { workspaceId: draft.workspaceId, incidentId: draft.id, ...monitor },
-      { idempotencyKey: `auto:${draft.id}`, at: draft.approvalDeadline ?? now },
-    );
+    await engine.trigger("incident.autopilot", draftPayloadOf(draft), {
+      idempotencyKey: `auto:${draft.id}`,
+      at: draft.approvalDeadline ?? now,
+    });
   }
   const windows = await maintenanceRepository(db).listUnfinished();
   for (const window of windows) {

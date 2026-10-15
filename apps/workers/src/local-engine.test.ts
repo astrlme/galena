@@ -88,6 +88,26 @@ test("a job started at a time runs then, not before", async () => {
   expect(runs).toEqual(["draft"]);
 });
 
+test("a job a month away waits past setTimeout's longest wait and runs on its day", async () => {
+  const runs: string[] = [];
+  const job = defineJob({
+    name: "maintenance.lifecycle",
+    payload: id,
+    run: async ({ id }) => void runs.push(id),
+  });
+  const engine = localEngine(registry(job));
+  const month = 30 * 24 * 60 * 60_000;
+  await engine.trigger(
+    "maintenance.lifecycle",
+    { id: "window" },
+    { idempotencyKey: "mnt:w:1:scheduled", at: new Date(Date.now() + month) },
+  );
+  await vi.advanceTimersByTimeAsync(month - 1_000);
+  expect(runs).toEqual([]);
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(runs).toEqual(["window"]);
+});
+
 test("a failing job is tried again after its wait, and its failure hook runs once at the end", async () => {
   const attempts: number[] = [];
   const failures: unknown[] = [];
@@ -140,6 +160,8 @@ test("cron patterns match the minutes they name", () => {
   expect(cronMatches("35 * * * *", at("2026-10-15T07:36:00Z"))).toBe(false);
   expect(cronMatches("5 */6 * * *", at("2026-10-15T12:05:00Z"))).toBe(true);
   expect(cronMatches("5 */6 * * *", at("2026-10-15T13:05:00Z"))).toBe(false);
+  // Day, month and weekday aren't read, so a pattern that sets them is refused, not ignored.
+  expect(() => cronMatches("0 9 * * 1", at("2026-10-15T09:00:00Z"))).toThrow("must be *");
 });
 
 test("a scheduled job runs at its minute, with that minute as its timestamp", async () => {

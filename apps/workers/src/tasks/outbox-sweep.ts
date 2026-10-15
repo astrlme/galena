@@ -1,4 +1,4 @@
 import { crons } from "../jobs/index.ts";
 import { cron } from "./shim.ts";
 
-export const outboxSweep = cron(crons[0]);
+export const outboxSweep = cron(crons.outboxSweep);
