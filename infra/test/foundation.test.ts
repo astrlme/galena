@@ -105,10 +105,10 @@ test("Scheduler sends jobs for later only into the job queues, only for the grou
         Match.objectLike({
           Principal: { Service: "scheduler.amazonaws.com" },
           Condition: {
-            StringEquals: { "aws:SourceAccount": Match.anyValue() },
-            ArnLike: {
+            StringEquals: {
+              "aws:SourceAccount": Match.anyValue(),
               "aws:SourceArn": {
-                "Fn::Join": ["", Match.arrayWith([":schedule/galena-dev-jobs/*"])],
+                "Fn::Join": ["", Match.arrayWith([":schedule-group/galena-dev-jobs"])],
               },
             },
           },

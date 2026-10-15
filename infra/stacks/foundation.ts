@@ -217,16 +217,17 @@ export class FoundationStack extends Stack {
     new ScheduleGroup(this, "JobSchedules", {
       scheduleGroupName: jobScheduleGroup(stage),
     });
-    // Scheduler sends a job for later into its queue as this role, for this group's schedules.
+    // Scheduler sends a job for later into its queue as this role, for this group only. AWS
+    // checks the source as the schedule group's ARN: a schedule's ARN never matches.
     const scheduler = new Role(this, "JobScheduler", {
       assumedBy: new ServicePrincipal("scheduler.amazonaws.com", {
         conditions: {
-          StringEquals: { "aws:SourceAccount": this.account },
-          ArnLike: {
+          StringEquals: {
+            "aws:SourceAccount": this.account,
             "aws:SourceArn": this.formatArn({
               service: "scheduler",
-              resource: "schedule",
-              resourceName: `${jobScheduleGroup(stage)}/*`,
+              resource: "schedule-group",
+              resourceName: jobScheduleGroup(stage),
             }),
           },
         },
