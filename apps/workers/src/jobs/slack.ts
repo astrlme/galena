@@ -1,10 +1,10 @@
 import { slackClick, slackCommandRequest } from "@galena/contracts";
 import { guard } from "@galena/integrations/net";
-import { appKeys, LOCAL_APP_KEY } from "@galena/integrations/secrets";
+import { appKeys } from "@galena/integrations/secrets";
 import { SlackApiError, slackApi } from "@galena/integrations/slack";
 import { db } from "../db.ts";
 import { triggerDispatch } from "../engine.ts";
-import { env } from "../env.ts";
+import { appKey, env } from "../env.ts";
 import { log } from "../log.ts";
 import { defineJob, FinalError, type Retry } from "../runner.ts";
 import {
@@ -21,7 +21,7 @@ const retry: Retry = { attempts: 5, factor: 2, minMs: 2_000, maxMs: 60_000 };
 
 const deps: SlackDeps = {
   db,
-  keys: appKeys(env.GLN_APP_KEY ?? LOCAL_APP_KEY),
+  keys: appKeys(appKey()),
   clock: { now: () => new Date() },
   api: slackApi({ guard }),
   dashboardUrl: env.GLN_DASHBOARD_URL,

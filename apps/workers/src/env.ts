@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { awsRegion } from "@galena/contracts";
+import { LOCAL_APP_KEY } from "@galena/integrations/secrets";
 import { z } from "zod";
 
 /**
@@ -8,10 +9,9 @@ import { z } from "zod";
  */
 const local = (folder: string) => fileURLToPath(new URL(`../.local/${folder}`, import.meta.url));
 
-// The only place in apps/workers that reads process.env (trigger.config.ts and the Lambda entry,
-// which reads the app key from SSM before this parses, aside). `pnpm trigger:dev` loads
-// apps/workers/.env; in trigger.dev's cloud these come from the project's environment variables,
-// and on Lambda from the function's.
+// The only place in apps/workers that reads process.env (trigger.config.ts aside). `pnpm
+// trigger:dev` loads apps/workers/.env; in trigger.dev's cloud these come from the project's
+// environment variables, and on Lambda from the function's.
 export const env = z
   .object({
     // Local: the docker-compose database. trigger.dev's cloud: the Data API in GLN_HOME_REGION,
@@ -45,12 +45,50 @@ export const env = z
     /** Read by the trigger.dev tasks: HTML builds go to this queue, to run on AWS Lambda. */
     GLN_BUILDS_QUEUE_URL: z.url().optional(),
   })
-  .refine((e) => !e.GLN_DB_CLUSTER_ARN || e.GLN_APP_KEY, {
-    message: "Workers reaching the Data API need GLN_APP_KEY, the same app key the API reads.",
-    path: ["GLN_APP_KEY"],
-  })
   .refine((e) => !e.GLN_DB_CLUSTER_ARN === !e.GLN_DB_SECRET_ARN, {
     message: "The Data API needs both GLN_DB_CLUSTER_ARN and GLN_DB_SECRET_ARN.",
     path: ["GLN_DB_SECRET_ARN"],
   })
   .parse(process.env);
+
+let hostAppKey: string | undefined;
+
+/** On Lambda the host reads the app key from SSM at cold start, before any job module loads. */
+export function setAppKey(key: string) {
+  hostAppKey = key;
+}
+
+/**
+ * The app key (32 bytes, base64) the API also holds: signs links, seals credentials. Locally the
+ * development key; a deployment that reaches the Data API must have its own.
+ */
+export function appKey(): string {
+  const key = hostAppKey ?? env.GLN_APP_KEY;
+  if (key) return key;
+  if (env.GLN_DB_CLUSTER_ARN) {
+    throw new Error(
+      "Workers reaching the Data API need GLN_APP_KEY, the same app key the API reads.",
+    );
+  }
+  return LOCAL_APP_KEY;
+}
+
+const arn = z.string().startsWith("arn:");
+
+/** What a job function on Lambda reads besides the above: its queue, and where failures go. */
+export const queueEnv = () =>
+  z.object({ GLN_QUEUE_URL: z.url(), GLN_DEAD_LETTER_URL: z.url() }).parse(process.env);
+
+/** What the jobs function also reads, to start other jobs and to fetch the app key. */
+export const engineEnv = () =>
+  z
+    .object({
+      GLN_APP_KEY_PARAM: z.string().startsWith("/"),
+      GLN_JOBS_QUEUE_URL: z.url(),
+      GLN_JOBS_QUEUE_ARN: arn,
+      GLN_BUILDS_QUEUE_URL: z.url(),
+      GLN_BUILDS_QUEUE_ARN: arn,
+      GLN_SCHEDULE_GROUP: z.string().min(1),
+      GLN_SCHEDULER_ROLE_ARN: arn,
+    })
+    .parse(process.env);

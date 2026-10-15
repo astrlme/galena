@@ -1,11 +1,11 @@
-import { appKeys, LOCAL_APP_KEY } from "@galena/integrations/secrets";
+import { appKeys } from "@galena/integrations/secrets";
 import { db } from "../db.ts";
 import { emailPayload, failEmail, localMailbox, sendEmail, sesMailer } from "../email.ts";
-import { env } from "../env.ts";
+import { appKey, env } from "../env.ts";
 import { log } from "../log.ts";
 import { defineJob, FinalError } from "../runner.ts";
 
-const keys = appKeys(env.GLN_APP_KEY ?? LOCAL_APP_KEY);
+const keys = appKeys(appKey());
 const mailer = env.GLN_EMAIL_FROM
   ? sesMailer({
       region: env.GLN_HOME_REGION,

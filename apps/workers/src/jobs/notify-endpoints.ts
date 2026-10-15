@@ -1,12 +1,12 @@
 import { guard } from "@galena/integrations/net";
-import { appKeys, LOCAL_APP_KEY } from "@galena/integrations/secrets";
+import { appKeys } from "@galena/integrations/secrets";
 import { db } from "../db.ts";
 import { deliver, endpointPayload, failDelivery, isFinalSendError } from "../endpoints.ts";
-import { env } from "../env.ts";
+import { appKey } from "../env.ts";
 import { log } from "../log.ts";
 import { defineJob, FinalError } from "../runner.ts";
 
-const keys = appKeys(env.GLN_APP_KEY ?? LOCAL_APP_KEY);
+const keys = appKeys(appKey());
 const now = () => new Date();
 
 /** Slack incoming webhooks and signed outgoing webhooks share everything but the body. */

@@ -1,36 +1,19 @@
 import { SchedulerClient } from "@aws-sdk/client-scheduler";
-import { SQSClient } from "@aws-sdk/client-sqs";
 import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { sqsEngine } from "@galena/integrations/jobs";
-import { z } from "zod";
 import { setEngine } from "./engine.ts";
-import { type SqsJobRecord, sqsHost } from "./sqs-host.ts";
+import { engineEnv, setAppKey } from "./env.ts";
+import { sqsLambda } from "./lambda-host.ts";
 
-// Read here, not in env.ts: env.ts parses when the first job module loads, and the app key it
-// requires comes from SSM first.
-const host = z
-  .object({
-    GLN_APP_KEY_PARAM: z.string().startsWith("/"),
-    /** The queue this function reads, and its dead-letter queue. */
-    GLN_QUEUE_URL: z.url(),
-    GLN_DEAD_LETTER_URL: z.url(),
-    GLN_JOBS_QUEUE_URL: z.url(),
-    GLN_JOBS_QUEUE_ARN: z.string().startsWith("arn:"),
-    GLN_BUILDS_QUEUE_URL: z.url(),
-    GLN_BUILDS_QUEUE_ARN: z.string().startsWith("arn:"),
-    GLN_SCHEDULE_GROUP: z.string().min(1),
-    GLN_SCHEDULER_ROLE_ARN: z.string().startsWith("arn:"),
-  })
-  .parse(process.env);
+const host = engineEnv();
 
-async function start() {
+/** The jobs function: every job but the HTML build, starting others through SQS and Scheduler. */
+export const handler = sqsLambda(async (sqs) => {
   const { Parameter } = await new SSMClient({}).send(
     new GetParameterCommand({ Name: host.GLN_APP_KEY_PARAM, WithDecryption: true }),
   );
   if (!Parameter?.Value) throw new Error(`SSM parameter ${host.GLN_APP_KEY_PARAM} has no value.`);
-  process.env.GLN_APP_KEY = Parameter.Value;
-
-  const sqs = new SQSClient({});
+  setAppKey(Parameter.Value);
   setEngine(
     sqsEngine({
       sqs,
@@ -43,23 +26,6 @@ async function start() {
       schedules: { group: host.GLN_SCHEDULE_GROUP, roleArn: host.GLN_SCHEDULER_ROLE_ARN },
     }),
   );
-  // Job modules build their clients from env.ts when they load, so only now.
-  const { jobs } = await import("./jobs/index.ts");
-  return sqsHost({
-    sqs,
-    jobs,
-    queueUrl: host.GLN_QUEUE_URL,
-    deadLetterUrl: host.GLN_DEAD_LETTER_URL,
-  });
-}
-// Once per container. A failed start is not cached, so the next batch tries again.
-let started: ReturnType<typeof start> | undefined;
-
-/** SQS FIFO event source, batch size 1, with `ReportBatchItemFailures`. */
-export async function handler(event: { Records: SqsJobRecord[] }) {
-  started ??= start().catch((error: unknown) => {
-    started = undefined;
-    throw error;
-  });
-  return (await started)(event);
-}
+  // Job modules build their clients, with the app key, when they load: so only now.
+  return (await import("./jobs/index.ts")).jobs;
+});
