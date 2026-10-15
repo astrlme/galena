@@ -67,6 +67,7 @@ export function requiredTriggerEnv(config: StageConfig): string[] {
     "GLN_DASHBOARD_URL",
     "GLN_APP_KEY",
     "GLN_TELEMETRY_TABLE",
+    "GLN_BUILDS_QUEUE_URL",
     "GLN_TRIGGER_PROJECT_REF",
     ...(config.email ? ["GLN_EMAIL_FROM", "GLN_SES_CONFIGURATION_SET"] : []),
   ];

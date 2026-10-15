@@ -58,6 +58,7 @@ test("sets exactly the variables doctor checks the workers for, secrets apart", 
       "database-secret-arn": "arn:aws:secretsmanager:eu-central-1:1:secret:s",
       "config-bucket": "config",
       "telemetry-table": "telemetry",
+      "builds-queue-url": "https://sqs.eu-central-1.amazonaws.com/1/builds.fifo",
     },
     stacks: new Map([
       [

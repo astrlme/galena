@@ -187,6 +187,7 @@ const FOUNDATION_PARAMETERS = [
   "database-secret-arn",
   "config-bucket",
   "telemetry-table",
+  "builds-queue-url",
 ];
 
 const need = (from: Record<string, string | undefined>, key: string) => {
@@ -206,6 +207,8 @@ export function workerVariables(config: Deployment, sources: Sources) {
     GLN_DB_SECRET_ARN: need(sources.parameters, "database-secret-arn"),
     GLN_CONFIG_BUCKET: need(sources.parameters, "config-bucket"),
     GLN_TELEMETRY_TABLE: need(sources.parameters, "telemetry-table"),
+    // HTML builds run on the builder Lambda.
+    GLN_BUILDS_QUEUE_URL: need(sources.parameters, "builds-queue-url"),
     GLN_PAGE_BUCKET: need(page, "PageBucket"),
     GLN_PAGE_REGION: config.pageRegions.primary,
     GLN_PAGE_URL: `https://${config.pageDomain ?? need(page, "DistributionDomain")}`,
