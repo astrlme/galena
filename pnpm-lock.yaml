@@ -247,6 +247,9 @@ importers:
       '@fontsource-variable/atkinson-hyperlegible-next':
         specifier: ^5.3.0
         version: 5.3.0
+      '@galena/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@galena/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -260,9 +263,6 @@ importers:
       '@axe-core/playwright':
         specifier: ^4.13.0
         version: 4.13.0(playwright-core@1.63.0)
-      '@galena/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       '@galena/publisher':
         specifier: workspace:*
         version: link:../../packages/publisher

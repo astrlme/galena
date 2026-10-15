@@ -4,6 +4,11 @@
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
+  "files": [
+    "astro.config.mjs",
+    "tsconfig.json",
+    "src"
+  ],
   "scripts": {
     "dev": "astro dev --port 4321",
     "build": "astro build",
@@ -13,6 +18,7 @@
     "check:page": "pnpm fixture && astro build && node scripts/check-page.mjs"
   },
   "dependencies": {
+    "@galena/config": "workspace:*",
     "@galena/contracts": "workspace:*",
     "@galena/ui": "workspace:*",
     "astro": "7.3.5",
@@ -20,7 +26,6 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
-    "@galena/config": "workspace:*",
     "@galena/publisher": "workspace:*",
     "@playwright/test": "^1.63.0",
     "lighthouse": "13.5.0"
