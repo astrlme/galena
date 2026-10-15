@@ -8,9 +8,10 @@ import { z } from "zod";
  */
 const local = (folder: string) => fileURLToPath(new URL(`../.local/${folder}`, import.meta.url));
 
-// The only place in apps/workers that reads process.env (trigger.config.ts aside). `pnpm
-// trigger:dev` loads apps/workers/.env; in trigger.dev's cloud these come from the project's
-// environment variables.
+// The only place in apps/workers that reads process.env (trigger.config.ts and the Lambda entry,
+// which reads the app key from SSM before this parses, aside). `pnpm trigger:dev` loads
+// apps/workers/.env; in trigger.dev's cloud these come from the project's environment variables,
+// and on Lambda from the function's.
 export const env = z
   .object({
     // Local: the docker-compose database. trigger.dev's cloud: the Data API in GLN_HOME_REGION,

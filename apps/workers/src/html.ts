@@ -78,7 +78,7 @@ export async function readTree(dir: string): Promise<StoredFile[]> {
 const run = promisify(execFile);
 
 // What Node and Astro need to run, and nothing else: the worker's AWS, database and app keys
-// stay out of the build.
+// stay out of the build, and Astro's telemetry stays off.
 const BUILD_ENV = [
   "PATH",
   "HOME",
@@ -118,6 +118,6 @@ export const astroBuild: BuildPage = async (snapshotFile, outDir) => {
   }
   await run(process.execPath, [astro, "build", "--outDir", outDir], {
     cwd: app,
-    env: { ...buildEnv(), GLN_SNAPSHOT_FILE: snapshotFile },
+    env: { ...buildEnv(), ASTRO_TELEMETRY_DISABLED: "1", GLN_SNAPSHOT_FILE: snapshotFile },
   });
 };
