@@ -70,7 +70,7 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
   // Without it every change would commit and then quietly never reach the workers.
   if (!jobs && env.GLN_STAGE !== "local") {
     throw new Error(
-      "Outside local development, set GLN_JOBS_QUEUE_URL and the other job settings.",
+      "Changes would never reach the jobs: outside local development set GLN_JOBS_QUEUE_URL and the six other job queue and Scheduler settings.",
     );
   }
 
