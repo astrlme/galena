@@ -8,8 +8,11 @@ export type SqsEngineDeps = {
   scheduler: Pick<SchedulerClient, "send">;
   clock: Clock;
   queues: JobQueues;
-  /** The deployment's schedule group, and the role Scheduler sends to the queues as. */
-  schedules: { group: string; roleArn: string };
+  /**
+   * The deployment's schedule group, the role Scheduler sends to the queues as, and the standard
+   * queue that keeps a job Scheduler could not deliver.
+   */
+  schedules: { group: string; roleArn: string; deadLetterArn: string };
 };
 
 // SQS takes at most ten messages per batch call.
@@ -38,6 +41,10 @@ export function sqsEngine(deps: SqsEngineDeps): JobEngine {
             RoleArn: schedules.roleArn,
             Input: request.body,
             SqsParameters: { MessageGroupId: request.groupId },
+            // Scheduler retries a failed send for 24 hours, then drops it unseen; an hour, then
+            // the dead-letter queue and its alarm.
+            DeadLetterConfig: { Arn: schedules.deadLetterArn },
+            RetryPolicy: { MaximumEventAgeInSeconds: 3600 },
           },
         }),
       );

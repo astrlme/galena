@@ -90,5 +90,6 @@ export const engineEnv = () =>
       GLN_BUILDS_QUEUE_ARN: arn,
       GLN_SCHEDULE_GROUP: z.string().min(1),
       GLN_SCHEDULER_ROLE_ARN: arn,
+      GLN_SCHEDULE_DEAD_LETTER_ARN: arn,
     })
     .parse(process.env);

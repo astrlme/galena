@@ -7,7 +7,11 @@ const queues = {
   jobs: { url: "https://sqs/jobs.fifo", arn: "arn:aws:sqs:eu-central-1:1:jobs.fifo" },
   builds: { url: "https://sqs/builds.fifo", arn: "arn:aws:sqs:eu-central-1:1:builds.fifo" },
 };
-const schedules = { group: "galena-dev-jobs", roleArn: "arn:aws:iam::1:role/scheduler" };
+const schedules = {
+  group: "galena-dev-jobs",
+  roleArn: "arn:aws:iam::1:role/scheduler",
+  deadLetterArn: "arn:aws:sqs:eu-central-1:1:schedule-dlq",
+};
 const now = new Date("2026-10-15T10:00:00.000Z");
 const later = new Date("2026-10-15T10:10:00.000Z");
 
@@ -54,7 +58,7 @@ test("a job for now is one message on its queue, in its lane", async () => {
   });
 });
 
-test("a job for later is a one-time schedule that deletes itself once it has sent", async () => {
+test("a job for later is a one-time schedule that deletes itself once it has sent, or gives up to the dead letters within an hour", async () => {
   const { engine, sent } = setup();
   await engine.trigger(
     "incident.autopilot",
@@ -74,6 +78,8 @@ test("a job for later is a one-time schedule that deletes itself once it has sen
       RoleArn: schedules.roleArn,
       Input: expect.stringContaining('"key":"auto:i1"'),
       SqsParameters: { MessageGroupId: expect.any(String) },
+      DeadLetterConfig: { Arn: schedules.deadLetterArn },
+      RetryPolicy: { MaximumEventAgeInSeconds: 3600 },
     },
   });
 });

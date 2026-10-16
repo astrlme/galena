@@ -23,7 +23,11 @@ export const handler = sqsLambda(async (sqs) => {
         jobs: { url: host.GLN_JOBS_QUEUE_URL, arn: host.GLN_JOBS_QUEUE_ARN },
         builds: { url: host.GLN_BUILDS_QUEUE_URL, arn: host.GLN_BUILDS_QUEUE_ARN },
       },
-      schedules: { group: host.GLN_SCHEDULE_GROUP, roleArn: host.GLN_SCHEDULER_ROLE_ARN },
+      schedules: {
+        group: host.GLN_SCHEDULE_GROUP,
+        roleArn: host.GLN_SCHEDULER_ROLE_ARN,
+        deadLetterArn: host.GLN_SCHEDULE_DEAD_LETTER_ARN,
+      },
     }),
   );
   // Job modules build their clients, with the app key, when they load: so only now.

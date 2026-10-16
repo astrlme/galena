@@ -38,7 +38,7 @@ const buildsOnAws =
     scheduler: new SchedulerClient({ region: env.GLN_HOME_REGION }),
     clock: { now: () => new Date() },
     queues: { jobs: builds, builds },
-    schedules: { group: "", roleArn: "" },
+    schedules: { group: "", roleArn: "", deadLetterArn: "" },
   });
 
 /** Jobs started from inside a trigger.dev run go back to trigger.dev, builds to AWS if it has them. */

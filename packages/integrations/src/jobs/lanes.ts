@@ -13,6 +13,9 @@ const serial: Record<string, string> = {
   "page.rebuild-html": "builder",
   // A group's firing and resolve messages never race.
   "signal.ingest": "signals",
+  // Scheduled every six hours: a fixed lane gives their recurring schedules a fixed group.
+  "outbox.sweep": "sweep",
+  "rollup.uptime": "rollup",
 };
 
 /** SES's send rate allows a few emails at once. */

@@ -1,3 +1,4 @@
+import { cronPatterns } from "@galena/integrations/jobs";
 import type { Job } from "../runner.ts";
 import { incidentAutopilotJob } from "./incident-autopilot.ts";
 import { maintenanceLifecycleJob } from "./maintenance-lifecycle.ts";
@@ -40,12 +41,9 @@ export const jobs: ReadonlyMap<string, Job<unknown>> = new Map(
   ].map((job) => [job.name, job as unknown as Job<unknown>]),
 );
 
-/**
- * The scheduled jobs, in cron syntax (UTC). The sweep and the rollup share a minute so Aurora
- * wakes once; each wake costs about ten minutes of capacity.
- */
+/** The scheduled jobs, with the patterns every engine uses. */
 export const crons = {
-  outboxSweep: { job: outboxSweepJob, pattern: "5 */6 * * *" },
-  rollupUptime: { job: rollupUptimeJob, pattern: "5 */6 * * *" },
-  pageHeartbeat: { job: pageHeartbeatJob, pattern: "35 * * * *" },
+  outboxSweep: { job: outboxSweepJob, pattern: cronPatterns["outbox.sweep"] },
+  rollupUptime: { job: rollupUptimeJob, pattern: cronPatterns["rollup.uptime"] },
+  pageHeartbeat: { job: pageHeartbeatJob, pattern: cronPatterns["page.heartbeat"] },
 };
