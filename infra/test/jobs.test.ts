@@ -171,6 +171,52 @@ test("the builder may build and upload the page, and no more: no app key, email 
   expect(resources).not.toMatch(/monitors\.json|published\.json|configbucket/);
 });
 
+test("the scheduled jobs run from Scheduler into the jobs queue, in their lanes, with the time they were due", () => {
+  const schedules = Object.values(template.findResources("AWS::Scheduler::Schedule")).map(
+    (r) => r.Properties,
+  );
+  const byJob = new Map(schedules.map((p) => [JSON.parse(p.Target.Input).job, p]));
+  expect([...byJob.keys()].sort()).toEqual(["outbox.sweep", "page.heartbeat", "rollup.uptime"]);
+  expect(byJob.get("page.heartbeat")).toMatchObject({
+    GroupName: "galena-dev-jobs",
+    ScheduleExpression: "cron(35 * * * ? *)",
+    ScheduleExpressionTimezone: "UTC",
+    FlexibleTimeWindow: { Mode: "OFF" },
+    Target: {
+      SqsParameters: { MessageGroupId: "publisher" },
+      RetryPolicy: { MaximumEventAgeInSeconds: 3600 },
+      DeadLetterConfig: { Arn: expect.anything() },
+    },
+  });
+  expect(JSON.parse(byJob.get("outbox.sweep")?.Target.Input)).toEqual({
+    job: "outbox.sweep",
+    key: "cron:outbox.sweep:<aws.scheduler.scheduled-time>",
+    payload: { timestamp: "<aws.scheduler.scheduled-time>" },
+  });
+  expect(byJob.get("rollup.uptime")?.ScheduleExpression).toBe("cron(5 0/6 * * ? *)");
+});
+
+test("the functions log to named groups, and two hours without a heartbeat alarm", () => {
+  const names = Object.values(template.findResources("AWS::Logs::LogGroup")).map(
+    (g) => g.Properties.LogGroupName,
+  );
+  expect(names.sort()).toEqual(["/galena/dev/builder", "/galena/dev/jobs"]);
+  template.hasResourceProperties("AWS::Logs::MetricFilter", {
+    FilterPattern: '{ $.message = "page.heartbeat" }',
+    MetricTransformations: [
+      { MetricNamespace: "Galena", MetricName: "heartbeat_runs", MetricValue: "1" },
+    ],
+  });
+  template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+    MetricName: "heartbeat_runs",
+    Period: 3600,
+    EvaluationPeriods: 2,
+    Threshold: 1,
+    ComparisonOperator: "LessThanThreshold",
+    TreatMissingData: "breaching",
+  });
+});
+
 test("passes cdk-nag AwsSolutions", () => {
   expect(() => app.synth()).not.toThrow();
 });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
-import { defineJob, FinalError, runAttempt } from "./runner.ts";
+import { cronPayload, defineJob, FinalError, runAttempt } from "./runner.ts";
 
 const failures: unknown[] = [];
 const job = (
@@ -112,4 +112,9 @@ describe("runAttempt", () => {
     });
     expect((await runAttempt(once, {}, 1)).outcome).toBe("failed");
   });
+});
+
+test("a scheduled job takes the time as Scheduler sends it, without milliseconds", () => {
+  expect(cronPayload.safeParse({ timestamp: "2026-10-15T08:35:00Z" }).success).toBe(true);
+  expect(cronPayload.safeParse({ timestamp: "2026-10-15T08:35:00.000Z" }).success).toBe(true);
 });

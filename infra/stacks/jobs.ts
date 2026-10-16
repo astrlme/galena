@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { cronPatterns, laneOf, schedulerCron } from "@galena/integrations/jobs";
 import {
   AssetHashType,
   DockerImage,
@@ -9,11 +10,15 @@ import {
   Token,
   Validations,
 } from "aws-cdk-lib";
+import { ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
+import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
 import { type IRole, PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { Architecture, Code, Function as LambdaFunction, Runtime } from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
+import { FilterPattern, LogGroup, MetricFilter, RetentionDays } from "aws-cdk-lib/aws-logs";
+import { CfnSchedule, ContextAttribute } from "aws-cdk-lib/aws-scheduler";
+import { Topic } from "aws-cdk-lib/aws-sns";
 import { Queue } from "aws-cdk-lib/aws-sqs";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
@@ -83,7 +88,11 @@ export class JobsStack extends Stack {
       }
     };
 
-    const jobsLogs = new LogGroup(this, "JobsLogs", { retention: RetentionDays.ONE_MONTH });
+    // Named, so operators and the smoke test find them: every job logs its name and outcome.
+    const jobsLogs = new LogGroup(this, "JobsLogs", {
+      logGroupName: `/galena/${stage}/jobs`,
+      retention: RetentionDays.ONE_MONTH,
+    });
     const jobsRole = database.role("JobsRole", jobsLogs);
     grantShared(jobsRole, jobs);
     for (const statement of [
@@ -167,14 +176,65 @@ export class JobsStack extends Stack {
       bundling,
     });
     // One message per call, so a failure retries only itself; ten lanes at a time at most.
+    const jobsQueue = Queue.fromQueueAttributes(this, "JobsQueue", {
+      queueArn: jobs.arn,
+      fifo: true,
+    });
     jobsFunction.addEventSource(
-      new SqsEventSource(
-        Queue.fromQueueAttributes(this, "JobsQueue", { queueArn: jobs.arn, fifo: true }),
-        { batchSize: 1, reportBatchItemFailures: true, maxConcurrency: 10 },
-      ),
+      new SqsEventSource(jobsQueue, {
+        batchSize: 1,
+        reportBatchItemFailures: true,
+        maxConcurrency: 10,
+      }),
     );
 
-    const builderLogs = new LogGroup(this, "BuilderLogs", { retention: RetentionDays.ONE_MONTH });
+    // The scheduled jobs, sent to the jobs queue in their lanes at the minute they name. Each
+    // message carries its time, which also keeps two runs' bodies apart for content dedup.
+    // As the engine creates one-time schedules: Foundation's role already sends to the queue
+    // and to Scheduler's dead-letter queue, and a send that fails for an hour waits there.
+    for (const [job, pattern] of Object.entries(cronPatterns)) {
+      const at = ContextAttribute.scheduledTime;
+      new CfnSchedule(this, `Cron-${job}`, {
+        groupName: access.environment.GLN_SCHEDULE_GROUP,
+        scheduleExpression: schedulerCron(pattern),
+        scheduleExpressionTimezone: "UTC",
+        flexibleTimeWindow: { mode: "OFF" },
+        target: {
+          arn: jobs.arn,
+          roleArn: access.environment.GLN_SCHEDULER_ROLE_ARN,
+          input: JSON.stringify({ job, key: `cron:${job}:${at}`, payload: { timestamp: at } }),
+          sqsParameters: { messageGroupId: laneOf(job, `cron:${job}`) },
+          deadLetterConfig: { arn: access.environment.GLN_SCHEDULE_DEAD_LETTER_ARN },
+          retryPolicy: { maximumEventAgeInSeconds: Duration.hours(1).toSeconds() },
+        },
+      });
+    }
+
+    // Nothing else says the cold path stopped: the hourly heartbeat logs each run, and two hours
+    // without one alarm. Locally the heartbeat logs the same line, but nothing counts it.
+    const heartbeats = new MetricFilter(this, "HeartbeatRuns", {
+      logGroup: jobsLogs,
+      filterPattern: FilterPattern.stringValue("$.message", "=", "page.heartbeat"),
+      metricNamespace: "Galena",
+      metricName: "heartbeat_runs",
+      metricValue: "1",
+    });
+    heartbeats
+      .metric({ period: Duration.hours(1), statistic: "Sum" })
+      .createAlarm(this, "NoHeartbeatAlarm", {
+        alarmDescription:
+          "No page.heartbeat ran for two hours: the jobs, their schedules or Scheduler stopped.",
+        threshold: 1,
+        evaluationPeriods: 2,
+        comparisonOperator: ComparisonOperator.LESS_THAN_THRESHOLD,
+        treatMissingData: TreatMissingData.BREACHING,
+      })
+      .addAlarmAction(new SnsAction(Topic.fromTopicArn(this, "Alarms", param("alarm-topic-arn"))));
+
+    const builderLogs = new LogGroup(this, "BuilderLogs", {
+      logGroupName: `/galena/${stage}/builder`,
+      retention: RetentionDays.ONE_MONTH,
+    });
     // The builder runs Astro and Vite, so it gets no more than a build needs: no app key, no
     // config bucket, no email, no Scheduler.
     const builderRole = database.role("BuilderRole", builderLogs);
