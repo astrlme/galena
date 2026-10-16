@@ -94,7 +94,12 @@ test("the API reads its database and job queues from Foundation's parameters and
   }
   // Jobs go to SQS and Scheduler now, so the API holds no trigger.dev key.
   expect(policies).not.toContain("trigger-secret-key");
-  expect(JSON.stringify(template.toJSON())).toMatch(/SsmParameterValuegalenadevjobsqueueurl/);
+  const fn = Object.values(template.findResources("AWS::Lambda::Function")).find(
+    (f) => f.Properties.Environment?.Variables?.GLN_AUTH_SECRET_PARAM,
+  );
+  expect(Object.keys(fn?.Properties.Environment.Variables ?? {})).toEqual(
+    expect.arrayContaining(["GLN_JOBS_QUEUE_URL", "GLN_SCHEDULE_DEAD_LETTER_ARN"]),
+  );
 });
 
 test("migrations run on deploy through a trigger with room for Aurora to resume", () => {

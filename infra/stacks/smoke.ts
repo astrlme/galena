@@ -19,6 +19,7 @@ import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
+import { jobsLogGroupName } from "./jobs.ts";
 
 const GITHUB_OIDC = "token.actions.githubusercontent.com";
 
@@ -94,7 +95,7 @@ export class SmokeStack extends Stack {
     const jobsLog = this.formatArn({
       service: "logs",
       resource: "log-group",
-      resourceName: `/galena/${stage}/jobs`,
+      resourceName: jobsLogGroupName(stage),
       arnFormat: ArnFormat.COLON_RESOURCE_NAME,
     });
     const ssmArn = (name: string) =>
@@ -127,11 +128,14 @@ export class SmokeStack extends Stack {
       role.addToPolicy(statement);
     }
 
+    // cdk-nag names a wildcard by its resource as synthesised: tokens become placeholders.
+    const asNagShows = (value: string, placeholder: string) =>
+      Token.isUnresolved(value) ? placeholder : value;
+    const region = asNagShows(this.region, "<AWS::Region>");
+    const account = asNagShows(this.account, "<AWS::AccountId>");
     for (const partition of ["aws", "<AWS::Partition>"]) {
-      const shown = (value: string, placeholder: string) =>
-        Token.isUnresolved(value) ? placeholder : value;
       Validations.of(role).acknowledge({
-        id: `AwsSolutions-IAM5[Resource::arn:${partition}:logs:${shown(this.region, "<AWS::Region>")}:${shown(this.account, "<AWS::AccountId>")}:log-group:/galena/${stage}/jobs:*]`,
+        id: `AwsSolutions-IAM5[Resource::arn:${partition}:logs:${region}:${account}:log-group:${jobsLogGroupName(stage)}:*]`,
         reason: "CloudWatch Logs authorizes reading a log group as its ARN with :*, its streams.",
       });
     }

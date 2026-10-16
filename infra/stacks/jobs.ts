@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { cronPatterns, laneOf, schedulerCron } from "@galena/integrations/jobs";
+import { cronPatterns, type JobMessage, laneOf, schedulerCron } from "@galena/integrations/jobs";
 import {
   AssetHashType,
   DockerImage,
@@ -32,6 +32,9 @@ import { pageBucketName } from "./status-page.ts";
  * The background jobs on Lambda, fed by Foundation's FIFO queues: one function for every job but
  * the HTML build, and the builder, which carries the status app to run `astro build`.
  */
+/** Where the jobs function logs: each job's name and outcome, one line per run. */
+export const jobsLogGroupName = (stage: string) => `/galena/${stage}/jobs`;
+
 export class JobsStack extends Stack {
   constructor(
     scope: Construct,
@@ -90,7 +93,7 @@ export class JobsStack extends Stack {
 
     // Named, so operators and the smoke test find them: every job logs its name and outcome.
     const jobsLogs = new LogGroup(this, "JobsLogs", {
-      logGroupName: `/galena/${stage}/jobs`,
+      logGroupName: jobsLogGroupName(stage),
       retention: RetentionDays.ONE_MONTH,
     });
     const jobsRole = database.role("JobsRole", jobsLogs);
@@ -194,17 +197,23 @@ export class JobsStack extends Stack {
     // and to Scheduler's dead-letter queue, and a send that fails for an hour waits there.
     for (const [job, pattern] of Object.entries(cronPatterns)) {
       const at = ContextAttribute.scheduledTime;
+      // Scheduled jobs have fixed lanes, so any key names the lane every run uses.
+      const message = {
+        job,
+        key: `cron:${job}:${at}`,
+        payload: { timestamp: at },
+      } satisfies JobMessage;
       new CfnSchedule(this, `Cron-${job}`, {
-        groupName: access.environment.GLN_SCHEDULE_GROUP,
+        groupName: access.schedules.group,
         scheduleExpression: schedulerCron(pattern),
         scheduleExpressionTimezone: "UTC",
         flexibleTimeWindow: { mode: "OFF" },
         target: {
           arn: jobs.arn,
-          roleArn: access.environment.GLN_SCHEDULER_ROLE_ARN,
-          input: JSON.stringify({ job, key: `cron:${job}:${at}`, payload: { timestamp: at } }),
-          sqsParameters: { messageGroupId: laneOf(job, `cron:${job}`) },
-          deadLetterConfig: { arn: access.environment.GLN_SCHEDULE_DEAD_LETTER_ARN },
+          roleArn: access.schedules.roleArn,
+          input: JSON.stringify(message),
+          sqsParameters: { messageGroupId: laneOf(job, message.key) },
+          deadLetterConfig: { arn: access.schedules.deadLetterArn },
           retryPolicy: { maximumEventAgeInSeconds: Duration.hours(1).toSeconds() },
         },
       });

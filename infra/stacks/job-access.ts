@@ -15,8 +15,11 @@ export function jobAccess(scope: Stack, stage: string) {
   const builds = param("builds-queue-arn");
   const group = jobScheduleGroup(stage);
   const schedulerRole = param("job-scheduler-role-arn");
+  const scheduleDeadLetterArn = param("schedule-dead-letter-arn");
 
   return {
+    /** The schedule group, the role Scheduler sends as, and where it keeps what it couldn't. */
+    schedules: { group, roleArn: schedulerRole, deadLetterArn: scheduleDeadLetterArn },
     environment: {
       GLN_JOBS_QUEUE_URL: param("jobs-queue-url"),
       GLN_JOBS_QUEUE_ARN: jobs,
@@ -24,7 +27,7 @@ export function jobAccess(scope: Stack, stage: string) {
       GLN_BUILDS_QUEUE_ARN: builds,
       GLN_SCHEDULE_GROUP: group,
       GLN_SCHEDULER_ROLE_ARN: schedulerRole,
-      GLN_SCHEDULE_DEAD_LETTER_ARN: param("schedule-dead-letter-arn"),
+      GLN_SCHEDULE_DEAD_LETTER_ARN: scheduleDeadLetterArn,
     },
     /**
      * Lets `role` send jobs to the jobs queue, and the HTML build to its own with `builds`; with

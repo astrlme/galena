@@ -10,7 +10,8 @@ export const cronPatterns = {
 
 /**
  * A five-field pattern as an EventBridge Scheduler expression (six fields, `?` for the weekday,
- * `0/n` for a step). Only minute and hour may be set, as in every schedule here.
+ * `0/n` for a step). Known limit: only minute and hour may be set, as in every schedule here; a
+ * daily or weekly job would map day, month and weekday too (Scheduler takes `?` in one of them).
  */
 export function schedulerCron(pattern: string): string {
   const [minute = "", hour = "", ...rest] = pattern.split(" ");
