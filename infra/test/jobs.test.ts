@@ -87,6 +87,7 @@ test("the jobs function gets the workers' settings, its queues and Scheduler, ne
     "GLN_PAGE_URL",
     "GLN_QUEUE_URL",
     "GLN_SCHEDULER_ROLE_ARN",
+    "GLN_SCHEDULE_DEAD_LETTER_ARN",
     "GLN_SCHEDULE_GROUP",
     "GLN_SES_CONFIGURATION_SET",
     "GLN_TELEMETRY_TABLE",

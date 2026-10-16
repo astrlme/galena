@@ -20,7 +20,7 @@ import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
 import { bundling, source } from "./bundling.ts";
 import { dataApiAccess } from "./data-api.ts";
-import { jobScheduleGroup } from "./foundation.ts";
+import { jobAccess } from "./job-access.ts";
 import { pageBucketName } from "./status-page.ts";
 
 /**
@@ -51,8 +51,7 @@ export class JobsStack extends Stack {
     });
     const jobs = queue("jobs");
     const builds = queue("builds");
-    const scheduleGroup = jobScheduleGroup(stage);
-    const schedulerRole = param("job-scheduler-role-arn");
+    const access = jobAccess(this, stage);
     const configBucket = `arn:${this.partition}:s3:::${param("config-bucket")}`;
     const pageBucket = `arn:${this.partition}:s3:::${pageBucketName(stage, this.account)}`;
     const appKey = `/galena/${stage}/app-key`;
@@ -94,23 +93,6 @@ export class JobsStack extends Stack {
           this.formatArn({ service: "ssm", resource: "parameter", resourceName: appKey.slice(1) }),
         ],
       }),
-      // Jobs start other jobs: now on either queue, later through a one-time schedule.
-      new PolicyStatement({ actions: ["sqs:SendMessage"], resources: [jobs.arn, builds.arn] }),
-      new PolicyStatement({
-        actions: ["scheduler:CreateSchedule"],
-        resources: [
-          this.formatArn({
-            service: "scheduler",
-            resource: "schedule",
-            resourceName: `${scheduleGroup}/*`,
-          }),
-        ],
-      }),
-      new PolicyStatement({
-        actions: ["iam:PassRole"],
-        resources: [schedulerRole],
-        conditions: { StringEquals: { "iam:PassedToService": "scheduler.amazonaws.com" } },
-      }),
       // outbox.dispatch rebuilds monitors.json after every monitor change.
       new PolicyStatement({
         actions: ["s3:PutObject"],
@@ -137,6 +119,8 @@ export class JobsStack extends Stack {
     ]) {
       jobsRole.addToPrincipalPolicy(statement);
     }
+    // Jobs start other jobs: now on either queue, later through a one-time schedule.
+    access.grant(jobsRole, { builds: true, schedule: true });
     // notify.email sends as the stage's identity, through its configuration set only.
     if (config.email) {
       jobsRole.addToPrincipalPolicy(
@@ -178,12 +162,7 @@ export class JobsStack extends Stack {
           ? { GLN_EMAIL_FROM: config.email.from, GLN_SES_CONFIGURATION_SET: `galena-${stage}` }
           : {}),
         GLN_APP_KEY_PARAM: appKey,
-        GLN_JOBS_QUEUE_URL: jobs.url,
-        GLN_JOBS_QUEUE_ARN: jobs.arn,
-        GLN_BUILDS_QUEUE_URL: builds.url,
-        GLN_BUILDS_QUEUE_ARN: builds.arn,
-        GLN_SCHEDULE_GROUP: scheduleGroup,
-        GLN_SCHEDULER_ROLE_ARN: schedulerRole,
+        ...access.environment,
       },
       bundling,
     });
@@ -241,7 +220,6 @@ export class JobsStack extends Stack {
     const asNagShows = (value: string, placeholder: string) =>
       Token.isUnresolved(value) ? placeholder : value;
     const account = asNagShows(this.account, "<AWS::AccountId>");
-    const region = asNagShows(this.region, "<AWS::Region>");
     for (const partition of ["aws", "<AWS::Partition>"]) {
       for (const role of [jobsRole, builderRole]) {
         Validations.of(role).acknowledge({
@@ -250,11 +228,6 @@ export class JobsStack extends Stack {
             "The page's files are named by incident and build hash, so publishing writes any key under pages/.",
         });
       }
-      Validations.of(jobsRole).acknowledge({
-        id: `AwsSolutions-IAM5[Resource::arn:${partition}:scheduler:${region}:${account}:schedule/${scheduleGroup}/*]`,
-        reason:
-          "Schedules are named by the hash of each job's key, so jobs create any schedule in the deployment's own group.",
-      });
     }
   }
 }
