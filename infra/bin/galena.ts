@@ -53,7 +53,10 @@ for (const region of config.probeRegions) {
     crossRegionReferences: true,
   });
 }
-new DetectionStack(app, `galena-${config.stage}-detection`, { env, config });
+// Both read Foundation's queues and Scheduler settings from SSM when they deploy.
+new DetectionStack(app, `galena-${config.stage}-detection`, { env, config }).addStackDependency(
+  foundation,
+);
 if (config.smoke && config.github) {
   new SmokeStack(app, `galena-${config.stage}-smoke`, {
     env,
@@ -61,6 +64,7 @@ if (config.smoke && config.github) {
   });
 }
 const api = new ApiStack(app, `galena-${config.stage}-api`, { env, config });
+api.addStackDependency(foundation);
 const webCertificate = config.webDomain
   ? new CertificateStack(app, `galena-${config.stage}-dashboard-certificate`, {
       env: inRegion("us-east-1"),
