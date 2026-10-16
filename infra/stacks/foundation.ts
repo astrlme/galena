@@ -233,10 +233,33 @@ export class FoundationStack extends Stack {
         },
       }),
     });
+    // A job Scheduler couldn't deliver within an hour waits here with what it held, for a person
+    // to send again. Scheduler can only use a standard queue for this.
+    const scheduleDeadLetters = new Queue(this, "ScheduleDlq", {
+      retentionPeriod: Duration.days(14),
+      encryption: QueueEncryption.SQS_MANAGED,
+      enforceSSL: true,
+    });
+    Validations.of(scheduleDeadLetters).acknowledge({
+      id: "AwsSolutions-SQS3",
+      reason:
+        "This is Scheduler's dead-letter queue; an alarm on its depth replaces a queue behind it.",
+    });
+    scheduleDeadLetters
+      .metricApproximateNumberOfMessagesVisible({ period: Duration.minutes(5) })
+      .createAlarm(this, "ScheduleDeadLetterAlarm", {
+        alarmDescription:
+          "Scheduler could not deliver a job for an hour; it waits in the dead-letter queue.",
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+      })
+      .addAlarmAction(notify);
     scheduler.addToPolicy(
       new PolicyStatement({
         actions: ["sqs:SendMessage"],
-        resources: [jobs.queue.queueArn, builds.queue.queueArn],
+        resources: [jobs.queue.queueArn, builds.queue.queueArn, scheduleDeadLetters.queueArn],
       }),
     );
 
@@ -270,6 +293,7 @@ export class FoundationStack extends Stack {
       "builds-dead-letter-url": builds.deadLetters.queueUrl,
       "builds-dead-letter-arn": builds.deadLetters.queueArn,
       "job-scheduler-role-arn": scheduler.roleArn,
+      "schedule-dead-letter-arn": scheduleDeadLetters.queueArn,
     };
     for (const [name, value] of Object.entries(parameters)) {
       new StringParameter(this, `Param-${name}`, {

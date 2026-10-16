@@ -66,10 +66,11 @@ test("telemetry is provisioned within the free tier, with TTL", () => {
   expect(() => checkSharedFreeTier([fixture, greedy])).toThrow(/read capacity adds up to 26/);
 });
 
-test("every queue is FIFO; check results dedupe by the probe's id, with a FIFO dead-letter queue", () => {
+test("check results dedupe by the probe's id on FIFO; only Scheduler's dead-letter queue is standard", () => {
   const queues = resources("AWS::SQS::Queue");
-  expect(queues).toHaveLength(6);
-  for (const queue of queues) expect(queue.Properties.FifoQueue).toBe(true);
+  // Six FIFO queues; Scheduler's dead-letter queue must be a standard one.
+  expect(queues.filter((q) => q.Properties.FifoQueue)).toHaveLength(6);
+  expect(queues).toHaveLength(7);
   dev.template.hasResourceProperties("AWS::SQS::Queue", {
     ContentBasedDeduplication: false,
     RedrivePolicy: { maxReceiveCount: 5 },
@@ -121,7 +122,13 @@ test("Scheduler sends jobs for later only into the job queues, only for the grou
     "Fn::GetAtt": [expect.stringMatching(new RegExp(`^${id}[0-9A-F]{8}$`)), "Arn"],
   });
   expect(policies).toEqual([
-    [{ Effect: "Allow", Action: "sqs:SendMessage", Resource: [queue("Jobs"), queue("Builds")] }],
+    [
+      {
+        Effect: "Allow",
+        Action: "sqs:SendMessage",
+        Resource: [queue("Jobs"), queue("Builds"), queue("ScheduleDlq")],
+      },
+    ],
   ]);
 });
 
@@ -168,6 +175,7 @@ test("alarms on dead letters, stuck jobs and silent probes, to a TLS-only topic 
     ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],
     ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],
     ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],
+    ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],
     ["NumberOfMessagesSent", "LessThanThreshold", "breaching"],
   ]);
   for (const alarm of alarms) {
@@ -194,6 +202,7 @@ test("publishes the identifiers other stacks and the workers read", () => {
       "jobs-dead-letter-url",
       "jobs-queue-arn",
       "jobs-queue-url",
+      "schedule-dead-letter-arn",
       "telemetry-table",
     ].map((name) => `/galena/dev/${name}`),
   );
