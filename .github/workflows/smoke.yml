@@ -1,7 +1,7 @@
 name: Smoke
 
 # Stops and restarts a test endpoint in dev and follows the outage through the probes, the
-# evaluator and trigger.dev. Runs after every successful deploy, or by hand.
+# evaluator and the jobs. Runs after every successful deploy, or by hand.
 on:
   workflow_run:
     workflows: [Deploy]

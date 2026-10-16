@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Deployed smoke test: stops the smoke target, waits for its monitor to go down with failing
-# results from every probe region, restarts it, waits for recovery, and checks that trigger.dev
-# ran `monitor.state-changed` exactly once per transition. Runs in CI with the smoke role; locally
-# with credentials that can do the same, in the home region.
+# results from every probe region, restarts it, waits for recovery, and checks from their log that
+# the jobs ran `monitor.state-changed` exactly once per transition. Runs in CI with the smoke role;
+# locally with credentials that can do the same, in the home region.
 set -euo pipefail
 export MSYS_NO_PATHCONV=1 # Git Bash would rewrite the /galena/... parameter names
 stage=${GLN_STAGE:-dev}
@@ -13,8 +13,7 @@ bucket=$(param config-bucket)
 target=$(param smoke-target-function)
 url=$(param smoke-target-url)
 regions=$(param probe-regions | tr ',' '\n' | sort | paste -sd, -)
-key=$(param trigger-secret-key --with-decryption)
-if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::add-mask::$key"; fi
+jobs_log=/galena/$stage/jobs
 
 monitor=$(aws s3 cp "s3://$bucket/monitors.json" - |
   jq -r --arg url "$url" 'first(.monitors[] | select(.http.url == $url) | .id) // empty')
@@ -83,17 +82,13 @@ echo "Target restarted at $(date -u +%H:%M:%S)."
 wait_for "recovering|up" 8
 read -r _ after <<<"$(state)"
 
-# One monitor.state-changed run per transition. The evaluator may retry a trigger, so allow it a
-# minute to land; idempotency keys must keep it to one run each.
-api=https://api.trigger.dev
-runs_since=$(((started - 120) * 1000))
+# One monitor.state-changed run per transition, each logging its line once. The evaluator may
+# send a transition again, so allow it a minute to land; deduplication must keep it to one run.
+since=$(((started - 120) * 1000))
 for attempt in 1 2 3 4; do
-  seqs=$(curl -fsS -H "Authorization: Bearer $key" \
-    "$api/api/v1/runs?filter%5BtaskIdentifier%5D=monitor.state-changed&filter%5Btag%5D=monitor:$monitor&filter%5BcreatedAt%5D%5Bfrom%5D=$runs_since&page%5Bsize%5D=100" |
-    jq -r '.data[].id' |
-    while read -r run; do
-      curl -fsS -H "Authorization: Bearer $key" "$api/api/v3/runs/$run" | jq -r '.payload.data.transitionSeq'
-    done | sort -n)
+  seqs=$(aws logs filter-log-events --log-group-name "$jobs_log" --start-time "$since" \
+    --filter-pattern "{ \$.message = \"monitor.state-changed\" && \$.monitorId = \"$monitor\" }" \
+    --query 'events[].message' --output json | jq -r '.[] | fromjson | .transitionSeq' | sort -n)
   expected=$(seq $((before + 1)) "$after")
   actual=$(awk -v lo="$before" -v hi="$after" '$1 > lo && $1 <= hi' <<<"$seqs")
   if [ "$actual" = "$expected" ]; then break; fi

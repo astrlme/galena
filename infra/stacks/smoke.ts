@@ -1,4 +1,12 @@
-import { CfnOutput, Duration, Stack, type StackProps } from "aws-cdk-lib";
+import {
+  ArnFormat,
+  CfnOutput,
+  Duration,
+  Stack,
+  type StackProps,
+  Token,
+  Validations,
+} from "aws-cdk-lib";
 import { PolicyStatement, Role, ServicePrincipal, WebIdentityPrincipal } from "aws-cdk-lib/aws-iam";
 import {
   Architecture,
@@ -83,6 +91,12 @@ export class SmokeStack extends Stack {
     });
     const telemetry = StringParameter.valueForStringParameter(this, param("telemetry-table"));
     const configBucket = StringParameter.valueForStringParameter(this, param("config-bucket"));
+    const jobsLog = this.formatArn({
+      service: "logs",
+      resource: "log-group",
+      resourceName: `/galena/${stage}/jobs`,
+      arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+    });
     const ssmArn = (name: string) =>
       this.formatArn({ service: "ssm", resource: "parameter", resourceName: param(name).slice(1) });
     for (const statement of [
@@ -100,18 +114,26 @@ export class SmokeStack extends Stack {
         actions: ["s3:GetObject"],
         resources: [`arn:${this.partition}:s3:::${configBucket}/monitors.json`],
       }),
-      // The trigger.dev key counts `monitor.state-changed` runs; the rest locate things.
       new PolicyStatement({
         actions: ["ssm:GetParameter"],
-        resources: [
-          "telemetry-table",
-          "config-bucket",
-          "trigger-secret-key",
-          ...Object.keys(parameters),
-        ].map(ssmArn),
+        resources: ["telemetry-table", "config-bucket", ...Object.keys(parameters)].map(ssmArn),
+      }),
+      // The jobs log counts `monitor.state-changed` runs.
+      new PolicyStatement({
+        actions: ["logs:FilterLogEvents"],
+        resources: [jobsLog, `${jobsLog}:*`],
       }),
     ]) {
       role.addToPolicy(statement);
+    }
+
+    for (const partition of ["aws", "<AWS::Partition>"]) {
+      const shown = (value: string, placeholder: string) =>
+        Token.isUnresolved(value) ? placeholder : value;
+      Validations.of(role).acknowledge({
+        id: `AwsSolutions-IAM5[Resource::arn:${partition}:logs:${shown(this.region, "<AWS::Region>")}:${shown(this.account, "<AWS::AccountId>")}:log-group:/galena/${stage}/jobs:*]`,
+        reason: "CloudWatch Logs authorizes reading a log group as its ARN with :*, its streams.",
+      });
     }
 
     new CfnOutput(this, "SmokeRoleArn", { value: role.roleArn });
