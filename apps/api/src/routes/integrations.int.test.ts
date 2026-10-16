@@ -132,7 +132,7 @@ test("a hook hands each alert group to signal.ingest without reading the databas
   );
   expect(url).toContain(String(Date.parse(tokenIssuedAt) / 1000));
 
-  // Alertmanager repeating the group gives the same key, so trigger.dev starts no second run.
+  // Alertmanager repeating the group gives the same key, so the queue takes no second job.
   await post(url, firing);
   expect(triggered[1]?.idempotencyKey).toBe(run?.idempotencyKey);
 
@@ -170,7 +170,7 @@ test("a hook whose run can't be started answers 500 and keeps its token out of t
   const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
   deps.engine = {
     trigger: async () => {
-      throw new Error("trigger.dev is unreachable");
+      throw new Error("the job queue is unreachable");
     },
   };
   try {

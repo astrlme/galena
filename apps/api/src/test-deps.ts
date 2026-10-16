@@ -19,7 +19,7 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
     secret: "test-secret-that-is-at-least-32-chars",
     baseURL: TEST_BASE_URL,
   });
-  // Records what the API hands to trigger.dev instead of calling it.
+  // Records the jobs the API starts instead of starting them.
   const triggered: Triggered[] = [];
   const engine: WorkflowEngine = {
     async trigger(task, payload, { idempotencyKey, at }) {

@@ -38,6 +38,7 @@ test("the API and migration roles get logs, the Data API, their secrets and tele
   expect([...actions].sort()).toEqual([
     "dynamodb:BatchGetItem",
     "dynamodb:Query",
+    "iam:PassRole",
     "logs:CreateLogStream",
     "logs:PutLogEvents",
     "rds-data:BatchExecuteStatement",
@@ -45,8 +46,10 @@ test("the API and migration roles get logs, the Data API, their secrets and tele
     "rds-data:CommitTransaction",
     "rds-data:ExecuteStatement",
     "rds-data:RollbackTransaction",
+    "scheduler:CreateSchedule",
     "secretsmanager:DescribeSecret",
     "secretsmanager:GetSecretValue",
+    "sqs:SendMessage",
     "ssm:GetParameter",
   ]);
 });
@@ -67,7 +70,7 @@ test("generates the origin secret, copies it to the page region, and the API rea
   });
 });
 
-test("the API reads its database from Foundation's parameters and its secrets from SSM", () => {
+test("the API reads its database and job queues from Foundation's parameters and its secrets from SSM", () => {
   template.hasResourceProperties("AWS::Lambda::Function", {
     Timeout: 29,
     Environment: {
@@ -75,7 +78,7 @@ test("the API reads its database from Foundation's parameters and its secrets fr
         GLN_STAGE: "dev",
         GLN_DB_NAME: "galena",
         GLN_AUTH_SECRET_PARAM: "/galena/dev/auth-secret",
-        GLN_TRIGGER_SECRET_PARAM: "/galena/dev/trigger-secret-key",
+        GLN_SCHEDULE_GROUP: "galena-dev-jobs",
         GLN_APP_KEY_PARAM: "/galena/dev/app-key",
         GLN_SETUP_TOKEN_PARAM: "/galena/dev/setup-token",
         GLN_SLACK_APP_PARAM: "/galena/dev/slack-app",
@@ -86,9 +89,12 @@ test("the API reads its database from Foundation's parameters and its secrets fr
     },
   });
   const policies = JSON.stringify(template.findResources("AWS::IAM::Policy"));
-  for (const name of ["auth-secret", "trigger-secret-key", "app-key", "setup-token", "slack-app"]) {
+  for (const name of ["auth-secret", "app-key", "setup-token", "slack-app"]) {
     expect(policies).toContain(`parameter/galena/dev/${name}`);
   }
+  // Jobs go to SQS and Scheduler now, so the API holds no trigger.dev key.
+  expect(policies).not.toContain("trigger-secret-key");
+  expect(JSON.stringify(template.toJSON())).toMatch(/SsmParameterValuegalenadevjobsqueueurl/);
 });
 
 test("migrations run on deploy through a trigger with room for Aurora to resume", () => {

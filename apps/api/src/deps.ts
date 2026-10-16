@@ -5,10 +5,10 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { type SlackAppConfig, slackAppConfig } from "@galena/contracts";
 import type { WorkflowEngine } from "@galena/core";
 import { createDb, type DbConfig } from "@galena/db";
+import { awsJobEngine } from "@galena/integrations/jobs";
 import { guard } from "@galena/integrations/net";
 import { appKeys, LOCAL_APP_KEY } from "@galena/integrations/secrets";
 import { slackApi } from "@galena/integrations/slack";
-import { configure, tasks } from "@trigger.dev/sdk";
 import type { Deps } from "./app.ts";
 import { createAuth } from "./auth.ts";
 import { env } from "./env.ts";
@@ -66,16 +66,13 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     ...(github ? { github } : {}),
   });
 
-  const triggerKey =
-    env.TRIGGER_SECRET_KEY ??
-    (env.GLN_TRIGGER_SECRET_PARAM ? await parameter(env.GLN_TRIGGER_SECRET_PARAM) : undefined);
+  const jobs = jobEngine();
   // Without it every change would commit and then quietly never reach the workers.
-  if (!triggerKey && env.GLN_STAGE !== "local") {
+  if (!jobs && env.GLN_STAGE !== "local") {
     throw new Error(
-      "Outside local development, set GLN_TRIGGER_SECRET_PARAM (an SSM SecureString).",
+      "Outside local development, set GLN_JOBS_QUEUE_URL and the other job settings.",
     );
   }
-  if (triggerKey) configure({ accessToken: triggerKey });
 
   let appKey =
     env.GLN_APP_KEY ?? (env.GLN_APP_KEY_PARAM ? await parameter(env.GLN_APP_KEY_PARAM) : undefined);
@@ -127,7 +124,7 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
   return {
     db,
     auth,
-    engine: triggerKey ? triggerDev : notConfigured,
+    engine: jobs ?? notConfigured,
     telemetry,
     targets: targetGuard(env.GLN_STAGE, env.GLN_ALLOW_LOOPBACK),
     keys: appKeys(appKey),
@@ -164,18 +161,29 @@ function safeJson(text: string): unknown {
   }
 }
 
-const triggerDev: WorkflowEngine = {
-  async trigger(task, payload, { idempotencyKey, at, tags }) {
-    await tasks.trigger(task, payload, {
-      idempotencyKey,
-      ...(at ? { delay: at } : {}),
-      ...(tags ? { tags } : {}),
-    });
-  },
-};
+/** The deployment's job queues and Scheduler, when every setting is there. */
+function jobEngine(): WorkflowEngine | undefined {
+  const {
+    GLN_JOBS_QUEUE_URL: jobsUrl,
+    GLN_JOBS_QUEUE_ARN: jobsArn,
+    GLN_BUILDS_QUEUE_URL: buildsUrl,
+    GLN_BUILDS_QUEUE_ARN: buildsArn,
+    GLN_SCHEDULE_GROUP: group,
+    GLN_SCHEDULER_ROLE_ARN: roleArn,
+    GLN_SCHEDULE_DEAD_LETTER_ARN: deadLetterArn,
+  } = env;
+  if (!jobsUrl || !jobsArn || !buildsUrl || !buildsArn || !group || !roleArn || !deadLetterArn) {
+    return undefined;
+  }
+  return awsJobEngine({
+    queues: { jobs: { url: jobsUrl, arn: jobsArn }, builds: { url: buildsUrl, arn: buildsArn } },
+    schedules: { group, roleArn, deadLetterArn },
+  });
+}
 
+// Locally the dev process hands the API its own engine; this one serves the seed script.
 const notConfigured: WorkflowEngine = {
   async trigger(task) {
-    console.warn(`No trigger.dev secret key is set, so ${task} was not triggered.`);
+    console.warn(`No job queue is set, so ${task} was not started.`);
   },
 };

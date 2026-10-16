@@ -36,14 +36,19 @@ export const env = z
     GLN_ALLOW_LOOPBACK: z.stringbool().default(false),
     GLN_GITHUB_CLIENT_ID: z.string().min(1).optional(),
     GLN_GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
-    // The trigger.dev secret key: from the env locally, from this SecureString in AWS. Without
-    // it, changes stay in the outbox undispatched.
-    TRIGGER_SECRET_KEY: z.string().min(1).optional(),
     // 32 random bytes, base64: seals stored credentials and signs subscription links. From the
     // env or this SecureString; local development falls back to a fixed development key.
     GLN_APP_KEY: z.string().min(1).optional(),
     GLN_APP_KEY_PARAM: z.string().startsWith("/").optional(),
-    GLN_TRIGGER_SECRET_PARAM: z.string().startsWith("/").optional(),
+    // AWS: where background jobs start, the SQS FIFO queues and, for a job later, Scheduler.
+    // Locally the dev process runs every job itself.
+    GLN_JOBS_QUEUE_URL: z.url().optional(),
+    GLN_JOBS_QUEUE_ARN: z.string().startsWith("arn:").optional(),
+    GLN_BUILDS_QUEUE_URL: z.url().optional(),
+    GLN_BUILDS_QUEUE_ARN: z.string().startsWith("arn:").optional(),
+    GLN_SCHEDULE_GROUP: z.string().min(1).optional(),
+    GLN_SCHEDULER_ROLE_ARN: z.string().startsWith("arn:").optional(),
+    GLN_SCHEDULE_DEAD_LETTER_ARN: z.string().startsWith("arn:").optional(),
     // AWS: the address notification email comes from. Without it the deployment sends no email,
     // so the status page takes no subscriptions.
     GLN_EMAIL_FROM: z.email().optional(),

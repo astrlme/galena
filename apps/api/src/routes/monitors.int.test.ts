@@ -183,7 +183,7 @@ test("a change arms a delayed dispatch first, so a crash after the commit still 
   expect(row).toMatchObject({ eventType: "monitor.changed", dispatchedAt: null });
 });
 
-test("a change still succeeds when trigger.dev is unreachable", async () => {
+test("a change still succeeds when the job queue is unreachable", async () => {
   const unreachable: Deps = {
     ...deps,
     engine: {

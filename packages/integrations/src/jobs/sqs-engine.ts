@@ -1,5 +1,5 @@
-import { CreateScheduleCommand, type SchedulerClient } from "@aws-sdk/client-scheduler";
-import { SendMessageBatchCommand, SendMessageCommand, type SQSClient } from "@aws-sdk/client-sqs";
+import { CreateScheduleCommand, SchedulerClient } from "@aws-sdk/client-scheduler";
+import { SendMessageBatchCommand, SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import type { Clock, JobEngine } from "@galena/core";
 import { type JobQueues, type JobRequest, toRequest } from "./sqs.ts";
 
@@ -98,4 +98,14 @@ export function sqsEngine(deps: SqsEngineDeps): JobEngine {
       }
     },
   };
+}
+
+/** The engine with clients of its own, for a host that starts jobs and runs none (API, evaluator). */
+export function awsJobEngine(settings: Pick<SqsEngineDeps, "queues" | "schedules">): JobEngine {
+  return sqsEngine({
+    ...settings,
+    sqs: new SQSClient({}),
+    scheduler: new SchedulerClient({}),
+    clock: { now: () => new Date() },
+  });
 }

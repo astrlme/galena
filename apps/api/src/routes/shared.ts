@@ -72,7 +72,7 @@ export function eventChange(
  * The change, its audit entry and its outbox row in one transaction; then the outbox row goes to
  * the dispatcher. Before the transaction, a dispatch delayed by a minute is armed for the row's
  * id, so the event still goes out if this process dies between the commit and the trigger after
- * it; if the transaction rolls back, that run finds no row and stops. If trigger.dev is
+ * it; if the transaction rolls back, that run finds no row and stops. If the job queue is
  * unreachable, the request still succeeds and the outbox sweep picks the pending row up.
  */
 export async function commit(deps: Deps, change: Change, write: (tx: Db) => Promise<unknown>) {
