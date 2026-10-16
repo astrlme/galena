@@ -63,12 +63,12 @@ module.exports = {
     {
       name: "hot-path-integrations-net-only",
       comment:
-        "the hot path may use integrations/net (SSRF guard, HTTP checker) and integrations/config (monitors.json), nothing else there",
+        "the hot path may use integrations/net (SSRF guard, HTTP checker), integrations/config (monitors.json) and integrations/jobs (the evaluator's one message per transition), nothing else there",
       severity: "error",
       from: { path: "(?:^|/)apps/(?:probe|evaluator)/" },
       to: {
         path: pkg("integrations"),
-        pathNot: "(?:^|/)packages/integrations/src/(?:net|config)/",
+        pathNot: "(?:^|/)packages/integrations/src/(?:net|config|jobs)/",
       },
     },
     {

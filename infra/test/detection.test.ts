@@ -31,7 +31,7 @@ test("runs the evaluator on Node 24 arm64 Lambda outside any VPC", () => {
     Environment: {
       Variables: {
         GLN_PROBE_REGIONS: "eu-west-1,eu-west-3,eu-north-1",
-        GLN_TRIGGER_SECRET_PARAM: "/galena/dev/trigger-secret-key",
+        GLN_SCHEDULE_GROUP: "galena-dev-jobs",
       },
     },
   });
@@ -47,7 +47,7 @@ test("consumes the queue 10 at a time and reports failed messages one by one", (
   });
 });
 
-test("the evaluator reaches telemetry, monitors.json, the queue and its key, not Postgres", () => {
+test("the evaluator reaches telemetry, monitors.json, its queue and the jobs queue, not Postgres or Scheduler", () => {
   const statements = Object.values(template.findResources("AWS::IAM::Policy")).flatMap(
     (p) => p.Properties.PolicyDocument.Statement,
   );
@@ -64,9 +64,9 @@ test("the evaluator reaches telemetry, monitors.json, the queue and its key, not
     "sqs:GetQueueAttributes",
     "sqs:GetQueueUrl",
     "sqs:ReceiveMessage",
-    "ssm:GetParameter",
+    "sqs:SendMessage",
   ]);
-  expect(JSON.stringify(statements)).not.toMatch(/rds-data|secretsmanager/);
+  expect(JSON.stringify(statements)).not.toMatch(/rds-data|secretsmanager|scheduler|ssm/);
 });
 
 test("passes cdk-nag AwsSolutions", () => {

@@ -12,6 +12,7 @@ import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
 import { bundling, source } from "./bundling.ts";
+import { jobAccess } from "./job-access.ts";
 
 /** apps/evaluator on the check-results queue, in the home region. */
 export class DetectionStack extends Stack {
@@ -27,7 +28,7 @@ export class DetectionStack extends Stack {
       queueArn: param("check-results-queue-arn"),
       fifo: true,
     });
-    const triggerSecret = `/galena/${stage}/trigger-secret-key`;
+    const jobs = jobAccess(this, stage);
 
     const logGroup = new LogGroup(this, "EvaluatorLogs", { retention: RetentionDays.ONE_MONTH });
     const role = new Role(this, "EvaluatorRole", {
@@ -45,19 +46,11 @@ export class DetectionStack extends Stack {
         actions: ["s3:GetObject"],
         resources: [`arn:${this.partition}:s3:::${configBucket}/monitors.json`],
       }),
-      new PolicyStatement({
-        actions: ["ssm:GetParameter"],
-        resources: [
-          this.formatArn({
-            service: "ssm",
-            resource: "parameter",
-            resourceName: triggerSecret.slice(1),
-          }),
-        ],
-      }),
     ]) {
       role.addToPolicy(statement);
     }
+    // A transition starts its job with one message to the jobs queue; nothing else, no schedule.
+    jobs.grant(role);
 
     const evaluator = new NodejsFunction(this, "Evaluator", {
       entry: source("apps/evaluator/src/handler.ts"),
@@ -73,7 +66,7 @@ export class DetectionStack extends Stack {
         GLN_TELEMETRY_TABLE: table,
         GLN_CONFIG_BUCKET: configBucket,
         GLN_PROBE_REGIONS: probeRegions.join(","),
-        GLN_TRIGGER_SECRET_PARAM: triggerSecret,
+        ...jobs.environment,
       },
       bundling,
     });

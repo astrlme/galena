@@ -1,11 +1,9 @@
 import { Logger } from "@aws-lambda-powertools/logger";
 import { Metrics, MetricUnit } from "@aws-lambda-powertools/metrics";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import type { WorkflowEngine } from "@galena/core";
 import { monitorsFileFromS3 } from "@galena/integrations/config";
-import { configure, tasks } from "@trigger.dev/sdk";
+import { awsJobEngine } from "@galena/integrations/jobs";
 import { env } from "./env.ts";
 import { processBatch, type SqsRecord } from "./evaluator.ts";
 import { createStore } from "./store.ts";
@@ -25,32 +23,21 @@ const loadConfig = monitorsFileFromS3({
   bucket: env.GLN_CONFIG_BUCKET,
   key: env.GLN_CONFIG_KEY,
 });
-// The only trigger.dev call on the hot path, and only on a transition.
-const engine: WorkflowEngine = {
-  async trigger(task, payload, { idempotencyKey, tags = [] }) {
-    await tasks.trigger(task, payload, { idempotencyKey, tags });
+// The only job the hot path starts, one message on a transition, never per check.
+const engine = awsJobEngine({
+  queues: {
+    jobs: { url: env.GLN_JOBS_QUEUE_URL, arn: env.GLN_JOBS_QUEUE_ARN },
+    builds: { url: env.GLN_BUILDS_QUEUE_URL, arn: env.GLN_BUILDS_QUEUE_ARN },
   },
-};
-
-async function start() {
-  const { Parameter } = await new SSMClient({}).send(
-    new GetParameterCommand({ Name: env.GLN_TRIGGER_SECRET_PARAM, WithDecryption: true }),
-  );
-  if (!Parameter?.Value) {
-    throw new Error(`SSM parameter ${env.GLN_TRIGGER_SECRET_PARAM} has no value.`);
-  }
-  configure({ accessToken: Parameter.Value });
-}
-// Once per container. A failed start is not cached, so the next batch tries again.
-let started: Promise<void> | undefined;
+  schedules: {
+    group: env.GLN_SCHEDULE_GROUP,
+    roleArn: env.GLN_SCHEDULER_ROLE_ARN,
+    deadLetterArn: env.GLN_SCHEDULE_DEAD_LETTER_ARN,
+  },
+});
 
 /** SQS FIFO event source with `ReportBatchItemFailures`. */
 export async function handler(event: { Records: SqsRecord[] }) {
-  started ??= start().catch((error: unknown) => {
-    started = undefined;
-    throw error;
-  });
-  await started;
   const outcome = await processBatch(event.Records, {
     store,
     loadConfig,

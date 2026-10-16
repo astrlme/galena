@@ -14,7 +14,14 @@ export const env = z
       .string()
       .transform((list) => list.split(",").map((r) => r.trim()))
       .pipe(z.array(awsRegion).min(1)),
-    /** The SecureString holding the trigger.dev secret key, read at cold start. */
-    GLN_TRIGGER_SECRET_PARAM: z.string().startsWith("/"),
+    // Where a transition starts its job. The evaluator never schedules or builds; the engine
+    // takes every queue setting all the same.
+    GLN_JOBS_QUEUE_URL: z.url(),
+    GLN_JOBS_QUEUE_ARN: z.string().startsWith("arn:"),
+    GLN_BUILDS_QUEUE_URL: z.url(),
+    GLN_BUILDS_QUEUE_ARN: z.string().startsWith("arn:"),
+    GLN_SCHEDULE_GROUP: z.string().min(1),
+    GLN_SCHEDULER_ROLE_ARN: z.string().startsWith("arn:"),
+    GLN_SCHEDULE_DEAD_LETTER_ARN: z.string().startsWith("arn:"),
   })
   .parse(process.env);

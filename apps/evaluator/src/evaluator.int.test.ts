@@ -19,7 +19,7 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { type EvaluatorDeps, processBatch, type SqsRecord } from "./evaluator.ts";
 import { createStore, type Store } from "./store.ts";
 
-// The replay scenarios again, now through SQS records, DynamoDB Local and a trigger.dev stand-in.
+// The replay scenarios again, now through SQS records, DynamoDB Local and a job queue stand-in.
 // Every batch is delivered twice at once (a visibility timeout running out mid-run) and every
 // trigger fails on its first call, yet each expected transition must be triggered exactly once.
 const FIXTURES = new URL("../../../test/fixtures/replay/", import.meta.url);
@@ -151,7 +151,7 @@ function load(name: string) {
 }
 
 /**
- * trigger.dev as seen from outside: the first call for each key fails, repeats are recorded.
+ * The job queue as seen from outside: the first call for each key fails, repeats are recorded.
  * It also notes any transition triggered before a state write held it, which a crash in
  * between would leave triggered but unrecorded. It asks the store itself: another copy may
  * trigger a transition it read back the moment the write landed, before the writer resumes.
@@ -169,7 +169,7 @@ function flakyEngine(store: Store) {
       }
       if (!failedOnce.has(idempotencyKey)) {
         failedOnce.add(idempotencyKey);
-        throw new Error("trigger.dev is unreachable");
+        throw new Error("the job queue is unreachable");
       }
       calls.push({ key: idempotencyKey, payload: payload as MonitorTransitioned });
     },
@@ -210,7 +210,7 @@ test.each(SCENARIOS)("%s: every expected transition triggers exactly once", asyn
     onError: (_, error) => conflicts.push(error),
   });
 
-  // A repeated key must carry the same transition: trigger.dev then runs it once.
+  // A repeated key must carry the same transition: the queue then runs it once.
   const byKey = new Map<string, MonitorTransitioned>();
   for (const { key, payload } of calls) {
     const seen = byKey.get(key);
