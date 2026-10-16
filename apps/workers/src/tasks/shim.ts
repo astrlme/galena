@@ -2,7 +2,7 @@ import { SchedulerClient } from "@aws-sdk/client-scheduler";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import type { JobEngine } from "@galena/core";
 import { laneOf, sqsEngine } from "@galena/integrations/jobs";
-import { AbortTaskRunError, logger, type Queue, schedules, task, tasks } from "@trigger.dev/sdk";
+import { AbortTaskRunError, logger, type Queue, task, tasks } from "@trigger.dev/sdk";
 import { setEngine } from "../engine.ts";
 import { env } from "../env.ts";
 import { setLog } from "../log.ts";
@@ -102,20 +102,5 @@ export function shim<P>(job: Job<P>, settings: { queue?: Queue; machine?: "small
       const parsed = job.payload.safeParse(payload);
       if (parsed.success) await job.onFailure?.(parsed.data, error);
     },
-  });
-}
-
-/** A scheduled job as a trigger.dev schedule. */
-export function cron(
-  { job, pattern }: { job: Job<{ timestamp: string }>; pattern: string },
-  settings: { queue?: Queue } = {},
-) {
-  return schedules.task({
-    id: job.name,
-    ...settings,
-    // Zero window: trigger.dev spreads new schedules across the hour by default, and the sweep
-    // and the rollup must share their minute.
-    cron: { pattern, window: "0m" },
-    run: ({ timestamp }) => job.run({ timestamp: timestamp.toISOString() }, { attempt: 1 }),
   });
 }
