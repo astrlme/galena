@@ -1,0 +1,58 @@
+---
+title: Background jobs on SQS, Scheduler and Lambda
+description: Why every background job runs inside your own AWS account, with nothing waiting inside a job.
+---
+
+## Problem
+
+Publishing, notifications, the outbox, Slack, alert ingest, maintenance windows, approvals and
+uptime rollups all run in the background. They first ran on trigger.dev
+([the earlier decision](/docs/decisions/lambda-and-trigger-dev/)). That meant a second vendor and
+account for every deployment, a long-lived IAM access key held outside AWS, and no CloudWatch
+alarm when it stopped running tasks.
+
+An all-AWS cold path used to mean Step Functions and custom code for long waits. The jobs no
+longer need them: an approval is a job at the draft's deadline, and a maintenance window is a job
+at its start and another at its end.
+
+## Decision
+
+- A job is a plain handler, started through one port with a job name, a payload, an idempotency
+  key and, optionally, a time to run at. Nothing waits inside a job: a later step is a job
+  scheduled for later, which reads its row again when it runs.
+- Jobs go to an SQS FIFO queue, HTML builds to a second one, each feeding a Lambda function.
+  What must run one at a time shares a message group, called a lane: the publisher, the outbox
+  dispatcher, the sweep, one lane per monitor, one per webhook endpoint. The deduplication id is
+  the SHA-256 of the job's key.
+- A job for later is an EventBridge Scheduler one-time schedule, named by the key's hash, that
+  sends to the queue and deletes itself. The outbox sweep, the uptime rollup and the hourly page
+  heartbeat are recurring Scheduler schedules.
+- Each job gets five attempts, waiting longer each time. After the last, the job's failure hook
+  records it and the message goes to a dead-letter queue.
+- Locally an in-process engine runs the same jobs, so `pnpm dev` needs no account.
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| Stay on trigger.dev | A second vendor and account for every deployment, a key outside AWS, no alarm when it stops, and about four times the cost of Lambda for the same jobs |
+| Lambda durable functions | New, with limits on execution names and waits that can't be cancelled; with jobs at deadlines, nothing needs a long-running workflow |
+| Step Functions | A state machine per flow, for what is now one scheduled message |
+| Self-hosted trigger.dev | Several vCPUs and gigabytes of memory per worker, running all the time |
+
+## Consequences
+
+- One account and one bill. Jobs act through IAM roles, so no access key leaves AWS.
+- Every alarm lives in CloudWatch: the dead-letter queues, the age of the oldest message, and an
+  hourly heartbeat that alarms after two hours without a run.
+- FIFO deduplication lasts five minutes, so jobs guard longer repeats themselves: a stale monitor
+  transition is skipped, a repeated alert notification changes nothing, and publishes, deliveries
+  and decisions are compare-and-set.
+- A failing message holds up its lane until its retry is due, and reaches the dead-letter queue
+  after five attempts. A job scheduled for later can run up to a minute late.
+- There is no run dashboard: CloudWatch Logs and the alarms show what ran.
+
+## Revisit when
+
+A lane backs up (the queue's oldest message keeps getting older), sends crowd out other jobs on
+the shared queue, or a job needs a wait that a scheduled message can't express.

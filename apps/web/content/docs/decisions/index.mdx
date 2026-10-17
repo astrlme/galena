@@ -9,7 +9,8 @@ so.
 
 | Decision | In short |
 | --- | --- |
-| [Probes on Lambda, workflows on trigger.dev](/docs/decisions/lambda-and-trigger-dev/) | Per-minute checks are cheap on Lambda; long, retrying workflows suit trigger.dev |
+| [Background jobs on SQS, Scheduler and Lambda](/docs/decisions/background-jobs/) | Every job runs in your AWS account, and nothing waits inside one |
+| [Probes on Lambda, workflows on trigger.dev](/docs/decisions/lambda-and-trigger-dev/) | Superseded: the workflows moved into AWS |
 | [A static page in its own regions](/docs/decisions/static-status-page/) | The page must outlive the service it reports on |
 | [DynamoDB for telemetry, Postgres for the domain](/docs/decisions/two-data-stores/) | Millions of disposable writes, and a small relational core that can sleep |
 | [The Data API, no NAT](/docs/decisions/data-api/) | No VPC Lambdas, no NAT gateway, a database that pauses |
