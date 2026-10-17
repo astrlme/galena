@@ -1,7 +1,7 @@
 import { Logger } from "@aws-lambda-powertools/logger";
 
 type Fields = Record<string, unknown>;
-export type Log = {
+type Log = {
   info: (message: string, fields?: Fields) => void;
   error: (message: string, fields?: Fields) => void;
 };

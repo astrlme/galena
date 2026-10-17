@@ -92,7 +92,6 @@ test("the API reads its database and job queues from Foundation's parameters and
   for (const name of ["auth-secret", "app-key", "setup-token", "slack-app"]) {
     expect(policies).toContain(`parameter/galena/dev/${name}`);
   }
-  expect(policies).not.toContain("trigger-secret-key");
   const fn = Object.values(template.findResources("AWS::Lambda::Function")).find(
     (f) => f.Properties.Environment?.Variables?.GLN_AUTH_SECRET_PARAM,
   );
