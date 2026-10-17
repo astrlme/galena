@@ -168,7 +168,6 @@ async function triggerAll(engine: WorkflowEngine, transitions: readonly MonitorT
   for (const transition of transitions) {
     await engine.trigger("monitor.state-changed", transition, {
       idempotencyKey: transitionIdempotencyKey(transition),
-      tags: [`event:${transition.id}`, `monitor:${transition.data.monitorId}`],
     });
   }
 }

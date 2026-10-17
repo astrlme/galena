@@ -44,11 +44,8 @@ export interface WorkflowEngine {
   trigger(
     task: string,
     payload: unknown,
-    /**
-     * `at` starts the job no earlier than that time; `tags` label the run, e.g. with the
-     * correlation id, so it can be found later.
-     */
-    options: { idempotencyKey: string; at?: Date; tags?: string[] },
+    /** `at` starts the job no earlier than that time. */
+    options: { idempotencyKey: string; at?: Date },
   ): Promise<void>;
 }
 
