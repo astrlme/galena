@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
@@ -95,12 +95,9 @@ const buildEnv = () =>
     BUILD_ENV.flatMap((name) => (process.env[name] ? [[name, process.env[name]]] : [])),
   );
 
-/**
- * `astro build` of the status app. A deployed image carries it as `status/`, with the workspace
- * packages it imports in `packages/`, and this links those where Node looks for them.
- */
+/** `astro build` of the status app, wherever it sits beside the process. */
 export const astroBuild: BuildPage = async (snapshotFile, outDir) => {
-  // Deployed (the image root), `trigger dev` (apps/workers), tests (the repository root).
+  // The builder Lambda (from /tmp), apps/workers, tests (the repository root).
   const dir = ["status", "../status", "apps/status"].find((d) =>
     existsSync(join(d, "astro.config.mjs")),
   );
@@ -111,12 +108,6 @@ export const astroBuild: BuildPage = async (snapshotFile, outDir) => {
     "bin",
     "astro.mjs",
   );
-  for (const name of ["config", "contracts", "ui"]) {
-    const link = join(app, "node_modules", "@galena", name);
-    if (existsSync(link)) continue;
-    await mkdir(dirname(link), { recursive: true });
-    await symlink(resolve(app, "..", "packages", name), link, "junction");
-  }
   await run(process.execPath, [astro, "build", "--outDir", outDir], {
     cwd: app,
     env: { ...buildEnv(), ASTRO_TELEMETRY_DISABLED: "1", GLN_SNAPSHOT_FILE: snapshotFile },
