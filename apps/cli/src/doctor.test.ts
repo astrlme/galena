@@ -3,14 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { expect, test } from "vitest";
-import {
-  capacityCheck,
-  doctor,
-  formatCheck,
-  nodeCheck,
-  requiredTriggerEnv,
-  stackState,
-} from "./doctor.ts";
+import { capacityCheck, doctor, formatCheck, nodeCheck, stackState } from "./doctor.ts";
 import { buildConfig } from "./init.ts";
 
 test("Node 24 or later passes, anything older fails", () => {
@@ -52,16 +45,6 @@ test("without a config it says how to make one, and fails", async () => {
   const path = join(mkdtempSync(join(tmpdir(), "galena-doctor-")), "galena.config.json");
   expect(await doctor(path, { output })).toBe(1);
   expect(printed).toContain("galena init");
-});
-
-test("the workers need the email variables only when the deployment sends email", () => {
-  const quiet = buildConfig({ stage: "prod", preset: "eu" });
-  const mail = buildConfig({ stage: "prod", preset: "eu", emailDomain: "mail.example.com" });
-  expect(requiredTriggerEnv(quiet)).toContain("GLN_TELEMETRY_TABLE");
-  expect(requiredTriggerEnv(quiet)).not.toContain("GLN_EMAIL_FROM");
-  expect(requiredTriggerEnv(mail)).toEqual(
-    expect.arrayContaining(["GLN_EMAIL_FROM", "GLN_SES_CONFIGURATION_SET"]),
-  );
 });
 
 test("capacity past the free tier is a warning naming each table that uses some", () => {

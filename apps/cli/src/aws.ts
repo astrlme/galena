@@ -10,7 +10,6 @@ import {
 } from "@aws-sdk/client-ssm";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { expectedStacks, type StageConfig, stageRegions } from "@galena/infra/config";
-import { z } from "zod";
 
 export type Stack = { status?: string; outputs: Record<string, string> };
 
@@ -125,43 +124,4 @@ export async function readStacks(config: StageConfig): Promise<Map<string, Stack
     }),
   );
   return stacks;
-}
-
-/**
- * A request to the trigger.dev project's production variables (`path` after `/envvars/prod`;
- * a POST when there is a `body`), signed with the deployment's trigger.dev secret key from SSM.
- */
-export async function triggerVariables(
-  config: StageConfig & { triggerProjectRef: string },
-  path = "",
-  body?: unknown,
-): Promise<Response> {
-  const key = await parameter(config, "trigger-secret-key");
-  return fetch(
-    `https://api.trigger.dev/api/v1/projects/${config.triggerProjectRef}/envvars/prod${path}`,
-    {
-      method: body === undefined ? "GET" : "POST",
-      headers: { authorization: `Bearer ${key ?? ""}`, "content-type": "application/json" },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    },
-  );
-}
-
-// trigger.dev lists each variable with its value; parsing keeps the names and drops the rest.
-const variables = z.array(z.object({ name: z.string() }));
-const variableNames = z
-  .union([variables, z.object({ data: variables }).transform(({ data }) => data)])
-  .transform((list) => list.map(({ name }) => name));
-
-/** The names of the variables set in the project's production environment. */
-export async function triggerVariableNames(
-  config: StageConfig & { triggerProjectRef: string },
-): Promise<Set<string>> {
-  const response = await triggerVariables(config);
-  if (!response.ok) {
-    throw new Error(
-      `trigger.dev answered ${response.status} for ${config.triggerProjectRef}'s production variables`,
-    );
-  }
-  return new Set(variableNames.parse(await response.json()));
 }

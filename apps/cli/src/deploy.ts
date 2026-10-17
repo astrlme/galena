@@ -8,7 +8,6 @@ import {
   DescribeCertificateCommand,
   ListCertificatesCommand,
 } from "@aws-sdk/client-acm";
-import { CreateAccessKeyCommand, IAMClient, ListAccessKeysCommand } from "@aws-sdk/client-iam";
 import { loadConfig, type StageConfig } from "@galena/infra/config";
 import { z } from "zod";
 import {
@@ -20,14 +19,11 @@ import {
   putSecret,
   readStacks,
   type Stack,
-  triggerVariableNames,
-  triggerVariables,
 } from "./aws.ts";
 import { describeError, doctor, nodeCheck } from "./doctor.ts";
 import { prompter } from "./prompt.ts";
 import { pnpm } from "./run.ts";
 
-type Deployment = StageConfig & { triggerProjectRef: string };
 type Say = (text: string) => void;
 
 /** New values for the secrets deploy makes itself: 32 random bytes each. */
@@ -48,7 +44,7 @@ export function secretsToMake(
   return names.filter((name) => !existing.has(`/galena/${config.stage}/${name}`));
 }
 
-async function bootstrap(config: Deployment, account: string, configPath: string, say: Say) {
+async function bootstrap(config: StageConfig, account: string, configPath: string, say: Say) {
   const missing = [...(await bootstrapVersions(config))].flatMap(([region, version]) =>
     version ? [] : [region],
   );
@@ -66,31 +62,14 @@ async function bootstrap(config: Deployment, account: string, configPath: string
   ]);
 }
 
-async function createSecrets(
-  config: Deployment,
-  stacks: Map<string, Stack>,
-  say: Say,
-  askHidden: ReturnType<typeof prompter>["askHidden"],
-) {
+async function createSecrets(config: StageConfig, stacks: Map<string, Stack>, say: Say) {
   const existing = new Set((await parameterTypes(config)).keys());
   const firstDeploy = stacks.get(`galena-${config.stage}-api`)?.status === undefined;
   const made = secretsToMake(config, existing, firstDeploy);
   for (const name of made) await putSecret(config, name, newSecret[name]());
-  const stored: string[] = [...made];
-  if (!existing.has(`/galena/${config.stage}/trigger-secret-key`)) {
-    const key = await askHidden(
-      "trigger.dev production secret key (tr_prod_…, from the project's API keys)",
-      (answer) =>
-        answer.startsWith("tr_prod_")
-          ? undefined
-          : "That isn't a production key; it starts tr_prod_.",
-    );
-    await putSecret(config, "trigger-secret-key", key);
-    stored.push("trigger-secret-key");
-  }
   say(
-    stored.length
-      ? `Stored ${stored.join(", ")} as SecureStrings under /galena/${config.stage}/.`
+    made.length
+      ? `Stored ${made.join(", ")} as SecureStrings under /galena/${config.stage}/.`
       : "Every secret is already stored.",
   );
 }
@@ -146,7 +125,7 @@ async function watchCertificates(config: StageConfig, say: Say, signal: AbortSig
 }
 
 /** Builds the dashboard (and the project site, if it has a domain), then deploys every stack. */
-async function deployStacks(config: Deployment, configPath: string, say: Say) {
+async function deployStacks(config: StageConfig, configPath: string, say: Say) {
   await pnpm(["--filter", "@galena/web", "build"]);
   if (config.siteDomain) await pnpm(["--filter", "@galena/web", "build"], { GLN_SITE: "project" });
   const stop = new AbortController();
@@ -172,23 +151,8 @@ async function deployStacks(config: Deployment, configPath: string, say: Say) {
   }
 }
 
-type Sources = {
-  /** Foundation's parameters, by name under `/galena/<stage>/`. */
-  parameters: Record<string, string | undefined>;
-  stacks: Map<string, Stack>;
-  appKey: string;
-  /** Only when deploy just made it: trigger.dev never hands a secret back. */
-  accessKey?: { id: string; secret: string };
-};
-
-/** The parameters Foundation writes that the workers read. */
-const FOUNDATION_PARAMETERS = [
-  "database-cluster-arn",
-  "database-secret-arn",
-  "config-bucket",
-  "telemetry-table",
-  "builds-queue-url",
-];
+/** Answers worth another try: the API starting, or Aurora resuming behind it. */
+export const retryable = (status: number) => status === 502 || status === 503 || status === 504;
 
 const need = (from: Record<string, string | undefined>, key: string) => {
   const value = from[key];
@@ -196,104 +160,12 @@ const need = (from: Record<string, string | undefined>, key: string) => {
   return value;
 };
 
-/** The workers' variables in trigger.dev: plain ones, and secret ones trigger.dev never shows. */
-export function workerVariables(config: Deployment, sources: Sources) {
-  const outputs = (stack: string) =>
-    sources.stacks.get(`galena-${config.stage}-${stack}`)?.outputs ?? {};
-  const page = outputs("page");
-  const plain: Record<string, string> = {
-    GLN_HOME_REGION: config.homeRegion,
-    GLN_DB_CLUSTER_ARN: need(sources.parameters, "database-cluster-arn"),
-    GLN_DB_SECRET_ARN: need(sources.parameters, "database-secret-arn"),
-    GLN_CONFIG_BUCKET: need(sources.parameters, "config-bucket"),
-    GLN_TELEMETRY_TABLE: need(sources.parameters, "telemetry-table"),
-    // HTML builds run on the builder Lambda.
-    GLN_BUILDS_QUEUE_URL: need(sources.parameters, "builds-queue-url"),
-    GLN_PAGE_BUCKET: need(page, "PageBucket"),
-    GLN_PAGE_REGION: config.pageRegions.primary,
-    GLN_PAGE_URL: `https://${config.pageDomain ?? need(page, "DistributionDomain")}`,
-    // Where Slack messages link to.
-    GLN_DASHBOARD_URL: need(outputs("web"), "DashboardUrl"),
-    GLN_TRIGGER_PROJECT_REF: config.triggerProjectRef,
-  };
-  if (config.email) {
-    plain.GLN_EMAIL_FROM = config.email.from;
-    plain.GLN_SES_CONFIGURATION_SET = need(outputs("email"), "ConfigurationSetName");
-  }
-  const secret: Record<string, string> = { GLN_APP_KEY: sources.appKey };
-  if (sources.accessKey) {
-    secret.AWS_ACCESS_KEY_ID = sources.accessKey.id;
-    secret.AWS_SECRET_ACCESS_KEY = sources.accessKey.secret;
-  }
-  return { plain, secret };
-}
-
-/** A new key for the workers' IAM user, when trigger.dev doesn't have one yet. */
-async function workerKey(config: Deployment) {
-  const iam = new IAMClient({ region: config.homeRegion });
-  const user = `galena-${config.stage}-worker-access`;
-  const { AccessKeyMetadata = [] } = await iam.send(new ListAccessKeysCommand({ UserName: user }));
-  if (AccessKeyMetadata.length >= 2) {
-    throw new Error(
-      `${user} already has two access keys and trigger.dev has neither. Delete one in IAM, then run deploy again.`,
-    );
-  }
-  const { AccessKey } = await iam.send(new CreateAccessKeyCommand({ UserName: user }));
-  if (!AccessKey?.AccessKeyId || !AccessKey.SecretAccessKey) {
-    throw new Error(`IAM made no access key for ${user}.`);
-  }
-  return { id: AccessKey.AccessKeyId, secret: AccessKey.SecretAccessKey };
-}
-
-/** Sets the workers' variables in trigger.dev's production environment, then deploys them. */
-async function deployWorkers(config: Deployment, say: Say) {
-  const ref = config.triggerProjectRef;
-  const existing = await triggerVariableNames(config);
-  const accessKey = existing.has("AWS_ACCESS_KEY_ID") ? undefined : await workerKey(config);
-  const appKey = await parameter(config, "app-key");
-  if (!appKey) throw new Error(`/galena/${config.stage}/app-key is missing.`);
-  const parameters = Object.fromEntries(
-    await Promise.all(
-      FOUNDATION_PARAMETERS.map(async (name) => [name, await parameter(config, name)] as const),
-    ),
-  );
-  const { plain, secret } = workerVariables(config, {
-    parameters,
-    stacks: await readStacks(config),
-    appKey,
-    ...(accessKey ? { accessKey } : {}),
-  });
-  for (const [variables, isSecret] of [
-    [secret, true],
-    [plain, false],
-  ] as const) {
-    const response = await triggerVariables(config, "/import", {
-      variables,
-      override: true,
-      isSecret,
-    });
-    if (!response.ok) {
-      throw new Error(`trigger.dev answered ${response.status} when setting ${ref}'s variables.`);
-    }
-  }
-  say(
-    `Set ${Object.keys(plain).length + Object.keys(secret).length} variables in ${ref}'s production environment${accessKey ? ", with a new access key for the workers" : ""}.`,
-  );
-  // The flag and the variable both name the project, so a local .env can't point elsewhere.
-  await pnpm(["--filter", "@galena/workers", "exec", "trigger", "deploy", "--project-ref", ref], {
-    GLN_TRIGGER_PROJECT_REF: ref,
-  });
-}
-
-/** Answers worth another try: the API starting, or Aurora resuming behind it. */
-export const retryable = (status: number) => status === 502 || status === 503 || status === 504;
-
 /**
  * Creates the workspace and its owner through first-run setup, while the one-time setup token
  * exists, then deletes the token.
  */
 async function createOwner(
-  config: Deployment,
+  config: StageConfig,
   stacks: Map<string, Stack>,
   { say, ask, askHidden }: ReturnType<typeof prompter>,
 ) {
@@ -369,7 +241,7 @@ export function dnsRecords(config: StageConfig, stacks: Map<string, Stack>): str
   return records;
 }
 
-function summarize(config: Deployment, stacks: Map<string, Stack>, say: Say) {
+function summarize(config: StageConfig, stacks: Map<string, Stack>, say: Say) {
   const outputs = (stack: string) => stacks.get(`galena-${config.stage}-${stack}`)?.outputs ?? {};
   const page = config.pageDomain ?? outputs("page").DistributionDomain;
   say(`\nDashboard: ${outputs("web").DashboardUrl ?? "not deployed"}`);
@@ -390,16 +262,9 @@ export async function deploy(
   { input, output }: { input?: Readable; output?: Writable } = {},
 ): Promise<number> {
   const prompt = prompter(input, output);
-  const { say, askHidden } = prompt;
+  const { say } = prompt;
   try {
-    const loaded = loadConfig(path);
-    const { triggerProjectRef } = loaded;
-    if (!triggerProjectRef) {
-      throw new Error(
-        "Add triggerProjectRef to the config: the workers deploy to that trigger.dev project.",
-      );
-    }
-    const config: Deployment = { ...loaded, triggerProjectRef };
+    const config = loadConfig(path);
     const node = nodeCheck();
     if (node.status === "fail") throw new Error(node.summary);
     const { account, arn } = await callerIdentity(config.homeRegion);
@@ -409,9 +274,8 @@ export async function deploy(
 
     const configPath = resolve(path);
     await bootstrap(config, account, configPath, say);
-    await createSecrets(config, await readStacks(config), say, askHidden);
+    await createSecrets(config, await readStacks(config), say);
     await deployStacks(config, configPath, say);
-    await deployWorkers(config, say);
     const stacks = await readStacks(config);
     await createOwner(config, stacks, prompt);
     summarize(config, stacks, say);

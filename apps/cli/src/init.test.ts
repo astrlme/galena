@@ -12,7 +12,11 @@ const run = async (path: string, answers: string[], force = false) => {
   output.on("data", (chunk) => {
     printed += chunk;
   });
-  const code = await init(path, { force, input: Readable.from(answers.join("\n")), output });
+  const code = await init(path, {
+    force,
+    input: Readable.from(answers.map((a) => `${a}\n`).join("")),
+    output,
+  });
   return { code, printed };
 };
 
@@ -28,7 +32,6 @@ test.each(Object.keys(PRESETS) as (keyof typeof PRESETS)[])(
 test("blank optional answers leave their settings out, and email sends as status@", () => {
   const config = buildConfig({ stage: "prod", preset: "eu", emailDomain: "mail.example.com" });
   expect(config.pageDomain).toBeUndefined();
-  expect(config.triggerProjectRef).toBeUndefined();
   expect(config.email).toEqual({ domain: "mail.example.com", from: "status@mail.example.com" });
 });
 
@@ -46,7 +49,6 @@ test("asks again after an answer the config refuses, then writes a config infra 
     "mail.example.com",
     "alerts@example.com",
     "",
-    "proj_abc123",
   ]);
   expect(code).toBe(0);
   expect(printed.match(/That doesn't work/g)).toHaveLength(4);
@@ -56,7 +58,6 @@ test("asks again after an answer the config refuses, then writes a config infra 
     homeRegion: "us-east-2",
     pageDomain: "status.example.com",
     email: { domain: "mail.example.com", from: "status@mail.example.com" },
-    triggerProjectRef: "proj_abc123",
   });
   expect(loadConfig(path).webDomain).toBeUndefined();
 });

@@ -27,13 +27,11 @@ export type Answers = {
   webDomain?: string;
   emailDomain?: string;
   emailFrom?: string;
-  triggerProjectRef?: string;
 };
 
 /** The config `init` writes: the answers, a preset's regions, and capacity inside the free tier. */
 export function buildConfig(answers: Answers): StageConfig {
-  const { stage, preset, pageDomain, webDomain, emailDomain, emailFrom, triggerProjectRef } =
-    answers;
+  const { stage, preset, pageDomain, webDomain, emailDomain, emailFrom } = answers;
   return stageSchema.parse({
     stage,
     ...PRESETS[preset],
@@ -42,7 +40,6 @@ export function buildConfig(answers: Answers): StageConfig {
     ...(emailDomain
       ? { email: { domain: emailDomain, from: emailFrom || `status@${emailDomain}` } }
       : {}),
-    ...(triggerProjectRef ? { triggerProjectRef } : {}),
     telemetryCapacity: { read: 5, write: 5 },
     auroraMaxAcu: 2,
   });
@@ -108,10 +105,6 @@ export async function init(
           `status@${emailDomain}`,
         )
       : "";
-    const triggerProjectRef = await ask(
-      "trigger.dev project ref (proj_…), or blank to add it later",
-      field(shape.triggerProjectRef),
-    );
     const config = buildConfig({
       stage,
       preset,
@@ -119,7 +112,6 @@ export async function init(
       webDomain,
       emailDomain,
       emailFrom,
-      triggerProjectRef,
     });
     writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
     say(`Wrote ${path}. Next: pnpm galena doctor checks your AWS account against it.`);

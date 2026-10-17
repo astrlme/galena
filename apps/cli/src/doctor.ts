@@ -10,7 +10,6 @@ import {
   parameterTypes,
   readStacks,
   type Stack,
-  triggerVariableNames,
 } from "./aws.ts";
 
 export type Status = "ok" | "warn" | "fail";
@@ -49,29 +48,8 @@ export function stackState(status: string | undefined): Status {
   return "ok";
 }
 
-/** The secrets made by hand, which the API reads at cold start. */
-const SECRETS = ["auth-secret", "app-key", "trigger-secret-key"];
-
-/** The variables the workers read in trigger.dev's production environment. */
-export function requiredTriggerEnv(config: StageConfig): string[] {
-  return [
-    "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY",
-    "GLN_HOME_REGION",
-    "GLN_DB_CLUSTER_ARN",
-    "GLN_DB_SECRET_ARN",
-    "GLN_CONFIG_BUCKET",
-    "GLN_PAGE_BUCKET",
-    "GLN_PAGE_REGION",
-    "GLN_PAGE_URL",
-    "GLN_DASHBOARD_URL",
-    "GLN_APP_KEY",
-    "GLN_TELEMETRY_TABLE",
-    "GLN_BUILDS_QUEUE_URL",
-    "GLN_TRIGGER_PROJECT_REF",
-    ...(config.email ? ["GLN_EMAIL_FROM", "GLN_SES_CONFIGURATION_SET"] : []),
-  ];
-}
+/** The secrets the API and the jobs read at cold start. */
+const SECRETS = ["auth-secret", "app-key"];
 
 type Table = { name: string; read: number; write: number };
 const FREE_UNITS = 25;
@@ -169,26 +147,6 @@ function checks(config: StageConfig) {
         return judge(
           `${expected.length - findings.length} of ${expected.length} stacks deployed and settled`,
           findings,
-        );
-      },
-    ],
-    [
-      "trigger",
-      async () => {
-        const ref = config.triggerProjectRef;
-        if (!ref) {
-          return {
-            status: "warn",
-            summary: "Add triggerProjectRef to the config to check the workers' variables",
-            details: [],
-          };
-        }
-        const names = await triggerVariableNames({ ...config, triggerProjectRef: ref });
-        const required = requiredTriggerEnv(config);
-        const missing = required.filter((name) => !names.has(name));
-        return judge(
-          `${required.length - missing.length} of ${required.length} variables the workers need are set in ${ref}'s production environment`,
-          missing.map((name) => ({ status: "fail", text: `${name} is not set` })),
         );
       },
     ],
