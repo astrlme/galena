@@ -82,9 +82,12 @@ module.exports = {
     {
       name: "jobs-engine-neutral",
       comment:
-        "a job starts others through engine(), so it runs the same on Lambda and on the local engine; only the hosts know SQS and Scheduler",
+        "a job starts others through engine(), so it runs the same on Lambda and on the local engine; only the Lambda hosts know SQS and Scheduler",
       severity: "error",
-      from: { path: "(?:^|/)apps/workers/src/jobs/" },
+      from: {
+        path: "(?:^|/)apps/workers/src/",
+        pathNot: `(?:^|/)apps/workers/src/(?:lambda|lambda-host|sqs-host)\\.ts$|${NOT_SHIPPED}`,
+      },
       to: { path: JOB_TRANSPORT },
     },
     {
