@@ -8,7 +8,7 @@ import { rollUpUptime } from "../rollup.ts";
 import { cronPayload, defineJob } from "../runner.ts";
 import { catchUpStates, dynamoStates } from "../states.ts";
 
-// DynamoDB Local takes any credentials; in AWS stages, those of the worker access user.
+// DynamoDB Local takes any credentials; in AWS stages, those of the function's role.
 const endpoint =
   env.GLN_DYNAMODB_ENDPOINT ?? (env.GLN_DB_CLUSTER_ARN ? undefined : "http://localhost:8000");
 const dynamo = new DynamoDBClient(
