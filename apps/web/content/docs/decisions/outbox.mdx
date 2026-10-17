@@ -5,7 +5,7 @@ description: Why every change writes its own event, and why nothing polls for th
 
 ## Problem
 
-The API commits a change to Postgres, then starts work on trigger.dev. If the process dies
+The API commits a change to Postgres, then starts a background job. If the process dies
 between the two, the event is lost, and the page and subscribers never hear about the change.
 
 The usual fix, a sweeper that polls an outbox table every minute, would keep Aurora awake around
@@ -25,7 +25,7 @@ Two more safeguards:
   missing if the transaction rolled back. The public subscribe form arms none, so a stranger
   can't start runs by posting it; the sweep covers it.
 - **A sweep every six hours** of rows still pending after five minutes, at the same minute as the
-  uptime rollup, covering trigger.dev being unreachable when the change was written.
+  uptime rollup, covering the job queue being unreachable when the change was written.
 
 ## Alternatives
 
@@ -39,8 +39,8 @@ Two more safeguards:
 
 - Every consumer must be safe to run twice; they are, through their keys.
 - Every change costs two `outbox.dispatch` runs instead of one.
-- After a crash between commit and trigger, the event arrives about a minute late. If trigger.dev
-  is unreachable when a change is saved, the event waits for the first sweep after it comes
+- After a crash between commit and trigger, the event arrives about a minute late. If the job
+  queue is unreachable when a change is saved, the event waits for the first sweep after it comes
   back, at most six hours.
 
 ## Revisit when

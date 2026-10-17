@@ -29,7 +29,7 @@ account is needed.
 - **The status page is static.** Visitors only ever load files from S3; the subscribe form is the
   one request that reaches the API, and it fails gracefully.
 - **The hot path stays isolated.** `apps/probe` and `apps/evaluator` never touch Postgres and
-  call trigger.dev only when a monitor changes state.
+  start a background job only when a monitor changes state.
 - **Everything retryable is idempotent.** Every trigger, send and write that can repeat carries
   a deterministic key.
 - **`packages/core` is pure.** No I/O, no clock, no environment; pass ports in. Write its tests

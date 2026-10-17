@@ -8,7 +8,7 @@ second trigger finds the work already done. This page lists every event and its 
 
 ## Envelope
 
-Events between the API, the evaluator and the workers share one envelope:
+Events between the API, the evaluator and the background jobs share one envelope:
 
 ```ts
 type EventEnvelope<Type extends string, Data> = {
@@ -33,9 +33,9 @@ type EventEnvelope<Type extends string, Data> = {
 | `component.changed`, `component_group.changed` | API, through the outbox | `page.publish` | `outbox:{outboxId}` |
 | `subscriber.requested` | API (`/public/subscribe`), through the outbox | `notify.email` (the confirmation) | `outbox:{outboxId}` |
 
-## Task keys
+## Job keys
 
-| Task | Key | Meaning |
+| Job | Key | Meaning |
 | --- | --- | --- |
 | `outbox.dispatch` | `outbox:{outboxId}`; `outbox:{outboxId}:backstop`; `outbox:{outboxId}:sweep:{hour}` | One dispatch per outbox row after the commit, one delayed backstop, one retry per hourly sweep |
 | `page.publish` | `pub:{snapshotVersion}` | One publish per version; older versions stop early |

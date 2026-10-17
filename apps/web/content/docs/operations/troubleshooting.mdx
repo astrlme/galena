@@ -3,13 +3,14 @@ title: Troubleshooting
 description: What to check when something doesn't happen.
 ---
 
-Most problems show up in one of three places: the trigger.dev dashboard (every task run, its
-payload and its logs), CloudWatch Logs for the Lambdas (one log group each, kept a month), and
-the dashboard's own error messages, which name what to do.
+Most problems show up in one of three places: CloudWatch Logs (the jobs log
+`/galena/<stage>/jobs` has a line for every job run, the HTML builder's is
+`/galena/<stage>/builder`, and every other Lambda has its own, all kept a month), the alarms
+below, and the dashboard's own error messages, which name what to do.
 
 ## Alarms
 
-Four CloudWatch alarms in the home region publish to the SNS topic `galena-<stage>-alarms`:
+Ten CloudWatch alarms in the home region publish to the SNS topic `galena-<stage>-alarms`:
 
 | Alarm | Fires when |
 | --- | --- |
@@ -17,6 +18,10 @@ Four CloudWatch alarms in the home region publish to the SNS topic `galena-<stag
 | No check results | No probe region sent a result for 10 minutes |
 | Evaluator errors | The evaluator failed in two 5-minute periods in a row |
 | Evaluator throttles | Lambda throttled the evaluator, so the account ran out of concurrency |
+| Job or build dead letters | A job or an HTML build failed its last attempt and waits in its dead-letter queue |
+| Jobs or builds waiting | A job or an HTML build has waited over 15 minutes: a lane is stuck or its function can't start |
+| Undelivered schedules | Scheduler couldn't deliver a job for later or a recurring job within an hour |
+| No heartbeat | `page.heartbeat` hasn't run for two hours |
 
 Nothing subscribes to the topic in code, so no address is kept in your fork. Subscribe one once,
 then confirm the email AWS sends:
@@ -34,11 +39,11 @@ deployment cheap. Scripts calling the API should allow at least 20 seconds.
 
 ## The page didn't update
 
-1. In trigger.dev, find the `outbox.dispatch` run for the change. If there is none, the API
-   couldn't reach trigger.dev when you saved: the API's log says `outbox.dispatch was not
+1. In the jobs log, find the `outbox.dispatch` line for the change. If there is none, the API
+   couldn't reach the job queue when you saved: the API's log says `outbox.dispatch was not
    triggered`. The change is saved and its event is still pending; `outbox.sweep` dispatches it
    within six hours, or save the change again to publish sooner.
-2. Check the `page.publish` run that followed. `superseded` means a newer publish already covered
+2. Check the `page.publish` line that followed. `superseded` means a newer publish already covered
    the change.
 3. Check the builder's log in CloudWatch (stack `galena-<stage>-jobs`) for the HTML: each build
    logs `page.rebuild-html` with its outcome. The data files (`snapshot.json`) land first, so an
@@ -68,11 +73,11 @@ too strict, give it a longer timeout or a higher `failThreshold`.
 ## Emails don't arrive
 
 - Until AWS grants SES production access, SES only sends to addresses verified in SES.
-- Without `GLN_EMAIL_FROM` in the workers' environment, emails are written to a local folder
-  instead of sent.
+- Without `email` in the deployment config, Galena sends no email and the subscribe form is
+  off.
 - An address that bounced or complained is suppressed for good; the dashboard shows "Stopped: the
   address bounced or reported spam".
-- Check the `notify.email` run and its delivery row's `last_error`.
+- Check the `notify.email` line in the jobs log and its delivery row's `last_error`.
 
 ## A webhook endpoint shows Failing
 
@@ -82,8 +87,8 @@ answers now. A 4xx other than 429 is not retried; fix the receiver, then send a 
 ## The page says "Status not confirmed"
 
 The page hasn't been confirmed for two hours, though `page.heartbeat` should confirm it every hour.
-Check its schedule and runs in trigger.dev, and the workers' AWS access key. A run that answered
-`rollup` read the database, so a paused or unreachable Aurora shows up there.
+Check its lines in the jobs log and the No heartbeat alarm. A run that answered `rollup` read
+the database, so a paused or unreachable Aurora shows up there.
 
 ## `403 not_through_cloudfront`
 

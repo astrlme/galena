@@ -14,7 +14,7 @@ description: Trust boundaries, how secrets are kept, and what protects each way 
 | Dashboard and `/v1/*` | Members | Session cookies from Better Auth, role checks on every route, a content security policy, CloudFront in front |
 | `/auth/*` | Anyone | Better Auth: password hashing, TOTP two-factor, rate limits stored in the database |
 | API Gateway directly | Nobody | Refused unless a secret header that only CloudFront adds is present |
-| AWS | The deploy role, the worker user, the Lambdas | IAM, each scoped to exactly what it needs |
+| AWS | The deploy role, the Lambdas and their roles | IAM, each scoped to exactly what it needs |
 
 ### The origin secret
 
@@ -54,11 +54,9 @@ Every outbound URL (monitor checks, Slack, webhooks, the canary) passes the SSRF
 | Secret | Where | Used for |
 | --- | --- | --- |
 | Auth secret | SSM SecureString | Better Auth: signing session cookies and encrypting two-factor secrets |
-| App key | SSM SecureString for the API, a trigger.dev secret for the workers | See below |
-| trigger.dev secret key | SSM SecureString | The API and evaluator starting tasks |
+| App key | SSM SecureString, read by the API and the jobs | See below |
 | Database credentials | Secrets Manager, rotated by RDS every 7 days | The Data API |
 | Origin secret | Secrets Manager, replicated to the page region | CloudFront and the API |
-| Worker access key | trigger.dev's environment | The workers acting in AWS |
 
 The **app key** is 32 random bytes. Galena never uses it directly; it derives a separate key for
 each purpose with HKDF-SHA256, so no key can stand in for another:

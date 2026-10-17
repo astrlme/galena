@@ -3,8 +3,8 @@ title: Publishing
 description: How the status page is written to S3 in two layers, and why it keeps serving.
 ---
 
-The status page is static files on S3 behind CloudFront. Nothing on it calls the API, the
-database or trigger.dev when someone loads it. Publishing writes new files; reading only reads
+The status page is static files on S3 behind CloudFront. Nothing on it calls the API or the
+database when someone loads it. Publishing writes new files; reading only reads
 them.
 
 ## Two layers, two speeds

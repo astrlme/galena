@@ -5,7 +5,7 @@ description: An open-source status page you deploy into your own AWS account.
 
 Galena checks your services every minute from three AWS regions, decides when something is
 really down, and publishes a static status page that keeps serving when everything else is not.
-It runs in your own AWS account, alongside trigger.dev for background work.
+It runs entirely in your own AWS account, background jobs included.
 
 ## What it does
 
@@ -31,11 +31,11 @@ Galena is three paths that fail independently.
 | Path | What runs | What it does |
 | --- | --- | --- |
 | Hot path | Probe Lambdas in three regions, an SQS FIFO queue, an evaluator Lambda, DynamoDB | Checks every monitor every minute and works out each monitor's state |
-| Cold path | The API on Lambda, Aurora Serverless v2, trigger.dev tasks | Incidents, maintenance, notifications, and publishing the page |
+| Cold path | The API on Lambda, Aurora Serverless v2, background jobs on SQS, Scheduler and Lambda | Incidents, maintenance, notifications, and publishing the page |
 | Read path | S3 and CloudFront in a separate region | Serves the status page and its data files |
 
-A visitor's request only ever touches the read path. If the API, the database and trigger.dev
-are all down at once, the last published page still serves.
+A visitor's request only ever touches the read path. If the API, the database and the background
+jobs are all down at once, the last published page still serves.
 
 <Cards>
   <Card title="Run it locally" href="/docs/getting-started/local-development/" />

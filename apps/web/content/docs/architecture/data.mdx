@@ -5,10 +5,10 @@ description: What lives in Aurora, DynamoDB, S3 and SSM, and why each is where i
 
 | Store | Holds | Written by | Read by |
 | --- | --- | --- | --- |
-| Aurora Serverless v2 (Postgres 16) | The domain: everything people create, and every confirmed state change | The API, the workers | The API, the workers |
+| Aurora Serverless v2 (Postgres 16) | The domain: everything people create, and every confirmed state change | The API, the background jobs | The API, the background jobs |
 | DynamoDB `telemetry` | Check results and detection state | The evaluator | The evaluator, the API (for the dashboard) |
-| S3 config bucket | `monitors.json` | The workers | The probes |
-| S3 page buckets | The published status page | The workers (primary); S3 replication (replica) | CloudFront |
+| S3 config bucket | `monitors.json` | The background jobs | The probes |
+| S3 page buckets | The published status page | The background jobs (primary); S3 replication (replica) | CloudFront |
 | SSM Parameter Store | Secrets and resource identifiers | You, and CDK | The API, CDK, you |
 
 ## Aurora

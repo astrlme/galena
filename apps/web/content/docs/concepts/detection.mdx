@@ -62,8 +62,8 @@ endpoint show as degraded.
 | `flapping` | Changing too often to trust | see below |
 
 Each move is a **transition**, numbered per monitor. Transitions are the only thing the hot path
-sends onward: the evaluator writes every result to DynamoDB, and only a transition triggers the
-`monitor.state-changed` task, which records it and republishes the page. A steady monitor costs
+sends onward: the evaluator writes every result to DynamoDB, and only a transition starts the
+`monitor.state-changed` job, which records it and republishes the page. A steady monitor costs
 nothing beyond its checks.
 
 ## Flapping

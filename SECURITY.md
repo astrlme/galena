@@ -21,5 +21,5 @@ infrastructure it creates are in scope, for example:
 - the static status page, its subscription forms and its CloudFront configuration;
 - IAM policies and the GitHub Actions deploy role.
 
-Misconfiguration in a particular deployment, and problems in AWS, trigger.dev or other services
+Misconfiguration in a particular deployment, and problems in AWS or other services
 themselves, are out of scope; report those to the operator or the vendor.
