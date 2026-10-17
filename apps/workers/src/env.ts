@@ -6,8 +6,9 @@ import { z } from "zod";
 /** A folder under apps/workers/.local, wherever the process started. */
 const local = (folder: string) => fileURLToPath(new URL(`../.local/${folder}`, import.meta.url));
 
-// The only place in apps/workers that reads process.env: locally the dev process's environment,
-// on Lambda the function's.
+// The only place in apps/workers that reads settings from process.env (`astroBuild` only passes
+// the path and temp folders through): locally the dev process's environment, on Lambda the
+// function's.
 export const env = z
   .object({
     // Local: the docker-compose database. On Lambda: the Data API in GLN_HOME_REGION.
