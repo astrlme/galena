@@ -275,7 +275,7 @@ export class FoundationStack extends Stack {
         "Holds one file that the workers rebuild from the database on every change; access logs would mostly record the probes reading it every minute.",
     });
 
-    // Non-secret identifiers for tools outside CDK, such as the trigger.dev workers.
+    // Non-secret identifiers that other stacks and the CLI read from SSM, without exports.
     const parameters = {
       "database-cluster-arn": this.database.clusterArn,
       "database-secret-arn": this.databaseSecretArn,

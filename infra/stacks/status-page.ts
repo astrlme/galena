@@ -110,8 +110,7 @@ export class CertificateStack extends Stack {
 /**
  * The public status page: S3 in the primary page region, replicated to the replica region, behind
  * CloudFront, which fails over to the replica when the primary answers 403 or 5xx. Nothing here
- * calls the API, the database or trigger.dev; only the subscription forms under /public/* go
- * to the API.
+ * calls the API or the database; only the subscription forms under /public/* go to the API.
  */
 export class StatusPageStack extends Stack {
   /** Where readers find the page: its domain, or the distribution's own. */

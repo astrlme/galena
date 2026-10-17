@@ -57,11 +57,6 @@ export const stageSchema = z
     smoke: z.boolean().default(false),
     // Keep buckets and the telemetry table when a stack is deleted. Aurora is always kept.
     retainData: z.boolean().default(true),
-    // The trigger.dev project the workers deploy to. The stacks don't use it; the CLI does.
-    triggerProjectRef: z
-      .string()
-      .regex(/^proj_[a-z0-9]+$/, "the project ref from trigger.dev, proj_…")
-      .optional(),
   })
   // The Smoke workflow assumes its role through GitHub's OIDC.
   .refine(({ smoke, github }) => !smoke || github, "smoke needs github")
@@ -117,7 +112,6 @@ export function expectedStacks(config: StageConfig): { id: string; region: strin
     ["web", homeRegion],
     ["site-certificate", config.siteDomain && "us-east-1"],
     ["site", config.siteDomain && homeRegion],
-    ["worker-access", homeRegion],
     ["email", config.email && homeRegion],
     ["page-replica", pageRegions.replica],
     ["page-certificate", config.pageDomain && "us-east-1"],

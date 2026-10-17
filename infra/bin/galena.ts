@@ -13,7 +13,6 @@ import { ProbeStack } from "../stacks/probe.ts";
 import { SmokeStack } from "../stacks/smoke.ts";
 import { CertificateStack, PageReplicaStack, StatusPageStack } from "../stacks/status-page.ts";
 import { WebStack } from "../stacks/web.ts";
-import { WorkerAccessStack } from "../stacks/worker-access.ts";
 
 // Add or remove a stack here and in `expectedStacks` (config/stages.ts), which `galena doctor`
 // checks a deployment against.
@@ -95,11 +94,6 @@ if (config.siteDomain) {
     siteDir: fileURLToPath(new URL("../../apps/web/out-site", import.meta.url)),
   }).addStackDependency(web);
 }
-// Reads Foundation's queue ARNs from SSM when it deploys.
-new WorkerAccessStack(app, `galena-${config.stage}-worker-access`, {
-  env,
-  config,
-}).addStackDependency(foundation);
 if (config.email) {
   new EmailStack(app, `galena-${config.stage}-email`, {
     env,

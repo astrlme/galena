@@ -62,7 +62,6 @@ test("the smoke role may stop and restart the target, read telemetry and the job
     "ssm:GetParameter",
   ]);
   for (const s of statements) expect(JSON.stringify(s.Resource)).not.toMatch(/"\*"|\/\*"/);
-  // Runs are counted from the jobs log now, not with trigger.dev's key.
   expect(JSON.stringify(statements)).not.toContain("trigger-secret-key");
   const logs = statements.find((s) => s.Action === "logs:FilterLogEvents");
   expect(JSON.stringify(logs.Resource)).toContain("log-group:/galena/dev/jobs");
