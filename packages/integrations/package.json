@@ -11,7 +11,8 @@
     "./channels": "./src/channels/index.ts",
     "./slack": "./src/slack/index.ts",
     "./signals": "./src/signals/index.ts",
-    "./jobs": "./src/jobs/index.ts"
+    "./jobs": "./src/jobs/index.ts",
+    "./jobs/aws": "./src/jobs/sqs-engine.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

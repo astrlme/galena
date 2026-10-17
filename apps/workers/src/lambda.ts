@@ -1,6 +1,6 @@
 import { SchedulerClient } from "@aws-sdk/client-scheduler";
 import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
-import { sqsEngine } from "@galena/integrations/jobs";
+import { sqsEngine } from "@galena/integrations/jobs/aws";
 import { setEngine } from "./engine.ts";
 import { engineEnv, setAppKey } from "./env.ts";
 import { sqsLambda } from "./lambda-host.ts";

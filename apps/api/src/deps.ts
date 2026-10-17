@@ -5,7 +5,7 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { type SlackAppConfig, slackAppConfig } from "@galena/contracts";
 import type { WorkflowEngine } from "@galena/core";
 import { createDb, type DbConfig } from "@galena/db";
-import { awsJobEngine } from "@galena/integrations/jobs";
+import { awsJobEngine } from "@galena/integrations/jobs/aws";
 import { guard } from "@galena/integrations/net";
 import { appKeys, LOCAL_APP_KEY } from "@galena/integrations/secrets";
 import { slackApi } from "@galena/integrations/slack";

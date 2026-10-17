@@ -3,3 +3,4 @@ import "../../../packages/integrations/src/render/slack.ts"; // hot-path-integra
 import "../../../packages/db/src/index.ts"; // hot-path-isolated
 import "pg"; // hot-path-isolated
 import "../../../packages/integrations/src/jobs/index.ts"; // probe-starts-no-jobs
+import "@aws-sdk/client-scheduler"; // probe-starts-no-jobs

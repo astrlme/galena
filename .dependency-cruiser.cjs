@@ -77,18 +77,18 @@ module.exports = {
         "only the evaluator starts a job, and only on a transition (review checks the call); the probe only sends results",
       severity: "error",
       from: { path: "(?:^|/)apps/probe/" },
-      to: { path: "(?:^|/)packages/integrations/src/jobs/" },
+      to: { path: `(?:^|/)packages/integrations/src/jobs/|${npm("@aws-sdk/client-scheduler")}` },
     },
     {
       name: "jobs-engine-neutral",
       comment:
-        "a job starts others through engine(), so it runs the same on Lambda and on the local engine; only the Lambda hosts know SQS and Scheduler",
+        "a job starts others through engine(), so it runs the same on Lambda and on the local engine; only the Lambda hosts know SQS, Scheduler and the AWS engine",
       severity: "error",
       from: {
         path: "(?:^|/)apps/workers/src/",
         pathNot: `(?:^|/)apps/workers/src/(?:lambda|lambda-host|sqs-host)\\.ts$|${NOT_SHIPPED}`,
       },
-      to: { path: JOB_TRANSPORT },
+      to: { path: `${JOB_TRANSPORT}|(?:^|/)packages/integrations/src/jobs/sqs-engine\\.ts$` },
     },
     {
       name: "status-page-static",

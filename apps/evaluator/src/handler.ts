@@ -3,7 +3,7 @@ import { Metrics, MetricUnit } from "@aws-lambda-powertools/metrics";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { monitorsFileFromS3 } from "@galena/integrations/config";
-import { awsJobEngine } from "@galena/integrations/jobs";
+import { awsJobEngine } from "@galena/integrations/jobs/aws";
 import { env } from "./env.ts";
 import { processBatch, type SqsRecord } from "./evaluator.ts";
 import { createStore } from "./store.ts";
