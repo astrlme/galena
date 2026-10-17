@@ -57,3 +57,25 @@ at its start and another at its end.
 A lane backs up (the queue's oldest message keeps getting older), sends crowd out other jobs on
 the shared queue, or a job needs a wait that a scheduled message can't express.
 
+## Upgrading an older deployment
+
+Deploy first: the jobs move into AWS with it. The deploy leaves behind what trigger.dev used,
+because nothing deletes a stack that has left the app. Remove it in your home region:
+
+1. The worker user's access key, made by the old `galena deploy`. CloudFormation can't delete a
+   user while it has a key it didn't make.
+
+   ```bash
+   aws iam list-access-keys --user-name galena-<stage>-worker-access
+   aws iam delete-access-key --user-name galena-<stage>-worker-access --access-key-id <id>
+   ```
+
+2. The stack that holds the user, then the trigger.dev key:
+
+   ```bash
+   aws cloudformation delete-stack --stack-name galena-<stage>-worker-access
+   aws ssm delete-parameter --name /galena/<stage>/trigger-secret-key
+   ```
+
+3. The trigger.dev project, which also holds a copy of the app key, once its runs list shows
+   nothing waiting.

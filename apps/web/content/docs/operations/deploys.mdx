@@ -27,6 +27,10 @@ Deploys never overlap: a second run waits for the first.
 Deploying from your own machine with `pnpm infra:deploy` works too, with your own credentials
 and your `galena.config.json`.
 
+Neither deploy removes a stack that has left the app. A deployment from before background jobs
+moved into AWS keeps one, with an IAM user and its key:
+[remove them by hand](/docs/decisions/background-jobs/#upgrading-an-older-deployment).
+
 ## Migrations
 
 Schema changes are Drizzle migrations in `packages/db/migrations`:
