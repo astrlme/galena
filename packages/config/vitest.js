@@ -11,6 +11,8 @@ export const unit = defineConfig({
       "**/*.int.test.{ts,tsx}",
       "**/e2e/**",
       "test/fixtures/**",
+      // The HTML builder's asset carries a copy of the status app, tests included.
+      "**/cdk.out/**",
     ],
   },
 });
@@ -20,7 +22,7 @@ export const unit = defineConfig({
 export const integration = defineConfig({
   test: {
     include: ["**/*.int.test.{ts,tsx}"],
-    exclude: ["**/node_modules/**", "**/dist/**", "test/fixtures/**"],
+    exclude: ["**/node_modules/**", "**/dist/**", "test/fixtures/**", "**/cdk.out/**"],
     testTimeout: 60_000,
     hookTimeout: 180_000, // the first run pulls the container image
   },
