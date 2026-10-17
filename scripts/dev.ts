@@ -1,5 +1,5 @@
 // Local development in one process: the API, the background jobs and the hot path, sharing one
-// in-process job engine, so no trigger.dev account is needed. Each tick stands for one scheduled
+// in-process job engine in place of SQS and Scheduler. Each tick stands for one scheduled
 // minute: three simulated probe regions check every enabled monitor, an in-memory FIFO carries
 // their messages, and the evaluator writes state and results to DynamoDB Local, where the API
 // reads them, and starts a job on each transition. Monitors come straight from the local

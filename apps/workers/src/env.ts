@@ -3,19 +3,14 @@ import { awsRegion } from "@galena/contracts";
 import { LOCAL_APP_KEY } from "@galena/integrations/secrets";
 import { z } from "zod";
 
-/**
- * A folder under apps/workers/.local, wherever the process started. Known limit: under
- * `pnpm trigger:dev` this file runs from its bundle, so the folders land in `.trigger/tmp/`.
- */
+/** A folder under apps/workers/.local, wherever the process started. */
 const local = (folder: string) => fileURLToPath(new URL(`../.local/${folder}`, import.meta.url));
 
-// The only place in apps/workers that reads process.env (trigger.config.ts aside). `pnpm
-// trigger:dev` loads apps/workers/.env; in trigger.dev's cloud these come from the project's
-// environment variables, and on Lambda from the function's.
+// The only place in apps/workers that reads process.env: locally the dev process's environment,
+// on Lambda the function's.
 export const env = z
   .object({
-    // Local: the docker-compose database. trigger.dev's cloud: the Data API in GLN_HOME_REGION,
-    // with AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY of the worker access user.
+    // Local: the docker-compose database. On Lambda: the Data API in GLN_HOME_REGION.
     GLN_DATABASE_URL: z.string().default("postgres://galena:galena@localhost:5432/galena"),
     GLN_DB_CLUSTER_ARN: z.string().startsWith("arn:").optional(),
     GLN_DB_SECRET_ARN: z.string().startsWith("arn:").optional(),
@@ -42,8 +37,6 @@ export const env = z
     /** The table the evaluator writes monitor states to. Locally DynamoDB Local's `telemetry`. */
     GLN_TELEMETRY_TABLE: z.string().min(1).default("telemetry"),
     GLN_DYNAMODB_ENDPOINT: z.url().optional(),
-    /** Read by the trigger.dev tasks: HTML builds go to this queue, to run on AWS Lambda. */
-    GLN_BUILDS_QUEUE_URL: z.url().optional(),
   })
   .refine((e) => !e.GLN_DB_CLUSTER_ARN === !e.GLN_DB_SECRET_ARN, {
     message: "The Data API needs both GLN_DB_CLUSTER_ARN and GLN_DB_SECRET_ARN.",

@@ -93,7 +93,7 @@ const SWEEP_LIMIT = 500;
 
 /**
  * Hands every outbox row still pending five minutes after it was written to the dispatcher
- * again: rows whose trigger never reached trigger.dev, or whose runs failed for good.
+ * again: rows whose job never reached the queue, or whose runs failed for good.
  */
 export async function sweepOutbox(deps: {
   db: Db;

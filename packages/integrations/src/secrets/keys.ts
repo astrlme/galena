@@ -7,8 +7,8 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 
-// One app key per deployment (32 random bytes: SSM for the API, a trigger.dev secret for the
-// workers). Each use gets its own key derived from it, so none can stand in for another.
+// One app key per deployment (32 random bytes in SSM, read by the API and the jobs). Each use
+// gets its own key derived from it, so none can stand in for another.
 
 export type AppKeys = { seal: Buffer; link: Buffer; hash: Buffer };
 

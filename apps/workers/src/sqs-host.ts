@@ -22,8 +22,8 @@ export type SqsJobRecord = {
 
 const message = z.object({ job: z.string(), key: z.string(), payload: z.unknown() });
 
-// On trigger.dev these jobs fail on the first throw and a backstop or the sweep picks them up;
-// here every job gets five attempts, waiting 1 s, 4 s, 16 s and 30 s between them.
+// A job without retry settings of its own gets five attempts, waiting 1 s, 4 s, 16 s and 30 s
+// between them; a backstop or the sweep picks up what still fails.
 const DEFAULT_RETRY: Retry = { attempts: 5, minMs: 1_000, maxMs: 30_000, factor: 4 };
 
 export type SqsHostDeps = {

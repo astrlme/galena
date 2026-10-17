@@ -7,22 +7,11 @@ export type Log = {
 };
 
 const powertools = new Logger({ serviceName: "workers" });
-let sink: Log = {
+
+/** Job logs, as JSON lines on stdout: locally and on Lambda alike. */
+export const log: Log = {
   info: (message, fields = {}) => powertools.info(message, fields),
   error: (message, fields = {}) => powertools.error(message, fields),
-};
-
-/**
- * Where job logs go: JSON lines on stdout by default (local development, Lambda). trigger.dev
- * keeps only what its own logger writes, so its task wrappers set that one.
- */
-export function setLog(next: Log) {
-  sink = next;
-}
-
-export const log: Log = {
-  info: (message, fields) => sink.info(message, fields),
-  error: (message, fields) => sink.error(message, fields),
 };
 
 /**

@@ -1,7 +1,7 @@
 import { createDb } from "@galena/db";
 import { env } from "./env.ts";
 
-/** The workers' database: local Postgres, or Aurora through the Data API in trigger.dev's cloud. */
+/** The workers' database: local Postgres, or Aurora through the Data API on Lambda. */
 export const { db } = createDb(
   env.GLN_DB_CLUSTER_ARN && env.GLN_DB_SECRET_ARN
     ? {

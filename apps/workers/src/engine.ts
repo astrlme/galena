@@ -3,7 +3,7 @@ import type { DraftDeadline } from "./autopilot.ts";
 
 let current: JobEngine | undefined;
 
-/** Set once by the host that runs the jobs: trigger.dev, the local dev process, a Lambda. */
+/** Set once by the host that runs the jobs: the local dev process or a Lambda. */
 export function setEngine(engine: JobEngine) {
   current = engine;
 }
