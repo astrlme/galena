@@ -13,7 +13,7 @@ synthesises. `infra/test/fixture.config.json` is a complete example with every o
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `stage` | lower-case name, up to 20 characters | Names every stack (`galena-<stage>-…`) and parameter (`/galena/<stage>/…`) |
-| `homeRegion` | region | The API, database, queue, detection and the workers' AWS access |
+| `homeRegion` | region | The API, database, queues, detection and the background jobs |
 | `probeRegions` | at least 3 regions | Where checks run |
 | `pageRegions.primary`, `.replica` | regions | The status page's buckets; all three of these and `homeRegion` must differ |
 | `pageDomain` | hostname, optional | The page's own domain; adds a certificate stack in us-east-1 |
@@ -28,16 +28,15 @@ synthesises. `infra/test/fixture.config.json` is a complete example with every o
 | `auroraMaxAcu` | 1 to 16 | Aurora's capacity ceiling; the floor is 0, so it pauses |
 | `smoke` | boolean, default `false` | Adds the deployed smoke test's target and role; needs `github` |
 | `retainData` | boolean, default `true` | Keeps the telemetry table and the config bucket if their stack is deleted |
-| `triggerProjectRef` | `proj_…`, optional | The trigger.dev project the workers deploy to; the stacks don't use it, and `galena doctor` checks its production variables |
 
 Every deployment keeps 14 days of database backups, turns on deletion protection for the
 database and keeps it if its stack is ever deleted, whatever `retainData` says.
 
 ## SSM parameters
 
-See [Data stores](/docs/architecture/data/#ssm-parameters). The four you create by hand are
-`/galena/<stage>/auth-secret`, `/galena/<stage>/app-key`, `/galena/<stage>/trigger-secret-key`
-and `/galena/<stage>/setup-token`.
+See [Data stores](/docs/architecture/data/#ssm-parameters). The three you create by hand, or
+`galena deploy` makes, are `/galena/<stage>/auth-secret`, `/galena/<stage>/app-key` and
+`/galena/<stage>/setup-token`.
 
 ## API
 
@@ -53,7 +52,9 @@ In AWS, CDK sets these on the Lambda. Locally, `pnpm dev` uses the defaults.
 | `GLN_DB_CLUSTER_ARN`, `GLN_DB_SECRET_ARN`, `GLN_DB_NAME` | | In AWS: the Data API |
 | `GLN_AUTH_SECRET` / `GLN_AUTH_SECRET_PARAM` | | The session secret, or its SSM parameter |
 | `GLN_APP_KEY` / `GLN_APP_KEY_PARAM` | a fixed local key | The app key, or its SSM parameter |
-| `TRIGGER_SECRET_KEY` / `GLN_TRIGGER_SECRET_PARAM` | | trigger.dev's secret key, or its SSM parameter |
+| `GLN_JOBS_QUEUE_URL`, `GLN_JOBS_QUEUE_ARN` | | In AWS: the jobs queue. Outside local development the API refuses to start without the seven job settings |
+| `GLN_BUILDS_QUEUE_URL`, `GLN_BUILDS_QUEUE_ARN` | | In AWS: the HTML builds queue |
+| `GLN_SCHEDULE_GROUP`, `GLN_SCHEDULER_ROLE_ARN`, `GLN_SCHEDULE_DEAD_LETTER_ARN` | | In AWS: the group jobs for later are scheduled in, the role Scheduler sends them as, and the queue that keeps any it couldn't deliver |
 | `GLN_ORIGIN_SECRET_PARAM` | | In AWS: the secret header CloudFront adds |
 | `GLN_TELEMETRY_TABLE` | `telemetry` | The DynamoDB table |
 | `GLN_DYNAMODB_ENDPOINT` | | Locally, DynamoDB Local |
@@ -83,17 +84,18 @@ In AWS, CDK sets these on the Lambda. Locally, `pnpm dev` uses the defaults.
 | `GLN_TELEMETRY_TABLE` | | The DynamoDB table |
 | `GLN_CONFIG_BUCKET`, `GLN_CONFIG_KEY` | key `monitors.json` | For each monitor's detection settings and maintenance windows |
 | `GLN_PROBE_REGIONS` | | The probe regions, comma-separated |
-| `GLN_TRIGGER_SECRET_PARAM` | | trigger.dev's secret key in SSM |
+| The seven job settings | | As for the API: the evaluator starts one job per state change |
 
-## Workers
+## Background jobs
 
-Set in the trigger.dev project's environment; see
-[Self-hosting](/docs/getting-started/self-hosting/#deploy-the-workers). Locally, `pnpm dev`
-runs the jobs itself and every variable has a local default.
+In AWS, CDK sets these on the jobs and HTML builder functions. Locally, `pnpm dev` runs the jobs
+itself and every variable has a local default.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `GLN_TRIGGER_PROJECT_REF` | | The trigger.dev project (`proj_…`) |
+| `GLN_QUEUE_URL`, `GLN_DEAD_LETTER_URL` | | On Lambda: the queue the function takes jobs from, and where a job goes after its last attempt |
+| `GLN_APP_KEY_PARAM` | | On the jobs function: the app key's SSM parameter, read at cold start |
+| The seven job settings | | On the jobs function, as for the API: to start other jobs |
 | `GLN_DATABASE_URL` | the Docker database | Local Postgres |
 | `GLN_DB_CLUSTER_ARN`, `GLN_DB_SECRET_ARN`, `GLN_DB_NAME` | name `galena` | In AWS: the Data API; both ARNs or neither |
 | `GLN_HOME_REGION` | `eu-central-1` | The Data API's and config bucket's region |
@@ -102,8 +104,7 @@ runs the jobs itself and every variable has a local default.
 | `GLN_PAGE_BUCKET`, `GLN_PAGE_REGION` | region `eu-west-1` | The primary page bucket; unset, files go to `GLN_PAGE_DIR` |
 | `GLN_PAGE_DIR` | `apps/workers/.local/pages` | Local page files |
 | `GLN_PAGE_URL` | `http://localhost:4321` | The page's address, for links in feeds and email |
-| `GLN_APP_KEY` | a fixed local key | Required with the Data API; the same value as the API's |
+| `GLN_APP_KEY` | a fixed local key | The app key, when not read from SSM; required with the Data API |
 | `GLN_EMAIL_FROM` | | Sends through SES as this address; unset, to `GLN_MAIL_DIR` |
 | `GLN_SES_CONFIGURATION_SET` | `galena-dev` | The SES configuration set |
 | `GLN_MAIL_DIR` | `apps/workers/.local/mail` | Local email |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | | The worker access user's key |

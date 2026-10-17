@@ -18,7 +18,6 @@ Asks a few questions and writes the config. Answers can also be piped in, one pe
 | Status page domain | `pageDomain`, or nothing to use its CloudFront address |
 | Dashboard domain | `webDomain`, or nothing to use its CloudFront address |
 | Domain email is sent from, and the sender | `email`, or nothing to send no email |
-| trigger.dev project ref | `triggerProjectRef`, or nothing to add it later |
 
 | Preset | Home | Probes | Page, then its replica |
 | --- | --- | --- | --- |
@@ -35,38 +34,32 @@ again. It never replaces an existing file unless you pass `--force`.
 Deploys the config's deployment with your AWS credentials, or upgrades it: run it again after
 pulling a new version. Each step checks first and skips what is already done.
 
-1. Checks Node, your AWS credentials, and that the config names a trigger.dev project
-   (`triggerProjectRef`).
+1. Checks Node and your AWS credentials.
 2. Bootstraps CDK in every region that needs it.
-3. Stores secrets as SecureStrings under `/galena/<stage>/`: a new auth secret and app key, a
-   one-time setup token on the first deploy, and your trigger.dev production secret key, which
-   it asks for without echoing it.
-4. Builds the dashboard and deploys every stack. With custom domains, it prints each
-   certificate's validation CNAME while CloudFormation waits for it; add them at your DNS host.
-5. Gives the workers an access key if trigger.dev doesn't have one yet, sets their variables in
-   your trigger.dev project's production environment, and deploys them. The trigger.dev CLI must
-   be signed in (`pnpm --filter @galena/workers exec trigger login`).
-6. On the first deploy, asks for the workspace name and the owner's name, email and password,
+3. Stores secrets as SecureStrings under `/galena/<stage>/`: a new auth secret and app key, and a
+   one-time setup token on the first deploy.
+4. Builds the dashboard and deploys every stack, the background jobs included. With custom
+   domains, it prints each certificate's validation CNAME while CloudFormation waits for it; add
+   them at your DNS host.
+5. On the first deploy, asks for the workspace name and the owner's name, email and password,
    creates them through first-run setup, and deletes the setup token.
-7. Prints the dashboard and status page addresses and the DNS records still needed, then runs
+6. Prints the dashboard and status page addresses and the DNS records still needed, then runs
    `galena doctor`.
 
-It prints no secret, and keeps the ones it makes only in SSM and in trigger.dev.
+It prints no secret, and keeps the ones it makes only in SSM.
 
 ## galena doctor
 
 Checks a deployment against its config with your AWS credentials, and changes nothing. It reads
-the names of your secrets, never their values. The one exception is the trigger.dev secret key,
-which it uses to list the names of your production variables and never prints.
+the names of your secrets, never their values.
 
 | Check | What it reads | Not ok when |
 | --- | --- | --- |
 | `node` | The Node version running it | Older than 24 |
 | `aws` | Who your credentials belong to | There are none |
 | `bootstrap` | CDK's bootstrap version in every region the deployment uses, us-east-1 included | A region isn't bootstrapped |
-| `parameters` | The SecureStrings under `/galena/<stage>/` | `auth-secret`, `app-key` or `trigger-secret-key` is missing or not a SecureString |
+| `parameters` | The SecureStrings under `/galena/<stage>/` | `auth-secret` or `app-key` is missing or not a SecureString |
 | `stacks` | Every stack the config creates, in its region | One is missing or failed. One still updating, or whose last update rolled back, is a warning |
-| `trigger` | The variable names in your trigger.dev project's production environment | One the workers need is missing. Without `triggerProjectRef` it's a warning |
 | `dns` | The CNAME of each custom domain | It doesn't point at its CloudFront distribution (with Cloudflare, also when the record is proxied) |
 | `email` | Your SES identity and account | The domain, DKIM or MAIL FROM isn't verified. SES still in the sandbox is a warning |
 | `telemetry` | Provisioned DynamoDB capacity of every table in the home region, any app's | Past the free tier's 25 read or write units (one free tier for a whole AWS Organization): a warning |

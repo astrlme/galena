@@ -4,28 +4,26 @@ description: Deploy Galena into your own AWS account, from an empty account to a
 ---
 
 Galena deploys with the AWS CDK, from your machine with `galena deploy` or from a GitHub Actions
-workflow that signs in to AWS with OIDC. Background work runs on trigger.dev, which reaches your
-account through one narrowly scoped IAM user.
+workflow that signs in to AWS with OIDC. Everything runs in your account, background jobs
+included, so AWS is the only account you need.
 
 <Callout title="Before you start">
 You need an AWS account that holds nothing but Galena, with credentials on your machine (for
-example `aws configure sso`), a clone of the repository (a fork, to deploy from GitHub Actions),
-a trigger.dev project, and a domain whose DNS you control (the examples use Cloudflare). Allow
-a day for AWS to approve SES production access if you send email.
+example `aws configure sso`), a clone of the repository (a fork, to deploy from GitHub Actions)
+and a domain whose DNS you control (the examples use Cloudflare). Allow a day for AWS to approve
+SES production access if you send email, and for a higher Lambda concurrency quota.
 </Callout>
 
 ## Two commands
 
 ```bash
 pnpm install
-pnpm --filter @galena/workers exec trigger login
 pnpm galena init
 pnpm galena deploy
 ```
 
 `init` writes the config. `deploy` does everything in the steps below except the DNS records,
-which it prints for you to add: it asks for your trigger.dev production secret key and, on the
-first run, for the owner's details. Run it again after pulling a new version to upgrade. See
+which it prints for you to add, and on the first run it asks for the owner's details. Run it again after pulling a new version to upgrade. See
 the [CLI reference](/docs/reference/cli/#galena-deploy) for each step.
 
 ## Step by step
@@ -38,14 +36,14 @@ The same deployment by hand, or with deploys from GitHub Actions.
 ### Choose regions and names
 
 Run `pnpm install`, then `pnpm galena init` at the repository root. It asks for a name, a region
-preset, optional domains and your trigger.dev project ref, and writes `galena.config.json`. The
+preset and optional domains, and writes `galena.config.json`. The
 file is never committed. Edit it for what `init` doesn't ask, such as deploying from GitHub; see
 [Configuration](/docs/reference/configuration/) for every field and the [CLI](/docs/reference/cli/)
 for the presets.
 
 | Setting | Meaning |
 | --- | --- |
-| `homeRegion` | Where the API, the database, detection and trigger.dev's AWS access live. Pick a region where your own services do not run, so an outage there does not take Galena down with them. |
+| `homeRegion` | Where the API, the database, detection and the background jobs run. Pick a region where your own services do not run, so an outage there does not take Galena down with them. |
 | `probeRegions` | At least three regions that run checks. Detection needs two of them to agree. |
 | `pageRegions` | The status page's primary and replica regions. The config refuses either one sharing a region with `homeRegion`. |
 | `github.repository`, `github.oidcSubject` | Your fork. The subject has the form `repo:<owner>@<owner id>/<repo>@<repo id>`; `gh api repos/<owner>/<repo>` shows both ids. |
@@ -56,9 +54,9 @@ for the presets.
 | `telemetryCapacity` | DynamoDB read and write units. Deployments in one account and region share the free tier of 25 each, and so do the accounts of an AWS Organization. |
 | `smoke`, `retainData` | Leave `smoke` out (it's the maintainer's deployed test). `retainData` keeps the table and config bucket if their stack is deleted. |
 
-A new AWS account allows 10 concurrent Lambda executions per region. Galena's API, evaluator and
-probes share that pool, so ask AWS for more (Service Quotas, "Concurrent executions") before you
-put real traffic on the dashboard.
+A new AWS account allows 10 concurrent Lambda executions per region. Galena's API, evaluator,
+background jobs and probes share that pool, so ask AWS for more (Service Quotas, "Concurrent
+executions") before you deploy.
 
 </Step>
 <Step>
@@ -100,13 +98,12 @@ Secrets and variables, Actions, Variables), and the whole of `galena.config.json
 
 ### Store the secrets
 
-Four SecureString parameters in the home region, made once and never printed:
+Three SecureString parameters in the home region, made once and never printed:
 
 | Parameter | Value |
 | --- | --- |
 | `/galena/dev/auth-secret` | Signs session cookies and encrypts two-factor secrets. 32 random bytes or more. |
 | `/galena/dev/app-key` | Exactly 32 random bytes, base64. Seals stored credentials such as Slack URLs and webhook signing secrets, and signs confirmation and unsubscribe links. |
-| `/galena/dev/trigger-secret-key` | Your trigger.dev project's production secret key (`tr_prod_…`). |
 | `/galena/dev/setup-token` | Random. First-run setup must send it, so nobody else can create the owner before you do. |
 
 ```bash
@@ -114,17 +111,14 @@ aws ssm put-parameter --name /galena/dev/auth-secret --type SecureString \
   --value "$(openssl rand -hex 32)"
 aws ssm put-parameter --name /galena/dev/app-key --type SecureString \
   --value "$(openssl rand -base64 32)"
-aws ssm put-parameter --name /galena/dev/trigger-secret-key --type SecureString \
-  --value "tr_prod_…"
 aws ssm put-parameter --name /galena/dev/setup-token --type SecureString \
   --value "$(openssl rand -hex 32)"
 ```
 
-The API reads them when a Lambda container starts. Keep the app key: the workers need the same
-value, and a new key makes stored Slack URLs, webhook secrets and old subscription links
-unreadable.
+The API and the background jobs read them when a Lambda container starts. Keep the app key: a new
+key makes stored Slack URLs, webhook secrets and old subscription links unreadable.
 
-A fifth, `/galena/dev/slack-app`, is optional: it holds your Slack app's secrets for
+A fourth, `/galena/dev/slack-app`, is optional: it holds your Slack app's secrets for
 [approvals in Slack](/docs/guides/slack-app/).
 
 </Step>
@@ -145,49 +139,17 @@ change `aws-region` in `.github/workflows/deploy.yml` too.
 The first run creates, among others:
 
 - `galena-dev-foundation`: the VPC (isolated subnets only), Aurora Serverless v2, DynamoDB,
-  the SQS FIFO queue and the config bucket.
+  the SQS FIFO queues for check results, jobs and HTML builds, and the config bucket.
 - `galena-dev-probe-<region>` in each probe region, and `galena-dev-detection` (the evaluator).
 - `galena-dev-api` and `galena-dev-web` (the dashboard on CloudFront).
 - `galena-dev-page`, `galena-dev-page-replica` and, with a domain, `galena-dev-page-certificate`.
 - `galena-dev-dashboard-certificate`, when `webDomain` is set.
-- `galena-dev-worker-access`: the IAM user trigger.dev uses.
+- `galena-dev-jobs`: the background jobs and the HTML builder on Lambda, and the recurring
+  schedules for the outbox sweep, the uptime rollup and the hourly page heartbeat.
 - `galena-dev-email`, when `email` is set.
 - `galena-dev-smoke`, on the `dev` stage only: an endpoint the end-to-end Smoke workflow takes
   down and brings back to prove detection and publishing work in AWS. It stays stopped between
   runs.
-
-</Step>
-<Step>
-
-### Deploy the workers
-
-Create an access key for the IAM user `galena-dev-worker-access` and add these environment
-variables to your trigger.dev project's production environment:
-
-| Variable | Value |
-| --- | --- |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | The worker access key (secret) |
-| `GLN_HOME_REGION` | Your home region |
-| `GLN_DB_CLUSTER_ARN`, `GLN_DB_SECRET_ARN` | From SSM: `/galena/dev/database-cluster-arn` and `/galena/dev/database-secret-arn` |
-| `GLN_CONFIG_BUCKET` | From SSM: `/galena/dev/config-bucket` |
-| `GLN_PAGE_BUCKET`, `GLN_PAGE_REGION` | The primary page bucket and its region |
-| `GLN_PAGE_URL` | Where the status page is reached, for links in feeds and email |
-| `GLN_DASHBOARD_URL` | Where the dashboard is reached, for links in Slack messages |
-| `GLN_APP_KEY` | The same value as `/galena/dev/app-key` (secret) |
-| `GLN_TELEMETRY_TABLE` | From SSM: `/galena/dev/telemetry-table` |
-| `GLN_BUILDS_QUEUE_URL` | From SSM: `/galena/dev/builds-queue-url`; the HTML then builds on AWS |
-| `GLN_EMAIL_FROM`, `GLN_SES_CONFIGURATION_SET` | The `from` address and `galena-dev`, when email is on |
-| `GLN_TRIGGER_PROJECT_REF` | Your project ref |
-
-Then deploy the tasks:
-
-```bash
-pnpm --filter @galena/workers exec trigger deploy
-```
-
-Rotate the access key every three months. Its policy reaches only the Data API on the cluster,
-the database secret, `monitors.json` in the config bucket, the page bucket's `pages/` prefix, and
-sending email as your SES identity.
 
 </Step>
 <Step>
@@ -218,7 +180,7 @@ With `email`:
 pnpm galena doctor
 ```
 
-It reads your account, trigger.dev and DNS, changes nothing, and prints one line per check with
+It reads your account and DNS, changes nothing, and prints one line per check with
 what to fix under any that isn't `ok`. See the [CLI reference](/docs/reference/cli/#galena-doctor)
 for what each check means.
 

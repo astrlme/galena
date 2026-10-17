@@ -1,10 +1,10 @@
 ---
 title: Deploys and migrations
-description: How a change reaches AWS and trigger.dev, and how the database schema moves with it.
+description: How a change reaches AWS, and how the database schema moves with it.
 ---
 
-Galena has two deploy targets that move separately: the **AWS stacks** (everything in `infra/`,
-including the dashboard and the status page template) and the **trigger.dev tasks** (`apps/workers`).
+Everything deploys as one set of **AWS stacks**: everything in `infra/`, including the dashboard,
+the status page template and the background jobs in `apps/workers`.
 
 ## AWS: the Deploy workflow
 
@@ -48,25 +48,14 @@ Rules that keep this safe:
   cast in the query, or inserts work locally and fail in AWS; see migration
   `0003_enum_text_casts`.
 
-## trigger.dev
-
-Tasks deploy with the trigger.dev CLI, from your machine or a workflow of your own:
-
-```bash
-pnpm --filter @galena/workers exec trigger deploy
-```
-
-Deploy the workers after the AWS stacks when a change touches both: a new task may rely on a
-table, a bucket permission or an SSM parameter that the stacks create.
-
 ## The end-to-end smoke test
 
 The **Smoke** workflow runs after every successful deploy, once you opt in by setting the
 repository variable `AWS_SMOKE_ROLE_ARN` (the `galena-dev-smoke` stack's `SmokeRoleArn` output)
 and adding a monitor for the smoke target (`TargetUrl`), with the publish policy Internal only
 and no component. It stops the target, waits until every probe region reports it failing and the
-monitor is down, starts it again, waits for recovery, and checks that trigger.dev ran
-`monitor.state-changed` exactly once per transition.
+monitor is down, starts it again, waits for recovery, and checks in the jobs log that
+`monitor.state-changed` ran exactly once per transition.
 
 The target is public, because the probes must reach it, so it stays stopped between runs: it
 answers 429 and its monitor shows down in the dashboard. Left running, anyone could flood it and
