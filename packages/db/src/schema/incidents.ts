@@ -52,8 +52,6 @@ export const incident = pgTable(
     dedupKey: text(),
     // A draft waiting for a person: when it publishes unless someone answers.
     approvalDeadline: at(),
-    // No longer written: approvals are a job at the deadline. Dropped in a later migration.
-    approvalTokenId: text(),
     ...timestamps,
   },
   (t) => [
