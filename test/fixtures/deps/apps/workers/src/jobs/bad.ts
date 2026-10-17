@@ -1,1 +1,1 @@
-import "@trigger.dev/sdk"; // jobs-engine-neutral
+import "@aws-sdk/client-sqs"; // jobs-engine-neutral

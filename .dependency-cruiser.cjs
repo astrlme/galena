@@ -17,7 +17,7 @@ const NPM_TYPES = [
 ];
 const UI_TOKENS_ONLY = { path: pkg("ui"), pathNot: "(?:^|/)packages/ui/src/tokens\\.(?:ts|css)$" };
 const POSTGRES = npm("pg|drizzle-orm|@aws-sdk/client-rds-data");
-const TRIGGER_DEV = npm("@trigger\\.dev");
+const JOB_TRANSPORT = npm("@aws-sdk/client-sqs|@aws-sdk/client-scheduler");
 // Tests and tool config (vitest.config.ts) are not shipped, so the purity rules skip them.
 const NOT_SHIPPED = String.raw`\.test\.tsx?$|(?:^|/)[\w.-]+\.config\.[cm]?[jt]s$`;
 
@@ -43,7 +43,7 @@ module.exports = {
       severity: "error",
       from: { path: pkg("core"), pathNot: NOT_SHIPPED },
       to: {
-        path: `${pkg("db|integrations|publisher|emails|ui")}|(?:^|/)apps/|${npm("@aws-sdk")}|${TRIGGER_DEV}`,
+        path: `${pkg("db|integrations|publisher|emails|ui")}|(?:^|/)apps/|${npm("@aws-sdk")}`,
       },
     },
     {
@@ -72,27 +72,27 @@ module.exports = {
       },
     },
     {
-      name: "probe-no-trigger-dev",
+      name: "probe-starts-no-jobs",
       comment:
-        "only the evaluator calls trigger.dev, and only tasks.trigger on a transition (review checks the call)",
+        "only the evaluator starts a job, and only on a transition (review checks the call); the probe only sends results",
       severity: "error",
       from: { path: "(?:^|/)apps/probe/" },
-      to: { path: TRIGGER_DEV },
+      to: { path: "(?:^|/)packages/integrations/src/jobs/" },
     },
     {
       name: "jobs-engine-neutral",
       comment:
-        "worker jobs start others through their engine; only the task wrappers in apps/workers/src/tasks/ know trigger.dev",
+        "a job starts others through engine(), so it runs the same on Lambda and on the local engine; only the hosts know SQS and Scheduler",
       severity: "error",
-      from: { path: "(?:^|/)apps/workers/src/", pathNot: "(?:^|/)apps/workers/src/tasks/" },
-      to: { path: TRIGGER_DEV },
+      from: { path: "(?:^|/)apps/workers/src/jobs/" },
+      to: { path: JOB_TRANSPORT },
     },
     {
       name: "status-page-static",
       comment: "the status page reads published files only",
       severity: "error",
       from: { path: "(?:^|/)apps/status/" },
-      to: { path: `${pkg("db|core|integrations|emails")}|${POSTGRES}|${TRIGGER_DEV}` },
+      to: { path: `${pkg("db|core|integrations|emails")}|${POSTGRES}` },
     },
     {
       name: "status-page-publisher-types-only",
@@ -164,7 +164,7 @@ module.exports = {
     // Our own build output and generated files only. npm packages often resolve through dist/,
     // and excluding those would drop them from the graph and blind the npm rules too.
     exclude: {
-      path: "^(?:apps|packages)/[^/]+/(?:dist|out|out-site|out-demo|coverage|\\.next|\\.astro|\\.turbo|\\.trigger)/|^infra/cdk\\.out/|^apps/web/next-env\\.d\\.ts$",
+      path: "^(?:apps|packages)/[^/]+/(?:dist|out|out-site|out-demo|coverage|\\.next|\\.astro|\\.turbo)/|^infra/cdk\\.out/|^apps/web/next-env\\.d\\.ts$",
     },
     doNotFollow: { path: "(?:^|/)node_modules/" },
     tsPreCompilationDeps: true,
