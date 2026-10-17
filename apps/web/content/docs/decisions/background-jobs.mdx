@@ -27,15 +27,15 @@ at its start and another at its end.
 - A job for later is an EventBridge Scheduler one-time schedule, named by the key's hash, that
   sends to the queue and deletes itself. The outbox sweep, the uptime rollup and the hourly page
   heartbeat are recurring Scheduler schedules.
-- Each job gets five attempts, waiting longer each time. After the last, the job's failure hook
-  records it and the message goes to a dead-letter queue.
+- Each job gets five attempts unless it sets its own, waiting longer each time. After the last,
+  the job's failure hook records it and the message goes to a dead-letter queue.
 - Locally an in-process engine runs the same jobs, so `pnpm dev` needs no account.
 
 ## Alternatives
 
 | Option | Why not |
 | --- | --- |
-| Stay on trigger.dev | A second vendor and account for every deployment, a key outside AWS, no alarm when it stops, and about four times the cost of Lambda for the same jobs |
+| Stay on trigger.dev | A second vendor and account for every deployment, a key outside AWS, no alarm when it stops, and, measured on dev, about four times the cost of Lambda for the same jobs |
 | Lambda durable functions | New, with limits on execution names and waits that can't be cancelled; with jobs at deadlines, nothing needs a long-running workflow |
 | Step Functions | A state machine per flow, for what is now one scheduled message |
 | Self-hosted trigger.dev | Several vCPUs and gigabytes of memory per worker, running all the time |
@@ -56,3 +56,4 @@ at its start and another at its end.
 
 A lane backs up (the queue's oldest message keeps getting older), sends crowd out other jobs on
 the shared queue, or a job needs a wait that a scheduled message can't express.
+
