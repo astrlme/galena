@@ -9,9 +9,7 @@
   },
   "devDependencies": {
     "@galena/config": "workspace:*",
-    "@testcontainers/postgresql": "^12.1.0",
-    "@trigger.dev/build": "4.6.4",
-    "trigger.dev": "4.6.4"
+    "@testcontainers/postgresql": "^12.1.0"
   },
   "dependencies": {
     "@aws-lambda-powertools/logger": "^2.34.0",
@@ -28,7 +26,6 @@
     "@galena/emails": "workspace:*",
     "@galena/integrations": "workspace:*",
     "@galena/publisher": "workspace:*",
-    "@trigger.dev/sdk": "4.6.4",
     "uuid": "^14.0.2",
     "zod": "^4.6.5"
   }

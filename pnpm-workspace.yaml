@@ -3,15 +3,11 @@ packages:
   - packages/*
   - infra
 allowBuilds:
-  '@depot/cli': false
   cpu-features: false
   esbuild: true
   protobufjs: false
   ssh2: false
 overrides:
-  # The trigger.dev SDK's socket client pins ws 8.11, which has DoS and memory-disclosure fixes
-  # since; the 8.x API it uses is unchanged.
-  engine.io-client>ws: ^8.21.0
   # MDX's hast-util-to-estree passes `reactCompat`, which style-to-js only has from 1.1; its
   # `^1.0.0` range otherwise resolves to 1.0.0 and code blocks fail to compile.
   style-to-js: ^1.1.21
@@ -19,13 +15,8 @@ overrides:
   # TLS and request-handling fixes since, within the same major.
   "@scalar/json-magic>undici": ^7.29.1
   # Patched releases inside the ranges that already ask for them, which the lockfile had pinned
-  # below: sharp's bundled librsvg, the MCP SDK's OAuth server selection (trigger.dev CLI), and
-  # ansi-regex's ReDoS (testcontainers, tests only), and source-map-js's event-loop DoS (Tailwind,
-  # Astro's svgo, c12).
+  # below: sharp's bundled librsvg, ansi-regex's ReDoS (testcontainers, tests only), and
+  # source-map-js's event-loop DoS (Tailwind, Astro's svgo).
   "sharp@<0.35.5": ^0.35.5
-  "@modelcontextprotocol/sdk@<1.31.0": ^1.31.0
   "ansi-regex@>=5.0.0 <5.0.1": ^5.0.1
   "source-map-js@<1.2.2": ^1.2.2
-  # giget (trigger.dev CLI → c12) still asks for tar 6, which gets no more fixes; it calls only
-  # `extract({ file, cwd, onentry })`, which tar 7 keeps.
-  giget>tar: ^7.5.22

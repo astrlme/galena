@@ -17,7 +17,6 @@
     "@galena/contracts": "workspace:*",
     "@galena/core": "workspace:*",
     "@galena/integrations": "workspace:*",
-    "@trigger.dev/sdk": "4.6.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {
