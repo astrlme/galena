@@ -37,20 +37,20 @@ publishes a static status page that keeps serving when everything else is not.
 ## How it fits together
 
 Galena is three paths that fail independently. A visitor's request only ever touches the read
-path, so if the API, the database and trigger.dev are all down at once, the last published page
-still serves.
+path, so if the API, the database and the background jobs are all down at once, the last
+published page still serves.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/assets/overview-dark.svg">
-    <img alt="Probes in three regions feed a queue and an evaluator that keeps state in DynamoDB. Only state changes reach the trigger.dev workers, which share Aurora with the API and publish the status page to S3 and CloudFront, the only part visitors load." src=".github/assets/overview-light.svg" width="680">
+    <img alt="Probes in three regions feed a queue and an evaluator that keeps state in DynamoDB. Only state changes start the background jobs on Lambda, which share Aurora with the API and publish the status page to S3 and CloudFront, the only part visitors load." src=".github/assets/overview-light.svg" width="680">
   </picture>
 </p>
 
 | Path | What runs | What it does |
 | --- | --- | --- |
 | Hot path | Probe Lambdas in three regions, an SQS FIFO queue, an evaluator Lambda, DynamoDB | Checks every monitor every minute and works out each monitor's state |
-| Cold path | The API on Lambda, Aurora Serverless v2, trigger.dev tasks | Incidents, maintenance, notifications, and publishing the page |
+| Cold path | The API on Lambda, Aurora Serverless v2, background jobs on SQS, EventBridge Scheduler and Lambda | Incidents, maintenance, notifications, and publishing the page |
 | Read path | S3 and CloudFront in separate regions | Serves the status page and its data files |
 
 ## What works today
@@ -110,7 +110,7 @@ the details.
 
 Galena deploys with the AWS CDK from a GitHub Actions workflow that signs in to AWS with OIDC, so
 no AWS keys are stored in GitHub. You need an AWS account that holds nothing but Galena, a fork
-of this repository, a trigger.dev account and a domain whose DNS you control. The
+of this repository and a domain whose DNS you control. The
 [self-hosting guide](https://galena.astrl.me/docs/getting-started/self-hosting/) goes from an
 empty account to a live status page.
 
@@ -137,7 +137,7 @@ empty account to a live status page.
 | `apps/status` | Astro status page, built from a published snapshot |
 | `apps/probe` | Probe Lambda: runs the checks in each region |
 | `apps/evaluator` | Evaluator Lambda: turns check results into monitor state |
-| `apps/workers` | trigger.dev tasks: publishing, uptime history, notifications |
+| `apps/workers` | Background jobs on Lambda: publishing, uptime history, notifications |
 | `packages/contracts` | Zod schemas and types shared by every app |
 | `packages/core` | Domain logic without I/O: detection, status, uptime, roles |
 | `packages/db` | Drizzle schema, migrations, repositories |

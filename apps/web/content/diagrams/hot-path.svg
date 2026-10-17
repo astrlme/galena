@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 328" role="img" aria-labelledby="hot-path-title hot-path-desc" style="min-width:680px">
 <title id="hot-path-title">The hot path</title>
-<desc id="hot-path-desc">Probes in three regions send each check result to one SQS FIFO queue grouped by monitor; the evaluator writes results and state to DynamoDB and triggers the workers only on a state change.</desc>
+<desc id="hot-path-desc">Probes in three regions send each check result to one SQS FIFO queue grouped by monitor; the evaluator writes results and state to DynamoDB and starts a job only on a state change.</desc>
 <defs><marker id="hot-path-head-plain" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="d-head plain"/></marker><marker id="hot-path-head-strong" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="d-head strong"/></marker></defs>
 <rect x="16" y="16" width="176" height="232" rx="8" class="d-zone"/>
 <text x="28" y="36" text-anchor="start" class="d-zone-label">Probe regions</text>
@@ -38,9 +38,9 @@
 <text x="616.0" y="140.5" text-anchor="middle" class="d-name">Telemetry</text>
 <text x="616.0" y="158.5" text-anchor="middle" class="d-sub">DynamoDB</text>
 <rect x="424" y="256" width="112" height="56" rx="6" class="d-mask"/>
-<rect x="424" y="256" width="112" height="56" rx="6" class="d-external"/>
-<text x="480.0" y="280.5" text-anchor="middle" class="d-name">Workers</text>
-<text x="480.0" y="298.5" text-anchor="middle" class="d-sub">trigger.dev</text>
+<rect x="424" y="256" width="112" height="56" rx="6" class="d-node"/>
+<text x="480.0" y="280.5" text-anchor="middle" class="d-name">Jobs</text>
+<text x="480.0" y="298.5" text-anchor="middle" class="d-sub">SQS + Lambda</text>
 <text x="312" y="216" text-anchor="middle" class="d-note">Repeats dropped:</text>
 <text x="312" y="234" text-anchor="middle" class="d-note">one per monitor,</text>
 <text x="312" y="252" text-anchor="middle" class="d-note">region and minute.</text>
