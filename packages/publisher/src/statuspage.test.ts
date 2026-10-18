@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import {
   componentId,
   componentStatuses,
+  incidentId,
   incidentImpacts,
   incidentStatuses,
   incidentUpdateId,
@@ -28,9 +29,25 @@ const PATHS = [
   "summary.json",
 ];
 
-// biome-ignore lint/suspicious/noExplicitAny: test reads of published JSON
-const published = (path: string, snapshot: Snapshot = fixtureSnapshot()): any =>
-  JSON.parse(pageFiles(snapshot).find((f) => f.path === `api/v2/${path}`)?.body ?? "null");
+/** The parts of a published file the tests below read. */
+type Published = {
+  status: { indicator: string; description: string };
+  components: Array<{ name: string; status: string; position: number; group: boolean }>;
+  incidents: Array<{
+    name: string;
+    created_at: string;
+    started_at: string;
+    monitoring_at: string | null;
+    shortlink: string;
+    components: Array<{ start_date: string | null }>;
+  }>;
+  scheduled_maintenances: Array<{ name: string }>;
+};
+const published = (path: string, snapshot: Snapshot = fixtureSnapshot()) =>
+  JSON.parse(
+    pageFiles(snapshot).find((f) => f.path === `api/v2/${path}`)?.body ?? "null",
+  ) as Published;
+const names = (records: Array<{ name: string }>) => records.map((r) => r.name);
 const fixture = (path: string): unknown =>
   JSON.parse(readFileSync(new URL(`../test/fixtures/statuspage/${path}`, import.meta.url), "utf8"));
 
@@ -112,21 +129,39 @@ describe("Statuspage v2 files", () => {
 
   test("the summary holds unresolved incidents, then upcoming and active windows", () => {
     const summary = published("summary.json");
-    expect(summary.incidents.map((i: { name: string }) => i.name)).toEqual([
-      "Errors on <API> & webhooks",
-    ]);
-    expect(summary.scheduled_maintenances.map((m: { name: string }) => m.name)).toEqual([
-      "Database upgrade",
-      "CDN change",
-    ]);
-    expect(published("incidents.json").incidents.map((i: { name: string }) => i.name)).toEqual([
+    expect(names(summary.incidents)).toEqual(["Errors on <API> & webhooks"]);
+    expect(names(summary.scheduled_maintenances)).toEqual(["Database upgrade", "CDN change"]);
+    expect(names(published("incidents.json").incidents)).toEqual([
       "Errors on <API> & webhooks",
       "Slow dashboard",
     ]);
-    expect(published("status.json").status).toEqual({
-      indicator: "major",
-      description: "Partial System Outage",
+  });
+
+  test("unresolved incidents come newest update first, as Statuspage lists them", () => {
+    const snapshot = fixtureSnapshot();
+    const [open] = snapshot.incidents.active;
+    if (!open) throw new Error("the fixture has an open incident");
+    snapshot.incidents.active.push({
+      ...open,
+      id: incidentId.parse("01920000-0000-7000-8000-000000000103"),
+      title: "Older but busier",
+      startedAt: "2026-09-29T09:00:00.000Z",
+      updatedAt: "2026-09-29T11:00:00.000Z",
     });
+    expect(names(published("incidents/unresolved.json", snapshot).incidents)).toEqual([
+      "Older but busier",
+      "Errors on <API> & webhooks",
+    ]);
+  });
+
+  test.each([
+    ["none", "All Systems Operational"],
+    ["minor", "Partially Degraded Service"],
+    ["major", "Partial System Outage"],
+    ["critical", "Major System Outage"],
+  ] as const)("the %s indicator reads %s, in Statuspage's words", (indicator, description) => {
+    const snapshot = { ...fixtureSnapshot(), indicator };
+    expect(published("status.json", snapshot).status).toEqual({ indicator, description });
   });
 
   test("a group takes its worst member's status, and positions count within each parent", () => {
@@ -146,8 +181,7 @@ describe("Statuspage v2 files", () => {
     core.componentIds = [queue.id, api.id, jobs.id];
 
     const rows = published("components.json", snapshot).components.map(
-      (c: { name: string; status: string; position: number; group: boolean }) =>
-        `${c.position} ${c.name} ${c.status}${c.group ? " group" : ""}`,
+      (c) => `${c.position} ${c.name} ${c.status}${c.group ? " group" : ""}`,
     );
     expect(rows).toEqual([
       "1 Web under_maintenance",
@@ -158,7 +192,7 @@ describe("Statuspage v2 files", () => {
     ]);
   });
 
-  test("times come from the records: creation from the id, monitoring from its first update", () => {
+  test("times come from the records: the start, the record's creation, the first monitoring update", () => {
     const snapshot = fixtureSnapshot();
     const [resolved] = snapshot.incidents.recent;
     if (!resolved) throw new Error("the fixture has a resolved incident");
@@ -173,10 +207,14 @@ describe("Statuspage v2 files", () => {
       monitoring("0205", "2026-09-27T08:20:00.000Z"),
     );
     const [, incident] = published("incidents.json", snapshot).incidents;
+    if (!incident) throw new Error("the resolved incident is published");
     expect(incident.monitoring_at).toBe("2026-09-27T08:20:00.000Z");
+    // Statuspage's `created_at` is when the incident started, and may be backdated;
+    // `started_at` is when the record was written.
+    expect(incident.created_at).toBe("2026-09-27T08:00:00.000Z");
     // 0x019200000000 ms, the first 48 bits of the fixture's ids.
-    expect(incident.created_at).toBe("2024-09-17T12:40:52.992Z");
-    expect(incident.started_at).toBe("2026-09-27T08:00:00.000Z");
+    expect(incident.started_at).toBe("2024-09-17T12:40:52.992Z");
+    expect(incident.components[0]?.start_date).toBe("2024-09-17");
     expect(incident.shortlink).toBe(`https://status.example.com/incidents/${resolved.id}/`);
   });
 });

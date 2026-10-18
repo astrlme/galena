@@ -6,29 +6,23 @@ import type {
   SnapshotIncident,
   SnapshotMaintenance,
 } from "@galena/contracts";
+import { SEVERITY_RANK } from "@galena/core";
 
 // Statuspage's public v2 files (`/api/v2/*.json`), so tools and widgets made for Statuspage read
 // a Galena page unchanged: the same field names and values, snake_case.
 
-// Statuspage's own wording for each indicator.
+// Statuspage's wording for the component states each indicator stands for.
 const DESCRIPTIONS: Record<PageIndicator, string> = {
   none: "All Systems Operational",
-  minor: "Minor Service Outage",
+  minor: "Partially Degraded Service",
   major: "Partial System Outage",
-  critical: "Major Service Outage",
+  critical: "Major System Outage",
 };
 
-// Least to most severe: a group shows its worst member, as Statuspage's groups do.
-const SEVERITY: readonly ComponentStatus[] = [
-  "operational",
-  "under_maintenance",
-  "degraded_performance",
-  "partial_outage",
-  "major_outage",
-];
+// A group shows its worst member, as Statuspage's groups do.
 const worst = (statuses: readonly ComponentStatus[]) =>
   statuses.reduce<ComponentStatus>(
-    (a, b) => (SEVERITY.indexOf(b) > SEVERITY.indexOf(a) ? b : a),
+    (a, b) => (SEVERITY_RANK[b] > SEVERITY_RANK[a] ? b : a),
     "operational",
   );
 
@@ -59,7 +53,7 @@ export function statuspageFiles(s: Snapshot): Array<{ path: string; body: string
     position,
     description: c.description,
     showcase: true,
-    start_date: c.days.find((d) => d.worst !== null)?.date ?? null,
+    start_date: createdAt(c.id).slice(0, 10),
     group_id: c.groupId,
     page_id: page.id,
     group: false,
@@ -117,20 +111,24 @@ export function statuspageFiles(s: Snapshot): Array<{ path: string; body: string
     id: i.id,
     name: i.title,
     status: i.status,
-    created_at: createdAt(i.id),
+    // Statuspage's `created_at` is when the incident started, and `started_at` when its record
+    // was written.
+    created_at: i.startedAt,
     updated_at: i.updatedAt,
     // Updates are newest first, so the last match is the first `monitoring` update.
     monitoring_at: i.updates.findLast((u) => u.status === "monitoring")?.createdAt ?? null,
     resolved_at: i.resolvedAt,
     impact: i.impact,
     shortlink: `${page.url}/incidents/${i.id}/`,
-    started_at: i.startedAt,
+    started_at: createdAt(i.id),
     page_id: page.id,
     incident_updates: i.updates.map((u) => update(i.id, u)),
     components: current(i.components.map((c) => c.componentId)),
     reminder_intervals: null,
   });
-  const unresolved = s.incidents.active.map(incident);
+  const unresolved = s.incidents.active
+    .map(incident)
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   // Known limit: the snapshot holds 14 days of resolved incidents, where Statuspage lists the
   // last 50 whatever their age. Older ones need the snapshot to carry them.
   const incidents = [...unresolved, ...s.incidents.recent.map(incident)].slice(0, 50);
