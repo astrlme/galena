@@ -92,6 +92,13 @@
       "when": 1792002885180,
       "tag": "0012_signal_receipts",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792282114321,
+      "tag": "0013_drop_job_columns",
+      "breakpoints": true
     }
   ]
 }
