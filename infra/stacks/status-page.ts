@@ -136,26 +136,38 @@ export class StatusPageStack extends Stack {
 
     const origin = (bucket: IBucket) =>
       S3BucketOrigin.withOriginAccessControl(bucket, { originPath: `/pages/${PAGE_SLUG}` });
-    const headers = new ResponseHeadersPolicy(this, "Headers", {
-      securityHeadersBehavior: {
-        // Scripts and styles are pinned by hash in the page's own CSP; what a meta tag can't
-        // say goes here.
-        contentSecurityPolicy: {
-          contentSecurityPolicy:
-            "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'",
-          override: true,
-        },
-        strictTransportSecurity: {
-          accessControlMaxAge: Duration.days(365),
-          includeSubdomains: false,
-          override: true,
-        },
-        contentTypeOptions: { override: true },
-        frameOptions: { frameOption: HeadersFrameOption.DENY, override: true },
-        referrerPolicy: {
-          referrerPolicy: HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
-          override: true,
-        },
+    const securityHeadersBehavior = {
+      // Scripts and styles are pinned by hash in the page's own CSP; what a meta tag can't
+      // say goes here.
+      contentSecurityPolicy: {
+        contentSecurityPolicy:
+          "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'",
+        override: true,
+      },
+      strictTransportSecurity: {
+        accessControlMaxAge: Duration.days(365),
+        includeSubdomains: false,
+        override: true,
+      },
+      contentTypeOptions: { override: true },
+      frameOptions: { frameOption: HeadersFrameOption.DENY, override: true },
+      referrerPolicy: {
+        referrerPolicy: HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+        override: true,
+      },
+    };
+    const headers = new ResponseHeadersPolicy(this, "Headers", { securityHeadersBehavior });
+    // Statuspage's files are read by widgets on other sites, as Statuspage's own are: public
+    // data, no cookies, so any origin may read them.
+    const statuspageHeaders = new ResponseHeadersPolicy(this, "StatuspageHeaders", {
+      securityHeadersBehavior,
+      corsBehavior: {
+        accessControlAllowOrigins: ["*"],
+        accessControlAllowMethods: ["GET", "HEAD"],
+        accessControlAllowHeaders: ["*"],
+        accessControlExposeHeaders: ["ETag"],
+        accessControlAllowCredentials: false,
+        originOverride: true,
       },
     });
     // The subscription forms, on the page's own origin so they need no CORS. Only what the API
@@ -170,6 +182,12 @@ export class StatusPageStack extends Stack {
       queryStringBehavior: OriginRequestQueryStringBehavior.all(),
       cookieBehavior: OriginRequestCookieBehavior.none(),
     });
+    const pageFiles = new OriginGroup({
+      primaryOrigin: origin(primary),
+      fallbackOrigin: origin(replica),
+      // S3 behind OAC answers 403 for a missing object.
+      fallbackStatusCodes: [403, 500, 502, 503, 504],
+    });
     const distribution = new Distribution(this, "Distribution", {
       comment: `Galena ${config.stage} status page`,
       ...(certificate && config.pageDomain
@@ -180,12 +198,7 @@ export class StatusPageStack extends Stack {
           }
         : {}),
       defaultBehavior: {
-        origin: new OriginGroup({
-          primaryOrigin: origin(primary),
-          fallbackOrigin: origin(replica),
-          // S3 behind OAC answers 403 for a missing object.
-          fallbackStatusCodes: [403, 500, 502, 503, 504],
-        }),
+        origin: pageFiles,
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         // Honours each file's Cache-Control and compresses.
         cachePolicy: CachePolicy.CACHING_OPTIMIZED,
@@ -201,6 +214,12 @@ export class StatusPageStack extends Stack {
         ],
       },
       additionalBehaviors: {
+        "/api/v2/*": {
+          origin: pageFiles,
+          viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: CachePolicy.CACHING_OPTIMIZED,
+          responseHeadersPolicy: statuspageHeaders,
+        },
         "/public/*": {
           origin: new HttpOrigin(Fn.select(2, Fn.split("/", props.apiEndpoint)), {
             // From the secret's copy in this region.

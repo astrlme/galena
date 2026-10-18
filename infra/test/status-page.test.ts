@@ -111,8 +111,14 @@ test("passes cdk-nag AwsSolutions", () => {
 
 test("sends only the subscription forms to the API, uncached, with the visitor's address", () => {
   const config = distribution(template);
-  const [forms] = config.CacheBehaviors;
-  expect(config.CacheBehaviors).toHaveLength(1);
+  const apiOrigin = config.Origins.find(
+    (o: { CustomOriginConfig?: unknown }) => o.CustomOriginConfig,
+  );
+  const toApi = config.CacheBehaviors.filter(
+    (b: { TargetOriginId: string }) => b.TargetOriginId === apiOrigin.Id,
+  );
+  expect(toApi).toHaveLength(1);
+  const [forms] = toApi;
   expect(forms).toMatchObject({
     PathPattern: "/public/*",
     ViewerProtocolPolicy: "https-only",
@@ -130,9 +136,6 @@ test("sends only the subscription forms to the API, uncached, with the visitor's
       QueryStringsConfig: { QueryStringBehavior: "all" },
     },
   });
-  const apiOrigin = config.Origins.find(
-    (o: { CustomOriginConfig?: unknown }) => o.CustomOriginConfig,
-  );
   expect(apiOrigin.DomainName).toBe("abc123.execute-api.eu-central-1.amazonaws.com");
   // From the secret's copy in the page region; the API refuses requests without it.
   expect(apiOrigin.OriginCustomHeaders).toEqual([
@@ -141,4 +144,31 @@ test("sends only the subscription forms to the API, uncached, with the visitor's
       HeaderValue: "{{resolve:secretsmanager:galena/dev/origin-secret:SecretString:::}}",
     },
   ]);
+});
+
+test("lets scripts on any site read the Statuspage files, served like the rest of the page", () => {
+  const config = distribution(template);
+  const files = config.CacheBehaviors.find(
+    (b: { PathPattern: string }) => b.PathPattern === "/api/v2/*",
+  );
+  expect(files).toMatchObject({
+    TargetOriginId: config.DefaultCacheBehavior.TargetOriginId,
+    CachePolicyId: config.DefaultCacheBehavior.CachePolicyId,
+    ViewerProtocolPolicy: "redirect-to-https",
+  });
+  expect(files.AllowedMethods).toBeUndefined(); // GET and HEAD
+  expect(files.FunctionAssociations).toBeUndefined();
+  const policy = template.findResources("AWS::CloudFront::ResponseHeadersPolicy")[
+    files.ResponseHeadersPolicyId.Ref
+  ]?.Properties.ResponseHeadersPolicyConfig;
+  expect(policy.CorsConfig).toMatchObject({
+    AccessControlAllowOrigins: { Items: ["*"] },
+    AccessControlAllowMethods: { Items: ["GET", "HEAD"] },
+    AccessControlAllowCredentials: false,
+    AccessControlExposeHeaders: { Items: ["ETag"] },
+    OriginOverride: true,
+  });
+  expect(policy.SecurityHeadersConfig.StrictTransportSecurity.AccessControlMaxAgeSec).toBe(
+    31_536_000,
+  );
 });
