@@ -115,6 +115,18 @@ export const inputs: SnapshotInputs = {
       cancelledAt: null,
       componentIds: [api],
     },
+    {
+      id: maintenanceId.parse("01920000-0000-7000-8000-000000000302"),
+      workspaceId: ws,
+      title: "CDN change",
+      body: "Pages may load slowly for a few minutes.",
+      status: "in_progress",
+      startsAt: at("2026-09-29T11:30:00.000Z"),
+      endsAt: at("2026-09-29T12:30:00.000Z"),
+      version: 1,
+      cancelledAt: null,
+      componentIds: [web],
+    },
   ],
   uptime: [
     { componentId: api, date: "2026-09-27", minutes: { operational: 1440 } },

@@ -1,0 +1,57 @@
+{
+  "page": {
+    "id": "y2j98763l56x",
+    "name": "Example",
+    "url": "https://status.example.com",
+    "time_zone": "Etc/UTC",
+    "updated_at": "2026-10-18T09:41:14.380Z"
+  },
+  "components": [
+    {
+      "id": "b13yz5g2cw10",
+      "name": "Website",
+      "status": "operational",
+      "created_at": "2026-01-12T10:15:02.118Z",
+      "updated_at": "2026-10-18T09:05:40.871Z",
+      "position": 1,
+      "description": null,
+      "showcase": true,
+      "start_date": "2026-01-12",
+      "group_id": null,
+      "page_id": "y2j98763l56x",
+      "group": false,
+      "only_show_if_degraded": false
+    },
+    {
+      "id": "x8l9tv4d1r7m",
+      "name": "Core",
+      "status": "partial_outage",
+      "created_at": "2026-01-12T10:15:02.118Z",
+      "updated_at": "2026-10-18T09:05:40.871Z",
+      "position": 2,
+      "description": null,
+      "showcase": false,
+      "start_date": null,
+      "group_id": null,
+      "page_id": "y2j98763l56x",
+      "group": true,
+      "only_show_if_degraded": false,
+      "components": ["k2vq7wnh3c5f"]
+    },
+    {
+      "id": "k2vq7wnh3c5f",
+      "name": "API",
+      "status": "partial_outage",
+      "created_at": "2026-01-12T10:15:02.118Z",
+      "updated_at": "2026-10-18T09:05:40.871Z",
+      "position": 1,
+      "description": "Public REST API",
+      "showcase": true,
+      "start_date": "2026-01-12",
+      "group_id": "x8l9tv4d1r7m",
+      "page_id": "y2j98763l56x",
+      "group": false,
+      "only_show_if_degraded": false
+    }
+  ]
+}

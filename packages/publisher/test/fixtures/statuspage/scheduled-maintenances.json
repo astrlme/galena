@@ -1,0 +1,119 @@
+{
+  "page": {
+    "id": "y2j98763l56x",
+    "name": "Example",
+    "url": "https://status.example.com",
+    "time_zone": "Etc/UTC",
+    "updated_at": "2026-10-18T09:41:14.380Z"
+  },
+  "scheduled_maintenances": [
+    {
+      "id": "r5mk2t9wq0bd",
+      "name": "Database upgrade",
+      "status": "scheduled",
+      "created_at": "2026-10-15T14:03:27.210Z",
+      "updated_at": "2026-10-15T14:03:27.240Z",
+      "monitoring_at": null,
+      "resolved_at": null,
+      "impact": "maintenance",
+      "shortlink": "https://short.example.com/r5mk",
+      "started_at": "2026-10-15T14:03:27.204Z",
+      "page_id": "y2j98763l56x",
+      "incident_updates": [
+        {
+          "id": "r5mk2tu1w2q3",
+          "status": "scheduled",
+          "body": "Writes pause for up to 5 minutes.",
+          "incident_id": "r5mk2t9wq0bd",
+          "created_at": "2026-10-15T14:03:27.235Z",
+          "updated_at": "2026-10-15T14:03:27.235Z",
+          "display_at": "2026-10-15T14:03:27.235Z",
+          "affected_components": [
+            {
+              "code": "b13yz5g2cw10",
+              "name": "Website",
+              "old_status": "operational",
+              "new_status": "operational"
+            }
+          ],
+          "deliver_notifications": true,
+          "custom_tweet": null,
+          "tweet_id": null
+        }
+      ],
+      "components": [
+        {
+          "id": "b13yz5g2cw10",
+          "name": "Website",
+          "status": "operational",
+          "created_at": "2026-01-12T10:15:02.118Z",
+          "updated_at": "2026-10-18T09:05:40.871Z",
+          "position": 1,
+          "description": null,
+          "showcase": true,
+          "start_date": "2026-01-12",
+          "group_id": null,
+          "page_id": "y2j98763l56x",
+          "group": false,
+          "only_show_if_degraded": false
+        }
+      ],
+      "scheduled_for": "2026-10-20T22:00:00.000Z",
+      "scheduled_until": "2026-10-20T23:00:00.000Z"
+    },
+    {
+      "id": "f8cp4lz6s3hw",
+      "name": "Network change",
+      "status": "in_progress",
+      "created_at": "2026-10-15T14:03:27.210Z",
+      "updated_at": "2026-10-15T14:03:27.240Z",
+      "monitoring_at": null,
+      "resolved_at": null,
+      "impact": "maintenance",
+      "shortlink": "https://short.example.com/f8cp",
+      "started_at": "2026-10-15T14:03:27.204Z",
+      "page_id": "y2j98763l56x",
+      "incident_updates": [
+        {
+          "id": "f8cp4lu1w2q3",
+          "status": "scheduled",
+          "body": "Some requests may be slower for a few minutes.",
+          "incident_id": "f8cp4lz6s3hw",
+          "created_at": "2026-10-15T14:03:27.235Z",
+          "updated_at": "2026-10-15T14:03:27.235Z",
+          "display_at": "2026-10-15T14:03:27.235Z",
+          "affected_components": [
+            {
+              "code": "b13yz5g2cw10",
+              "name": "Website",
+              "old_status": "operational",
+              "new_status": "operational"
+            }
+          ],
+          "deliver_notifications": true,
+          "custom_tweet": null,
+          "tweet_id": null
+        }
+      ],
+      "components": [
+        {
+          "id": "b13yz5g2cw10",
+          "name": "Website",
+          "status": "operational",
+          "created_at": "2026-01-12T10:15:02.118Z",
+          "updated_at": "2026-10-18T09:05:40.871Z",
+          "position": 1,
+          "description": null,
+          "showcase": true,
+          "start_date": "2026-01-12",
+          "group_id": null,
+          "page_id": "y2j98763l56x",
+          "group": false,
+          "only_show_if_degraded": false
+        }
+      ],
+      "scheduled_for": "2026-10-18T09:00:00.000Z",
+      "scheduled_until": "2026-10-18T10:00:00.000Z"
+    }
+  ]
+}

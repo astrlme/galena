@@ -3,6 +3,7 @@ import { pageIndicatorStates } from "@galena/contracts";
 import { atomFeed, rssFeed } from "./feeds.ts";
 import type { GlyphState } from "./glyphs.ts";
 import { badgeSvg, faviconSvg } from "./images.ts";
+import { statuspageFiles } from "./statuspage.ts";
 
 export { atomFeed, rssFeed } from "./feeds.ts";
 export type { GlyphState } from "./glyphs.ts";
@@ -51,6 +52,11 @@ export function pageFiles(snapshot: Snapshot): PageFile[] {
       path: `favicons/${state}.svg`,
       body: faviconSvg(state),
       contentType: svg,
+    })),
+    ...statuspageFiles(snapshot).map(({ path, body }) => ({
+      path: `api/v2/${path}`,
+      body,
+      contentType: "application/json; charset=utf-8",
     })),
   ];
 }

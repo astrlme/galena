@@ -1,0 +1,13 @@
+{
+  "page": {
+    "id": "y2j98763l56x",
+    "name": "Example",
+    "url": "https://status.example.com",
+    "time_zone": "Etc/UTC",
+    "updated_at": "2026-10-18T09:41:14.380Z"
+  },
+  "status": {
+    "indicator": "major",
+    "description": "Partial System Outage"
+  }
+}
