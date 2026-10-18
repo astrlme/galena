@@ -40,14 +40,15 @@ curl https://status.example.com/api/v2/status.json
 
 `indicator` is the page's [headline](/docs/concepts/status-and-uptime/): `none`, `minor`,
 `major` or `critical`. Unlike Statuspage's, it also rises with an unresolved published incident,
-so it always agrees with what the page shows. `description` is Statuspage's wording for it:
+so it always agrees with what the page shows. `description` is Statuspage's wording for the
+component states each value stands for:
 
-| `indicator` | `description` |
-| --- | --- |
-| `none` | All Systems Operational |
-| `minor` | Minor Service Outage |
-| `major` | Partial System Outage |
-| `critical` | Major Service Outage |
+| `indicator` | Stands for | `description` |
+| --- | --- | --- |
+| `none` | Everything operational | All Systems Operational |
+| `minor` | Degraded performance | Partially Degraded Service |
+| `major` | A partial outage | Partial System Outage |
+| `critical` | A major outage | Major System Outage |
 
 ## Where the values differ
 
@@ -56,19 +57,23 @@ Field names and enum values are always Statuspage's. Some values come from what 
 - `page.id` and every `page_id` are the page's slug. Other ids are Galena's UUIDs, not
   Statuspage's 12-character codes.
 - Times are UTC with milliseconds, and `time_zone` is `Etc/UTC`.
-- `created_at` is when the record was created. A component's and a maintenance window's
-  `updated_at` is the time of the publish: Galena keeps no time of their last change.
+- An incident's `created_at` is when it started and its `started_at` when it was recorded, as on
+  Statuspage, where `created_at` can be backdated. On components and windows `created_at` is when
+  they were added. Their `updated_at` is the time of the publish: Galena keeps no time of their
+  last change.
 - Groups are listed as components with `group: true` and their members' ids in `components`.
   A group's status is its worst member's, and `position` counts from 1 within the page or the
-  group.
-- `showcase` is `true` for every component, since each shows its 90-day history, and
-  `start_date` is its first day with data.
+  group. Each group is followed by its members, where Statuspage sorts the list by `position`
+  alone.
+- `showcase` is `true` for every component that isn't a group, since each shows its 90-day
+  history, and `start_date` is the day the component was added.
 - An incident's `shortlink` is its page on the status page; a window's is the status page.
 - `affected_components`, `custom_tweet`, `tweet_id` and `reminder_intervals` are always `null`,
   and `deliver_notifications` is always `true`.
 - A window's `impact` is `maintenance`, and it carries one update: its message, as scheduled.
-- `incidents.json` lists only incidents resolved in the last 14 days, where Statuspage lists the
-  last 50 of any age, and `scheduled-maintenances.json` leaves out completed windows.
+- `incidents.json` lists unresolved incidents first, then only those resolved in the last 14
+  days, where Statuspage lists the last 50 of any age. `scheduled-maintenances.json` leaves out
+  completed windows.
 - Statuspage's per-record files (`/api/v2/incidents/<id>.json`) and subscriber endpoints aren't
   served. Its embed script, `se-v2.js`, builds URLs from a Statuspage page id, so it can't point
   at a Galena page; fetch the files instead.
@@ -77,7 +82,8 @@ Field names and enum values are always Statuspage's. Some values come from what 
 
 Every file is served with `Content-Type: application/json; charset=utf-8` and
 `Cache-Control: public, max-age=2, stale-if-error=86400`, like the rest of the page. A script on
-any site can read them: responses carry `Access-Control-Allow-Origin: *` for `GET` and `HEAD`,
-and expose `ETag`.
+any site can read them: responses carry `Access-Control-Allow-Origin: *` for `GET` and `HEAD`
+and expose `ETag`, and a preflight `OPTIONS` request, such as one for `If-None-Match`, is
+answered with `204` and allowed for a day.
 
 Fields may be added; ignore ones you don't know.
