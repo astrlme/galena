@@ -49,6 +49,23 @@ import { indexRewrite } from "./web.ts";
 // The page the workers publish: `ensurePage` creates it with this slug.
 const PAGE_SLUG = "status";
 
+/**
+ * Answers a CORS preflight for the Statuspage files at the edge, as Statuspage does: S3 has no
+ * CORS rules to answer it, and a widget that sends `If-None-Match` asks first.
+ */
+export const corsPreflight = `function handler(event) {
+  var request = event.request;
+  if (request.method !== "OPTIONS") return request;
+  var headers = {
+    "access-control-allow-origin": { value: "*" },
+    "access-control-allow-methods": { value: "GET, HEAD" },
+    "access-control-max-age": { value: "86400" }
+  };
+  var asked = request.headers["access-control-request-headers"];
+  if (asked) headers["access-control-allow-headers"] = { value: asked.value };
+  return { statusCode: 204, statusDescription: "No Content", headers: headers };
+}`;
+
 /** Bucket names are fixed so the stacks in each region, and the workers, can name them. */
 export const pageBucketName = (stage: string, account: string, replica = false) =>
   `galena-${stage}-page${replica ? "-replica" : ""}-${account}`;
@@ -217,8 +234,18 @@ export class StatusPageStack extends Stack {
         "/api/v2/*": {
           origin: pageFiles,
           viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
           cachePolicy: CachePolicy.CACHING_OPTIMIZED,
           responseHeadersPolicy: statuspageHeaders,
+          functionAssociations: [
+            {
+              eventType: FunctionEventType.VIEWER_REQUEST,
+              function: new CloudFrontFunction(this, "CorsPreflight", {
+                code: FunctionCode.fromInline(corsPreflight),
+                runtime: FunctionRuntime.JS_2_0,
+              }),
+            },
+          ],
         },
         "/public/*": {
           origin: new HttpOrigin(Fn.select(2, Fn.split("/", props.apiEndpoint)), {

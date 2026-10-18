@@ -2,7 +2,12 @@ import { App, Validations } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
-import { CertificateStack, PageReplicaStack, StatusPageStack } from "../stacks/status-page.ts";
+import {
+  CertificateStack,
+  corsPreflight,
+  PageReplicaStack,
+  StatusPageStack,
+} from "../stacks/status-page.ts";
 import { fixture, plain as withoutDomains } from "./fixture.ts";
 
 const app = new App();
@@ -156,8 +161,10 @@ test("lets scripts on any site read the Statuspage files, served like the rest o
     CachePolicyId: config.DefaultCacheBehavior.CachePolicyId,
     ViewerProtocolPolicy: "redirect-to-https",
   });
-  expect(files.AllowedMethods).toBeUndefined(); // GET and HEAD
-  expect(files.FunctionAssociations).toBeUndefined();
+  expect(files.AllowedMethods).toEqual(["GET", "HEAD", "OPTIONS"]);
+  expect(files.FunctionAssociations).toEqual([
+    expect.objectContaining({ EventType: "viewer-request" }),
+  ]);
   const policy = template.findResources("AWS::CloudFront::ResponseHeadersPolicy")[
     files.ResponseHeadersPolicyId.Ref
   ]?.Properties.ResponseHeadersPolicyConfig;
@@ -171,4 +178,28 @@ test("lets scripts on any site read the Statuspage files, served like the rest o
   expect(policy.SecurityHeadersConfig.StrictTransportSecurity.AccessControlMaxAgeSec).toBe(
     31_536_000,
   );
+});
+
+test("answers a CORS preflight at the edge, as Statuspage does, and passes every other request on", () => {
+  // oxlint-disable-next-line typescript/no-implied-eval -- runs the function's source as CloudFront does
+  const handler = new Function(`${corsPreflight}; return handler;`)();
+  const preflight = handler({
+    request: {
+      method: "OPTIONS",
+      uri: "/api/v2/summary.json",
+      headers: { "access-control-request-headers": { value: "if-none-match" } },
+    },
+  });
+  expect(preflight).toEqual({
+    statusCode: 204,
+    statusDescription: "No Content",
+    headers: {
+      "access-control-allow-origin": { value: "*" },
+      "access-control-allow-methods": { value: "GET, HEAD" },
+      "access-control-allow-headers": { value: "if-none-match" },
+      "access-control-max-age": { value: "86400" },
+    },
+  });
+  const get = { method: "GET", uri: "/api/v2/summary.json", headers: {} };
+  expect(handler({ request: get })).toBe(get);
 });
