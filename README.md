@@ -65,8 +65,9 @@ published page still serves.
   monitor is still down. They move to Monitoring when it recovers, back to Investigating if it
   fails again, and resolve once it is stable.
 - The static status page: a 90-day history per component, incident pages with a timeline of
-  updates, RSS and Atom feeds, a status badge and state favicons. A component that no monitor
-  reports on shows "No data" rather than a made-up 100%.
+  updates, RSS and Atom feeds, a status badge, state favicons and Statuspage-compatible
+  `/api/v2` files. A component that no monitor reports on shows "No data" rather than a made-up
+  100%.
 - Email subscribers, Slack incoming webhooks and signed outgoing webhooks.
 - A dashboard whose forms open in a side sheet and keep what you typed as a draft.
 - Approvals in Slack: a draft's approval card in a channel, and `/incident`.
@@ -74,7 +75,7 @@ published page still serves.
   incident per alert group, following the integration's publish policy, resolved when the group
   resolves.
 
-Next: Statuspage-compatible files, API keys, and members, roles and GitHub sign-in in Settings.
+Next: API keys, and members, roles and GitHub sign-in in Settings.
 See the [roadmap](https://galena.astrl.me/docs/roadmap/).
 
 ## Run it locally

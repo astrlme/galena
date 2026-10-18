@@ -1,0 +1,83 @@
+---
+title: Statuspage files
+description: The status page's /api/v2 files, readable by tools made for Atlassian Statuspage.
+---
+
+Every publish also writes the eight files of Atlassian Statuspage's public status API, so
+scripts, monitors and widgets written for Statuspage read a Galena page unchanged: the same
+paths, field names and values. They are derived from [`snapshot.json`](/docs/reference/snapshot/)
+and served from the status page's own address.
+
+| File | Holds |
+| --- | --- |
+| `/api/v2/summary.json` | The page, every component, unresolved incidents, upcoming then active maintenance, and the status |
+| `/api/v2/status.json` | The page and its status |
+| `/api/v2/components.json` | Every component and group |
+| `/api/v2/incidents.json` | Unresolved incidents, then those resolved in the last 14 days, at most 50 |
+| `/api/v2/incidents/unresolved.json` | Incidents still investigating, identified or monitoring |
+| `/api/v2/scheduled-maintenances.json` | Upcoming windows, then active ones |
+| `/api/v2/scheduled-maintenances/upcoming.json` | Windows not started yet, soonest first |
+| `/api/v2/scheduled-maintenances/active.json` | Windows in progress |
+
+```sh
+curl https://status.example.com/api/v2/status.json
+```
+
+```json
+{
+  "page": {
+    "id": "status",
+    "name": "Acme",
+    "url": "https://status.example.com",
+    "time_zone": "Etc/UTC",
+    "updated_at": "2026-10-18T09:41:14.380Z"
+  },
+  "status": { "indicator": "major", "description": "Partial System Outage" }
+}
+```
+
+## Status
+
+`indicator` is the page's [headline](/docs/concepts/status-and-uptime/): `none`, `minor`,
+`major` or `critical`. Unlike Statuspage's, it also rises with an unresolved published incident,
+so it always agrees with what the page shows. `description` is Statuspage's wording for it:
+
+| `indicator` | `description` |
+| --- | --- |
+| `none` | All Systems Operational |
+| `minor` | Minor Service Outage |
+| `major` | Partial System Outage |
+| `critical` | Major Service Outage |
+
+## Where the values differ
+
+Field names and enum values are always Statuspage's. Some values come from what Galena keeps:
+
+- `page.id` and every `page_id` are the page's slug. Other ids are Galena's UUIDs, not
+  Statuspage's 12-character codes.
+- Times are UTC with milliseconds, and `time_zone` is `Etc/UTC`.
+- `created_at` is when the record was created. A component's and a maintenance window's
+  `updated_at` is the time of the publish: Galena keeps no time of their last change.
+- Groups are listed as components with `group: true` and their members' ids in `components`.
+  A group's status is its worst member's, and `position` counts from 1 within the page or the
+  group.
+- `showcase` is `true` for every component, since each shows its 90-day history, and
+  `start_date` is its first day with data.
+- An incident's `shortlink` is its page on the status page; a window's is the status page.
+- `affected_components`, `custom_tweet`, `tweet_id` and `reminder_intervals` are always `null`,
+  and `deliver_notifications` is always `true`.
+- A window's `impact` is `maintenance`, and it carries one update: its message, as scheduled.
+- `incidents.json` lists only incidents resolved in the last 14 days, where Statuspage lists the
+  last 50 of any age, and `scheduled-maintenances.json` leaves out completed windows.
+- Statuspage's per-record files (`/api/v2/incidents/<id>.json`) and subscriber endpoints aren't
+  served. Its embed script, `se-v2.js`, builds URLs from a Statuspage page id, so it can't point
+  at a Galena page; fetch the files instead.
+
+## Headers
+
+Every file is served with `Content-Type: application/json; charset=utf-8` and
+`Cache-Control: public, max-age=2, stale-if-error=86400`, like the rest of the page. A script on
+any site can read them: responses carry `Access-Control-Allow-Origin: *` for `GET` and `HEAD`,
+and expose `ETag`.
+
+Fields may be added; ignore ones you don't know.

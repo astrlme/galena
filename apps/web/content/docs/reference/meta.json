@@ -1,4 +1,13 @@
 {
   "title": "Reference",
-  "pages": ["api", "webhooks", "snapshot", "events", "configuration", "cli", "limits"]
+  "pages": [
+    "api",
+    "webhooks",
+    "snapshot",
+    "statuspage-api",
+    "events",
+    "configuration",
+    "cli",
+    "limits"
+  ]
 }
