@@ -1,5 +1,6 @@
 import { createHmac, randomBytes } from "node:crypto";
-import type { Notice } from "@galena/contracts";
+import type { EndpointKind, Notice } from "@galena/contracts";
+import { slackMessage } from "./slack.ts";
 
 // Outgoing webhooks follow Standard Webhooks (standardwebhooks.com): the receiver checks
 // webhook-signature against its copy of the secret with any of the official libraries.
@@ -38,4 +39,21 @@ export function signWebhook(input: {
     "webhook-timestamp": timestamp,
     "webhook-signature": `v1,${signature}`,
   };
+}
+
+/**
+ * What an endpoint is sent for a notice: Block Kit for Slack, or a webhook signed with `id`,
+ * the delivery's, so its retries and resends carry the same `webhook-id`.
+ */
+export function endpointRequest(
+  kind: EndpointKind,
+  notice: Notice,
+  sign: { id: string; secret: string | null; at: Date },
+): { body: string; headers: Record<string, string> } {
+  const body = kind === "slack" ? JSON.stringify(slackMessage(notice)) : webhookBody(notice);
+  const headers =
+    kind === "webhook" && sign.secret
+      ? signWebhook({ id: sign.id, body, secret: sign.secret, at: sign.at })
+      : {};
+  return { body, headers };
 }

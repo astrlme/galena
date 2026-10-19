@@ -58,3 +58,40 @@ export function postJson(input: {
 
 /** Worth another try: rate limited or the receiver failing. Other 4xx won't change. */
 export const isRetryable = (status: number) => status === 429 || status >= 500;
+
+/**
+ * Only the guard refusing the address can't change on a retry. Timeouts, resets and the
+ * receiver failing may all pass.
+ */
+export const isFinalSendError = (error: unknown) =>
+  error instanceof Error && error.name === "BlockedByGuardError";
+
+/** How one send to a member's endpoint went, in words a member reads in its delivery log. */
+export type EndpointAnswer =
+  | { ok: true; status: number }
+  | { ok: false; status: number; error: string; retryable: boolean };
+
+/** `postJson`, without throwing for what the receiver or its address did: it says so instead. */
+export async function postToEndpoint(
+  input: Parameters<typeof postJson>[0],
+  post: typeof postJson = postJson,
+): Promise<EndpointAnswer> {
+  try {
+    const { status } = await post(input);
+    if (status >= 200 && status < 300) return { ok: true, status };
+    return {
+      ok: false,
+      status,
+      error: `The endpoint answered HTTP ${status}.`,
+      retryable: isRetryable(status),
+    };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "The request failed.";
+    return {
+      ok: false,
+      status: 0,
+      error: `Couldn't reach the endpoint: ${reason}`.slice(0, 500),
+      retryable: !isFinalSendError(error),
+    };
+  }
+}
