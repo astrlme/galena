@@ -35,7 +35,7 @@ export function laneOf(job: string, key: string): string {
       return `mon:${parts[1]}`;
     case "notify.slack":
     case "notify.webhook":
-      // `send:{eventId}:{endpointId}`: one delivery at a time per destination.
+      // `send:{eventId}:{endpointId}`, a retry `…:{attempt}`: one send at a time per destination.
       return `${job.slice("notify.".length)}:${parts[2]}`;
     case "notify.email":
       // `send:{eventId}:{subscriberId}`.

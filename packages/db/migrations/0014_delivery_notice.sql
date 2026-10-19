@@ -1,0 +1,1 @@
+ALTER TABLE "delivery" ADD COLUMN "notice" jsonb;

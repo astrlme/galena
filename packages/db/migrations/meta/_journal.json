@@ -99,6 +99,13 @@
       "when": 1792282114321,
       "tag": "0013_drop_job_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792402086219,
+      "tag": "0014_delivery_notice",
+      "breakpoints": true
     }
   ]
 }

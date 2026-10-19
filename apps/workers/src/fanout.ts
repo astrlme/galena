@@ -116,7 +116,7 @@ export async function fanOut(
   const endpoints = audience(components, await listDeliverableEndpoints(deps.db, ws));
   await recordDeliveries(deps.db, { workspaceId: ws, eventId: event.id, subjectId }, [
     ...subscribers.map((s) => ({ subscriberId: s.id, channel: "email" as const })),
-    ...endpoints.map((e) => ({ endpointId: e.id, channel: e.kind })),
+    ...endpoints.map((e) => ({ endpointId: e.id, channel: e.kind, notice })),
   ]);
   await deps.sendEmails(subscribers.map((s) => ({ subscriberId: s.id, notice })));
   await deps.sendToEndpoints(endpoints.map((e) => ({ endpointId: e.id, kind: e.kind, notice })));

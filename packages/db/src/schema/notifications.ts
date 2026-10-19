@@ -6,6 +6,7 @@ import {
   type EventId,
   endpointKinds,
   endpointStates,
+  type Notice,
   type SubscriberId,
   subscriberStates,
   type WebhookEndpointId,
@@ -104,6 +105,8 @@ export const delivery = pgTable(
     lastError: text(),
     /** SES's message id, for matching bounces and complaints. */
     providerId: text(),
+    /** What an endpoint is sent, for its delivery log and for sending it again. */
+    notice: jsonb().$type<Notice>(),
     sentAt: at(),
     ...timestamps,
   },

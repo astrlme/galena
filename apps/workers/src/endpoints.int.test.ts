@@ -24,7 +24,7 @@ import { appKeys, LOCAL_APP_KEY, seal } from "@galena/integrations/secrets";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { deliver, RetryableSendError } from "./endpoints.ts";
+import { deliver, type EndpointDeps, type EndpointPayload } from "./endpoints.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
 let db: Db;
@@ -101,14 +101,30 @@ async function endpoint(kind: "slack" | "webhook", path: string, secret?: string
   );
   return { id, n };
 }
-const deps = (attempt = 1) => ({ db, keys, guard, now: () => now, attempt });
+const scheduled: { next: EndpointPayload; at: Date }[] = [];
+const deps = (over: Partial<EndpointDeps> = {}): EndpointDeps => ({
+  db,
+  keys,
+  guard,
+  now: () => now,
+  redelivered: false,
+  retry: async (next, at) => {
+    scheduled.push({ next, at });
+  },
+  ...over,
+});
+const first = (id: EndpointPayload["endpointId"], n: Notice): EndpointPayload => ({
+  endpointId: id,
+  notice: n,
+  attempt: 1,
+});
 const state = async (id: string) => (await listEndpoints(db, acme)).find((e) => e.id === id)?.state;
 
 test("a webhook is signed over id.timestamp.body with the endpoint's secret, and sent once", async () => {
   answer = 204;
   const secret = newWebhookSecret();
   const { id, n } = await endpoint("webhook", "/hook", secret);
-  const run = () => deliver("webhook", { endpointId: id, notice: n }, deps());
+  const run = () => deliver("webhook", first(id, n), deps());
   expect(await run()).toBe("sent");
   expect(await run()).toBe("already_settled");
   const [sent] = received.filter((r) => r.path === "/hook");
@@ -122,25 +138,31 @@ test("a webhook is signed over id.timestamp.body with the endpoint's secret, and
   expect([delivery?.status, sent?.headers["webhook-id"]]).toEqual(["sent", delivery?.id]);
 });
 
-test("Slack gets Block Kit; a busy receiver is retried, a refusal marks the endpoint failing", async () => {
+test("Slack gets Block Kit; a busy receiver gets its next attempt later, a refusal marks the endpoint failing", async () => {
   answer = 200;
   const slack = await endpoint("slack", "/slack");
-  expect(await deliver("slack", { endpointId: slack.id, notice: slack.n }, deps())).toBe("sent");
+  expect(await deliver("slack", first(slack.id, slack.n), deps())).toBe("sent");
   expect(JSON.parse(received.at(-1)?.body ?? "{}").blocks[0].type).toBe("header");
 
   answer = 503;
   const busy = await endpoint("webhook", "/busy", newWebhookSecret());
-  await expect(
-    deliver("webhook", { endpointId: busy.id, notice: busy.n }, deps()),
-  ).rejects.toBeInstanceOf(RetryableSendError);
-  expect((await findDelivery(db, busy.n.eventId, { endpointId: busy.id }))?.status).toBe("pending");
-  // The task's retry, attempt 2, finds it answering again.
+  scheduled.length = 0;
+  expect(await deliver("webhook", first(busy.id, busy.n), deps())).toBe("retrying");
+  expect(scheduled).toEqual([
+    { next: { ...first(busy.id, busy.n), attempt: 2 }, at: new Date(now.getTime() + 5_000) },
+  ]);
+  expect(await findDelivery(db, busy.n.eventId, { endpointId: busy.id })).toMatchObject({
+    status: "pending",
+    attempts: 1,
+  });
+  // Attempt 2, at its time, finds it answering again.
   answer = 204;
-  expect(await deliver("webhook", { endpointId: busy.id, notice: busy.n }, deps(2))).toBe("sent");
+  const retry = scheduled[0]?.next ?? first(busy.id, busy.n);
+  expect(await deliver("webhook", retry, deps())).toBe("sent");
 
   answer = 410;
   const gone = await endpoint("webhook", "/gone", newWebhookSecret());
-  expect(await deliver("webhook", { endpointId: gone.id, notice: gone.n }, deps())).toBe("refused");
+  expect(await deliver("webhook", first(gone.id, gone.n), deps())).toBe("refused");
   expect(await state(gone.id)).toBe("failing");
 
   // It answers again: the next delivery brings the endpoint back.
@@ -151,7 +173,7 @@ test("Slack gets Block Kit; a busy receiver is retried, a refusal marks the endp
     { workspaceId: acme, eventId: next.eventId, subjectId: incidentId.parse(v7()) },
     [{ endpointId: gone.id, channel: "webhook" }],
   );
-  expect(await deliver("webhook", { endpointId: gone.id, notice: next }, deps())).toBe("sent");
+  expect(await deliver("webhook", first(gone.id, next), deps())).toBe("sent");
   expect(await state(gone.id)).toBe("active");
 });
 
@@ -174,6 +196,79 @@ test("a disabled endpoint is skipped without a request", async () => {
     [{ endpointId: id, channel: "webhook" }],
   );
   const before = received.length;
-  expect(await deliver("webhook", { endpointId: id, notice: n }, deps())).toBe("skipped");
+  expect(await deliver("webhook", first(id, n), deps())).toBe("skipped");
   expect(received.length).toBe(before);
+});
+
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+
+/** Runs a delivery's attempts, each at the time the one before asked for, until it settles. */
+async function attempts(id: EndpointPayload["endpointId"], start: Date) {
+  const n = notice();
+  await recordDeliveries(
+    db,
+    { workspaceId: acme, eventId: n.eventId, subjectId: incidentId.parse(v7()) },
+    [{ endpointId: id, channel: "webhook", notice: n }],
+  );
+  let request = first(id, n);
+  let at = start;
+  const outcomes: string[] = [];
+  for (;;) {
+    let later: { next: EndpointPayload; at: Date } | undefined;
+    const retry = async (next: EndpointPayload, when: Date) => {
+      later = { next, at: when };
+    };
+    const outcome = await deliver("webhook", request, deps({ now: () => at, retry }));
+    outcomes.push(outcome);
+    if (!later) return { outcomes, settledAt: at, eventId: n.eventId };
+    ({ next: request, at } = later);
+  }
+}
+
+test("a receiver down for days: failing after its first delivery's 8 attempts, off 3 days on", async () => {
+  answer = 503;
+  const { id } = await endpoint("webhook", "/down", newWebhookSecret());
+  const byEndpoint = () => received.filter((r) => r.path === "/down").length;
+
+  const one = await attempts(id, now);
+  expect(one.outcomes).toEqual([...Array(7).fill("retrying"), "failed"]);
+  // 5 s, 30 s, 2 min, 10 min, 1 h, 6 h and 24 h after one another.
+  expect(one.settledAt.getTime() - now.getTime()).toBe(31 * HOUR + 12 * 60_000 + 35_000);
+  expect(await findDelivery(db, one.eventId, { endpointId: id })).toMatchObject({
+    status: "failed",
+    attempts: 8,
+  });
+  const failing = { state: "failing", failingSince: one.settledAt };
+  expect((await listEndpoints(db, acme)).find((e) => e.id === id)).toMatchObject(failing);
+
+  // Failing for 32 hours: not yet off.
+  const two = await attempts(id, new Date(one.settledAt.getTime() + HOUR));
+  expect(two.outcomes.at(-1)).toBe("failed");
+  expect((await listEndpoints(db, acme)).find((e) => e.id === id)).toMatchObject(failing);
+
+  // A delivery that runs out 3 days after the first one did turns it off...
+  const three = await attempts(id, new Date(one.settledAt.getTime() + 2 * DAY));
+  expect(three.settledAt.getTime() - one.settledAt.getTime()).toBeGreaterThanOrEqual(3 * DAY);
+  expect(await state(id)).toBe("disabled");
+
+  // ...and what comes after is skipped without a request.
+  const before = byEndpoint();
+  const four = await attempts(id, new Date(three.settledAt.getTime() + HOUR));
+  expect([four.outcomes, byEndpoint()]).toEqual([["skipped"], before]);
+  expect(byEndpoint()).toBe(3 * 8);
+});
+
+test("an attempt whose run died after claiming it is taken again only when the queue hands it back", async () => {
+  answer = 503;
+  const { id, n } = await endpoint("webhook", "/flaky", newWebhookSecret());
+  const queueDown = async () => {
+    throw new Error("the queue is unreachable");
+  };
+  await expect(deliver("webhook", first(id, n), deps({ retry: queueDown }))).rejects.toThrow();
+  // A copy of the same attempt that wasn't handed back can't claim it.
+  expect(await deliver("webhook", first(id, n), deps())).toBe("already_settled");
+  scheduled.length = 0;
+  expect(await deliver("webhook", first(id, n), deps({ redelivered: true }))).toBe("retrying");
+  expect(scheduled.map((s) => s.next.attempt)).toEqual([2]);
 });

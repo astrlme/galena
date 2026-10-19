@@ -13,6 +13,7 @@ test.each([
   ["monitor.state-changed", `mon:${monitor}:7`, `mon:${monitor}`],
   ["notify.slack", `send:evt:${endpoint}`, `slack:${endpoint}`],
   ["notify.webhook", `send:evt:${endpoint}`, `webhook:${endpoint}`],
+  ["notify.webhook", `send:evt:${endpoint}:3`, `webhook:${endpoint}`],
 ])("%s keyed %s runs in lane %s", (job, key, lane) => {
   expect(laneOf(job, key)).toBe(lane);
 });

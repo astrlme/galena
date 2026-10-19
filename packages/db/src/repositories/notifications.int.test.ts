@@ -2,6 +2,7 @@ import {
   componentId,
   eventId,
   incidentId,
+  type Notice,
   subscriberId,
   webhookEndpointId,
   workspaceId,
@@ -13,23 +14,27 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { createDb, type Db } from "../client.ts";
 import { webhookEndpoint, workspace } from "../schema/index.ts";
 import {
+  claimDelivery,
   countConfirmationsSince,
   countSubscribersFromIp,
   createEndpoint,
   deleteEndpoint,
   findDelivery,
+  findEndpointDelivery,
   findEndpointForSend,
   findSubscriber,
   findSubscriberByEmail,
   listActiveSubscribers,
   listDeliverableEndpoints,
+  listEndpointDeliveries,
   listEndpoints,
-  markEndpointActive,
-  markEndpointFailing,
+  noteDeliveryError,
   recordDeliveries,
   saveSubscriber,
+  setEndpointHealth,
   setSubscriberState,
   settleDelivery,
+  settleResend,
   suppressSubscriber,
   wasAnnounced,
 } from "./notifications.ts";
@@ -129,7 +134,7 @@ test("a delivery names exactly one target", async () => {
   await expect(recordDeliveries(db, event, [{ channel: "email" } as never])).rejects.toThrow();
 });
 
-test("endpoints list without their secrets, fail from the first time, and recover", async () => {
+test("endpoints list without their secrets and move only from the state they were read in", async () => {
   const slack = webhookEndpointId.parse(v7());
   const hook = webhookEndpointId.parse(v7());
   await createEndpoint(db, {
@@ -160,14 +165,15 @@ test("endpoints list without their secrets, fail from the first time, and recove
   });
 
   const first = new Date("2026-09-30T12:00:00Z");
-  await markEndpointFailing(db, hook, first);
-  await markEndpointFailing(db, hook, new Date("2026-09-30T13:00:00Z"));
+  const failing = { state: "failing" as const, failingSince: first };
+  expect(await setEndpointHealth(db, hook, "active", failing)).toBe(true);
+  // Read as active before the change above: it moved since, so this one is refused.
+  const later = { state: "failing" as const, failingSince: new Date("2026-09-30T13:00:00Z") };
+  expect(await setEndpointHealth(db, hook, "active", later)).toBe(false);
   expect(listed.find((e) => e.id === hook)?.state).toBe("active");
-  expect((await listEndpoints(db, acme)).find((e) => e.id === hook)).toMatchObject({
-    state: "failing",
-    failingSince: first,
-  });
-  await markEndpointActive(db, hook);
+  expect((await listEndpoints(db, acme)).find((e) => e.id === hook)).toMatchObject(failing);
+  expect(await findEndpointForSend(db, hook)).toMatchObject(failing);
+  await setEndpointHealth(db, hook, "failing", { state: "active", failingSince: null });
   expect((await listEndpoints(db, acme)).find((e) => e.id === hook)).toMatchObject({
     state: "active",
     failingSince: null,
@@ -177,4 +183,74 @@ test("endpoints list without their secrets, fail from the first time, and recove
   expect((await listDeliverableEndpoints(db, acme)).map((e) => e.id)).toEqual([hook]);
   expect(await deleteEndpoint(db, workspaceId.parse(v7()), hook)).toBe(false);
   expect(await deleteEndpoint(db, acme, hook)).toBe(true);
+});
+
+const notice = (title: string): Notice => ({
+  kind: "incident_created",
+  eventId: eventId.parse(v7()),
+  page: { name: "Acme", url: "https://status.example.com" },
+  title,
+  status: "investigating",
+  impact: "major",
+  components: [],
+  body: "Looking into it.",
+  startsAt: "2026-09-30T12:00:00.000Z",
+  endsAt: null,
+  occurredAt: "2026-09-30T12:00:00.000Z",
+  url: "https://status.example.com/incidents/x/",
+});
+
+test("an endpoint's deliveries keep their notice, list newest first, and can be sent again once settled", async () => {
+  const hook = webhookEndpointId.parse(v7());
+  await createEndpoint(db, {
+    id: hook,
+    workspaceId: acme,
+    kind: "webhook",
+    name: "Log",
+    componentIds: [],
+    urlSealed: "v1.g.h",
+    secretSealed: "v1.i.j",
+  });
+  const record = async (n: Notice) => {
+    const event = { workspaceId: acme, eventId: n.eventId, subjectId: incidentId.parse(v7()) };
+    await recordDeliveries(db, event, [{ endpointId: hook, channel: "webhook", notice: n }]);
+    const row = await findDelivery(db, n.eventId, { endpointId: hook });
+    if (!row) throw new Error("no delivery");
+    return row.id;
+  };
+  const older = await record(notice("Errors on API"));
+  const newer = await record(notice("Slow checkout"));
+
+  // Attempt 1 claims it once; the queue handing attempt 1 over again may retake it.
+  expect(await claimDelivery(db, older, 1)).toBe(true);
+  expect(await claimDelivery(db, older, 1)).toBe(false);
+  expect(await claimDelivery(db, older, 1, true)).toBe(true);
+  await noteDeliveryError(db, older, "The endpoint answered HTTP 503.");
+
+  const log = await listEndpointDeliveries(db, acme, hook);
+  expect(log.map((d) => d.title)).toEqual(["Slow checkout", "Errors on API"]);
+  expect(log[1]).toMatchObject({
+    kind: "incident_created",
+    status: "pending",
+    attempts: 1,
+    lastError: "The endpoint answered HTTP 503.",
+  });
+  expect(await listEndpointDeliveries(db, workspaceId.parse(v7()), hook)).toEqual([]);
+
+  // Pending: its own retries carry it. Settled: a resend counts as one more attempt.
+  expect(await settleResend(db, older, { status: "sent", sentAt: new Date() })).toBe(false);
+  await settleDelivery(db, older, { status: "failed", attempts: 1, lastError: "HTTP 503" });
+  expect(await findEndpointDelivery(db, acme, hook, older)).toMatchObject({
+    status: "failed",
+    notice: { title: "Errors on API" },
+  });
+  expect(await settleResend(db, older, { status: "sent", sentAt: new Date() })).toBe(true);
+  expect((await listEndpointDeliveries(db, acme, hook))[1]).toMatchObject({
+    status: "sent",
+    attempts: 2,
+    lastError: null,
+  });
+  expect(await findEndpointDelivery(db, acme, webhookEndpointId.parse(v7()), newer)).toBe(
+    undefined,
+  );
 });

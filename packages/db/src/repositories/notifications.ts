@@ -7,12 +7,14 @@ import {
   type EndpointKind,
   type EndpointState,
   type EventId,
+  type Notice,
   type SubscriberId,
   type SubscriberState,
   type WebhookEndpointId,
   type WorkspaceId,
 } from "@galena/contracts";
-import { and, asc, count, desc, eq, gte, isNull, lt, ne, sql } from "drizzle-orm";
+import type { EndpointHealth } from "@galena/core";
+import { and, asc, count, desc, eq, gte, lt, lte, ne, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import type { Db } from "../client.ts";
 import { delivery, subscriber, webhookEndpoint } from "../schema/index.ts";
@@ -124,12 +126,12 @@ export type DeliveryTarget = { subscriberId: SubscriberId } | { endpointId: Webh
 
 /**
  * Records one pending delivery per target for the event. Rows that exist already stay as they
- * are, so running the fan-out again changes nothing.
+ * are, so running the fan-out again changes nothing. An endpoint's row keeps its notice.
  */
 export async function recordDeliveries(
   db: Db,
   event: { workspaceId: WorkspaceId; eventId: EventId; subjectId: string },
-  targets: ReadonlyArray<DeliveryTarget & { channel: ChannelKind }>,
+  targets: ReadonlyArray<DeliveryTarget & { channel: ChannelKind; notice?: Notice }>,
 ): Promise<void> {
   if (targets.length === 0) return;
   await db
@@ -154,23 +156,36 @@ export async function findDelivery(db: Db, eventId: EventId, target: DeliveryTar
 }
 
 /**
- * Claims a pending delivery for one attempt of its send (the task's attempt number, from 1).
- * Runs on the same attempt exclude each other whichever reads first; a retry, with a higher
- * number, claims it again.
+ * Claims a pending delivery for one attempt of its send (from 1). Runs on the same attempt
+ * exclude each other whichever reads first; a retry, with a higher number, claims it again.
+ * `retake`: the queue handed the same attempt over again because the run that claimed it died.
  */
-export async function claimDelivery(db: Db, id: DeliveryId, attempt: number): Promise<boolean> {
+export async function claimDelivery(
+  db: Db,
+  id: DeliveryId,
+  attempt: number,
+  retake = false,
+): Promise<boolean> {
   const rows = await db
     .update(delivery)
     .set({ attempts: attempt })
     .where(
       and(
         eq(delivery.id, id),
-        lt(delivery.attempts, attempt),
+        (retake ? lte : lt)(delivery.attempts, attempt),
         sql`${delivery.status}::text = 'pending'`,
       ),
     )
     .returning({ id: delivery.id });
   return rows.length === 1;
+}
+
+/** An attempt failed and the next one is scheduled: the delivery stays pending, saying why. */
+export async function noteDeliveryError(db: Db, id: DeliveryId, lastError: string) {
+  await db
+    .update(delivery)
+    .set({ lastError })
+    .where(and(eq(delivery.id, id), sql`${delivery.status}::text = 'pending'`));
 }
 
 /**
@@ -293,6 +308,7 @@ export async function findEndpointForSend(db: Db, id: WebhookEndpointId) {
       id: webhookEndpoint.id,
       kind: webhookEndpoint.kind,
       state: webhookEndpoint.state,
+      failingSince: webhookEndpoint.failingSince,
       urlSealed: webhookEndpoint.urlSealed,
       secretSealed: webhookEndpoint.secretSealed,
     })
@@ -301,20 +317,86 @@ export async function findEndpointForSend(db: Db, id: WebhookEndpointId) {
   return row;
 }
 
-/** A delivery ran out of retries: the endpoint is failing, from the first time it happened. */
-export async function markEndpointFailing(db: Db, id: WebhookEndpointId, at: Date): Promise<void> {
-  await db
+/**
+ * Moves an endpoint on from the state it was read in (compare-and-set). False when something
+ * else moved it first, such as a member turning it on.
+ */
+export async function setEndpointHealth(
+  db: Db,
+  id: WebhookEndpointId,
+  from: EndpointState,
+  to: EndpointHealth,
+): Promise<boolean> {
+  const rows = await db
     .update(webhookEndpoint)
-    .set({ state: "failing", failingSince: at })
-    .where(and(eq(webhookEndpoint.id, id), isNull(webhookEndpoint.failingSince)));
+    .set(to)
+    .where(and(eq(webhookEndpoint.id, id), sql`${webhookEndpoint.state}::text = ${from}`))
+    .returning({ id: webhookEndpoint.id });
+  return rows.length === 1;
 }
 
-/** A send got through: a failing endpoint is working again. */
-export async function markEndpointActive(db: Db, id: WebhookEndpointId): Promise<void> {
-  await db
-    .update(webhookEndpoint)
-    .set({ state: "active", failingSince: null })
-    .where(and(eq(webhookEndpoint.id, id), sql`${webhookEndpoint.state}::text = 'failing'`));
+/** An endpoint's delivery log, newest first. Known limit: the last 50. */
+export function listEndpointDeliveries(
+  db: Db,
+  workspaceId: WorkspaceId,
+  endpointId: WebhookEndpointId,
+) {
+  return db
+    .select({
+      id: delivery.id,
+      status: delivery.status,
+      attempts: delivery.attempts,
+      lastError: delivery.lastError,
+      sentAt: delivery.sentAt,
+      createdAt: delivery.createdAt,
+      kind: sql<string | null>`${delivery.notice}->>'kind'`,
+      title: sql<string | null>`${delivery.notice}->>'title'`,
+    })
+    .from(delivery)
+    .where(and(eq(delivery.workspaceId, workspaceId), eq(delivery.endpointId, endpointId)))
+    .orderBy(desc(delivery.createdAt), desc(delivery.id))
+    .limit(50);
+}
+
+/** One of an endpoint's deliveries, with its notice, for sending it again. */
+export async function findEndpointDelivery(
+  db: Db,
+  workspaceId: WorkspaceId,
+  endpointId: WebhookEndpointId,
+  id: DeliveryId,
+) {
+  const [row] = await db
+    .select({ id: delivery.id, status: delivery.status, notice: delivery.notice })
+    .from(delivery)
+    .where(
+      and(
+        eq(delivery.workspaceId, workspaceId),
+        eq(delivery.endpointId, endpointId),
+        eq(delivery.id, id),
+      ),
+    );
+  return row;
+}
+
+/**
+ * A member sent a settled delivery again: it records how that went, as one more attempt. A
+ * delivery still pending is left to its own retries.
+ */
+export async function settleResend(
+  db: Db,
+  id: DeliveryId,
+  outcome: { status: "sent"; sentAt: Date } | { status: "failed"; lastError: string },
+): Promise<boolean> {
+  const rows = await db
+    .update(delivery)
+    .set({
+      ...outcome,
+      ...(outcome.status === "sent" && { lastError: null }),
+      attempts: sql`${delivery.attempts} + 1`,
+    })
+    .where(and(eq(delivery.id, id), sql`${delivery.status}::text <> 'pending'`))
+    .returning({ id: delivery.id });
+  return rows.length === 1;
 }
 
 /** For the dashboard: newest first. Known limit: the first 500; paginate when lists grow. */
