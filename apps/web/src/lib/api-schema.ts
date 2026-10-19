@@ -1910,7 +1910,7 @@ export interface paths {
         put?: never;
         /**
          * Send a delivery again
-         * @description Posts the same notice now, with the same webhook id, and records how it went. A delivery still being retried waits for its retries.
+         * @description Posts the same notice now, with the same webhook id, as one more attempt. A delivery still being retried waits for its next attempt, unless that is two hours late.
          */
         post: {
             parameters: {

@@ -1,7 +1,7 @@
 import { guard } from "@galena/integrations/net";
 import { appKeys } from "@galena/integrations/secrets";
 import { db } from "../db.ts";
-import { deliver, endpointPayload, failDelivery } from "../endpoints.ts";
+import { attemptKey, deliver, endpointPayload, failDelivery } from "../endpoints.ts";
 import { engine } from "../engine.ts";
 import { appKey } from "../env.ts";
 import { log } from "../log.ts";
@@ -25,13 +25,10 @@ function endpointJob(kind: "slack" | "webhook") {
         guard,
         now,
         redelivered: attempt > 1,
-        retry: (next, at) =>
-          engine().trigger(name, next, {
-            idempotencyKey: `send:${next.notice.eventId}:${next.endpointId}:${next.attempt}`,
-            at,
-          }),
+        retry: (next, at) => engine().trigger(name, next, { idempotencyKey: attemptKey(next), at }),
       });
-      log.info(name, { endpointId: request.endpointId, attempt: request.attempt, outcome });
+      const { endpointId, notice, attempt: sent } = request;
+      log.info(name, { eventId: notice.eventId, endpointId, attempt: sent, outcome });
       return { outcome };
     },
     onFailure: (request, error) => failDelivery(request, error, { db }),

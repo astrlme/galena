@@ -1,16 +1,21 @@
-import { BlockedByGuardError } from "@galena/integrations/net";
+import { eventId, type Notice, webhookEndpointId } from "@galena/contracts";
+import { laneOf } from "@galena/integrations/jobs";
+import { v7 } from "uuid";
 import { expect, test } from "vitest";
-import { isFinalSendError } from "./endpoints.ts";
+import { attemptKey, type EndpointPayload } from "./endpoints.ts";
 
-test("only the guard's refusal ends a send; anything that may pass is retried", () => {
-  expect(isFinalSendError(new BlockedByGuardError("Private and reserved addresses…"))).toBe(true);
-  const resuming = Object.assign(new Error("resuming"), { name: "DatabaseResumingException" });
-  for (const error of [
-    Object.assign(new Error("timeout"), { name: "TimeoutError" }),
-    resuming,
-    new Error("socket hang up"),
-    "a string",
-  ]) {
-    expect(isFinalSendError(error)).toBe(false);
+test("each later attempt has a key of its own, in the lane of the delivery's first send", () => {
+  const event = eventId.parse(v7());
+  const endpointId = webhookEndpointId.parse(v7());
+  const third: EndpointPayload = {
+    endpointId,
+    notice: { eventId: event } as Notice,
+    attempt: 3,
+  };
+  expect(attemptKey(third)).toBe(`send:${event}:${endpointId}:3`);
+  expect(attemptKey({ ...third, attempt: 4 })).not.toBe(attemptKey(third));
+  const first = `send:${event}:${endpointId}`;
+  for (const job of ["notify.webhook", "notify.slack"]) {
+    expect(laneOf(job, attemptKey(third))).toBe(laneOf(job, first));
   }
 });

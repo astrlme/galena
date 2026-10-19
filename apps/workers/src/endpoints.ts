@@ -1,4 +1,9 @@
-import { type EndpointKind, notice, webhookEndpointId } from "@galena/contracts";
+import {
+  type EndpointKind,
+  notice,
+  type WebhookEndpointId,
+  webhookEndpointId,
+} from "@galena/contracts";
 import { afterDelivery, type EndpointHealth, nextAttemptAt } from "@galena/core";
 import {
   claimDelivery,
@@ -9,13 +14,7 @@ import {
   setEndpointHealth,
   settleDelivery,
 } from "@galena/db";
-import {
-  isRetryable,
-  postJson,
-  signWebhook,
-  slackMessage,
-  webhookBody,
-} from "@galena/integrations/channels";
+import { endpointRequest, type postJson, postToEndpoint } from "@galena/integrations/channels";
 import type { Guard } from "@galena/integrations/net";
 import { type AppKeys, open } from "@galena/integrations/secrets";
 import { z } from "zod";
@@ -35,7 +34,7 @@ export type EndpointDeps = {
   now: () => Date;
   /** The queue handed this attempt over before: the run that claimed it died. */
   redelivered: boolean;
-  /** Starts the next attempt at its time, keyed `send:{eventId}:{endpointId}:{attempt}`. */
+  /** Starts the next attempt at its time, keyed `attemptKey(next)`. */
   retry: (next: EndpointPayload, at: Date) => Promise<void>;
   post?: typeof postJson;
 };
@@ -48,11 +47,11 @@ export type EndpointOutcome =
   | "failed";
 
 /**
- * Only the guard refusing the address can't change on a retry. Timeouts, resets and the
- * receiver failing may all pass.
+ * A later attempt's key, `send:{eventId}:{endpointId}:{attempt}`: a job of its own, in the
+ * first send's lane, so other deliveries to the endpoint don't wait out its wait.
  */
-export const isFinalSendError = (error: unknown) =>
-  error instanceof Error && error.name === "BlockedByGuardError";
+export const attemptKey = (next: EndpointPayload) =>
+  `send:${next.notice.eventId}:${next.endpointId}:${next.attempt}`;
 
 /**
  * One attempt to send one notice to one Slack or webhook endpoint, recorded on its delivery row.
@@ -75,18 +74,16 @@ export async function deliver(
     await settleDelivery(deps.db, delivery.id, { status: "skipped", attempts: attempt });
     return "skipped";
   }
-  const body = kind === "slack" ? JSON.stringify(slackMessage(notice)) : webhookBody(notice);
-  const headers =
-    kind === "webhook" && endpoint.secretSealed
-      ? signWebhook({
-          id: delivery.id,
-          body,
-          secret: open(deps.keys, endpoint.secretSealed),
-          at: deps.now(),
-        })
-      : {};
-  const failure = await send(deps, { url: open(deps.keys, endpoint.urlSealed), body, headers });
-  if (!failure) {
+  const request = endpointRequest(kind, notice, {
+    id: delivery.id,
+    secret: endpoint.secretSealed && open(deps.keys, endpoint.secretSealed),
+    at: deps.now(),
+  });
+  const answer = await postToEndpoint(
+    { ...request, url: open(deps.keys, endpoint.urlSealed), guard: deps.guard },
+    deps.post,
+  );
+  if (answer.ok) {
     await settleDelivery(deps.db, delivery.id, {
       status: "sent",
       attempts: attempt,
@@ -95,45 +92,30 @@ export async function deliver(
     await moveEndpoint(deps, endpoint, "sent");
     return "sent";
   }
-  const next = failure.retryable ? nextAttemptAt(kind, attempt, deps.now()) : undefined;
+  const next = answer.retryable ? nextAttemptAt(kind, attempt, deps.now()) : undefined;
   if (next) {
     await deps.retry({ ...payload, attempt: attempt + 1 }, next);
-    await noteDeliveryError(deps.db, delivery.id, failure.error);
+    await noteDeliveryError(deps.db, delivery.id, answer.error);
     return "retrying";
   }
   await settleDelivery(deps.db, delivery.id, {
     status: "failed",
     attempts: attempt,
-    lastError: failure.error,
+    lastError: answer.error,
   });
   await moveEndpoint(deps, endpoint, "failed");
-  return failure.retryable ? "failed" : "refused";
-}
-
-/** What went wrong, in words a member reads in the delivery log; nothing when it got through. */
-async function send(
-  deps: EndpointDeps,
-  request: { url: string; body: string; headers: Record<string, string> },
-): Promise<{ error: string; retryable: boolean } | undefined> {
-  try {
-    const { status } = await (deps.post ?? postJson)({ ...request, guard: deps.guard });
-    if (status >= 200 && status < 300) return undefined;
-    return { error: `The endpoint answered HTTP ${status}.`, retryable: isRetryable(status) };
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : "The request failed.";
-    return { error: `Couldn't reach the endpoint: ${reason}`, retryable: !isFinalSendError(error) };
-  }
+  return answer.retryable ? "failed" : "refused";
 }
 
 async function moveEndpoint(
   deps: EndpointDeps,
-  endpoint: EndpointHealth & { id: EndpointPayload["endpointId"] },
+  endpoint: EndpointHealth & { id: WebhookEndpointId },
   outcome: "sent" | "failed",
 ) {
   const next = afterDelivery(endpoint, outcome, deps.now());
-  // A member who turned it on meanwhile wins: the compare-and-set finds it moved.
+  // A member who turned it on meanwhile, or another delivery, wins: the compare-and-set misses.
   if (next.state !== endpoint.state) {
-    await setEndpointHealth(deps.db, endpoint.id, endpoint.state, next);
+    await setEndpointHealth(deps.db, endpoint.id, endpoint, next);
   }
 }
 

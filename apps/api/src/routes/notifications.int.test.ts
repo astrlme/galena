@@ -28,14 +28,18 @@ let workspaceId: string;
 let local: Session;
 
 let answer = 204;
+// While set, the receiver holds its answer until the test lets it go, telling it on arrival.
+let hold: { arrived: () => void; release: Promise<void> } | undefined;
 const received: { headers: IncomingMessage["headers"]; body: string }[] = [];
 const receiver = createServer((req, res) => {
   let body = "";
   req.on("data", (chunk) => {
     body += chunk;
   });
-  req.on("end", () => {
+  req.on("end", async () => {
     received.push({ headers: req.headers, body });
+    hold?.arrived();
+    await hold?.release;
     res.statusCode = answer;
     res.end();
   });
@@ -232,7 +236,7 @@ test("the delivery log shows what was sent; a failed delivery goes again with it
   expect(await resend.json()).toEqual({
     ok: true,
     status: 204,
-    detail: "The endpoint accepted it.",
+    detail: "Sent again. The endpoint accepted it.",
   });
   const sent = received.at(-1);
   expect(sent?.headers["webhook-id"]).toBe(failed);
@@ -241,6 +245,62 @@ test("the delivery log shows what was sent; a failed delivery goes again with it
   expect(after).toMatchObject([{ status: "sent", attempts: 9, lastError: null }]);
   // It got through, so the endpoint isn't failing any more.
   expect(await stateOf(id)).toBe("active");
+});
+
+test("a failed resend is recorded on the delivery but leaves the endpoint as it was", async () => {
+  const id = await localEndpoint();
+  const sent = await deliveryTo(id, notice("Maintenance tonight"));
+  await settleDelivery(deps.db, sent, { status: "sent", attempts: 1, sentAt: new Date() });
+  answer = 503;
+  const resend = await local.call(`/v1/webhook-endpoints/${id}/deliveries/${sent}/resend`, {});
+  expect(await resend.json()).toEqual({
+    ok: false,
+    status: 503,
+    detail: "Not sent. The endpoint answered HTTP 503.",
+  });
+  const after = await (await owner.call(`/v1/webhook-endpoints/${id}/deliveries`)).json();
+  expect(after).toMatchObject([
+    { status: "failed", attempts: 2, lastError: "The endpoint answered HTTP 503." },
+  ]);
+  expect(await stateOf(id)).toBe("active");
+});
+
+test("a second press while a resend is posting waits for it, and sends nothing more", async () => {
+  const id = await localEndpoint();
+  const failed = await deliveryTo(id, notice("Errors on checkout"));
+  await settleDelivery(deps.db, failed, { status: "failed", attempts: 8, lastError: "HTTP 503" });
+  const resend = () => local.call(`/v1/webhook-endpoints/${id}/deliveries/${failed}/resend`, {});
+  let release = () => {};
+  const arrived = new Promise<void>((resolve) => {
+    hold = { arrived: resolve, release: new Promise((r) => (release = r)) };
+  });
+  answer = 204;
+  const before = received.length;
+  const first = resend();
+  try {
+    await arrived;
+    await expectProblem(await resend(), 409, "still_retrying");
+  } finally {
+    release();
+    hold = undefined;
+  }
+  expect((await first).status).toBe(200);
+  expect(received.length - before).toBe(1);
+});
+
+test("a pending delivery whose next attempt is long overdue can be sent again", async () => {
+  const id = await localEndpoint();
+  const lost = await deliveryTo(id, notice("Slow search"));
+  // Attempt 7 failed 27 hours ago; attempt 8, due 24 hours later, never came.
+  await deps.db
+    .update(schema.delivery)
+    .set({ attempts: 7, updatedAt: new Date(Date.now() - 27 * 3_600_000) })
+    .where(eq(schema.delivery.id, lost));
+  answer = 204;
+  const resend = await local.call(`/v1/webhook-endpoints/${id}/deliveries/${lost}/resend`, {});
+  expect(await resend.json()).toMatchObject({ ok: true });
+  const after = await (await owner.call(`/v1/webhook-endpoints/${id}/deliveries`)).json();
+  expect(after).toMatchObject([{ status: "sent", attempts: 8 }]);
 });
 
 test("a delivery still retrying, one sent before notices were kept, or to an endpoint that is off, isn't sent again", async () => {
@@ -269,11 +329,19 @@ test("an endpoint that was turned off is on again only once a test message gets 
   const id = await localEndpoint("disabled");
   const enable = () => local.call(`/v1/webhook-endpoints/${id}/enable`, {});
   answer = 500;
-  expect(await (await enable()).json()).toMatchObject({ ok: false, status: 500 });
+  expect(await (await enable()).json()).toEqual({
+    ok: false,
+    status: 500,
+    detail: "Still off. The endpoint answered HTTP 500. Fix the receiver, then turn it on again.",
+  });
   expect(await stateOf(id)).toBe("disabled");
 
   answer = 204;
-  expect(await (await enable()).json()).toMatchObject({ ok: true, status: 204 });
+  expect(await (await enable()).json()).toEqual({
+    ok: true,
+    status: 204,
+    detail: "Turned on. The endpoint accepted the test message.",
+  });
   expect(received.at(-1)?.headers["webhook-id"]).toMatch(/^test_/);
   expect(await stateOf(id)).toBe("active");
   const audit = await deps.db.select().from(schema.auditLog);

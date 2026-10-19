@@ -1,6 +1,19 @@
 export { createDb, type Db, type DbConfig } from "./client.ts";
 export { type Change, recordChange } from "./repositories/changes.ts";
 export { componentGroupRepository, componentRepository } from "./repositories/components.ts";
+export {
+  claimResend,
+  createEndpoint,
+  deleteEndpoint,
+  type EndpointRow,
+  findEndpointDelivery,
+  findEndpointForSend,
+  listDeliverableEndpoints,
+  listEndpointDeliveries,
+  listEndpoints,
+  setEndpointHealth,
+  settleResend,
+} from "./repositories/endpoints.ts";
 export { incidentRepository, listDrafts } from "./repositories/incidents.ts";
 export {
   createIntegration,
@@ -20,29 +33,19 @@ export {
   claimDelivery,
   countConfirmationsSince,
   countSubscribersFromIp,
-  createEndpoint,
   type DeliveryTarget,
-  deleteEndpoint,
   deleteSubscriber,
-  type EndpointRow,
   findDelivery,
-  findEndpointDelivery,
-  findEndpointForSend,
   findSubscriber,
   findSubscriberByEmail,
   listActiveSubscribers,
-  listDeliverableEndpoints,
-  listEndpointDeliveries,
-  listEndpoints,
   listSubscribers,
   noteDeliveryError,
   recordDeliveries,
   type SubscriberRow,
   saveSubscriber,
-  setEndpointHealth,
   setSubscriberState,
   settleDelivery,
-  settleResend,
   suppressSubscriber,
   wasAnnounced,
 } from "./repositories/notifications.ts";

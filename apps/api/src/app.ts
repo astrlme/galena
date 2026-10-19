@@ -17,6 +17,7 @@ import {
   viewerAddress,
 } from "./http.ts";
 import { registerComponentRoutes } from "./routes/components.ts";
+import { registerEndpointRoutes } from "./routes/endpoints.ts";
 import { registerHookRoutes } from "./routes/hooks.ts";
 import { registerIncidentRoutes } from "./routes/incidents.ts";
 import { registerIntegrationRoutes } from "./routes/integrations.ts";
@@ -234,6 +235,7 @@ export function createApp(deps: Deps) {
   registerMonitorRoutes(app, deps);
   registerIncidentRoutes(app, deps);
   registerMaintenanceRoutes(app, deps);
+  registerEndpointRoutes(app, deps);
   registerNotificationRoutes(app, deps);
   registerIntegrationRoutes(app, deps);
   registerPublicRoutes(app, deps);

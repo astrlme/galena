@@ -14,27 +14,30 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { createDb, type Db } from "../client.ts";
 import { webhookEndpoint, workspace } from "../schema/index.ts";
 import {
-  claimDelivery,
-  countConfirmationsSince,
-  countSubscribersFromIp,
+  claimResend,
   createEndpoint,
   deleteEndpoint,
-  findDelivery,
   findEndpointDelivery,
   findEndpointForSend,
-  findSubscriber,
-  findSubscriberByEmail,
-  listActiveSubscribers,
   listDeliverableEndpoints,
   listEndpointDeliveries,
   listEndpoints,
+  setEndpointHealth,
+  settleResend,
+} from "./endpoints.ts";
+import {
+  claimDelivery,
+  countConfirmationsSince,
+  countSubscribersFromIp,
+  findDelivery,
+  findSubscriber,
+  findSubscriberByEmail,
+  listActiveSubscribers,
   noteDeliveryError,
   recordDeliveries,
   saveSubscriber,
-  setEndpointHealth,
   setSubscriberState,
   settleDelivery,
-  settleResend,
   suppressSubscriber,
   wasAnnounced,
 } from "./notifications.ts";
@@ -164,20 +167,20 @@ test("endpoints list without their secrets and move only from the state they wer
     secretSealed: "v1.e.f",
   });
 
-  const first = new Date("2026-09-30T12:00:00Z");
-  const failing = { state: "failing" as const, failingSince: first };
-  expect(await setEndpointHealth(db, hook, "active", failing)).toBe(true);
+  const active = { state: "active" as const, failingSince: null };
+  const failing = { state: "failing" as const, failingSince: new Date("2026-09-30T12:00:00Z") };
+  expect(await setEndpointHealth(db, hook, active, failing)).toBe(true);
   // Read as active before the change above: it moved since, so this one is refused.
   const later = { state: "failing" as const, failingSince: new Date("2026-09-30T13:00:00Z") };
-  expect(await setEndpointHealth(db, hook, "active", later)).toBe(false);
+  expect(await setEndpointHealth(db, hook, active, later)).toBe(false);
   expect(listed.find((e) => e.id === hook)?.state).toBe("active");
   expect((await listEndpoints(db, acme)).find((e) => e.id === hook)).toMatchObject(failing);
   expect(await findEndpointForSend(db, hook)).toMatchObject(failing);
-  await setEndpointHealth(db, hook, "failing", { state: "active", failingSince: null });
-  expect((await listEndpoints(db, acme)).find((e) => e.id === hook)).toMatchObject({
-    state: "active",
-    failingSince: null,
-  });
+  // Failing again since a later time: a move read with the first time is refused too.
+  const stale = { state: "failing" as const, failingSince: new Date("2026-09-29T12:00:00Z") };
+  expect(await setEndpointHealth(db, hook, stale, active)).toBe(false);
+  expect(await setEndpointHealth(db, hook, failing, active)).toBe(true);
+  expect((await listEndpoints(db, acme)).find((e) => e.id === hook)).toMatchObject(active);
 
   await db.update(webhookEndpoint).set({ state: "disabled" }).where(eq(webhookEndpoint.id, slack));
   expect((await listDeliverableEndpoints(db, acme)).map((e) => e.id)).toEqual([hook]);
@@ -237,18 +240,28 @@ test("an endpoint's deliveries keep their notice, list newest first, and can be 
   });
   expect(await listEndpointDeliveries(db, workspaceId.parse(v7()), hook)).toEqual([]);
 
-  // Pending: its own retries carry it. Settled: a resend counts as one more attempt.
-  expect(await settleResend(db, older, { status: "sent", sentAt: new Date() })).toBe(false);
   await settleDelivery(db, older, { status: "failed", attempts: 1, lastError: "HTTP 503" });
   expect(await findEndpointDelivery(db, acme, hook, older)).toMatchObject({
     status: "failed",
+    attempts: 1,
     notice: { title: "Errors on API" },
   });
-  expect(await settleResend(db, older, { status: "sent", sentAt: new Date() })).toBe(true);
+  // A resend is one more attempt, claimed before it posts: two presses read at 1 claim it once.
+  expect(await claimResend(db, older, 1)).toBe(2);
+  expect(await claimResend(db, older, 1)).toBe(undefined);
+  expect(await findEndpointDelivery(db, acme, hook, older)).toMatchObject({ status: "pending" });
+  await settleResend(db, older, 2, { status: "sent", sentAt: new Date() });
   expect((await listEndpointDeliveries(db, acme, hook))[1]).toMatchObject({
     status: "sent",
     attempts: 2,
     lastError: null,
+  });
+  // A newer claim (attempt 3) keeps the row: an older resend settling late misses it.
+  expect(await claimResend(db, older, 2)).toBe(3);
+  await settleResend(db, older, 2, { status: "failed", lastError: "HTTP 500" });
+  expect((await listEndpointDeliveries(db, acme, hook))[1]).toMatchObject({
+    status: "pending",
+    attempts: 3,
   });
   expect(await findEndpointDelivery(db, acme, webhookEndpointId.parse(v7()), newer)).toBe(
     undefined,
