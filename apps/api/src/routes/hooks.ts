@@ -3,6 +3,7 @@ import { readLinkToken } from "@galena/integrations/secrets";
 import { readSignals } from "@galena/integrations/signals";
 import { z } from "@hono/zod-openapi";
 import { type App, type Deps, problemResponse } from "../http.ts";
+import { createLimiter } from "../limiter.ts";
 
 // Alerts from an integration's source. The URL's token is checked by its signature alone and
 // each alert group handed to `signal.ingest`, never waiting on Postgres: Aurora can take 15 s to
@@ -12,6 +13,8 @@ import { type App, type Deps, problemResponse } from "../http.ts";
 // Aurora for each. Store a revocation list in the config bucket if that ever matters.
 
 const MAX_BODY_BYTES = 256 * 1024;
+/** Alerts one integration may send an API instance a minute: a leaked URL can't flood the jobs. */
+const ALERTS_PER_MINUTE = 120;
 /** Triggers at a time for a generic list of up to 100 alerts. */
 const BATCH = 10;
 
@@ -40,7 +43,19 @@ const notAlerts = (source: string) =>
         : "Send { key, status, startsAt } with optional title and labels, or a list of them.",
   });
 
+const tooMany = () => {
+  const response = problemResponse({
+    status: 429,
+    code: "too_many_alerts",
+    title: "Too many alerts",
+    detail: `This hook takes at most ${ALERTS_PER_MINUTE} alerts a minute. Group alerts so fewer are sent, or try again in a minute.`,
+  });
+  response.headers.set("retry-after", "60");
+  return response;
+};
+
 export function registerHookRoutes(app: App, deps: Deps) {
+  const perIntegration = createLimiter({ max: ALERTS_PER_MINUTE, windowMs: 60_000 });
   app.post("/hooks/:source/:token", async (c) => {
     const source = z.enum(signalSources).safeParse(c.req.param("source"));
     const token = readLinkToken(deps.keys, "hook", c.req.param("token"));
@@ -57,6 +72,7 @@ export function registerHookRoutes(app: App, deps: Deps) {
     }
     const signals = readSignals(source.data, body);
     if (!signals) return notAlerts(source.data);
+    if (!perIntegration(id.data, signals.length)) return tooMany();
 
     const tokenIssuedAt = token.issuedAt.toISOString();
     for (let i = 0; i < signals.length; i += BATCH) {

@@ -171,7 +171,7 @@ test("past the hour's confirmations, the form answers the same and sends nothing
   if (!workspaceId) throw new Error("no workspace");
   const sent = (await deps.db.select().from(schema.subscriber)).filter((s) => s.confirmSentAt);
   await deps.db.insert(schema.subscriber).values(
-    Array.from({ length: 200 - sent.length }, (_, i) => ({
+    Array.from({ length: 50 - sent.length }, (_, i) => ({
       id: subscriberId.parse(v7()),
       workspaceId,
       email: `cap${i}@example.com`,
