@@ -122,8 +122,29 @@ const me = createRoute({
   },
 });
 
+/**
+ * The Better Auth endpoints the dashboard uses. The rest are answered before Better Auth runs, so
+ * a stranger can't make one of them (sign-up, password reset, email verification) query Aurora.
+ */
+const AUTH_ENDPOINTS = new Set([
+  "GET get-session",
+  "GET list-sessions",
+  "POST sign-in/email",
+  "POST sign-out",
+  "POST change-password",
+  "POST revoke-session",
+  "POST revoke-other-sessions",
+  "POST two-factor/enable",
+  "POST two-factor/disable",
+  "POST two-factor/generate-backup-codes",
+  "POST two-factor/verify-totp",
+  "POST two-factor/verify-backup-code",
+]);
+const GITHUB_ENDPOINTS = new Set(["POST sign-in/social", "GET callback/github"]);
+
 export function createApp(deps: Deps) {
   const { db, auth } = deps;
+  const github = auth.options.socialProviders?.github !== undefined;
   const app = new OpenAPIHono<Env>({
     defaultHook: (result) => {
       if (result.success) return;
@@ -170,6 +191,23 @@ export function createApp(deps: Deps) {
   // Better Auth: sign-in, sign-out, sessions, two-factor, GitHub OAuth. Its rate limits key on
   // the visitor's address, which only we set, from CloudFront's.
   app.on(["GET", "POST"], "/auth/*", (c) => {
+    const endpoint = `${c.req.method} ${c.req.path.slice("/auth/".length)}`;
+    if (endpoint.startsWith("POST sign-up/")) {
+      return problemResponse({
+        status: 403,
+        code: "sign_up_closed",
+        title: "Sign-up is closed",
+        detail: "Sign-up is closed: an owner adds the people of this workspace.",
+      });
+    }
+    if (!AUTH_ENDPOINTS.has(endpoint) && !(github && GITHUB_ENDPOINTS.has(endpoint))) {
+      return problemResponse({
+        status: 404,
+        code: "not_found",
+        title: "No such sign-in endpoint",
+        detail: "This deployment doesn't use that sign-in endpoint.",
+      });
+    }
     const headers = new Headers(c.req.raw.headers);
     headers.delete(CLIENT_IP_HEADER);
     const address = viewerAddress(headers);

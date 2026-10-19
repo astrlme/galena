@@ -14,7 +14,7 @@ export type AuthConfig = {
   github?: { clientId: string; clientSecret: string };
   /**
    * Limits each visitor's sign-in, two-factor and other auth requests (Better Auth's rules: 3
-   * sign-in attempts per 10 s). On in AWS; counts live in the database, shared by every Lambda.
+   * sign-in attempts per 10 s). On in AWS; each API instance counts in its own memory.
    */
   rateLimit?: boolean;
 };
