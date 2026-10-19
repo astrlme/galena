@@ -4,8 +4,8 @@ description: Base URL, signing in, roles and errors for the Galena API.
 ---
 
 The dashboard is built on the same API you can call. Everything it does, you can do from a
-script. The pages in this section are generated from the API's OpenAPI document, which the
-dashboard's address also serves at `/openapi.json`, for the version that runs there.
+script. The pages in this section are generated from the API's OpenAPI document. The dashboard
+also serves it at `/openapi.json`, for the version deployed there.
 
 ## Base URL
 
@@ -23,7 +23,7 @@ scope; the key, starting with `gln_`, is shown once.
 
 ```bash
 URL=https://d1234example.cloudfront.net
-curl "$URL/v1/incidents" -H "authorization: Bearer $GALENA_API_KEY"
+curl "$URL/v1/incidents" -H "Authorization: Bearer $GALENA_API_KEY"
 ```
 
 | Scope | Acts as | Can |
