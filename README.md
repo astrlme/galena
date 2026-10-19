@@ -74,8 +74,11 @@ published page still serves.
 - Alerts from Alertmanager or any source that sends JSON, routed to components by label: one
   incident per alert group, following the integration's publish policy, resolved when the group
   resolves.
+- A delivery log for each Slack and webhook destination, with retries for up to a day, sending
+  again, and turning off a destination that has failed for 3 days.
+- API keys for scripts, scoped to read, write or admin.
 
-Next: API keys, and members, roles and GitHub sign-in in Settings.
+Next: members, roles and GitHub sign-in in Settings.
 See the [roadmap](https://galena.astrl.me/docs/roadmap/).
 
 ## Run it locally

@@ -5,7 +5,7 @@ description: Base URL, signing in, roles and errors for the Galena API.
 
 The dashboard is built on the same API you can call. Everything it does, you can do from a
 script. The pages in this section are generated from the API's OpenAPI document, which the
-deployment also serves at `/openapi.json`.
+dashboard's address also serves at `/openapi.json`, for the version that runs there.
 
 ## Base URL
 
@@ -16,10 +16,30 @@ With the dashboard at `https://d1234example.cloudfront.net`, the components endp
 Calling the API Gateway address directly is refused with `403 not_through_cloudfront`: only
 CloudFront adds the header the API checks.
 
+## API keys
+
+Scripts send an API key. An admin makes one in **Settings → API keys**, names it and picks its
+scope; the key, starting with `gln_`, is shown once.
+
+```bash
+URL=https://d1234example.cloudfront.net
+curl "$URL/v1/incidents" -H "authorization: Bearer $GALENA_API_KEY"
+```
+
+| Scope | Acts as | Can |
+| --- | --- | --- |
+| `read` | Viewer | Read components, monitors, incidents and maintenance |
+| `write` | Editor | Also create and change them |
+| `admin` | Admin | Also manage webhook endpoints, subscribers, integrations and Slack |
+
+A key acts as the admin who made it, never with more than they have now: if they leave the
+workspace, their keys stop working. Changes made with a key are recorded under their name.
+Keys can't make or delete keys; only a signed-in admin can. Galena keeps only a hash of each key
+and its first characters, to tell keys apart.
+
 ## Signing in
 
-Requests are authorised by the session cookie the dashboard uses. Sign in once and keep the
-cookie:
+Scripts can also use the session cookie the dashboard uses. Sign in once and keep the cookie:
 
 ```bash
 URL=https://d1234example.cloudfront.net
@@ -36,17 +56,13 @@ on answers `{"twoFactorRedirect": true}`; finish with
 
 Sign-in attempts are rate limited per visitor address.
 
-<Callout>
-API keys for scripts are on the [roadmap](/docs/roadmap/). Until then, sign in as a member with the
-role the script needs.
-</Callout>
-
 ## Roles
 
 | Endpoints | Reading | Changing |
 | --- | --- | --- |
 | Components, groups, monitors, incidents, maintenance | Viewer | Editor |
-| Webhook endpoints, subscribers | Admin | Admin |
+| Webhook endpoints, subscribers, integrations | Admin | Admin |
+| API keys | Admin, signed in | Admin, signed in |
 
 See [Workspace and roles](/docs/concepts/workspace/).
 
@@ -68,8 +84,8 @@ Errors follow [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) as
 | Status | Typical codes |
 | --- | --- |
 | 400 | `validation_failed`: the body or a parameter doesn't match the schema; `detail` names each field |
-| 401 | `unauthenticated`: not signed in |
-| 403 | `forbidden`: the member's role is too low; or `not_through_cloudfront` |
+| 401 | `unauthenticated`: not signed in; `invalid_api_key`: the key was deleted, or its maker left |
+| 403 | `forbidden`: the member's role, or the key's scope, is too low; `session_required`: a key tried to manage keys; or `not_through_cloudfront` |
 | 404 | `not_found`: nothing with that id in this workspace |
 | 409 | A conflict with the current state, such as `already_set_up`, `order_mismatch` or `illegal_transition` |
 | 422 | A rule refused the content, such as `unfilled_placeholder` or `html_not_allowed` |
