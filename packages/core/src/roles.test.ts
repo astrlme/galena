@@ -1,6 +1,6 @@
 import { memberRoles } from "@galena/contracts";
 import { expect, test } from "vitest";
-import { roleAtLeast } from "./roles.ts";
+import { keyRole, roleAtLeast } from "./roles.ts";
 
 test.each([
   ["owner", "admin", true],
@@ -17,4 +17,14 @@ test("every role meets viewer and only owner meets owner", () => {
     expect(roleAtLeast(role, "viewer")).toBe(true);
     expect(roleAtLeast(role, "owner")).toBe(role === "owner");
   }
+});
+
+test.each([
+  ["read", "owner", "viewer"],
+  ["write", "owner", "editor"],
+  ["admin", "owner", "admin"],
+  ["admin", "editor", "editor"],
+  ["write", "viewer", "viewer"],
+] as const)("a %s key made by a member who is now %s acts as %s", (scope, creator, role) => {
+  expect(keyRole(scope, creator)).toBe(role);
 });
