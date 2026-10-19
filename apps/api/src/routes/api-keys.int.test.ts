@@ -1,6 +1,11 @@
-import { schema } from "@galena/db";
+import { readFileSync } from "node:fs";
+import { apiKeyId, memberId } from "@galena/contracts";
+import { createApiKey, schema } from "@galena/db";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import { eq } from "drizzle-orm";
+import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { newApiKey } from "../api-keys.ts";
 import { createApp, type Deps } from "../app.ts";
 import { testDeps } from "../test-deps.ts";
 import { expectProblem, Session } from "../test-session.ts";
@@ -45,38 +50,64 @@ const withKey = (key: string, path: string, init: { method?: string; body?: unkn
     ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
   });
 
-test("a write key creates an incident through the published OpenAPI description; a read key is refused", async () => {
-  // What a script's author reads: the document, its key scheme, and the operation it calls.
-  const doc = (await (await app.request("/openapi.json")).json()) as {
-    security: Record<string, string[]>[];
-    components: { securitySchemes: Record<string, { type: string; scheme?: string }> };
-    paths: Record<string, Record<string, { security?: unknown[]; requestBody?: unknown }>>;
+// The document as the dashboard publishes it at /openapi.json (the web build serves this file).
+type Schema = { $ref?: string; required?: string[]; properties?: Record<string, unknown> };
+type Operation = {
+  security?: unknown[];
+  requestBody: { content: { "application/json": { schema: Schema } } };
+  responses: Record<string, { content: { "application/json": { schema: Schema } } }>;
+};
+const published = JSON.parse(
+  readFileSync(new URL("../../openapi.json", import.meta.url), "utf8"),
+) as {
+  security: Record<string, string[]>[];
+  components: {
+    securitySchemes: Record<string, { type: string; scheme?: string }>;
+    schemas?: Record<string, Schema>;
   };
-  expect(doc.components.securitySchemes.apiKey).toMatchObject({ type: "http", scheme: "bearer" });
-  expect(doc.security).toContainEqual({ apiKey: [] });
-  const operation = doc.paths["/v1/incidents"]?.post;
-  expect(operation?.requestBody).toBeDefined();
+  paths: Record<string, Record<string, Operation>>;
+};
+const resolve = (schema: Schema): Schema =>
+  schema.$ref
+    ? (published.components.schemas?.[schema.$ref.split("/").at(-1) ?? ""] ?? {})
+    : schema;
+
+test("a write key creates an incident through the published OpenAPI description; a read key is refused", async () => {
+  // What a script's author reads: the key scheme, the operation, what to send and what comes back.
+  const scheme = Object.entries(published.components.securitySchemes).find(
+    ([, s]) => s.type === "http" && s.scheme === "bearer",
+  );
+  expect(published.security).toContainEqual({ [scheme?.[0] ?? "none"]: [] });
+  const path = "/v1/incidents";
+  const operation = published.paths[path]?.post;
   expect(operation?.security).toBeUndefined(); // so the document-wide schemes apply
+  const body = resolve(operation?.requestBody.content["application/json"].schema ?? {});
+  const answer = resolve(operation?.responses["201"]?.content["application/json"].schema ?? {});
 
   const write = await makeKey("Deploy script", "write");
   const read = await makeKey("Status board", "read");
   expect(write.key).toMatch(/^gln_[\w-]{43}$/);
   expect(write.key.startsWith(write.apiKey.prefix)).toBe(true);
 
-  const incident = {
+  const incident: Record<string, string> = {
     title: "Elevated errors on the API",
     impact: "minor",
     body: "We are looking into errors on the API.",
   };
-  const created = await withKey(write.key, "/v1/incidents", { method: "POST", body: incident });
+  expect(Object.keys(incident)).toEqual(expect.arrayContaining(body.required ?? ["?"]));
+  const created = await withKey(write.key, path, { method: "POST", body: incident });
   expect(created.status).toBe(201);
+  expect(Object.keys((await created.json()) as object)).toEqual(
+    expect.arrayContaining(answer.required ?? ["?"]),
+  );
   await expectProblem(
-    await withKey(read.key, "/v1/incidents", { method: "POST", body: incident }),
+    await withKey(read.key, path, { method: "POST", body: incident }),
     403,
     "forbidden",
   );
-  // Reading is what a read key is for.
-  expect((await withKey(read.key, "/v1/incidents")).status).toBe(200);
+  // Reading is what a read key is for, and nothing the API answers is for a cache.
+  const listed = await withKey(read.key, path);
+  expect([listed.status, listed.headers.get("cache-control")]).toEqual([200, "no-store"]);
 
   // The key acts as the admin who made it: the audit log names them.
   const audit = await deps.db.select().from(schema.auditLog);
@@ -111,4 +142,45 @@ test("keys list without the keys themselves, can't make more keys, and stop work
   expect(audit.map((a) => a.action)).toEqual(
     expect.arrayContaining(["api_key.created", "api_key.deleted"]),
   );
+});
+
+test("a key in any case of the scheme works, and a bad one is refused even with a session", async () => {
+  const read = await makeKey("Scheme", "read");
+  const lower = await app.request("/v1/me", { headers: { authorization: `bearer ${read.key}` } });
+  expect(await lower.json()).toMatchObject({ userId: ownerId, role: "viewer" });
+  // The signed-in owner's cookie doesn't rescue a request that sent a key: it is about the key.
+  for (const junk of ["Bearer nonsense", `Bearer gln_${"x".repeat(42)}`]) {
+    await expectProblem(
+      await owner.call("/v1/me", undefined, "GET", { authorization: junk }),
+      401,
+      "invalid_api_key",
+    );
+  }
+});
+
+test("a maker who leaves the workspace takes their keys with them", async () => {
+  const [ws] = await deps.db.select().from(schema.workspace);
+  const userId = `user-${v7()}`;
+  await deps.db
+    .insert(schema.user)
+    .values({ id: userId, name: "Grace", email: "grace@example.com", emailVerified: true });
+  await deps.db
+    .insert(schema.member)
+    .values({ id: memberId.parse(v7()), workspaceId: ws?.id as never, userId, role: "admin" });
+  const { key, prefix, hash } = newApiKey();
+  await createApiKey(deps.db, {
+    id: apiKeyId.parse(v7()),
+    workspaceId: ws?.id as never,
+    name: "Grace's script",
+    scope: "write",
+    prefix,
+    hash,
+    createdByUserId: userId,
+  });
+  expect(await (await withKey(key, "/v1/me")).json()).toMatchObject({ userId, role: "editor" });
+
+  await deps.db.delete(schema.member).where(eq(schema.member.userId, userId));
+  await expectProblem(await withKey(key, "/v1/me"), 401, "invalid_api_key");
+  const left = await deps.db.select().from(schema.apiKey).where(eq(schema.apiKey.hash, hash));
+  expect(left).toEqual([]);
 });

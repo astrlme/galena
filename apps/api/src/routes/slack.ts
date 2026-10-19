@@ -51,6 +51,8 @@ const unsigned = () =>
 export function registerSlackRoutes(app: App, deps: Deps) {
   const { db, keys } = deps;
   const admin = requireRole(deps, "admin");
+  // Installing goes through Slack's consent screen in a browser: a signed-in admin, not a key.
+  const browserAdmin = requireRole(deps, "admin", { keys: false });
   const redirectUri = new URL("/slack/oauth", deps.publicUrl).href;
 
   /** The raw body when Slack signed it, else undefined. */
@@ -125,7 +127,7 @@ export function registerSlackRoutes(app: App, deps: Deps) {
 
   // Installing: an admin goes to Slack's consent screen, picks the channel for approval cards,
   // and comes back here. `state` ties the answer to that admin for 10 minutes.
-  app.get("/slack/install", admin, (c) => {
+  app.get("/slack/install", browserAdmin, (c) => {
     if (!deps.slack) return slackOff();
     const state = linkToken(keys, "slack-install", c.get("member").userId, new Date());
     const authorize = new URL("https://slack.com/oauth/v2/authorize");
@@ -138,7 +140,7 @@ export function registerSlackRoutes(app: App, deps: Deps) {
     return c.redirect(authorize.href, 302);
   });
 
-  app.get("/slack/oauth", admin, async (c) => {
+  app.get("/slack/oauth", browserAdmin, async (c) => {
     if (!deps.slack) return slackOff();
     const member = c.get("member");
     const { code, state, error } = c.req.query();

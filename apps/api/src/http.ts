@@ -10,7 +10,7 @@ import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { BEARER, hashApiKey } from "./api-keys.ts";
+import { hashApiKey, isApiKey } from "./api-keys.ts";
 import type { Auth } from "./auth.ts";
 import type { Telemetry } from "./telemetry.ts";
 
@@ -90,6 +90,27 @@ export function notFound(what: string): never {
   });
 }
 
+/** The credentials of `Authorization: Bearer …`, whatever the scheme's case. */
+const bearerOf = (header: string | undefined) => /^bearer\s+(.*)$/i.exec(header ?? "")?.[1];
+
+/**
+ * The member a key acts as: its maker, at most at the key's scope. Only something shaped like a
+ * key reaches the database, so noise can't wake a paused cluster.
+ */
+async function keyMember(db: Db, key: string): Promise<Member | undefined> {
+  if (!isApiKey(key)) return undefined;
+  const actor = await findApiKeyActor(db, hashApiKey(key));
+  if (!actor) return undefined;
+  // Known limit: audit entries name the key's maker, not the key; carry the key's id in
+  // `Member` and `changeOf` if telling a script's changes from its maker's matters.
+  return {
+    userId: actor.userId,
+    email: actor.email,
+    role: keyRole(actor.scope, actor.role),
+    workspaceId: actor.workspaceId,
+  };
+}
+
 /**
  * 401 without a session or a valid API key, 403 below `required`; sets `member` for the
  * handler. A key acts as the member who made it, at most at its scope's role (`keyRole`).
@@ -101,18 +122,19 @@ export function requireRole(
   { keys = true } = {},
 ): MiddlewareHandler<Env> {
   return async (c, next) => {
-    const authorization = c.req.header("authorization");
-    if (authorization?.startsWith(BEARER)) {
+    const key = bearerOf(c.req.header("authorization"));
+    // Whoever sends a key is answered about the key, never as a visitor without a session.
+    if (key !== undefined) {
       if (!keys) {
         return problemResponse({
           status: 403,
           code: "session_required",
           title: "Sign in to do this",
-          detail: "API keys can't manage API keys. Sign in to the dashboard instead.",
+          detail: "API keys can't do this. Sign in to the dashboard instead.",
         });
       }
-      const actor = await findApiKeyActor(db, hashApiKey(authorization.slice(BEARER.length)));
-      if (!actor) {
+      const member = await keyMember(db, key);
+      if (!member) {
         return problemResponse({
           status: 401,
           code: "invalid_api_key",
@@ -121,23 +143,15 @@ export function requireRole(
             "It was deleted, or whoever made it left the workspace. Make a new key in Settings.",
         });
       }
-      const role = keyRole(actor.scope, actor.role);
-      if (!roleAtLeast(role, required)) {
+      if (!roleAtLeast(member.role, required)) {
         return problemResponse({
           status: 403,
           code: "forbidden",
           title: "This key's scope does not allow this",
-          detail: `This needs the ${required} role or higher; the key acts as ${role}. Use a key with a wider scope.`,
+          detail: `This needs the ${required} role or higher; the key acts as ${member.role}. Use a key with a wider scope.`,
         });
       }
-      // Known limit: audit entries name the key's maker, not the key; carry the key's id in
-      // `Member` and `changeOf` if telling a script's changes from its maker's matters.
-      c.set("member", {
-        userId: actor.userId,
-        email: actor.email,
-        role,
-        workspaceId: actor.workspaceId,
-      });
+      c.set("member", member);
       return next();
     }
     const session = await auth.api.getSession({ headers: c.req.raw.headers });

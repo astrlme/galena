@@ -139,6 +139,15 @@ export function createApp(deps: Deps) {
     },
   });
 
+  // Nothing the API answers is for a cache: CloudFront keys requests by their credentials only
+  // so it can pass `Authorization` on, and must still never keep an answer.
+  app.use("*", async (c, next) => {
+    await next();
+    if (c.res.headers.has("cache-control")) return;
+    c.res = new Response(c.res.body, c.res); // some responses' own headers can't change
+    c.res.headers.set("cache-control", "no-store");
+  });
+
   // Only requests that came through CloudFront: the per-visitor limits trust the address it
   // adds. Health checks may come from anywhere.
   const { originSecret } = deps;

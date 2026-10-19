@@ -58,13 +58,16 @@ export function registerApiKeyRoutes(app: App, deps: Deps) {
         scope: input.scope,
         prefix,
       };
+      let createdAt = new Date();
       await commit(
         deps,
         changeOf(member, "api_key", "created", [row.id], { name: row.name, scope: row.scope }),
-        (tx) => createApiKey(tx, { ...row, hash, createdByUserId: member.userId }),
+        async (tx) => {
+          createdAt = await createApiKey(tx, { ...row, hash, createdByUserId: member.userId });
+        },
       );
       const { workspaceId: _, ...view } = row;
-      return c.json({ apiKey: { ...view, createdAt: new Date().toISOString() }, key }, 201);
+      return c.json({ apiKey: { ...view, createdAt: createdAt.toISOString() }, key }, 201);
     },
   );
 

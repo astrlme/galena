@@ -3,8 +3,8 @@ import { createHash, randomBytes } from "node:crypto";
 // API keys for scripts. A key is 32 random bytes, so its plain SHA-256 is safe to look it up by;
 // nothing else about it is stored, and it is shown once.
 
-/** How a script sends a key: `Authorization: Bearer gln_…`. */
-export const BEARER = "Bearer ";
+/** What every key looks like: anything else is refused before the database is asked. */
+export const isApiKey = (key: string) => /^gln_[A-Za-z0-9_-]{43}$/.test(key);
 
 export const hashApiKey = (key: string) => createHash("sha256").update(key).digest("hex");
 
