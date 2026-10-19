@@ -53,7 +53,7 @@ test("forwards /auth/*, /v1/*, /slack/* and /hooks/* to the API uncached, with e
   const behaviors = distribution().CacheBehaviors as {
     PathPattern: string;
     AllowedMethods: string[];
-    CachePolicyId: string;
+    CachePolicyId: { Ref: string };
   }[];
   expect(behaviors.map((b) => b.PathPattern).sort()).toEqual([
     "/auth/*",
@@ -63,8 +63,23 @@ test("forwards /auth/*, /v1/*, /slack/* and /hooks/* to the API uncached, with e
   ]);
   for (const behavior of behaviors) {
     expect(behavior.AllowedMethods).toContain("POST");
-    expect(behavior.CachePolicyId).toBe("4135ea2d-6df8-44a3-9df3-4b5a84be39ad"); // CachingDisabled
+    expect(behavior.CachePolicyId.Ref).toMatch(/^ApiCache/);
   }
+});
+
+test("passes an API key's Authorization header on, with a cache key no two callers share", () => {
+  template.hasResourceProperties("AWS::CloudFront::CachePolicy", {
+    CachePolicyConfig: {
+      DefaultTTL: 0,
+      MinTTL: 0,
+      MaxTTL: 1,
+      ParametersInCacheKeyAndForwardedToOrigin: {
+        HeadersConfig: { HeaderBehavior: "whitelist", Headers: ["Authorization"] },
+        CookiesConfig: { CookieBehavior: "all" },
+        QueryStringsConfig: { QueryStringBehavior: "all" },
+      },
+    },
+  });
 });
 
 test("sends the API cookies, the query and only the headers it reads, with the visitor's address", () => {

@@ -16,7 +16,10 @@ import type { HttpApi } from "aws-cdk-lib/aws-apigatewayv2";
 import type { ICertificate } from "aws-cdk-lib/aws-certificatemanager";
 import {
   AllowedMethods,
+  CacheCookieBehavior,
+  CacheHeaderBehavior,
   CachePolicy,
+  CacheQueryStringBehavior,
   Function as CloudFrontFunction,
   Distribution,
   FunctionCode,
@@ -245,11 +248,23 @@ export class WebStack extends Stack {
       cookieBehavior: OriginRequestCookieBehavior.all(),
       queryStringBehavior: OriginRequestQueryStringBehavior.all(),
     });
+    // CloudFront forwards `Authorization` (API keys) only as part of a cache key, and a key needs
+    // a TTL above zero. Nothing is cached in practice: the API answers `no-store`, the default
+    // TTL is 0, and the key holds the credentials, cookies and query besides.
+    const apiCache = new CachePolicy(this, "ApiCache", {
+      comment: "Dashboard requests to the API: never cached, keyed by their credentials",
+      minTtl: Duration.seconds(0),
+      defaultTtl: Duration.seconds(0),
+      maxTtl: Duration.seconds(1),
+      headerBehavior: CacheHeaderBehavior.allowList("Authorization"),
+      cookieBehavior: CacheCookieBehavior.all(),
+      queryStringBehavior: CacheQueryStringBehavior.all(),
+    });
     const behavior = {
       origin,
       viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
       allowedMethods: AllowedMethods.ALLOW_ALL,
-      cachePolicy: CachePolicy.CACHING_DISABLED,
+      cachePolicy: apiCache,
       originRequestPolicy: apiRequests,
     };
     return { "/auth/*": behavior, "/v1/*": behavior, "/slack/*": behavior, "/hooks/*": behavior };
