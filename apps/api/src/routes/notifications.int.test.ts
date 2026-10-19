@@ -1,7 +1,17 @@
-import { webhookEndpointId } from "@galena/contracts";
-import { createEndpoint, schema } from "@galena/db";
+import { createServer, type IncomingMessage } from "node:http";
+import type { AddressInfo } from "node:net";
+import {
+  eventId,
+  incidentId,
+  type Notice,
+  type WebhookEndpointId,
+  webhookEndpointId,
+} from "@galena/contracts";
+import { createEndpoint, findDelivery, recordDeliveries, schema, settleDelivery } from "@galena/db";
+import { createGuard } from "@galena/integrations/net";
 import { seal } from "@galena/integrations/secrets";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import { eq } from "drizzle-orm";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createApp, type Deps } from "../app.ts";
@@ -14,6 +24,23 @@ let deps: Deps;
 let owner: Session;
 let app: ReturnType<typeof createApp>;
 let workspaceId: string;
+// The same deployment, but sending to a loopback receiver the real guard refuses.
+let local: Session;
+
+let answer = 204;
+const received: { headers: IncomingMessage["headers"]; body: string }[] = [];
+const receiver = createServer((req, res) => {
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk;
+  });
+  req.on("end", () => {
+    received.push({ headers: req.headers, body });
+    res.statusCode = answer;
+    res.end();
+  });
+});
+let base = "";
 
 beforeAll(async () => {
   container = await new PostgreSqlContainer("postgres:16-alpine").start();
@@ -30,9 +57,19 @@ beforeAll(async () => {
     password: "correct horse battery",
   });
   workspaceId = ((await setup.json()) as { workspaceId: string }).workspaceId;
+  await new Promise<void>((resolve) => receiver.listen(0, "127.0.0.1", resolve));
+  base = `http://127.0.0.1:${(receiver.address() as AddressInfo).port}`;
+  local = new Session(
+    createApp({ ...deps, targets: createGuard({ allowAddresses: ["127.0.0.1"] }) }),
+  );
+  await local.call("/auth/sign-in/email", {
+    email: "ada@example.com",
+    password: "correct horse battery",
+  });
 });
 
 afterAll(async () => {
+  receiver.close();
   await close?.();
   await container?.stop();
 });
@@ -114,4 +151,134 @@ test("lists subscribers with masked addresses and removes one", async () => {
     404,
     "not_found",
   );
+});
+const notice = (title: string): Notice => ({
+  kind: "incident_created",
+  eventId: eventId.parse(v7()),
+  page: { name: "Acme", url: "https://status.example.com" },
+  title,
+  status: "investigating",
+  impact: "major",
+  components: [],
+  body: "Looking into it.",
+  startsAt: "2026-10-19T12:00:00.000Z",
+  endsAt: null,
+  occurredAt: "2026-10-19T12:00:00.000Z",
+  url: "https://status.example.com/incidents/x/",
+});
+
+/** An outgoing webhook to the loopback receiver, saved directly (the API refuses loopback). */
+async function localEndpoint(state: "active" | "failing" | "disabled" = "active") {
+  const id = webhookEndpointId.parse(v7());
+  await createEndpoint(deps.db, {
+    id,
+    workspaceId: workspaceId as never,
+    kind: "webhook",
+    name: `Receiver ${state}`,
+    componentIds: [],
+    urlSealed: seal(deps.keys, `${base}/hook`),
+    secretSealed: seal(deps.keys, "whsec_dGVzdA=="),
+  });
+  if (state !== "active") {
+    await deps.db
+      .update(schema.webhookEndpoint)
+      .set({ state, failingSince: new Date("2026-10-15T12:00:00Z") })
+      .where(eq(schema.webhookEndpoint.id, id));
+  }
+  return id;
+}
+
+async function deliveryTo(id: WebhookEndpointId, n: Notice | undefined) {
+  const event = n?.eventId ?? eventId.parse(v7());
+  await recordDeliveries(
+    deps.db,
+    { workspaceId: workspaceId as never, eventId: event, subjectId: incidentId.parse(v7()) },
+    [{ endpointId: id, channel: "webhook", ...(n && { notice: n }) }],
+  );
+  const row = await findDelivery(deps.db, event, { endpointId: id });
+  if (!row) throw new Error("no delivery");
+  return row.id;
+}
+
+const stateOf = async (id: string) => {
+  const list = (await (await owner.call("/v1/webhook-endpoints")).json()) as Endpoint[];
+  return list.find((e) => e.id === id)?.state;
+};
+type Endpoint = { id: string; state: string };
+
+test("the delivery log shows what was sent; a failed delivery goes again with its webhook id", async () => {
+  const id = await localEndpoint("failing");
+  const failed = await deliveryTo(id, notice("Errors on API"));
+  await settleDelivery(deps.db, failed, {
+    status: "failed",
+    attempts: 8,
+    lastError: "The endpoint answered HTTP 503.",
+  });
+  const log = await owner.call(`/v1/webhook-endpoints/${id}/deliveries`);
+  expect(await log.json()).toMatchObject([
+    {
+      id: failed,
+      kind: "incident_created",
+      title: "Errors on API",
+      status: "failed",
+      attempts: 8,
+      lastError: "The endpoint answered HTTP 503.",
+      sentAt: null,
+    },
+  ]);
+
+  answer = 204;
+  const resend = await local.call(`/v1/webhook-endpoints/${id}/deliveries/${failed}/resend`, {});
+  expect(await resend.json()).toEqual({
+    ok: true,
+    status: 204,
+    detail: "The endpoint accepted it.",
+  });
+  const sent = received.at(-1);
+  expect(sent?.headers["webhook-id"]).toBe(failed);
+  expect(JSON.parse(sent?.body ?? "{}")).toMatchObject({ type: "incident.created" });
+  const after = await (await owner.call(`/v1/webhook-endpoints/${id}/deliveries`)).json();
+  expect(after).toMatchObject([{ status: "sent", attempts: 9, lastError: null }]);
+  // It got through, so the endpoint isn't failing any more.
+  expect(await stateOf(id)).toBe("active");
+});
+
+test("a delivery still retrying, one sent before notices were kept, or to an endpoint that is off, isn't sent again", async () => {
+  const id = await localEndpoint();
+  const resend = (delivery: string, endpoint: string = id) =>
+    local.call(`/v1/webhook-endpoints/${endpoint}/deliveries/${delivery}/resend`, {});
+  await expectProblem(await resend(await deliveryTo(id, notice("Slow"))), 409, "still_retrying");
+  const old = await deliveryTo(id, undefined);
+  await settleDelivery(deps.db, old, { status: "sent", attempts: 1, sentAt: new Date() });
+  await expectProblem(await resend(old), 409, "not_kept");
+
+  const off = await localEndpoint("disabled");
+  const kept = await deliveryTo(off, notice("Down"));
+  await settleDelivery(deps.db, kept, { status: "skipped", attempts: 1 });
+  await expectProblem(await resend(kept, off), 409, "endpoint_disabled");
+  // Another endpoint's delivery, and an endpoint that isn't there.
+  await expectProblem(await resend(kept), 404, "not_found");
+  await expectProblem(
+    await owner.call(`/v1/webhook-endpoints/${webhookEndpointId.parse(v7())}/deliveries`),
+    404,
+    "not_found",
+  );
+});
+
+test("an endpoint that was turned off is on again only once a test message gets through", async () => {
+  const id = await localEndpoint("disabled");
+  const enable = () => local.call(`/v1/webhook-endpoints/${id}/enable`, {});
+  answer = 500;
+  expect(await (await enable()).json()).toMatchObject({ ok: false, status: 500 });
+  expect(await stateOf(id)).toBe("disabled");
+
+  answer = 204;
+  expect(await (await enable()).json()).toMatchObject({ ok: true, status: 204 });
+  expect(received.at(-1)?.headers["webhook-id"]).toMatch(/^test_/);
+  expect(await stateOf(id)).toBe("active");
+  const audit = await deps.db.select().from(schema.auditLog);
+  expect(audit.find((a) => a.action === "webhook_endpoint.updated")).toMatchObject({
+    targetId: id,
+  });
+  await expectProblem(await enable(), 409, "not_disabled");
 });

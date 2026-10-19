@@ -3497,6 +3497,213 @@
         }
       }
     },
+    "/v1/webhook-endpoints/{id}/enable": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Turn a disabled endpoint on again",
+        "description": "Posts a test message first; the endpoint is on again only if it accepts it.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the endpoint answered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "status",
+                    "detail"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhook-endpoints/{id}/deliveries": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "An endpoint's deliveries, newest first",
+        "description": "The last 50 notices sent or being sent to it, and how each one went.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deliveries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "kind": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "enum": [
+                          "incident_created",
+                          "incident_updated",
+                          "incident_resolved",
+                          "maintenance_scheduled",
+                          "maintenance_started",
+                          "maintenance_completed",
+                          "maintenance_cancelled",
+                          null
+                        ]
+                      },
+                      "title": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pending",
+                          "sent",
+                          "failed",
+                          "skipped"
+                        ]
+                      },
+                      "attempts": {
+                        "type": "integer"
+                      },
+                      "lastError": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "sentAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "date-time"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "title",
+                      "status",
+                      "attempts",
+                      "lastError",
+                      "sentAt",
+                      "createdAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/webhook-endpoints/{id}/deliveries/{deliveryId}/resend": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Send a delivery again",
+        "description": "Posts the same notice now, with the same webhook id, and records how it went. A delivery still being retried waits for its retries.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "deliveryId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the endpoint answered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "status",
+                    "detail"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/subscribers": {
       "get": {
         "tags": [

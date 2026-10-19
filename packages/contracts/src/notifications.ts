@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   componentStatuses,
+  deliveryStatuses,
   endpointKinds,
   endpointStates,
   incidentImpacts,
@@ -8,7 +9,7 @@ import {
   maintenanceStatuses,
   subscriberStates,
 } from "./enums.ts";
-import { componentId, eventId, subscriberId, webhookEndpointId } from "./ids.ts";
+import { componentId, deliveryId, eventId, subscriberId, webhookEndpointId } from "./ids.ts";
 
 export const noticeKinds = [
   "incident_created",
@@ -94,6 +95,20 @@ export const endpointTestResult = z.object({
   status: z.int(),
   detail: z.string(),
 });
+
+/** One line of an endpoint's delivery log: what it was sent and how that went. */
+export const deliveryView = z.object({
+  id: deliveryId,
+  /** The notice's kind and title; null for deliveries made before notices were kept. */
+  kind: z.enum(noticeKinds).nullable(),
+  title: z.string().nullable(),
+  status: z.enum(deliveryStatuses),
+  attempts: z.int(),
+  lastError: z.string().nullable(),
+  sentAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+});
+export type DeliveryView = z.infer<typeof deliveryView>;
 
 /** Addresses stay masked on the dashboard: "a***@example.com". */
 export const subscriberView = z.object({
