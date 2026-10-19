@@ -1,6 +1,12 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
-import { afterDelivery, DISABLE_AFTER_MS, type EndpointHealth, nextAttemptAt } from "./endpoint.ts";
+import {
+  afterDelivery,
+  DISABLE_AFTER_MS,
+  type EndpointHealth,
+  nextAttemptAt,
+  resendStep,
+} from "./endpoint.ts";
 
 const T0 = new Date("2026-10-19T12:00:00.000Z");
 const SECOND = 1000;
@@ -106,5 +112,40 @@ describe("afterDelivery properties", () => {
       }),
       { numRuns: 2_000 },
     );
+  });
+});
+
+describe("resendStep", () => {
+  const webhook = { kind: "webhook" as const, state: "active" as const };
+  const settled = (status: "sent" | "failed" | "skipped") => ({
+    status,
+    attempts: 1,
+    updatedAt: T0,
+    notice: "the notice",
+  });
+
+  test("a sent, failed or skipped delivery can go again, but not to an endpoint that is off", () => {
+    for (const status of ["sent", "failed", "skipped"] as const) {
+      expect(resendStep(settled(status), webhook, T0)).toEqual({ ok: true, value: "the notice" });
+    }
+    const off = resendStep(settled("failed"), { kind: "webhook", state: "disabled" }, T0);
+    expect(off.ok || off.error.code).toBe("endpoint_disabled");
+  });
+
+  test("one made before notices were kept has nothing to send", () => {
+    const old = resendStep({ ...settled("sent"), notice: null }, webhook, T0);
+    expect(old.ok || old.error.code).toBe("not_kept");
+  });
+
+  test("a pending one waits for its next attempt, unless that is 2 hours overdue", () => {
+    // Attempt 7 failed at T0: attempt 8 is due 24 hours later.
+    const waiting = { status: "pending" as const, attempts: 7, updatedAt: T0, notice: "n" };
+    const early = resendStep(waiting, webhook, at(26 * HOUR - 1));
+    expect(early.ok || early.error.code).toBe("still_retrying");
+    expect(resendStep(waiting, webhook, at(26 * HOUR)).ok).toBe(true);
+    // Never claimed: its first attempt was due at once.
+    const unsent = { ...waiting, attempts: 0 };
+    expect(resendStep(unsent, webhook, at(2 * HOUR - 1)).ok).toBe(false);
+    expect(resendStep(unsent, webhook, at(2 * HOUR)).ok).toBe(true);
   });
 });

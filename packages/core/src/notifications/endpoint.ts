@@ -1,4 +1,5 @@
-import type { EndpointKind, EndpointState } from "@galena/contracts";
+import type { DeliveryStatus, EndpointKind, EndpointState } from "@galena/contracts";
+import { err, ok, type Result } from "../result.ts";
 
 // A Slack channel or webhook receiver that stops answering: how long each delivery keeps
 // trying, and when the endpoint is failing or turned off.
@@ -42,4 +43,36 @@ export function afterDelivery(
     return { state: "disabled", failingSince: since };
   }
   return { state: "failing", failingSince: since };
+}
+
+/** A pending delivery whose next attempt is this late is taken to be lost, and may go again. */
+const OVERDUE_AFTER_MS = 2 * HOUR;
+
+export type ResendRefusal = "endpoint_disabled" | "not_kept" | "still_retrying";
+
+/**
+ * Whether a member may send a delivery again now. A pending one waits for its next attempt,
+ * unless that attempt is long overdue: without a way out, a lost one stays pending for good.
+ * `updatedAt` is when its last attempt failed, which is when the next one was scheduled. Gives
+ * back what to send: the notice the delivery kept.
+ */
+export function resendStep<N>(
+  delivery: { status: DeliveryStatus; attempts: number; updatedAt: Date; notice: N | null },
+  endpoint: { kind: EndpointKind; state: EndpointState },
+  now: Date,
+): Result<N, ResendRefusal> {
+  if (endpoint.state === "disabled") {
+    return err("endpoint_disabled", "The destination is off. Turn it on, then send this again.");
+  }
+  if (delivery.notice === null) {
+    return err("not_kept", "It was sent before Galena kept what each delivery carried.");
+  }
+  if (delivery.status === "pending") {
+    const due =
+      nextAttemptAt(endpoint.kind, delivery.attempts, delivery.updatedAt) ?? delivery.updatedAt;
+    if (now.getTime() - due.getTime() < OVERDUE_AFTER_MS) {
+      return err("still_retrying", "It's still being retried. Send it again once it has failed.");
+    }
+  }
+  return ok(delivery.notice);
 }
