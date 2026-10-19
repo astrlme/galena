@@ -50,7 +50,7 @@ test("add a webhook destination, see its secret once, then delete it after confi
   await expect(log).toContainText("Nothing sent yet.");
   await expect(log).toContainText("tried again 5 s, 30 s, 2 min, 10 min, 1 h, 6 h and 24 h later");
   await expectAccessible(page);
-  await page.keyboard.press("Escape");
+  await log.getByRole("button", { name: "Close" }).click();
   await expect(log).toBeHidden();
 
   await row.getByRole("button", { name: `Delete ${name}` }).click();

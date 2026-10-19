@@ -1,6 +1,6 @@
 "use client";
 
-import { endpointInput, type NoticeKind } from "@galena/contracts";
+import { endpointInput } from "@galena/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -14,13 +14,13 @@ import { Modal } from "../../../components/modal.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { Time } from "../incidents/incident-ui.tsx";
+import { DeliveryLog } from "./delivery-log.tsx";
+import { card, empty, heading, row, small } from "./styles.ts";
 
 type Endpoint =
   paths["/v1/webhook-endpoints"]["get"]["responses"][200]["content"]["application/json"][number];
 type Subscriber =
   paths["/v1/subscribers"]["get"]["responses"][200]["content"]["application/json"][number];
-type Delivery =
-  paths["/v1/webhook-endpoints/{id}/deliveries"]["get"]["responses"][200]["content"]["application/json"][number];
 
 const STATE: Record<Subscriber["state"], string> = {
   pending_confirmation: "Waiting for confirmation",
@@ -29,19 +29,13 @@ const STATE: Record<Subscriber["state"], string> = {
   suppressed: "Stopped: the address bounced or reported spam",
 };
 const KIND: Record<Endpoint["kind"], string> = { slack: "Slack", webhook: "Webhook" };
-const small = "px-2 py-1 text-[14px]";
-const heading = "text-[19px] font-semibold leading-[1.35]";
-const card = "mt-4 rounded-xl border border-mist bg-surface";
-const empty = `${card} p-4 text-[14px] text-slate`;
-const row =
-  "flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist px-4 py-3 last:border-b-0";
 
 export function SubscribersEditor() {
   const queryClient = useQueryClient();
   const [problem, setProblem] = useState<string>();
   const [adding, setAdding] = useState(false);
   const [secret, setSecret] = useState<{ name: string; value: string }>();
-  const [tested, setTested] = useState<{ id: string; detail: string }>();
+  const [tested, setTested] = useState<{ id: string; detail: string; busy: boolean }>();
   const [removing, setRemoving] = useState<{ endpoint?: Endpoint; subscriber?: Subscriber }>({});
   const [viewing, setViewing] = useState<string>();
   const endpoints = useQuery({
@@ -85,21 +79,22 @@ export function SubscribersEditor() {
       : ids.map((id) => all.find((c) => c.id === id)?.name ?? "A deleted component").join(", ");
 
   const test = async (endpoint: Endpoint) => {
-    setTested({ id: endpoint.id, detail: "Sending a test message…" });
+    setTested({ id: endpoint.id, detail: "Sending a test message…", busy: true });
     const result = await unwrap(
       api.POST("/v1/webhook-endpoints/{id}/test", { params: { path: { id: endpoint.id } } }),
     ).catch((error: Error) => ({ detail: error.message }));
-    setTested({ id: endpoint.id, detail: result.detail });
+    setTested({ id: endpoint.id, detail: result.detail, busy: false });
   };
   // A test message first: the endpoint is on again only if it gets through.
   const turnOn = async (endpoint: Endpoint) => {
-    setTested({ id: endpoint.id, detail: "Sending a test message…" });
+    setTested({ id: endpoint.id, detail: "Sending a test message…", busy: true });
     const result = await unwrap(
       api.POST("/v1/webhook-endpoints/{id}/enable", { params: { path: { id: endpoint.id } } }),
     ).catch((error: Error) => ({ ok: false, detail: error.message }));
-    setTested({ id: endpoint.id, detail: result.detail });
+    setTested({ id: endpoint.id, detail: result.detail, busy: false });
     if (result.ok) await queryClient.invalidateQueries({ queryKey: ["webhook-endpoints"] });
   };
+  const busy = (endpoint: Endpoint) => tested?.id === endpoint.id && tested.busy;
   const viewed = endpoints.data?.find((e) => e.id === viewing);
 
   return (
@@ -146,23 +141,23 @@ export function SubscribersEditor() {
                     )}{" "}
                     {following(e.componentIds)}.
                   </span>
-                  {tested?.id === e.id && (
-                    <span className="text-[14px]" aria-live="polite">
-                      {tested.detail}
-                    </span>
-                  )}
+                  <span className="text-[14px]" aria-live="polite">
+                    {tested?.id === e.id ? tested.detail : ""}
+                  </span>
                 </div>
                 <div className="ml-auto flex flex-wrap gap-2">
                   <Button className={small} onClick={() => setViewing(e.id)}>
                     Deliveries<span className="sr-only"> to {e.name}</span>
                   </Button>
                   {e.state === "disabled" ? (
-                    <Button className={small} onClick={() => void turnOn(e)}>
-                      Turn on<span className="sr-only"> {e.name}</span>
+                    <Button className={small} disabled={busy(e)} onClick={() => void turnOn(e)}>
+                      {busy(e) ? "Turning on…" : "Turn on"}
+                      <span className="sr-only"> {e.name}</span>
                     </Button>
                   ) : (
-                    <Button className={small} onClick={() => void test(e)}>
-                      Send test<span className="sr-only"> to {e.name}</span>
+                    <Button className={small} disabled={busy(e)} onClick={() => void test(e)}>
+                      {busy(e) ? "Sending…" : "Send test"}
+                      <span className="sr-only"> to {e.name}</span>
                     </Button>
                   )}
                   <Button className={small} onClick={() => setRemoving({ endpoint: e })}>
@@ -175,8 +170,8 @@ export function SubscribersEditor() {
         )}
       </section>
 
-      <Modal.Root open={viewed !== undefined} onClose={() => setViewing(undefined)}>
-        {viewed && <DeliveryLog endpoint={viewed} />}
+      <Modal.Root kind="dialog" open={viewed !== undefined} onClose={() => setViewing(undefined)}>
+        {viewed && <DeliveryLog endpoint={viewed} onClose={() => setViewing(undefined)} />}
       </Modal.Root>
       <Modal.Root open={adding && !secret} onClose={() => setAdding(false)}>
         <Modal.Title>Add a destination</Modal.Title>
@@ -409,113 +404,5 @@ function DestinationForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-const NOTICE: Record<NoticeKind, string> = {
-  incident_created: "New incident",
-  incident_updated: "Incident update",
-  incident_resolved: "Incident resolved",
-  maintenance_scheduled: "Maintenance scheduled",
-  maintenance_started: "Maintenance started",
-  maintenance_completed: "Maintenance completed",
-  maintenance_cancelled: "Maintenance cancelled",
-};
-const tries = (n: number) => `${n} ${n === 1 ? "attempt" : "attempts"}`;
-
-function outcome(d: Delivery) {
-  switch (d.status) {
-    case "sent":
-      return (
-        <>
-          Sent
-          {d.sentAt && (
-            <>
-              {" "}
-              <Time iso={d.sentAt} />
-            </>
-          )}
-          {d.attempts > 1 && ` on attempt ${d.attempts}`}.
-        </>
-      );
-    case "pending":
-      return d.attempts === 0 ? "Waiting to be sent." : `Trying again later. ${d.lastError ?? ""}`;
-    case "failed":
-      return `Failed after ${tries(d.attempts)}. ${d.lastError ?? ""}`;
-    case "skipped":
-      return "Not sent: the destination was off.";
-  }
-}
-
-/** What an endpoint was sent, newest first, with a way to send a settled delivery again. */
-function DeliveryLog({ endpoint }: { endpoint: Endpoint }) {
-  const queryClient = useQueryClient();
-  const [result, setResult] = useState<{ id: string; detail: string }>();
-  const deliveries = useQuery({
-    queryKey: ["webhook-endpoints", endpoint.id, "deliveries"],
-    queryFn: () =>
-      unwrap(
-        api.GET("/v1/webhook-endpoints/{id}/deliveries", {
-          params: { path: { id: endpoint.id } },
-        }),
-      ),
-  });
-  const resend = async (d: Delivery) => {
-    setResult({ id: d.id, detail: "Sending it again…" });
-    const params = { path: { id: endpoint.id, deliveryId: d.id } };
-    const answer = await unwrap(
-      api.POST("/v1/webhook-endpoints/{id}/deliveries/{deliveryId}/resend", { params }),
-    ).catch((error: Error) => ({ detail: error.message }));
-    setResult({ id: d.id, detail: answer.detail });
-    await queryClient.invalidateQueries({ queryKey: ["webhook-endpoints"] });
-  };
-  const canResend = (d: Delivery) =>
-    d.status !== "pending" && d.kind !== null && endpoint.state !== "disabled";
-
-  return (
-    <>
-      <Modal.Title>Deliveries to {endpoint.name}</Modal.Title>
-      <Modal.Description className="mt-2 text-[14px] text-slate">
-        The last 50 notices, newest first.{" "}
-        {endpoint.kind === "webhook"
-          ? "One that fails is tried again 5 s, 30 s, 2 min, 10 min, 1 h, 6 h and 24 h later."
-          : "One that fails is tried again within a few minutes."}
-      </Modal.Description>
-      {deliveries.isPending ? (
-        <p className="mt-6 text-slate">Loading deliveries</p>
-      ) : deliveries.error ? (
-        <p className="mt-6 font-semibold">{deliveries.error.message}</p>
-      ) : deliveries.data.length === 0 ? (
-        <p className={empty}>
-          Nothing sent yet. Incident and maintenance notices for this destination show here.
-        </p>
-      ) : (
-        <ul className={card}>
-          {deliveries.data.map((d) => (
-            <li key={d.id} className={row}>
-              <div className="flex min-w-0 flex-col gap-1">
-                <span className="font-semibold">{d.title ?? "Sent before the delivery log"}</span>
-                <span className="text-[14px]">
-                  {d.kind && `${NOTICE[d.kind]}, `}
-                  <Time iso={d.createdAt} />. {outcome(d)}
-                </span>
-                {result?.id === d.id && (
-                  <span className="text-[14px]" aria-live="polite">
-                    {result.detail}
-                  </span>
-                )}
-              </div>
-              {canResend(d) && (
-                <div className="ml-auto">
-                  <Button className={small} onClick={() => void resend(d)}>
-                    Send again<span className="sr-only"> {d.title}</span>
-                  </Button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
   );
 }
