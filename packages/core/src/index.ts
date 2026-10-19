@@ -10,6 +10,7 @@ export * from "./incidents/templates.ts";
 export * from "./maintenance/lifecycle.ts";
 export * from "./monitors/monitors-file.ts";
 export * from "./notifications/audience.ts";
+export * from "./notifications/endpoint.ts";
 export * from "./notifications/subscriber.ts";
 export * from "./ports.ts";
 export * from "./publishing/heartbeat.ts";
