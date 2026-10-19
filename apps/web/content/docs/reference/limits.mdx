@@ -39,14 +39,31 @@ wide outage. Splitting a region's monitors across several runs is not built yet.
 
 | What | Limit |
 | --- | --- |
-| API requests | 50 a second, bursts of 100 |
-| Sign-in attempts | rate limited per visitor address |
-| Subscribe form | 10 sign-ups per visitor address an hour; one confirmation email per address every 10 minutes; 200 confirmation emails an hour in total |
-| Webhook and Slack sends | 8-second timeout; 5 attempts |
+| API requests | 20 a second, bursts of 40 |
+| Sign-in and the rest of `/auth/*` | 5 requests a second, bursts of 10; attempts are also limited per visitor address |
+| Subscribe form (`/public/*`) | 2 requests a second, bursts of 5; 10 sign-ups per visitor address an hour; one confirmation email per address every 10 minutes; 50 confirmation emails an hour in total |
+| Alert hooks (`/hooks/*`) | 10 requests a second, bursts of 20; 120 alerts per integration a minute, then `429` with `Retry-After: 60` |
+| Slack (`/slack/*`) | 5 requests a second, bursts of 10 |
+| Webhook sends | 8-second timeout; 8 attempts over about 31 hours |
+| Slack sends | 8-second timeout; 5 attempts within a few minutes |
 | Email sends | 5 attempts |
 
-Past a subscribe limit, the form answers exactly as if it had worked, so it never reveals whether
-an address is subscribed.
+Requests past a per-second limit get `429` from API Gateway and never reach the API. The
+per-address, per-integration and sign-in counts are kept in each API instance's memory, so with
+several instances running the real ceiling is a few times higher. Past a subscribe limit, the
+form answers exactly as if it had worked, so it never reveals whether an address is subscribed.
+
+## Counts
+
+| What | At most |
+| --- | --- |
+| Monitors | 100 |
+| Slack and webhook destinations | 50 |
+| Integrations | 50 |
+| API keys | 50 |
+| Deliveries in a destination's log | the last 50 |
+
+One more is refused with `409 limit_reached`; delete one to add another.
 
 ## History
 

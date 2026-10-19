@@ -10,7 +10,7 @@ below, and the dashboard's own error messages, which name what to do.
 
 ## Alarms
 
-Ten CloudWatch alarms in the home region publish to the SNS topic `galena-<stage>-alarms`:
+Twelve CloudWatch alarms in the home region publish to the SNS topic `galena-<stage>-alarms`:
 
 | Alarm | Fires when |
 | --- | --- |
@@ -22,6 +22,8 @@ Ten CloudWatch alarms in the home region publish to the SNS topic `galena-<stage
 | Jobs or builds waiting | A job or an HTML build has waited over 15 minutes: a lane is stuck or its function can't start |
 | Undelivered schedules | Scheduler couldn't deliver a job for later or a recurring job within an hour |
 | No heartbeat | `page.heartbeat` hasn't run for two hours |
+| Database awake | Aurora has been awake for 4 hours in a row: something keeps querying it |
+| API traffic | The API answered over 5,000 requests in an hour: look for unexpected callers |
 
 Nothing subscribes to the topic in code, so no address is kept in your fork. Subscribe one once,
 then confirm the email AWS sends:

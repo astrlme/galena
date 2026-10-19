@@ -11,8 +11,9 @@ description: Trust boundaries, how secrets are kept, and what protects each way 
 | --- | --- | --- |
 | Status page | Anyone | Static files only. HSTS, `X-Frame-Options: DENY`, a content security policy with hashed scripts |
 | `/public/*` on the page's domain | Anyone | Subscribe, confirm and unsubscribe only; rate limits; answers that never reveal whether an address is subscribed |
-| Dashboard and `/v1/*` | Members | Session cookies from Better Auth, role checks on every route, a content security policy, CloudFront in front |
-| `/auth/*` | Anyone | Better Auth: password hashing, TOTP two-factor, rate limits stored in the database |
+| Dashboard and `/v1/*` | Members and their API keys | Session cookies from Better Auth or scoped API keys, role checks on every route, a content security policy, CloudFront in front |
+| `/auth/*` | Anyone | Better Auth: password hashing, TOTP two-factor, rate limits |
+| `/hooks/*` | Alert sources | A signed token in the URL, checked without the database; at most 120 alerts per integration a minute |
 | API Gateway directly | Nobody | Refused unless a secret header that only CloudFront adds is present |
 | AWS | The deploy role, the Lambdas and their roles | IAM, each scoped to exactly what it needs |
 
@@ -25,10 +26,27 @@ forge the visitor's address, is refused with `403`. Only `/health` answers witho
 
 ### Rate limits
 
-Better Auth limits sign-in and other auth requests per visitor address, with its counters in the
-database so every Lambda container shares them. The address comes from CloudFront's
+API Gateway limits each path open to anyone (`/auth/*`, `/public/*`, `/hooks/*`, `/slack/*`)
+below the API's overall rate. Behind that, Better Auth limits sign-in and other auth requests per
+visitor address. Its counters are kept in each API instance's memory, not the database, so a
+flood of sign-in attempts can't keep Aurora awake. The address comes from CloudFront's
 `CloudFront-Viewer-Address` header, which a visitor can't set, and reaches the API in a header
 the API sets itself. The subscribe form has its own limits; see [Limits](/docs/reference/limits/).
+
+### What keeps the bill small
+
+Aurora awake is most of a deployment's bill, so nothing a stranger sends may query it:
+
+- A session cookie is checked against its signature before any lookup.
+- An API key carries a tag keyed with the app key; a key this deployment didn't make is refused
+  before any lookup.
+- A hook URL's token is signed and checked without the database.
+- The subscribe form counts each visitor address and all posts in memory before it asks the
+  database.
+
+Two alarms say when something gets through anyway: Aurora awake for 4 hours in a row, and the API
+answering over 5,000 requests in an hour. A workspace holds at most 100 monitors, and at most 50
+destinations, integrations and API keys, so a mistake or a stolen key can't multiply the bill.
 
 ### Sign-up
 
@@ -67,7 +85,7 @@ each purpose with HKDF-SHA256, so no key can stand in for another:
 | --- | --- |
 | `seal` | Slack webhook URLs and webhook signing secrets, encrypted with AES-256-GCM before they are stored. The API never returns them. |
 | `link` | Confirm and unsubscribe links: an HMAC-SHA256 over the purpose, the subscriber and the time. Nothing about a link is stored. |
-| `hash` | The addresses of visitors who use the subscribe form, kept only as keyed hashes for its rate limits |
+| `hash` | The addresses of visitors who use the subscribe form, kept only as keyed hashes for its rate limits; the tag that makes an API key this deployment's |
 
 Secrets never appear in code, logs, snapshots or error messages. Webhook signing secrets are
 shown once, when the endpoint is created.
