@@ -12,7 +12,7 @@ import { componentRepository, monitorRepository } from "@galena/db";
 import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { type App, type Deps, fail, type Member, notFound, requireRole } from "../http.ts";
-import { changeOf, commit, json, jsonBody, noContent } from "./shared.ts";
+import { CAPS, changeOf, commit, json, jsonBody, noContent, underCap } from "./shared.ts";
 
 const toView = ({ workspaceId: _, ...view }: MonitorConfig) => view;
 
@@ -109,6 +109,11 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
     async (c) => {
       const member = c.get("member");
       const input = c.req.valid("json");
+      underCap(
+        "monitors",
+        (await monitors.listByWorkspace(member.workspaceId)).length,
+        CAPS.monitors,
+      );
       await validate(member, input);
       const created: MonitorConfig = {
         id: monitorId.parse(v7()),

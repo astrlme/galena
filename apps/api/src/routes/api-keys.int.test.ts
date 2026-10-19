@@ -184,3 +184,12 @@ test("a maker who leaves the workspace takes their keys with them", async () => 
   const left = await deps.db.select().from(schema.apiKey).where(eq(schema.apiKey.hash, hash));
   expect(left).toEqual([]);
 });
+
+test("a workspace holds at most 50 API keys; the next is refused until one is deleted", async () => {
+  const listed = async () =>
+    ((await (await owner.call("/v1/api-keys")).json()) as unknown[]).length;
+  for (let n = await listed(); n < 50; n++) await makeKey(`Script ${n}`, "read");
+  const refused = await owner.call("/v1/api-keys", { name: "One too many", scope: "read" });
+  await expectProblem(refused, 409, "limit_reached");
+  expect(await listed()).toBe(50);
+});

@@ -2,7 +2,7 @@ import { type ChangeAction, eventId, type OutboxId, outboxId } from "@galena/con
 import { type Change, type Db, recordChange } from "@galena/db";
 import type { z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
-import type { Deps, Member } from "../http.ts";
+import { type Deps, fail, type Member } from "../http.ts";
 
 // Route helpers shared by every resource.
 
@@ -14,6 +14,24 @@ export const jsonBody = <T extends z.ZodType>(schema: T) => ({
   body: { required: true, content: { "application/json": { schema } } },
 });
 export const noContent = { 204: { description: "Done" } };
+
+/**
+ * How many of each a workspace may have. Monitors cost probe time and queue messages every minute
+ * in every region, and the rest add sends or lookups, so a mistake or a stolen key can't multiply
+ * the bill. Known limit: fixed here; make them deployment settings if someone needs more.
+ */
+export const CAPS = { monitors: 100, apiKeys: 50, endpoints: 50, integrations: 50 } as const;
+
+/** Refuses one more of `what` once the workspace has `cap` of them. */
+export function underCap(what: string, count: number, cap: number) {
+  if (count < cap) return;
+  fail({
+    status: 409,
+    code: "limit_reached",
+    title: `At most ${cap} ${what}`,
+    detail: `This workspace has ${count} ${what}, the most it can have. Delete one to add another.`,
+  });
+}
 
 /** The audit entry and `{target}.changed` outbox event for one change. */
 export function changeOf(

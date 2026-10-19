@@ -35,7 +35,7 @@ import { open, seal } from "@galena/integrations/secrets";
 import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { type App, type Deps, fail, notFound, requireRole } from "../http.ts";
-import { changeOf, commit, json, jsonBody, noContent } from "./shared.ts";
+import { CAPS, changeOf, commit, json, jsonBody, noContent, underCap } from "./shared.ts";
 
 // Where notices go besides email: Slack incoming webhooks and signed outgoing webhooks. Both
 // carry credentials (Slack's in the URL), so only admins see or change them, and neither the
@@ -129,6 +129,8 @@ export function registerEndpointRoutes(app: App, deps: Deps) {
     async (c) => {
       const member = c.get("member");
       const input = c.req.valid("json");
+      const existing = await listEndpoints(db, member.workspaceId);
+      underCap("destinations", existing.length, CAPS.endpoints);
       const checked = deps.targets.checkUrl(input.url);
       if (!checked.ok) {
         fail({
