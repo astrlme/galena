@@ -3,7 +3,7 @@
 import { type ApiKeyScope, apiKeyInput } from "@galena/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
@@ -12,6 +12,7 @@ import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { control, Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
+import type { paths } from "../../../lib/api-schema.ts";
 import { Time } from "../incidents/incident-ui.tsx";
 
 const heading = "text-[19px] font-semibold leading-[1.35]";
@@ -21,16 +22,18 @@ const row =
 
 const SCOPE: Record<ApiKeyScope, string> = {
   read: "Read, like a viewer",
-  write: "Write, like an editor",
-  admin: "Admin, like an admin",
+  write: "Write, like an editor: also creates and changes",
+  admin: "Admin: also webhooks, subscribers, integrations and Slack",
 };
 
-type Key = { id: string; name: string; scope: ApiKeyScope; prefix: string; createdAt: string };
+type Key = paths["/v1/api-keys"]["get"]["responses"][200]["content"]["application/json"][number];
 
 /** Admins make keys for scripts here; for everyone else the section isn't shown. */
 export function ApiKeys() {
   const queryClient = useQueryClient();
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [making, setMaking] = useState(false);
+  const [notice, setNotice] = useState<string>();
   const [made, setMade] = useState<{ name: string; key: string }>();
   const [removing, setRemoving] = useState<Key>();
   const [problem, setProblem] = useState<string>();
@@ -51,6 +54,7 @@ export function ApiKeys() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["api-keys"] }),
   });
   useReopenDraft("api-key", keys.isSuccess, (id) => {
+    setProblem(undefined);
     setMade(undefined);
     setMaking(id === "new");
     return id === "new";
@@ -61,24 +65,37 @@ export function ApiKeys() {
   return (
     <section className="mt-8" aria-labelledby="api-keys-heading">
       <div className="flex items-center justify-between gap-4">
-        <h2 id="api-keys-heading" className={heading}>
+        <h2 id="api-keys-heading" ref={headingRef} tabIndex={-1} className={heading}>
           API keys
         </h2>
-        <Button onClick={() => setMaking(true)}>Make API key</Button>
+        {keys.isSuccess && (
+          <Button
+            onClick={() => {
+              setProblem(undefined);
+              setNotice(undefined);
+              setMaking(true);
+            }}
+          >
+            Make API key
+          </Button>
+        )}
       </div>
       <p className="mt-2 max-w-[72ch] text-slate">
         For scripts that call the{" "}
         <a href="/docs/reference/api/" className="underline">
           API
         </a>
-        . A key acts as you, at most at its scope, and stops working if you leave the workspace.
+        . A key acts as the admin who made it, at most at its scope, and stops working if they leave
+        the workspace.
       </p>
       {keys.isPending ? (
         <p className={`${card} p-4 text-slate`}>Loading the API keys</p>
       ) : keys.error ? (
         <p className={`${card} p-4 font-semibold`}>{keys.error.message}</p>
       ) : keys.data.length === 0 ? (
-        <p className={`${card} p-4 text-[14px] text-slate`}>None yet.</p>
+        <p className={`${card} p-4 text-[14px] text-slate`}>
+          None yet. Make one key per script, so you can delete one without stopping the others.
+        </p>
       ) : (
         <ul className={card}>
           {keys.data.map((k) => (
@@ -99,8 +116,8 @@ export function ApiKeys() {
           ))}
         </ul>
       )}
-      <p role="status" className="mt-3 text-[14px] font-semibold text-major empty:hidden">
-        {making ? undefined : problem}
+      <p role="status" className="mt-3 text-[14px] font-semibold empty:hidden">
+        {making ? undefined : (problem ?? notice)}
       </p>
 
       <Modal.Root open={making && !made} onClose={() => setMaking(false)}>
@@ -141,8 +158,9 @@ export function ApiKeys() {
                 {made.key}
               </p>
               <p className="text-[14px] text-slate">
-                Copy it now: it isn't shown again. Scripts send it as{" "}
-                <span className="font-mono">Authorization: Bearer</span> followed by the key.
+                Copy it now: it isn't shown again. Scripts send it in the{" "}
+                <span className="font-mono">Authorization</span> header, after{" "}
+                <span className="font-mono">Bearer</span>.
               </p>
             </div>
             <div className="mt-6">
@@ -166,7 +184,12 @@ export function ApiKeys() {
           consequence="Scripts using it are refused from their next request."
           onConfirm={() => {
             const params = { path: { id: removing.id } };
-            change.mutate(() => unwrap(api.DELETE("/v1/api-keys/{id}", { params })));
+            change.mutate(() => unwrap(api.DELETE("/v1/api-keys/{id}", { params })), {
+              onSuccess: () => {
+                setNotice("API key deleted.");
+                headingRef.current?.focus();
+              },
+            });
             setRemoving(undefined);
           }}
           onClose={() => setRemoving(undefined)}
@@ -215,13 +238,21 @@ function KeyForm({
         <label htmlFor="api-key-scope" className="text-[14px] font-semibold">
           Scope
         </label>
-        <select id="api-key-scope" className={control} {...form.register("scope")}>
+        <select
+          id="api-key-scope"
+          aria-describedby="api-key-scope-help"
+          className={control}
+          {...form.register("scope")}
+        >
           {Object.entries(SCOPE).map(([scope, label]) => (
             <option key={scope} value={scope}>
               {label}
             </option>
           ))}
         </select>
+        <p id="api-key-scope-help" className="text-[14px] text-slate">
+          A key never does more than you can.
+        </p>
       </div>
       <p aria-live="polite" className="font-semibold text-major empty:hidden">
         {problem}

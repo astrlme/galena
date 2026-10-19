@@ -139,7 +139,7 @@ test("make an API key, see it once, then delete it after confirming its name; a 
   await expect(shown).toBeHidden();
 
   const row = section.getByRole("listitem").filter({ hasText: name });
-  await expect(row).toContainText("Write, like an editor. Starts gln_");
+  await expect(row).toContainText("Write, like an editor: also creates and changes. Starts gln_");
   await row.getByRole("button", { name: `Delete ${name}` }).click();
   const dialog = page.getByRole("dialog", { name: `Delete ${name}?` });
   await dialog.getByLabel("Type the API key name").fill(name);
