@@ -16,6 +16,7 @@ import {
   sameSecret,
   viewerAddress,
 } from "./http.ts";
+import { registerApiKeyRoutes } from "./routes/api-keys.ts";
 import { registerComponentRoutes } from "./routes/components.ts";
 import { registerEndpointRoutes } from "./routes/endpoints.ts";
 import { registerHookRoutes } from "./routes/hooks.ts";
@@ -32,6 +33,8 @@ export { type Deps, problemResponse, requireRole } from "./http.ts";
 export const openApiConfig = {
   openapi: "3.1.0",
   info: { title: "Galena API", version: "0.0.0" },
+  // Every operation takes a signed-in session or an API key unless it says otherwise.
+  security: [{ session: [] }, { apiKey: [] }],
   tags: [
     { name: "Workspace", description: "Health, first-run setup and the signed-in member." },
     { name: "Components", description: "Components and groups, in the order the page shows them." },
@@ -53,6 +56,7 @@ const health = createRoute({
   method: "get",
   path: "/health",
   tags: ["Workspace"],
+  security: [],
   summary: "Liveness",
   description: "Answers without touching the database, so health checks never wake Aurora.",
   responses: {
@@ -67,6 +71,7 @@ const setup = createRoute({
   method: "post",
   path: "/v1/setup",
   tags: ["Workspace"],
+  security: [],
   summary: "First-run setup",
   description:
     "Creates the workspace and its owner, then signs the owner in. Works once per deployment. In AWS it needs the deployment's setup token (the `/galena/<name>/setup-token` SecureString) in `x-galena-setup-token`, and answers 403 without it.",
@@ -228,6 +233,19 @@ export function createApp(deps: Deps) {
     return c.json({ workspaceId: id, userId }, 201);
   });
 
+  app.openAPIRegistry.registerComponent("securitySchemes", "session", {
+    type: "apiKey",
+    in: "cookie",
+    name: "better-auth.session_token",
+    description:
+      "The dashboard's session, from `POST /auth/sign-in/email` (named `__Secure-better-auth.session_token` over https).",
+  });
+  app.openAPIRegistry.registerComponent("securitySchemes", "apiKey", {
+    type: "http",
+    scheme: "bearer",
+    description: "An API key from Settings, sent as `Authorization: Bearer gln_…`.",
+  });
+
   app.use("/v1/me", requireRole(deps, "viewer"));
   app.openapi(me, (c) => c.json(c.get("member"), 200));
 
@@ -235,6 +253,7 @@ export function createApp(deps: Deps) {
   registerMonitorRoutes(app, deps);
   registerIncidentRoutes(app, deps);
   registerMaintenanceRoutes(app, deps);
+  registerApiKeyRoutes(app, deps);
   registerEndpointRoutes(app, deps);
   registerNotificationRoutes(app, deps);
   registerIntegrationRoutes(app, deps);

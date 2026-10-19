@@ -24,7 +24,8 @@ export function changeOf(
     | "monitor"
     | "webhook_endpoint"
     | "subscriber"
-    | "integration",
+    | "integration"
+    | "api_key",
   action: ChangeAction,
   ids: string[],
   data?: unknown,

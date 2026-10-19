@@ -1,8 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import type { MemberRole, ProblemDetails, SlackAppConfig, WorkspaceId } from "@galena/contracts";
 import { problemContentType } from "@galena/contracts";
-import { roleAtLeast, type WorkflowEngine } from "@galena/core";
-import { type Db, findMembership } from "@galena/db";
+import { keyRole, roleAtLeast, type WorkflowEngine } from "@galena/core";
+import { type Db, findApiKeyActor, findMembership } from "@galena/db";
 import type { Guard } from "@galena/integrations/net";
 import type { AppKeys } from "@galena/integrations/secrets";
 import type { SlackApi } from "@galena/integrations/slack";
@@ -10,6 +10,7 @@ import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { BEARER, hashApiKey } from "./api-keys.ts";
 import type { Auth } from "./auth.ts";
 import type { Telemetry } from "./telemetry.ts";
 
@@ -89,9 +90,56 @@ export function notFound(what: string): never {
   });
 }
 
-/** 401 without a session, 403 below `required`; sets `member` for the handler. */
-export function requireRole({ db, auth }: Deps, required: MemberRole): MiddlewareHandler<Env> {
+/**
+ * 401 without a session or a valid API key, 403 below `required`; sets `member` for the
+ * handler. A key acts as the member who made it, at most at its scope's role (`keyRole`).
+ * `keys: false` takes a signed-in member only: keys can't make more keys.
+ */
+export function requireRole(
+  { db, auth }: Deps,
+  required: MemberRole,
+  { keys = true } = {},
+): MiddlewareHandler<Env> {
   return async (c, next) => {
+    const authorization = c.req.header("authorization");
+    if (authorization?.startsWith(BEARER)) {
+      if (!keys) {
+        return problemResponse({
+          status: 403,
+          code: "session_required",
+          title: "Sign in to do this",
+          detail: "API keys can't manage API keys. Sign in to the dashboard instead.",
+        });
+      }
+      const actor = await findApiKeyActor(db, hashApiKey(authorization.slice(BEARER.length)));
+      if (!actor) {
+        return problemResponse({
+          status: 401,
+          code: "invalid_api_key",
+          title: "This API key isn't valid",
+          detail:
+            "It was deleted, or whoever made it left the workspace. Make a new key in Settings.",
+        });
+      }
+      const role = keyRole(actor.scope, actor.role);
+      if (!roleAtLeast(role, required)) {
+        return problemResponse({
+          status: 403,
+          code: "forbidden",
+          title: "This key's scope does not allow this",
+          detail: `This needs the ${required} role or higher; the key acts as ${role}. Use a key with a wider scope.`,
+        });
+      }
+      // Known limit: audit entries name the key's maker, not the key; carry the key's id in
+      // `Member` and `changeOf` if telling a script's changes from its maker's matters.
+      c.set("member", {
+        userId: actor.userId,
+        email: actor.email,
+        role,
+        workspaceId: actor.workspaceId,
+      });
+      return next();
+    }
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) {
       return problemResponse({

@@ -4,6 +4,14 @@
     "title": "Galena API",
     "version": "0.0.0"
   },
+  "security": [
+    {
+      "session": []
+    },
+    {
+      "apiKey": []
+    }
+  ],
   "tags": [
     {
       "name": "Workspace",
@@ -35,6 +43,19 @@
     }
   ],
   "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "better-auth.session_token",
+        "description": "The dashboard's session, from `POST /auth/sign-in/email` (named `__Secure-better-auth.session_token` over https)."
+      },
+      "apiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "An API key from Settings, sent as `Authorization: Bearer gln_…`."
+      }
+    },
     "schemas": {},
     "parameters": {}
   },
@@ -44,6 +65,7 @@
         "tags": [
           "Workspace"
         ],
+        "security": [],
         "summary": "Liveness",
         "description": "Answers without touching the database, so health checks never wake Aurora.",
         "responses": {
@@ -76,6 +98,7 @@
         "tags": [
           "Workspace"
         ],
+        "security": [],
         "summary": "First-run setup",
         "description": "Creates the workspace and its owner, then signs the owner in. Works once per deployment. In AWS it needs the deployment's setup token (the `/galena/<name>/setup-token` SecureString) in `x-galena-setup-token`, and answers 403 without it.",
         "parameters": [
@@ -3219,6 +3242,191 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/api-keys": {
+      "get": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "API keys, newest first",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Keys, without the keys themselves",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "scope": {
+                        "type": "string",
+                        "enum": [
+                          "read",
+                          "write",
+                          "admin"
+                        ]
+                      },
+                      "prefix": {
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "scope",
+                      "prefix",
+                      "createdAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Make an API key",
+        "description": "The key is in this answer only. It acts as you, at most at its scope: `read` as a viewer, `write` as an editor, `admin` as an admin.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "read",
+                      "write",
+                      "admin"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "scope"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The key, shown once",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apiKey": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string",
+                          "enum": [
+                            "read",
+                            "write",
+                            "admin"
+                          ]
+                        },
+                        "prefix": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "scope",
+                        "prefix",
+                        "createdAt"
+                      ]
+                    },
+                    "key": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "apiKey",
+                    "key"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/api-keys/{id}": {
+      "delete": {
+        "tags": [
+          "Workspace"
+        ],
+        "summary": "Delete an API key",
+        "description": "Scripts using it are refused from the next request.",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done"
           }
         }
       }
