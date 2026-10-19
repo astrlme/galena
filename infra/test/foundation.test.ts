@@ -177,6 +177,7 @@ test("alarms on dead letters, stuck jobs and silent probes, to a TLS-only topic 
     ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],
     ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],
     ["NumberOfMessagesSent", "LessThanThreshold", "breaching"],
+    ["ServerlessDatabaseCapacity", "GreaterThanOrEqualToThreshold", "notBreaching"],
   ]);
   for (const alarm of alarms) {
     expect(alarm.AlarmActions).toEqual([{ Ref: expect.stringMatching(/^Alarms/) }]);

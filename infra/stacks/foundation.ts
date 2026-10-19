@@ -159,6 +159,19 @@ export class FoundationStack extends Stack {
         treatMissingData: TreatMissingData.BREACHING,
       })
       .addAlarmAction(notify);
+    // Aurora awake is most of the bill. A quiet day wakes it for minutes every six hours, so hours
+    // on end mean something keeps querying it: unexpected traffic, or a job in a loop.
+    this.database
+      .metric("ServerlessDatabaseCapacity", { statistic: "Average", period: Duration.hours(1) })
+      .createAlarm(this, "DatabaseAwakeAlarm", {
+        alarmDescription:
+          "Aurora has been awake for 4 hours in a row. Look for unexpected traffic in the API's and the jobs' logs.",
+        threshold: 0.25,
+        evaluationPeriods: 4,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+      })
+      .addAlarmAction(notify);
 
     // Background jobs. Message groups are lanes: one job at a time each, side by side across
     // groups. HTML builds have their own queue so a slow build holds up no other job. Scheduler

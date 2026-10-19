@@ -1,16 +1,21 @@
 import { CfnOutput, Duration, Stack, type StackProps, Validations } from "aws-cdk-lib";
 import {
+  type CfnStage,
   HttpApi,
+  HttpMethod,
   HttpStage,
   LogGroupLogDestination,
   type ThrottleSettings,
 } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
+import { ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
+import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
+import { Topic } from "aws-cdk-lib/aws-sns";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { Trigger } from "aws-cdk-lib/triggers";
 import type { Construct } from "constructs";
@@ -158,22 +163,44 @@ export class ApiStack extends Stack {
     });
     new Trigger(this, "MigrateOnDeploy", { handler: migrate, executeOnHandlerChange: true });
 
+    const integration = new HttpLambdaIntegration("Lambda", handler);
     this.api = new HttpApi(this, "HttpApi", {
-      defaultIntegration: new HttpLambdaIntegration("Lambda", handler),
+      defaultIntegration: integration,
       createDefaultStage: false,
     });
+    // The paths anyone can call without signing in get their own, lower limits, so a flood of
+    // them can't take every request the stage allows. Throttled requests never reach the Lambda.
+    const open = {
+      "/auth/{proxy+}": { rateLimit: 5, burstLimit: 10 },
+      "/public/{proxy+}": { rateLimit: 2, burstLimit: 5 },
+      "/hooks/{proxy+}": { rateLimit: 10, burstLimit: 20 },
+      "/slack/{proxy+}": { rateLimit: 5, burstLimit: 10 },
+    } satisfies Record<string, ThrottleSettings>;
+    const routes = Object.keys(open).flatMap((path) =>
+      this.api.addRoutes({ path, methods: [HttpMethod.ANY], integration }),
+    );
     const accessLogs = new LogGroup(this, "AccessLogs", { retention: RetentionDays.ONE_MONTH });
-    new HttpStage(this, "DefaultStage", {
+    const defaultStage = new HttpStage(this, "DefaultStage", {
       httpApi: this.api,
       stageName: "$default",
       autoDeploy: true,
-      throttle: { rateLimit: 50, burstLimit: 100 } satisfies ThrottleSettings,
+      // A single-tenant dashboard asks for a few requests a second at most.
+      throttle: { rateLimit: 20, burstLimit: 40 } satisfies ThrottleSettings,
       accessLogSettings: { destination: new LogGroupLogDestination(accessLogs) },
     });
+    (defaultStage.node.defaultChild as CfnStage).routeSettings = Object.fromEntries(
+      Object.entries(open).map(([path, limit]) => [
+        `ANY ${path}`,
+        // A raw CloudFormation map: CDK passes its keys through as they are.
+        { ThrottlingRateLimit: limit.rateLimit, ThrottlingBurstLimit: limit.burstLimit },
+      ]),
+    );
+    // Route settings name routes that must exist first.
+    for (const route of routes) defaultStage.node.addDependency(route);
 
     // The app authenticates every route itself: sessions, API keys, webhook signatures.
     for (const route of this.api.node.findAll()) {
-      if (route.node.id === "DefaultRoute") {
+      if (route.node.id === "DefaultRoute" || routes.some((r) => r.node === route.node)) {
         Validations.of(route).acknowledge({
           id: "AwsSolutions-APIG4",
           reason:
@@ -181,6 +208,24 @@ export class ApiStack extends Stack {
         });
       }
     }
+
+    // Far more requests than one team's dashboard makes: someone else is calling, and every call
+    // they get through can wake Aurora.
+    const alarms = StringParameter.valueForStringParameter(
+      this,
+      `/galena/${stage}/alarm-topic-arn`,
+    );
+    this.api
+      .metricCount({ statistic: "Sum", period: Duration.hours(1) })
+      .createAlarm(this, "TrafficAlarm", {
+        alarmDescription:
+          "The API answered over 5,000 requests in an hour. Look for unexpected callers in its logs.",
+        threshold: 5_000,
+        evaluationPeriods: 1,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+      })
+      .addAlarmAction(new SnsAction(Topic.fromTopicArn(this, "Alarms", alarms)));
 
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });
   }

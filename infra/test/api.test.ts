@@ -108,11 +108,34 @@ test("migrations run on deploy through a trigger with room for Aurora to resume"
   });
 });
 
-test("throttles the stage at 50 requests a second with bursts of 100, with access logs", () => {
+test("throttles the stage at 20 requests a second, and the paths open to anyone lower", () => {
   template.hasResourceProperties("AWS::ApiGatewayV2::Stage", {
     StageName: "$default",
-    DefaultRouteSettings: { ThrottlingRateLimit: 50, ThrottlingBurstLimit: 100 },
+    DefaultRouteSettings: { ThrottlingRateLimit: 20, ThrottlingBurstLimit: 40 },
+    RouteSettings: {
+      "ANY /auth/{proxy+}": { ThrottlingRateLimit: 5, ThrottlingBurstLimit: 10 },
+      "ANY /public/{proxy+}": { ThrottlingRateLimit: 2, ThrottlingBurstLimit: 5 },
+      "ANY /hooks/{proxy+}": { ThrottlingRateLimit: 10, ThrottlingBurstLimit: 20 },
+      "ANY /slack/{proxy+}": { ThrottlingRateLimit: 5, ThrottlingBurstLimit: 10 },
+    },
     AccessLogSettings: {},
+  });
+  for (const key of ["/auth", "/public", "/hooks", "/slack"]) {
+    template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: `ANY ${key}/{proxy+}`,
+    });
+  }
+});
+
+test("alarms when the API answers far more requests in an hour than a dashboard makes", () => {
+  template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+    MetricName: "Count",
+    Namespace: "AWS/ApiGateway",
+    Statistic: "Sum",
+    Period: 3600,
+    Threshold: 5000,
+    ComparisonOperator: "GreaterThanThreshold",
+    TreatMissingData: "notBreaching",
   });
 });
 
