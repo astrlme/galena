@@ -39,7 +39,8 @@ export async function demoFetch(request: Request): Promise<Response> {
     "/v1/slack": data.slack,
     ...Object.fromEntries(data.incidents.map((i) => [`/v1/incidents/${i.id}`, i])),
   };
-  const body = routes[url.pathname];
+  const log = /^\/v1\/webhook-endpoints\/([^/]+)\/deliveries$/.exec(url.pathname);
+  const body = log ? (data.deliveries[log[1] ?? ""] ?? []) : routes[url.pathname];
   return body === undefined
     ? problem(404, "not_found", `The demo has nothing at ${url.pathname}.`)
     : json(body);

@@ -10,6 +10,7 @@ type Monitor = Answer<"/v1/monitors">["monitors"][number];
 type Reading = Answer<"/v1/monitors/telemetry">["monitors"][number];
 type Incident = Answer<"/v1/incidents/{id}">;
 type Subscriber = Answer<"/v1/subscribers">[number];
+type Delivery = Answer<"/v1/webhook-endpoints/{id}/deliveries">[number];
 
 const MINUTE = 60_000;
 const REGIONS = ["eu-west-1", "eu-west-3", "eu-north-1"];
@@ -290,6 +291,23 @@ export function demoData(now: Date) {
     createdAt: at(60 * 24 * (12 - k * 3)),
   });
 
+  const delivery = (
+    n: number,
+    kind: Delivery["kind"],
+    title: string,
+    createdAt: string,
+    status: Delivery["status"],
+  ): Delivery => ({
+    id: id(n),
+    kind,
+    title,
+    status,
+    attempts: status === "sent" ? 1 : 0,
+    lastError: null,
+    sentAt: status === "sent" ? createdAt : null,
+    createdAt,
+  });
+
   return {
     me: {
       userId: id(0x01),
@@ -380,6 +398,33 @@ export function demoData(now: Date) {
         createdAt: at(60 * 24 * 14),
       },
     ] satisfies Answer<"/v1/webhook-endpoints">,
+    // Each endpoint's delivery log; the failing webhook's receiver answers 503.
+    deliveries: {
+      [id(0x81)]: [
+        delivery(0xa1, "incident_updated", "Elevated errors on the API", at(41), "sent"),
+        delivery(0xa2, "incident_created", "Elevated errors on the API", at(95), "sent"),
+        delivery(0xa3, "incident_resolved", "Slow dashboard", at(60 * 24 * 3), "sent"),
+      ],
+      [id(0x82)]: [
+        {
+          ...delivery(0xb1, "incident_updated", "Elevated errors on the API", at(41), "pending"),
+          attempts: 4,
+          lastError: "The endpoint answered HTTP 503.",
+        },
+        {
+          ...delivery(
+            0xb2,
+            "incident_created",
+            "Webhook deliveries delayed",
+            at(95 + 1873),
+            "failed",
+          ),
+          attempts: 8,
+          lastError: "The endpoint answered HTTP 503.",
+        },
+        delivery(0xb3, "incident_resolved", "Slow dashboard", at(60 * 24 * 3), "sent"),
+      ],
+    } satisfies Record<string, Answer<"/v1/webhook-endpoints/{id}/deliveries">>,
     integrations: [
       {
         id: id(0x91),

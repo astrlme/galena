@@ -44,6 +44,15 @@ test("add a webhook destination, see its secret once, then delete it after confi
   // The URL is sealed on save: the page never shows it again.
   await expect(page.getByText("https://example.com/hook")).toHaveCount(0);
 
+  // Nothing has been sent to it yet; its delivery log says so.
+  await row.getByRole("button", { name: `Deliveries to ${name}` }).click();
+  const log = page.getByRole("dialog", { name: `Deliveries to ${name}` });
+  await expect(log).toContainText("Nothing sent yet.");
+  await expect(log).toContainText("tried again 5 s, 30 s, 2 min, 10 min, 1 h, 6 h and 24 h later");
+  await expectAccessible(page);
+  await page.keyboard.press("Escape");
+  await expect(log).toBeHidden();
+
   await row.getByRole("button", { name: `Delete ${name}` }).click();
   const dialog = page.getByRole("dialog", { name: `Delete ${name}?` });
   await dialog.getByLabel("Type the destination name").fill(name);
