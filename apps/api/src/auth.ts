@@ -32,7 +32,9 @@ export function createAuth({ db, secret, baseURL, github, rateLimit = false }: A
     emailAndPassword: { enabled: true, minPasswordLength: 12 },
     ...(github ? { socialProviders: { github } } : {}),
     plugins: [twoFactor({ issuer: "Galena" })],
-    rateLimit: { enabled: rateLimit, storage: "database" },
+    // Counted in memory, per API instance: kept in the database, every /auth request (even a
+    // stranger's get-session) would write to Aurora and keep a paused cluster awake.
+    rateLimit: { enabled: rateLimit, storage: "memory" },
     advanced: { ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] } },
     databaseHooks: {
       user: {
