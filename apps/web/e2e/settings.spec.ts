@@ -117,3 +117,40 @@ test("an admin sees how to set up Slack; a viewer doesn't see Slack at all", asy
   await expect(page.getByRole("heading", { name: "Where you're signed in" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Slack" })).toHaveCount(0);
 });
+
+test("make an API key, see it once, then delete it after confirming its name; a viewer sees no keys", async ({
+  page,
+  context,
+}, testInfo) => {
+  const name = `Deploy ${testInfo.project.name} ${Date.now()}`;
+  await signIn(page);
+  await expect(page).toHaveURL(/\/dashboard\/$/);
+  await page.goto("/dashboard/settings/");
+  const section = page.getByRole("region", { name: "API keys" });
+  await section.getByRole("button", { name: "Make API key" }).click();
+  const form = page.getByRole("form", { name: "Make an API key" });
+  await form.getByLabel("Name").fill(name);
+  await form.getByLabel("Scope").selectOption("write");
+  await form.getByRole("button", { name: "Make API key" }).click();
+  const shown = page.getByRole("status").filter({ hasText: `API key for ${name}` });
+  await expect(shown).toContainText("gln_");
+  await expectAccessible(page);
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(shown).toBeHidden();
+
+  const row = section.getByRole("listitem").filter({ hasText: name });
+  await expect(row).toContainText("Write, like an editor. Starts gln_");
+  await row.getByRole("button", { name: `Delete ${name}` }).click();
+  const dialog = page.getByRole("dialog", { name: `Delete ${name}?` });
+  await dialog.getByLabel("Type the API key name").fill(name);
+  await dialog.getByRole("button", { name: "Delete API key" }).click();
+  await expect(row).toHaveCount(0);
+
+  await context.clearCookies();
+  const email = member(`keys-${testInfo.project.name}-${Date.now()}@example.com`);
+  await signInAs(page, email, PASSWORD);
+  await expect(page).toHaveURL(/\/dashboard\/$/);
+  await page.goto("/dashboard/settings/");
+  await expect(page.getByRole("heading", { name: "Where you're signed in" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "API keys" })).toHaveCount(0);
+});

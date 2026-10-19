@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { authGet } from "../../../lib/api.ts";
+import { ApiKeys } from "./api-keys.tsx";
 import { Password } from "./password.tsx";
 import { Sessions } from "./sessions.tsx";
 import { SlackConnection } from "./slack.tsx";
@@ -43,6 +44,7 @@ export function SettingsEditor() {
       <Password />
       <Sessions currentId={current.data.session.id} />
       <SlackConnection />
+      <ApiKeys />
     </>
   );
 }

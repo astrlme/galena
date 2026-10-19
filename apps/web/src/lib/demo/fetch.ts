@@ -36,6 +36,7 @@ export async function demoFetch(request: Request): Promise<Response> {
     "/v1/subscribers": data.subscribers,
     "/v1/webhook-endpoints": data.webhookEndpoints,
     "/v1/integrations": data.integrations,
+    "/v1/api-keys": data.apiKeys,
     "/v1/slack": data.slack,
     ...Object.fromEntries(data.incidents.map((i) => [`/v1/incidents/${i.id}`, i])),
   };

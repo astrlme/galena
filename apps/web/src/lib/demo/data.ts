@@ -425,6 +425,15 @@ export function demoData(now: Date) {
         delivery(0xb3, "incident_resolved", "Slow dashboard", at(60 * 24 * 3), "sent"),
       ],
     } satisfies Record<string, Answer<"/v1/webhook-endpoints/{id}/deliveries">>,
+    apiKeys: [
+      {
+        id: id(0xc1),
+        name: "Deploy pipeline",
+        scope: "write",
+        prefix: "gln_q7Zx2mKd",
+        createdAt: at(60 * 24 * 9),
+      },
+    ] satisfies Answer<"/v1/api-keys">,
     integrations: [
       {
         id: id(0x91),

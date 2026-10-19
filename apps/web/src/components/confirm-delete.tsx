@@ -29,6 +29,7 @@ export function ConfirmDelete({
     | "destination"
     | "subscriber"
     | "integration"
+    | "API key"
     | "Slack";
   name: string;
   /** What to type, when it isn't "the {kind} name". */
@@ -62,7 +63,7 @@ export function ConfirmDelete({
         }}
       >
         <Field
-          id={`confirm-${kind}`}
+          id={`confirm-${kind.replaceAll(" ", "-")}`}
           label={`Type the ${noun ?? `${kind} name`}`}
           help={`Enter “${name}” to confirm.`}
           value={typed}
