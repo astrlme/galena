@@ -61,6 +61,26 @@ export function viewerAddress(headers: Headers): string | undefined {
   const address = headers.get("cloudfront-viewer-address");
   return address ? address.slice(0, address.lastIndexOf(":")) : undefined;
 }
+/**
+ * The network a visitor is on: the address for IPv4, its /64 for IPv6, since one subscriber is
+ * usually given a whole /64 and could take a new address for every request.
+ */
+export function networkOf(address: string): string {
+  if (!address.includes(":")) return address;
+  if (address.includes(".")) return address.slice(address.lastIndexOf(":") + 1); // ::ffff:a.b.c.d
+  const [head = "", tail] = address.split("::");
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const groups =
+    tail === undefined
+      ? left
+      : [...left, ...Array(8 - left.length - right.length).fill("0"), ...right];
+  return `${groups
+    .slice(0, 4)
+    .map((g) => (Number.parseInt(g, 16) || 0).toString(16))
+    .join(":")}::/64`;
+}
+
 export type Member = { userId: string; email: string; role: MemberRole; workspaceId: WorkspaceId };
 export type Env = { Variables: { member: Member } };
 export type App = OpenAPIHono<Env>;
@@ -140,7 +160,7 @@ export function requireRole(
           code: "invalid_api_key",
           title: "This API key isn't valid",
           detail:
-            "It was deleted, or whoever made it left the workspace. Make a new key in Settings.",
+            "It was deleted, whoever made it left the workspace, or it was made before keys carried this deployment's tag. Make a new key in Settings.",
         });
       }
       if (!roleAtLeast(member.role, required)) {

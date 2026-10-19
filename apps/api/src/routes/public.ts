@@ -15,7 +15,7 @@ import { keyedHash, readLinkToken } from "@galena/integrations/secrets";
 import type { Context } from "hono";
 import { v7 } from "uuid";
 import { z } from "zod";
-import { type App, type Deps, problemResponse, viewerAddress } from "../http.ts";
+import { type App, type Deps, networkOf, problemResponse, viewerAddress } from "../http.ts";
 import { createLimiter } from "../limiter.ts";
 import { dispatch } from "./shared.ts";
 
@@ -29,8 +29,7 @@ const PER_IP_PER_HOUR = 10;
  * be used to make SES mail thousands of strangers and wreck the sending reputation.
  */
 const CONFIRMATIONS_PER_HOUR = 50;
-/** Posts one API instance takes a minute from every network together, before any query. */
-const POSTS_PER_MINUTE = 60;
+
 const page = (name: string) => `/subscription/${name}/`;
 
 const subscribeForm = z.object({
@@ -52,10 +51,10 @@ const list = (value: string | string[] | undefined) =>
 
 export function registerPublicRoutes(app: App, deps: Deps) {
   const { db, keys } = deps;
-  // Counted in memory first, so a flood of posts can't make every one of them wake the database;
-  // the database's own counts stay the limit across instances.
+  // Counted in memory first, so one network's flood of posts can't make each of them query the
+  // database; the database's own count stays the limit across instances. All networks together
+  // are bounded by the route's API Gateway throttle.
   const fromNetwork = createLimiter({ max: PER_IP_PER_HOUR, windowMs: 3_600_000 });
-  const fromAnywhere = createLimiter({ max: POSTS_PER_MINUTE, windowMs: 60_000 });
 
   app.post("/public/subscribe", async (c) => {
     // The page shows no form then; this answers a stale page or a direct post, and stores nothing.
@@ -81,9 +80,9 @@ export function registerPublicRoutes(app: App, deps: Deps) {
       json ? c.json({ status: "check_inbox" }, 202) : c.redirect(page("sent"), 303);
     const { email } = parsed.data;
     const now = new Date();
-    const ipHash = keyedHash(keys, viewerAddress(c.req.raw.headers) ?? "direct");
-    if (!fromNetwork(ipHash) || !fromAnywhere("all")) {
-      console.warn("public.subscribe limited", { ip: ipHash });
+    const ipHash = keyedHash(keys, networkOf(viewerAddress(c.req.raw.headers) ?? "direct"));
+    if (!fromNetwork(ipHash)) {
+      console.warn("public.subscribe limited in memory", { ip: ipHash });
       return accepted();
     }
     const target = await ensurePage(db);
