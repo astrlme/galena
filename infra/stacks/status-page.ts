@@ -51,19 +51,13 @@ const PAGE_SLUG = "status";
 
 /**
  * Answers a CORS preflight for the Statuspage files at the edge, as Statuspage does: S3 has no
- * CORS rules to answer it, and a widget that sends `If-None-Match` asks first.
+ * CORS rules to answer it, and a widget that sends `If-None-Match` asks first. The behaviour's
+ * response headers policy puts the CORS headers on this answer, replacing any set here.
  */
 export const corsPreflight = `function handler(event) {
   var request = event.request;
   if (request.method !== "OPTIONS") return request;
-  var headers = {
-    "access-control-allow-origin": { value: "*" },
-    "access-control-allow-methods": { value: "GET, HEAD" },
-    "access-control-max-age": { value: "86400" }
-  };
-  var asked = request.headers["access-control-request-headers"];
-  if (asked) headers["access-control-allow-headers"] = { value: asked.value };
-  return { statusCode: 204, statusDescription: "No Content", headers: headers };
+  return { statusCode: 204, statusDescription: "No Content" };
 }`;
 
 /** Bucket names are fixed so the stacks in each region, and the workers, can name them. */
@@ -183,6 +177,7 @@ export class StatusPageStack extends Stack {
         accessControlAllowMethods: ["GET", "HEAD"],
         accessControlAllowHeaders: ["*"],
         accessControlExposeHeaders: ["ETag"],
+        accessControlMaxAge: Duration.days(1),
         accessControlAllowCredentials: false,
         originOverride: true,
       },

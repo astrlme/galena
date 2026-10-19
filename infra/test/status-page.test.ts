@@ -173,6 +173,7 @@ test("lets scripts on any site read the Statuspage files, served like the rest o
     AccessControlAllowMethods: { Items: ["GET", "HEAD"] },
     AccessControlAllowCredentials: false,
     AccessControlExposeHeaders: { Items: ["ETag"] },
+    AccessControlMaxAgeSec: 86_400,
     OriginOverride: true,
   });
   expect(policy.SecurityHeadersConfig.StrictTransportSecurity.AccessControlMaxAgeSec).toBe(
@@ -190,16 +191,8 @@ test("answers a CORS preflight at the edge, as Statuspage does, and passes every
       headers: { "access-control-request-headers": { value: "if-none-match" } },
     },
   });
-  expect(preflight).toEqual({
-    statusCode: 204,
-    statusDescription: "No Content",
-    headers: {
-      "access-control-allow-origin": { value: "*" },
-      "access-control-allow-methods": { value: "GET, HEAD" },
-      "access-control-allow-headers": { value: "if-none-match" },
-      "access-control-max-age": { value: "86400" },
-    },
-  });
+  // The behaviour's response headers policy adds the CORS headers, the max age included.
+  expect(preflight).toEqual({ statusCode: 204, statusDescription: "No Content" });
   const get = { method: "GET", uri: "/api/v2/summary.json", headers: {} };
   expect(handler({ request: get })).toBe(get);
 });
