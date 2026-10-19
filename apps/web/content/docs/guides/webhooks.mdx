@@ -131,12 +131,26 @@ off stops an attacker from replaying a captured request later.
 ## Answer quickly, de-duplicate
 
 - Answer with any 2xx within 8 seconds, then do slow work afterwards. Galena gives up waiting
-  after that and retries.
-- A 429 or 5xx answer, or no answer, is retried up to 5 times with backoff from 5 seconds to 10
-  minutes. Any other answer fails the delivery at once.
-- `webhook-id` stays the same across retries of one delivery. Store the ids you've handled and
-  skip repeats.
-- Deliveries can arrive out of order. Use `data.occurredAt` to keep the latest state.
+  after that and tries again later.
+- A 429 or 5xx answer, or no answer, is tried again 5 seconds, 30 seconds, 2 minutes, 10
+  minutes, 1 hour, 6 hours and 24 hours later: 8 attempts over about 31 hours. Any other answer
+  fails the delivery at once.
+- `webhook-id` stays the same across the attempts of one delivery, and when it is sent again
+  from the dashboard. Store the ids you've handled and skip repeats.
+- Deliveries can arrive out of order: a late attempt can arrive after a newer event. Use
+  `data.occurredAt` to keep the latest state.
 
-A delivery that fails marks the endpoint **Failing since** that time in the dashboard; it keeps
-receiving new events, and the next success marks it active again.
+## When deliveries fail
+
+A delivery that fails after its last attempt marks the endpoint **Failing since** that time in
+the dashboard. It keeps receiving new events, and the next success marks it active again. If
+deliveries still fail 3 days later, Galena turns the endpoint off: it shows **Turned off after 3
+days of failed deliveries** and gets nothing more.
+
+**Deliveries** lists the last 50 notices sent to the endpoint, newest first, with how each went
+and the receiver's last answer. **Send again** posts one that failed, or went through, once
+more with the same `webhook-id`; one still being retried waits for its attempts.
+
+Once your receiver works again, **Turn on** sends a test message and turns the endpoint back on
+if the receiver accepts it. Notices it missed while it was off show as not sent: send again the
+ones you need.

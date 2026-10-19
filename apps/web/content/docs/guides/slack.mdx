@@ -51,4 +51,5 @@ The state is always written out and marked with its glyph, so it reads without t
 ## When Slack refuses
 
 A revoked or deleted webhook answers with an error. The delivery fails at once and the
-destination is marked **Failing since** that time. Delete it and add a new webhook.
+destination is marked **Failing since** that time, and turned off after 3 days of failures.
+Delete it and add a new webhook.

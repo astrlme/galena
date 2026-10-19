@@ -11,7 +11,7 @@ See [Webhooks](/docs/guides/webhooks/) for adding an endpoint and verifying sign
 | --- | --- |
 | `content-type` | `application/json` |
 | `user-agent` | `Galena-Webhooks/1 (+https://github.com/astrlme/galena)` |
-| `webhook-id` | The delivery's id; the same on every retry of one delivery. Test sends start with `test_`. |
+| `webhook-id` | The delivery's id; the same on every attempt of one delivery, and when it is sent again from the dashboard. Test sends start with `test_`. |
 | `webhook-timestamp` | When this attempt was signed, in Unix seconds |
 | `webhook-signature` | `v1,` and the base64 HMAC-SHA256 of `{webhook-id}.{webhook-timestamp}.{body}` |
 

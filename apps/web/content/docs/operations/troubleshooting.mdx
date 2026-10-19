@@ -81,8 +81,11 @@ too strict, give it a longer timeout or a higher `failThreshold`.
 
 ## A webhook endpoint shows Failing
 
-Its last delivery failed: the dashboard shows since when. **Send test** shows what the receiver
-answers now. A 4xx other than 429 is not retried; fix the receiver, then send a test.
+A delivery failed after its last attempt: the dashboard shows since when, and **Deliveries**
+shows the receiver's last answer to each notice. **Send test** shows what it answers now. A 4xx
+other than 429 is not tried again; fix the receiver, then send the failed deliveries again. After
+3 days of failures the endpoint is turned off; **Turn on** sends a test and turns it back on once
+the receiver accepts it.
 
 ## The page says "Status not confirmed"
 
