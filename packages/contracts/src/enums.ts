@@ -125,3 +125,7 @@ export type ChangeAction = (typeof changeActions)[number];
 
 export const memberRoles = ["owner", "admin", "editor", "viewer"] as const;
 export type MemberRole = (typeof memberRoles)[number];
+
+/** What an API key may do: read like a viewer, change like an editor, or manage like an admin. */
+export const apiKeyScopes = ["read", "write", "admin"] as const;
+export type ApiKeyScope = (typeof apiKeyScopes)[number];
