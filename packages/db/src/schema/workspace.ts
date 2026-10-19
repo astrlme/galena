@@ -1,5 +1,7 @@
 import {
+  type ApiKeyId,
   type AuditLogId,
+  apiKeyScopes,
   type MemberId,
   memberRoles,
   type OutboxId,
@@ -47,6 +49,29 @@ export const member = pgTable(
     ...timestamps,
   },
   (t) => [uniqueIndex().on(t.workspaceId, t.userId), index().on(t.userId)],
+);
+
+export const apiKeyScope = pgEnum("api_key_scope", apiKeyScopes);
+
+/**
+ * A key a script sends as `Authorization: Bearer gln_…`. Only its SHA-256 is kept, with its
+ * first characters to tell keys apart. It acts as the member who made it, so it goes with them.
+ */
+export const apiKey = pgTable(
+  "api_key",
+  {
+    id: uuid().primaryKey().$type<ApiKeyId>(),
+    workspaceId: workspaceRef(),
+    name: text().notNull(),
+    scope: apiKeyScope().notNull(),
+    prefix: text().notNull(),
+    hash: text().notNull(),
+    createdByUserId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex().on(t.hash), index().on(t.workspaceId), index().on(t.createdByUserId)],
 );
 
 export const auditLog = pgTable(

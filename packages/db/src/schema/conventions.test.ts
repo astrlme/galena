@@ -36,6 +36,7 @@ test("the schema has exactly the expected tables", () => {
   expect(tables.map((t) => t.name).sort()).toEqual(
     [
       "account",
+      "api_key",
       "audit_log",
       "component",
       "component_group",

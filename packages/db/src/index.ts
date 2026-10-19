@@ -1,4 +1,10 @@
 export { createDb, type Db, type DbConfig } from "./client.ts";
+export {
+  createApiKey,
+  deleteApiKey,
+  findApiKeyActor,
+  listApiKeys,
+} from "./repositories/api-keys.ts";
 export { type Change, recordChange } from "./repositories/changes.ts";
 export { componentGroupRepository, componentRepository } from "./repositories/components.ts";
 export {
