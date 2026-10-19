@@ -148,9 +148,10 @@ deliveries still fail 3 days later, Galena turns the endpoint off: it shows **Tu
 days of failed deliveries** and gets nothing more.
 
 **Deliveries** lists the last 50 notices sent to the endpoint, newest first, with how each went
-and the receiver's last answer. **Send again** posts one that failed, or went through, once
-more with the same `webhook-id`; one still being retried waits for its attempts.
+and the receiver's last answer. **Send again** posts a delivery again with the same
+`webhook-id`, whether it failed, was sent or was skipped. One still being retried waits for its
+next attempt, unless that attempt is more than two hours late.
 
 Once your receiver works again, **Turn on** sends a test message and turns the endpoint back on
-if the receiver accepts it. Notices it missed while it was off show as not sent: send again the
-ones you need.
+if the receiver accepts it. An endpoint that is off gets no new notices, and they aren't sent
+later.
