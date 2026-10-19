@@ -1,5 +1,5 @@
 {
-  "id": "91aea4ec-ce54-4cb9-a8ad-5323b592e01d",
+  "id": "12ffdb15-15bd-4e07-87bc-f67d53ce1048",
   "prevId": "22dd39e2-c0ec-4b6f-a5a4-184692663e77",
   "version": "7",
   "dialect": "postgresql",
@@ -3387,24 +3387,15 @@
           "method": "btree",
           "with": {}
         },
-        "api_key_workspace_id_index": {
-          "name": "api_key_workspace_id_index",
+        "api_key_workspace_id_created_by_user_id_index": {
+          "name": "api_key_workspace_id_created_by_user_id_index",
           "columns": [
             {
               "expression": "workspace_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "api_key_created_by_user_id_index": {
-          "name": "api_key_created_by_user_id_index",
-          "columns": [
+            },
             {
               "expression": "created_by_user_id",
               "isExpression": false,
@@ -3432,15 +3423,17 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "api_key_created_by_user_id_user_id_fk": {
-          "name": "api_key_created_by_user_id_user_id_fk",
+        "api_key_member_fk": {
+          "name": "api_key_member_fk",
           "tableFrom": "api_key",
-          "tableTo": "user",
+          "tableTo": "member",
           "columnsFrom": [
+            "workspace_id",
             "created_by_user_id"
           ],
           "columnsTo": [
-            "id"
+            "workspace_id",
+            "user_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"

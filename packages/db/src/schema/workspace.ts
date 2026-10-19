@@ -9,6 +9,7 @@ import {
 } from "@galena/contracts";
 import { sql } from "drizzle-orm";
 import {
+  foreignKey,
   index,
   jsonb,
   pgEnum,
@@ -55,7 +56,8 @@ export const apiKeyScope = pgEnum("api_key_scope", apiKeyScopes);
 
 /**
  * A key a script sends as `Authorization: Bearer gln_…`. Only its SHA-256 is kept, with its
- * first characters to tell keys apart. It acts as the member who made it, so it goes with them.
+ * first characters to tell keys apart. It acts as the member who made it, and references that
+ * membership, so a maker who leaves the workspace takes their keys with them.
  */
 export const apiKey = pgTable(
   "api_key",
@@ -66,12 +68,18 @@ export const apiKey = pgTable(
     scope: apiKeyScope().notNull(),
     prefix: text().notNull(),
     hash: text().notNull(),
-    createdByUserId: text()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    createdByUserId: text().notNull(),
     ...timestamps,
   },
-  (t) => [uniqueIndex().on(t.hash), index().on(t.workspaceId), index().on(t.createdByUserId)],
+  (t) => [
+    uniqueIndex().on(t.hash),
+    index().on(t.workspaceId, t.createdByUserId),
+    foreignKey({
+      name: "api_key_member_fk",
+      columns: [t.workspaceId, t.createdByUserId],
+      foreignColumns: [member.workspaceId, member.userId],
+    }).onDelete("cascade"),
+  ],
 );
 
 export const auditLog = pgTable(

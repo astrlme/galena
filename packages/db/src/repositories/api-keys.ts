@@ -3,7 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import type { Db } from "../client.ts";
 import { apiKey, member, user } from "../schema/index.ts";
 
-/** The keys of a workspace, newest first: never their hashes. */
+/** The keys of a workspace, newest first: never their hashes. Known limit: the first 100. */
 export function listApiKeys(db: Db, workspaceId: WorkspaceId) {
   return db
     .select({
@@ -15,7 +15,8 @@ export function listApiKeys(db: Db, workspaceId: WorkspaceId) {
     })
     .from(apiKey)
     .where(eq(apiKey.workspaceId, workspaceId))
-    .orderBy(desc(apiKey.createdAt), desc(apiKey.id));
+    .orderBy(desc(apiKey.createdAt), desc(apiKey.id))
+    .limit(100);
 }
 
 export async function createApiKey(
@@ -29,25 +30,19 @@ export async function createApiKey(
     hash: string;
     createdByUserId: string;
   },
-): Promise<void> {
-  await db.insert(apiKey).values(row);
+): Promise<Date> {
+  const [stored] = await db.insert(apiKey).values(row).returning({ createdAt: apiKey.createdAt });
+  if (!stored) throw new Error("The API key wasn't stored.");
+  return stored.createdAt;
 }
 
-export async function deleteApiKey(
-  db: Db,
-  workspaceId: WorkspaceId,
-  id: ApiKeyId,
-): Promise<boolean> {
-  const rows = await db
-    .delete(apiKey)
-    .where(and(eq(apiKey.workspaceId, workspaceId), eq(apiKey.id, id)))
-    .returning({ id: apiKey.id });
-  return rows.length === 1;
+export async function deleteApiKey(db: Db, workspaceId: WorkspaceId, id: ApiKeyId) {
+  await db.delete(apiKey).where(and(eq(apiKey.workspaceId, workspaceId), eq(apiKey.id, id)));
 }
 
 /**
- * Who a presented key acts as: its maker, while they are still a member of the key's workspace.
- * Looked up by the key's hash, so the key itself is never compared or stored.
+ * Who a presented key acts as: its maker, with their role in the key's workspace (a key goes
+ * with its maker's membership). Looked up by the key's hash, never by the key itself.
  */
 export async function findApiKeyActor(db: Db, hash: string) {
   const [row] = await db

@@ -12,8 +12,7 @@ CREATE TABLE "api_key" (
 );
 --> statement-breakpoint
 ALTER TABLE "api_key" ADD CONSTRAINT "api_key_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "api_key" ADD CONSTRAINT "api_key_created_by_user_id_user_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "api_key" ADD CONSTRAINT "api_key_member_fk" FOREIGN KEY ("workspace_id","created_by_user_id") REFERENCES "public"."member"("workspace_id","user_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "api_key_hash_index" ON "api_key" USING btree ("hash");--> statement-breakpoint
-CREATE INDEX "api_key_workspace_id_index" ON "api_key" USING btree ("workspace_id");--> statement-breakpoint
-CREATE INDEX "api_key_created_by_user_id_index" ON "api_key" USING btree ("created_by_user_id");--> statement-breakpoint
+CREATE INDEX "api_key_workspace_id_created_by_user_id_index" ON "api_key" USING btree ("workspace_id","created_by_user_id");--> statement-breakpoint
 CREATE CAST (text AS "public"."api_key_scope") WITH INOUT AS IMPLICIT;
