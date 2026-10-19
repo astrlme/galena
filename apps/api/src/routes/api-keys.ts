@@ -13,7 +13,7 @@ const session = [{ session: [] }];
 
 export function registerApiKeyRoutes(app: App, deps: Deps) {
   const { db } = deps;
-  const admin = requireRole(deps, "admin", { keys: false });
+  const admin = requireRole(deps, "admin", { apiKeys: false });
 
   app.openapi(
     createRoute({
@@ -50,7 +50,7 @@ export function registerApiKeyRoutes(app: App, deps: Deps) {
     async (c) => {
       const member = c.get("member");
       const input = c.req.valid("json");
-      const { key, prefix, hash } = newApiKey();
+      const { key, prefix, hash } = newApiKey(deps.keys);
       const row = {
         id: apiKeyId.parse(v7()),
         workspaceId: member.workspaceId,

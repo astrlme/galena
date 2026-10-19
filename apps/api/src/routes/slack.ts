@@ -52,7 +52,7 @@ export function registerSlackRoutes(app: App, deps: Deps) {
   const { db, keys } = deps;
   const admin = requireRole(deps, "admin");
   // Installing goes through Slack's consent screen in a browser: a signed-in admin, not a key.
-  const browserAdmin = requireRole(deps, "admin", { keys: false });
+  const browserAdmin = requireRole(deps, "admin", { apiKeys: false });
   const redirectUri = new URL("/slack/oauth", deps.publicUrl).href;
 
   /** The raw body when Slack signed it, else undefined. */

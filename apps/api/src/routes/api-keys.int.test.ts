@@ -86,7 +86,7 @@ test("a write key creates an incident through the published OpenAPI description;
 
   const write = await makeKey("Deploy script", "write");
   const read = await makeKey("Status board", "read");
-  expect(write.key).toMatch(/^gln_[\w-]{43}$/);
+  expect(write.key).toMatch(/^gln_[\w-]{54}$/);
   expect(write.key.startsWith(write.apiKey.prefix)).toBe(true);
 
   const incident: Record<string, string> = {
@@ -137,7 +137,7 @@ test("keys list without the keys themselves, can't make more keys, and stop work
     204,
   );
   await expectProblem(await withKey(admin.key, "/v1/me"), 401, "invalid_api_key");
-  await expectProblem(await withKey(`gln_${"x".repeat(43)}`, "/v1/me"), 401, "invalid_api_key");
+  await expectProblem(await withKey(`gln_${"x".repeat(54)}`, "/v1/me"), 401, "invalid_api_key");
   const audit = await deps.db.select().from(schema.auditLog);
   expect(audit.map((a) => a.action)).toEqual(
     expect.arrayContaining(["api_key.created", "api_key.deleted"]),
@@ -149,7 +149,7 @@ test("a key in any case of the scheme works, and a bad one is refused even with 
   const lower = await app.request("/v1/me", { headers: { authorization: `bearer ${read.key}` } });
   expect(await lower.json()).toMatchObject({ userId: ownerId, role: "viewer" });
   // The signed-in owner's cookie doesn't rescue a request that sent a key: it is about the key.
-  for (const junk of ["Bearer nonsense", `Bearer gln_${"x".repeat(42)}`]) {
+  for (const junk of ["Bearer nonsense", `Bearer gln_${"x".repeat(54)}`]) {
     await expectProblem(
       await owner.call("/v1/me", undefined, "GET", { authorization: junk }),
       401,
@@ -167,7 +167,7 @@ test("a maker who leaves the workspace takes their keys with them", async () => 
   await deps.db
     .insert(schema.member)
     .values({ id: memberId.parse(v7()), workspaceId: ws?.id as never, userId, role: "admin" });
-  const { key, prefix, hash } = newApiKey();
+  const { key, prefix, hash } = newApiKey(deps.keys);
   await createApiKey(deps.db, {
     id: apiKeyId.parse(v7()),
     workspaceId: ws?.id as never,

@@ -94,11 +94,11 @@ export function notFound(what: string): never {
 const bearerOf = (header: string | undefined) => /^bearer\s+(.*)$/i.exec(header ?? "")?.[1];
 
 /**
- * The member a key acts as: its maker, at most at the key's scope. Only something shaped like a
- * key reaches the database, so noise can't wake a paused cluster.
+ * The member a key acts as: its maker, at most at the key's scope. Only a key this deployment
+ * made reaches the database, so noise can't wake a paused cluster.
  */
-async function keyMember(db: Db, key: string): Promise<Member | undefined> {
-  if (!isApiKey(key)) return undefined;
+async function keyMember(db: Db, keys: AppKeys, key: string): Promise<Member | undefined> {
+  if (!isApiKey(keys, key)) return undefined;
   const actor = await findApiKeyActor(db, hashApiKey(key));
   if (!actor) return undefined;
   // Known limit: audit entries name the key's maker, not the key; carry the key's id in
@@ -114,18 +114,18 @@ async function keyMember(db: Db, key: string): Promise<Member | undefined> {
 /**
  * 401 without a session or a valid API key, 403 below `required`; sets `member` for the
  * handler. A key acts as the member who made it, at most at its scope's role (`keyRole`).
- * `keys: false` takes a signed-in member only: keys can't make more keys.
+ * `apiKeys: false` takes a signed-in member only: keys can't make more keys.
  */
 export function requireRole(
-  { db, auth }: Deps,
+  { db, auth, keys }: Deps,
   required: MemberRole,
-  { keys = true } = {},
+  { apiKeys = true } = {},
 ): MiddlewareHandler<Env> {
   return async (c, next) => {
     const key = bearerOf(c.req.header("authorization"));
     // Whoever sends a key is answered about the key, never as a visitor without a session.
     if (key !== undefined) {
-      if (!keys) {
+      if (!apiKeys) {
         return problemResponse({
           status: 403,
           code: "session_required",
@@ -133,7 +133,7 @@ export function requireRole(
           detail: "API keys can't do this. Sign in to the dashboard instead.",
         });
       }
-      const member = await keyMember(db, key);
+      const member = await keyMember(db, keys, key);
       if (!member) {
         return problemResponse({
           status: 401,
