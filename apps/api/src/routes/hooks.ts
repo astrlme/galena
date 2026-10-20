@@ -1,4 +1,10 @@
-import { integrationId, signalIdempotencyKey, signalSources } from "@galena/contracts";
+import {
+  type IntegrationId,
+  integrationId,
+  signalIdempotencyKey,
+  signalSources,
+} from "@galena/contracts";
+import { findIntegration } from "@galena/db";
 import { readLinkToken } from "@galena/integrations/secrets";
 import { readSignals } from "@galena/integrations/signals";
 import { z } from "@hono/zod-openapi";
@@ -54,8 +60,23 @@ const tooMany = () => {
   return response;
 };
 
+/** How long an instance trusts what it last read about an integration's URL. */
+const CURRENT_FOR_MS = 60_000;
+
 export function registerHookRoutes(app: App, deps: Deps) {
   const perIntegration = createLimiter({ max: ALERTS_PER_MINUTE, windowMs: 60_000 });
+  // When each integration's current URL was made, as last read. A replaced or deleted URL stops
+  // starting jobs within a minute, for at most one lookup a minute however hard it is called.
+  const issued = new Map<string, { readAt: number; issuedAt: number | undefined }>();
+  const currentIssuedAt = async (id: IntegrationId, source: string) => {
+    const known = issued.get(id);
+    if (known && Date.now() - known.readAt < CURRENT_FOR_MS) return known.issuedAt;
+    const row = await findIntegration(deps.db, id);
+    const issuedAt = row?.source === source ? row.tokenIssuedAt.getTime() : undefined;
+    issued.set(id, { readAt: Date.now(), issuedAt });
+    // Known limit: one entry per integration ever called, which the cap on integrations bounds.
+    return issuedAt;
+  };
   app.post("/hooks/:source/:token", async (c) => {
     const source = z.enum(signalSources).safeParse(c.req.param("source"));
     const token = readLinkToken(deps.keys, "hook", c.req.param("token"));
@@ -73,6 +94,9 @@ export function registerHookRoutes(app: App, deps: Deps) {
     const signals = readSignals(source.data, body);
     if (!signals) return notAlerts(source.data);
     if (!perIntegration(id.data, signals.length)) return tooMany();
+    if ((await currentIssuedAt(id.data, source.data)) !== token.issuedAt.getTime()) {
+      return unknownHook();
+    }
 
     const tokenIssuedAt = token.issuedAt.toISOString();
     for (let i = 0; i < signals.length; i += BATCH) {

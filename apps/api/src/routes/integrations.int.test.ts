@@ -109,7 +109,7 @@ test("an integration's hook URL appears once, and a new one replaces it", async 
   );
 });
 
-test("a hook hands each alert group to signal.ingest without reading the database", async () => {
+test("a hook hands each alert group to signal.ingest", async () => {
   const { integration, url } = await created("Hook");
   triggered.length = 0;
   const response = await post(url, firing);
@@ -184,4 +184,51 @@ test("a hook whose run can't be started answers 500 and keeps its token out of t
     deps.engine = engine;
     logged.mockRestore();
   }
+});
+
+test("a replaced or deleted hook URL is refused at the API, starting no job", async () => {
+  const { integration, url } = await created("Rotated");
+  const renewed = await owner.call(`/v1/integrations/${integration.id}/url`, {});
+  const { url: next } = (await renewed.json()) as { url: string };
+  // A fresh instance, as a new one would be; a warm one trusts what it read for a minute.
+  const fresh = createApp(deps);
+  const send = (to: string) =>
+    fresh.request(new URL(to).pathname, {
+      method: "POST",
+      body: firing,
+      headers: { "content-type": "application/json" },
+    });
+  triggered.length = 0;
+  await expectProblem(await send(url), 404, "unknown_hook");
+  expect((await send(next)).status).toBe(202);
+  await owner.call(`/v1/integrations/${integration.id}`, undefined, "DELETE");
+  await expectProblem(
+    await createApp(deps).request(new URL(next).pathname, {
+      method: "POST",
+      body: firing,
+      headers: { "content-type": "application/json" },
+    }),
+    404,
+    "unknown_hook",
+  );
+  expect(triggered.filter((t) => t.task === "signal.ingest")).toHaveLength(1);
+});
+
+test("past 120 alerts a minute an integration gets 429 and starts no more jobs", async () => {
+  const response = await owner.call("/v1/integrations", { source: "generic", name: "Noisy" });
+  const { url } = (await response.json()) as Created;
+  const alerts = (n: number) =>
+    JSON.stringify(
+      Array.from({ length: n }, (_, i) => ({
+        key: `alert-${i}`,
+        status: "firing",
+        startsAt: "2026-10-19T12:00:00Z",
+      })),
+    );
+  triggered.length = 0;
+  expect((await post(url, alerts(100))).status).toBe(202);
+  const refused = await post(url, alerts(30));
+  expect([refused.status, refused.headers.get("retry-after")]).toEqual([429, "60"]);
+  expect(triggered).toHaveLength(100);
+  expect((await post(url, alerts(20))).status).toBe(202);
 });
