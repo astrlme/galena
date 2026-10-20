@@ -85,11 +85,11 @@ Errors follow [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) as
 | --- | --- |
 | 400 | `validation_failed`: the body or a parameter doesn't match the schema; `detail` names each field |
 | 401 | `unauthenticated`: not signed in; `invalid_api_key`: the key was deleted, or its maker left |
-| 403 | `forbidden`: the member's role, or the key's scope, is too low; `session_required`: a key tried to manage keys; or `not_through_cloudfront` |
+| 403 | `forbidden`: the member's role, or the key's scope, is too low; `session_required`: a key tried to manage keys or install Slack; `sign_up_closed`; or `not_through_cloudfront` |
 | 404 | `not_found`: nothing with that id in this workspace |
-| 409 | A conflict with the current state, such as `already_set_up`, `order_mismatch` or `illegal_transition` |
+| 409 | A conflict with the current state, such as `already_set_up`, `order_mismatch` or `illegal_transition`; `limit_reached` when the workspace already has the most it can of something |
 | 422 | A rule refused the content, such as `unfilled_placeholder` or `html_not_allowed` |
-| 429 | Rate limited |
+| 429 | Rate limited: by API Gateway, or `too_many_alerts` and `too_many_sends`, with the limits on [Limits](/docs/reference/limits/) |
 
 ## Conventions
 

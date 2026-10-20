@@ -35,18 +35,30 @@ the API sets itself. The subscribe form has its own limits; see [Limits](/docs/r
 
 ### What keeps the bill small
 
-Aurora awake is most of a deployment's bill, so nothing a stranger sends may query it:
+Aurora awake is most of a deployment's bill. Where it can, Galena refuses a request with no valid
+credential before any query:
 
-- A session cookie is checked against its signature before any lookup.
+- A session cookie is checked against its signature first.
 - An API key carries a tag keyed with the app key; a key this deployment didn't make is refused
-  before any lookup.
-- A hook URL's token is signed and checked without the database.
-- The subscribe form counts each visitor address and all posts in memory before it asks the
-  database.
+  first.
+- A hook URL's token is signed. A replaced or deleted URL is refused within a minute, for at most
+  one lookup a minute.
+- Sign-in endpoints the dashboard doesn't use, such as sign-up and password reset, are answered
+  before Better Auth runs.
 
-Two alarms say when something gets through anyway: Aurora awake for 4 hours in a row, and the API
-answering over 5,000 requests in an hour. A workspace holds at most 100 monitors, and at most 50
-destinations, integrations and API keys, so a mistake or a stolen key can't multiply the bill.
+Two kinds of request still reach the database for anyone: a sign-in attempt, and a subscribe-form
+post with a well-formed address. They are throttled and limited per visitor address, not
+prevented, so a slow, steady stream of them can keep Aurora awake. The **Database awake** alarm
+says so after 4 hours, and the **API traffic** alarm after 5,000 requests in an hour.
+
+The per-path throttles are shared by everyone calling that path, so a flood also holds back real
+sign-ins, sign-ups or alerts until it stops. There is no WAF: it costs more than a small
+deployment's whole budget.
+
+Inside the workspace, the limits keep a mistake, a stolen key or a flapping alert from
+multiplying the bill: at most 50 monitors, and 50 destinations, integrations and API keys; at
+most 30 notices an hour to subscribers and destinations; at most 20 test messages and resends a
+minute.
 
 ### Sign-up
 

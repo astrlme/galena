@@ -42,22 +42,27 @@ wide outage. Splitting a region's monitors across several runs is not built yet.
 | API requests | 20 a second, bursts of 40 |
 | Sign-in and the rest of `/auth/*` | 5 requests a second, bursts of 10; attempts are also limited per visitor address |
 | Subscribe form (`/public/*`) | 2 requests a second, bursts of 5; 10 sign-ups per visitor address an hour; one confirmation email per address every 10 minutes; 50 confirmation emails an hour in total |
-| Alert hooks (`/hooks/*`) | 10 requests a second, bursts of 20; 120 alerts per integration a minute, then `429` with `Retry-After: 60` |
+| Alert hooks (`/hooks/*`) | 10 requests a second, bursts of 20; 120 alerts per integration a minute, then `429` with `Retry-After: 60`; a replaced or deleted hook URL is refused within a minute |
+| Notices to subscribers and destinations | 30 an hour per workspace; past that, changes still reach the page but nobody is notified |
+| Test messages, turning a destination on, and resends | 20 a minute per workspace |
 | Slack (`/slack/*`) | 5 requests a second, bursts of 10 |
 | Webhook sends | 8-second timeout; 8 attempts over about 31 hours |
 | Slack sends | 8-second timeout; 5 attempts within a few minutes |
 | Email sends | 5 attempts |
 
-Requests past a per-second limit get `429` from API Gateway and never reach the API. The
-per-address, per-integration and sign-in counts are kept in each API instance's memory, so with
-several instances running the real ceiling is a few times higher. Past a subscribe limit, the
-form answers exactly as if it had worked, so it never reveals whether an address is subscribed.
+Requests past a per-second limit get `429` from API Gateway and never reach the API. Those limits
+are shared by every caller of a path, so a flood holds back real callers too. The per-integration,
+sign-in and send counts, and the subscribe form's first per-address count, are kept in each API
+instance's memory, so with several instances running those ceilings are a few times higher; the
+subscribe form's per-address limit is also counted in the database, which holds across
+instances. IPv6 visitors are counted by their /64. Past a subscribe limit, the form answers
+exactly as if it had worked, so it never reveals whether an address is subscribed.
 
 ## Counts
 
 | What | At most |
 | --- | --- |
-| Monitors | 100 |
+| Monitors | 50, what the default telemetry table takes across three regions |
 | Slack and webhook destinations | 50 |
 | Integrations | 50 |
 | API keys | 50 |
