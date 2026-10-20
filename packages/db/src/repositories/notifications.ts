@@ -208,6 +208,36 @@ export async function settleDelivery(
   return rows.length === 1;
 }
 
+/** How many other events reached anyone in the workspace since `since`: notices sent lately. */
+export async function countNoticesSince(
+  db: Db,
+  workspaceId: WorkspaceId,
+  since: Date,
+  except: EventId,
+): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(distinct ${delivery.eventId})`.mapWith(Number) })
+    .from(delivery)
+    .where(
+      and(
+        eq(delivery.workspaceId, workspaceId),
+        gte(delivery.createdAt, since),
+        ne(delivery.eventId, except),
+      ),
+    );
+  return row?.n ?? 0;
+}
+
+/** Whether a fan-out already recorded deliveries for the event: a re-run carries on with them. */
+export async function hasDeliveries(db: Db, eventId: EventId): Promise<boolean> {
+  const [row] = await db
+    .select({ id: delivery.id })
+    .from(delivery)
+    .where(eq(delivery.eventId, eventId))
+    .limit(1);
+  return row !== undefined;
+}
+
 /** Whether an earlier event about the same incident or window already reached anyone. */
 export async function wasAnnounced(
   db: Db,

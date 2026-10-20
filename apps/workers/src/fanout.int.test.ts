@@ -9,11 +9,13 @@ import {
   workspaceId,
 } from "@galena/contracts";
 import {
+  countNoticesSince,
   createDb,
   createEndpoint,
   type Db,
   incidentRepository,
   maintenanceRepository,
+  recordDeliveries,
   saveSubscriber,
   schema,
 } from "@galena/db";
@@ -22,7 +24,7 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testconta
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { type OutgoingEmail, sendEmail } from "./email.ts";
-import { type FanoutEvent, fanOut } from "./fanout.ts";
+import { type FanoutEvent, fanOut, NOTICES_PER_HOUR } from "./fanout.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
 let db: Db;
@@ -210,4 +212,26 @@ test("endpoints following the event's components get one delivery each, like sub
   const rows = await db.select().from(schema.delivery);
   expect(rows.filter((r) => r.endpointId === everything && r.eventId === event.id)).toHaveLength(1);
   expect(rows.some((r) => r.endpointId === webOnly)).toBe(false);
+});
+
+// Last: it fills the hour's allowance of notices.
+test("past 30 notices in an hour, a new event reaches nobody, and a re-run of an earlier one still does", async () => {
+  const { inbox, run } = pipeline();
+  const earlier = await openIncident("published");
+  expect((await run(earlier)).outcome).toBe("fanned_out");
+  const sent = await countNoticesSince(db, acme, new Date(0), eventId.parse(v7()));
+  const [someone] = await db.select().from(schema.subscriber).limit(1);
+  if (!someone) throw new Error("no subscriber");
+  for (let i = sent; i < NOTICES_PER_HOUR; i++) {
+    await recordDeliveries(
+      db,
+      { workspaceId: acme, eventId: eventId.parse(v7()), subjectId: incidentId.parse(v7()) },
+      [{ subscriberId: someone.id, channel: "email" }],
+    );
+  }
+  const before = inbox.length;
+  expect(await run(await openIncident("published"))).toEqual({ outcome: "limited" });
+  expect(inbox.length).toBe(before);
+  // The earlier event's own deliveries exist, so running it again carries on as before.
+  expect((await run(earlier)).outcome).toBe("fanned_out");
 });

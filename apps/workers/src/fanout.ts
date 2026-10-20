@@ -13,8 +13,10 @@ import {
 import { audience, incidentNotice, maintenanceNotice, noticeKind, notifies } from "@galena/core";
 import {
   componentRepository,
+  countNoticesSince,
   type Db,
   ensurePage,
+  hasDeliveries,
   incidentRepository,
   listActiveSubscribers,
   listDeliverableEndpoints,
@@ -58,7 +60,14 @@ export type FanoutDeps = {
     requests: ReadonlyArray<{ endpointId: WebhookEndpointId; kind: EndpointKind; notice: Notice }>,
   ) => Promise<void>;
 };
-export type FanoutOutcome = "not_notified" | "gone" | "no_page" | "fanned_out";
+export type FanoutOutcome = "not_notified" | "gone" | "no_page" | "limited" | "fanned_out";
+
+/**
+ * However many changes come in, the workspace's subscribers and endpoints hear at most this many
+ * notices an hour: a flapping alert or a runaway script can't mail everyone again and again.
+ * The page itself still shows every change.
+ */
+export const NOTICES_PER_HOUR = 30;
 
 /**
  * Tells everyone who follows the event's components. Deliveries are recorded before the sends
@@ -80,6 +89,13 @@ export async function fanOut(
   const target = await ensurePage(deps.db);
   if (!target) return { outcome: "no_page" };
   const ws = event.workspaceId;
+  const hourBefore = new Date(Date.parse(event.occurredAt) - 3_600_000);
+  if (
+    (await countNoticesSince(deps.db, ws, hourBefore, event.id)) >= NOTICES_PER_HOUR &&
+    !(await hasDeliveries(deps.db, event.id))
+  ) {
+    return { outcome: "limited" };
+  }
   const names = new Map(
     (await componentRepository(deps.db).listByWorkspace(ws)).map((c) => [c.id, c.name]),
   );
