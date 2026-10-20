@@ -22,7 +22,7 @@ import { linkToken } from "@galena/integrations/secrets";
 import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { type App, type Deps, notFound, requireRole } from "../http.ts";
-import { CAPS, changeOf, commit, json, jsonBody, noContent, underCap } from "./shared.ts";
+import { assertUnderCap, CAPS, changeOf, commit, json, jsonBody, noContent } from "./shared.ts";
 
 // Alert sources and their hook URLs. A URL carries a signed token, so only admins manage
 // integrations, and the URL appears once: when the integration is made, and when a new URL
@@ -77,7 +77,7 @@ export function registerIntegrationRoutes(app: App, deps: Deps) {
       const member = c.get("member");
       const input = c.req.valid("json");
       const existing = await listIntegrations(db, member.workspaceId);
-      underCap("integrations", existing.length, CAPS.integrations);
+      assertUnderCap("integrations", existing.length, CAPS.integrations);
       const row = {
         id: integrationId.parse(v7()),
         workspaceId: member.workspaceId,

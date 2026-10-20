@@ -4,7 +4,7 @@ import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { newApiKey } from "../api-keys.ts";
 import { type App, type Deps, notFound, requireRole } from "../http.ts";
-import { CAPS, changeOf, commit, json, jsonBody, noContent, underCap } from "./shared.ts";
+import { assertUnderCap, CAPS, changeOf, commit, json, jsonBody, noContent } from "./shared.ts";
 
 // Keys for scripts. Only signed-in admins manage them: a key that could make keys would outlive
 // any one key being deleted.
@@ -50,7 +50,7 @@ export function registerApiKeyRoutes(app: App, deps: Deps) {
     async (c) => {
       const member = c.get("member");
       const input = c.req.valid("json");
-      underCap("API keys", (await listApiKeys(db, member.workspaceId)).length, CAPS.apiKeys);
+      assertUnderCap("API keys", (await listApiKeys(db, member.workspaceId)).length, CAPS.apiKeys);
       const { key, prefix, hash } = newApiKey(deps.keys);
       const row = {
         id: apiKeyId.parse(v7()),

@@ -350,3 +350,23 @@ test("an endpoint that was turned off is on again only once a test message gets 
   });
   await expectProblem(await enable(), 409, "not_disabled");
 });
+
+test("a workspace sends at most 20 test messages and resends a minute", async () => {
+  const id = await localEndpoint();
+  const fresh = new Session(
+    createApp({ ...deps, targets: createGuard({ allowAddresses: ["127.0.0.1"] }) }),
+  );
+  await fresh.call("/auth/sign-in/email", {
+    email: "ada@example.com",
+    password: "correct horse battery",
+  });
+  answer = 204;
+  for (let i = 0; i < 20; i++) {
+    expect((await fresh.call(`/v1/webhook-endpoints/${id}/test`, {})).status).toBe(200);
+  }
+  await expectProblem(
+    await fresh.call(`/v1/webhook-endpoints/${id}/test`, {}),
+    429,
+    "too_many_sends",
+  );
+});

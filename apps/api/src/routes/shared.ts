@@ -17,13 +17,14 @@ export const noContent = { 204: { description: "Done" } };
 
 /**
  * How many of each a workspace may have. Monitors cost probe time and queue messages every minute
- * in every region, and the rest add sends or lookups, so a mistake or a stolen key can't multiply
- * the bill. Known limit: fixed here; make them deployment settings if someone needs more.
+ * in every region (50 is what the default telemetry table takes), and the rest add sends or
+ * lookups, so a mistake or a stolen key can't multiply the bill. Known limit: fixed here; make
+ * them deployment settings, with the table's capacity, if someone needs more.
  */
-export const CAPS = { monitors: 100, apiKeys: 50, endpoints: 50, integrations: 50 } as const;
+export const CAPS = { monitors: 50, apiKeys: 50, endpoints: 50, integrations: 50 } as const;
 
 /** Refuses one more of `what` once the workspace has `cap` of them. */
-export function underCap(what: string, count: number, cap: number) {
+export function assertUnderCap(what: string, count: number, cap: number) {
   if (count < cap) return;
   fail({
     status: 409,

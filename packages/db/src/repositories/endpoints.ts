@@ -36,12 +36,14 @@ export type EndpointRow = {
   createdAt: Date;
 };
 
+/** Oldest first. Known limit: the first 100, twice the cap on destinations. */
 export function listEndpoints(db: Db, workspaceId: WorkspaceId): Promise<EndpointRow[]> {
   return db
     .select(endpointColumns)
     .from(webhookEndpoint)
     .where(eq(webhookEndpoint.workspaceId, workspaceId))
-    .orderBy(asc(webhookEndpoint.createdAt), asc(webhookEndpoint.id));
+    .orderBy(asc(webhookEndpoint.createdAt), asc(webhookEndpoint.id))
+    .limit(100);
 }
 
 export async function createEndpoint(

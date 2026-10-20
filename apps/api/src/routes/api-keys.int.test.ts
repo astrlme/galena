@@ -9,6 +9,7 @@ import { newApiKey } from "../api-keys.ts";
 import { createApp, type Deps } from "../app.ts";
 import { testDeps } from "../test-deps.ts";
 import { expectProblem, Session } from "../test-session.ts";
+import { CAPS } from "./shared.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
 let close: (() => Promise<void>) | undefined;
@@ -185,11 +186,11 @@ test("a maker who leaves the workspace takes their keys with them", async () => 
   expect(left).toEqual([]);
 });
 
-test("a workspace holds at most 50 API keys; the next is refused until one is deleted", async () => {
+test("a workspace holds at most its cap of API keys; the next is refused until one is deleted", async () => {
   const listed = async () =>
     ((await (await owner.call("/v1/api-keys")).json()) as unknown[]).length;
-  for (let n = await listed(); n < 50; n++) await makeKey(`Script ${n}`, "read");
+  for (let n = await listed(); n < CAPS.apiKeys; n++) await makeKey(`Script ${n}`, "read");
   const refused = await owner.call("/v1/api-keys", { name: "One too many", scope: "read" });
   await expectProblem(refused, 409, "limit_reached");
-  expect(await listed()).toBe(50);
+  expect(await listed()).toBe(CAPS.apiKeys);
 });

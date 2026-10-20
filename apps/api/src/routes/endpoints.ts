@@ -35,7 +35,8 @@ import { open, seal } from "@galena/integrations/secrets";
 import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { type App, type Deps, fail, notFound, requireRole } from "../http.ts";
-import { CAPS, changeOf, commit, json, jsonBody, noContent, underCap } from "./shared.ts";
+import { createLimiter } from "../limiter.ts";
+import { assertUnderCap, CAPS, changeOf, commit, json, jsonBody, noContent } from "./shared.ts";
 
 // Where notices go besides email: Slack incoming webhooks and signed outgoing webhooks. Both
 // carry credentials (Slack's in the URL), so only admins see or change them, and neither the
@@ -47,6 +48,7 @@ const toEndpointView = (e: EndpointRow) => ({
   createdAt: e.createdAt.toISOString(),
 });
 const idParam = z.object({ id: webhookEndpointId });
+const SENDS_PER_MINUTE = 20;
 /** What the dashboard shows after a test, a resend or turning an endpoint on. */
 const said = (answer: EndpointAnswer, accepted: string, refused: (error: string) => string) => ({
   ok: answer.ok,
@@ -57,6 +59,17 @@ const said = (answer: EndpointAnswer, accepted: string, refused: (error: string)
 export function registerEndpointRoutes(app: App, deps: Deps) {
   const { db, keys } = deps;
   const admin = requireRole(deps, "admin");
+  // Each test, turn-on or resend holds this API instance for up to 8 seconds while it posts.
+  const sends = createLimiter({ max: SENDS_PER_MINUTE, windowMs: 60_000 });
+  const limitSends = (workspaceId: WorkspaceId) => {
+    if (sends(workspaceId)) return;
+    fail({
+      status: 429,
+      code: "too_many_sends",
+      title: "Too many sends",
+      detail: `This workspace sends at most ${SENDS_PER_MINUTE} test messages and resends a minute. Try again in a minute.`,
+    });
+  };
 
   /** The workspace's endpoint with what a send needs; 404 for anyone else's. */
   async function ownedEndpoint(workspaceId: WorkspaceId, id: WebhookEndpointId) {
@@ -130,7 +143,7 @@ export function registerEndpointRoutes(app: App, deps: Deps) {
       const member = c.get("member");
       const input = c.req.valid("json");
       const existing = await listEndpoints(db, member.workspaceId);
-      underCap("destinations", existing.length, CAPS.endpoints);
+      assertUnderCap("destinations", existing.length, CAPS.endpoints);
       const checked = deps.targets.checkUrl(input.url);
       if (!checked.ok) {
         fail({
@@ -207,7 +220,9 @@ export function registerEndpointRoutes(app: App, deps: Deps) {
       responses: { 200: json(endpointTestResult, "What the endpoint answered") },
     }),
     async (c) => {
-      const endpoint = await ownedEndpoint(c.get("member").workspaceId, c.req.valid("param").id);
+      const { workspaceId } = c.get("member");
+      const endpoint = await ownedEndpoint(workspaceId, c.req.valid("param").id);
+      limitSends(workspaceId);
       const answer = await postNow(endpoint, await sampleNotice(), `test_${v7()}`);
       const accepted = "The endpoint accepted the test message.";
       return c.json(
@@ -239,6 +254,7 @@ export function registerEndpointRoutes(app: App, deps: Deps) {
           detail: "It already gets notifications.",
         });
       }
+      limitSends(member.workspaceId);
       const answer = await postNow(endpoint, await sampleNotice(), `test_${v7()}`);
       if (answer.ok) {
         const change = changeOf(member, "webhook_endpoint", "updated", [endpoint.id], {
@@ -313,6 +329,7 @@ export function registerEndpointRoutes(app: App, deps: Deps) {
         const { code, message } = step.error;
         fail({ status: 409, code, title: "It can't be sent again now", detail: message });
       }
+      limitSends(member.workspaceId);
       // Claimed before the post: a second press, or a retry arriving now, finds it taken.
       const attempts = await claimResend(db, delivery.id, delivery.attempts);
       if (attempts === undefined) {
