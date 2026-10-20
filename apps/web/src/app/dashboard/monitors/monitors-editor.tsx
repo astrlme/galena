@@ -14,7 +14,7 @@ import { Modal } from "../../../components/modal.tsx";
 import { StatusLabel } from "../../../components/status.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
-import { MonitorHealth, useTelemetry } from "./monitor-health.tsx";
+import { MonitorHealth, PausedNotice, useTelemetry } from "./monitor-health.tsx";
 
 type Monitor =
   paths["/v1/monitors"]["get"]["responses"][200]["content"]["application/json"]["monitors"][number];
@@ -175,6 +175,7 @@ export function MonitorsEditor() {
             Check results aren't available. {telemetry.error.message}
           </p>
         )}
+        <PausedNotice paused={telemetry.paused} />
         {monitors.data.monitors.length === 0 ? (
           <p className="mt-4 rounded-xl border border-mist bg-surface p-4 text-[14px] text-slate">
             No monitors yet. Add one to start checking every minute.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 
@@ -12,13 +13,59 @@ type Result = Reading["results"][number];
 const MINUTES = 60;
 const MINUTE_MS = 60_000;
 
-/** Checks run once a minute, so polling every 30 s while the page is open is fresh enough. */
+/** After this long with nobody using the page, it stops polling. */
+const AWAY_MS = 15 * 60_000;
+
+/**
+ * Whether someone has used the page in the last `ms`. Each poll asks the database, so a tab left
+ * open would keep a paused Aurora awake all day.
+ */
+function usePresent(ms: number) {
+  const [present, setPresent] = useState(true);
+  useEffect(() => {
+    let timer = setTimeout(() => setPresent(false), ms);
+    const touch = () => {
+      clearTimeout(timer);
+      setPresent(true);
+      timer = setTimeout(() => setPresent(false), ms);
+    };
+    const events = ["pointermove", "pointerdown", "keydown", "focus"] as const;
+    for (const e of events) window.addEventListener(e, touch, { passive: true });
+    return () => {
+      clearTimeout(timer);
+      for (const e of events) window.removeEventListener(e, touch);
+    };
+  }, [ms]);
+  return present;
+}
+
+/**
+ * Checks run once a minute, so polling every 30 s while someone is on the page is fresh enough.
+ * Away for 15 minutes, it stops (`paused`), and starts again with a fresh read when they return.
+ */
 export function useTelemetry() {
-  return useQuery({
+  const present = usePresent(AWAY_MS);
+  const query = useQuery({
     queryKey: ["monitors", "telemetry"],
     queryFn: () => unwrap(api.GET("/v1/monitors/telemetry")),
-    refetchInterval: 30_000,
+    refetchInterval: present ? 30_000 : false,
   });
+  const wasPresent = useRef(present);
+  const { refetch } = query;
+  useEffect(() => {
+    if (present && !wasPresent.current) void refetch();
+    wasPresent.current = present;
+  }, [present, refetch]);
+  return { ...query, paused: !present };
+}
+
+/** Said where check results show, while polling is paused. */
+export function PausedNotice({ paused }: { paused: boolean }) {
+  return (
+    <p className="text-[14px] text-slate empty:hidden" role="status">
+      {paused ? "Updates paused while you're away. They start again when you come back." : ""}
+    </p>
+  );
 }
 
 const latency = (ms: number) =>

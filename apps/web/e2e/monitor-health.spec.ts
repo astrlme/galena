@@ -47,3 +47,19 @@ test("a monitor turns down when the endpoint it checks stops answering", async (
   await dialog.getByRole("button", { name: "Delete monitor" }).click();
   await expect(row).toHaveCount(0);
 });
+
+test("the monitors page stops polling while nobody is there, says so, and starts again", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await signIn(page);
+  await expect(page).toHaveURL(/\/dashboard\/$/);
+  await page.goto("/dashboard/monitors/");
+  await expect(page.getByRole("region", { name: "All monitors" })).toBeVisible();
+  const paused = page.getByText("Updates paused while you're away.");
+  await expect(paused).toBeHidden();
+  await page.clock.fastForward("16:00");
+  await expect(paused).toBeVisible();
+  await page.mouse.move(40, 40);
+  await expect(paused).toBeHidden();
+});

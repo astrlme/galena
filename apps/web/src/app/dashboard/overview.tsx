@@ -6,7 +6,7 @@ import { ButtonLink } from "../../components/button.tsx";
 import { StatusLabel } from "../../components/status.tsx";
 import { api, unwrap } from "../../lib/api.ts";
 import { Time } from "./incidents/incident-ui.tsx";
-import { useTelemetry } from "./monitors/monitor-health.tsx";
+import { PausedNotice, useTelemetry } from "./monitors/monitor-health.tsx";
 
 const link = "text-[14px] underline-offset-2 hover:underline";
 
@@ -78,6 +78,7 @@ export function OverviewSummary() {
         id="overview-monitors"
         title={`${list.length} ${list.length === 1 ? "monitor" : "monitors"}`}
       >
+        <PausedNotice paused={telemetry.paused} />
         <ul>
           {list.map((m) => (
             <li
