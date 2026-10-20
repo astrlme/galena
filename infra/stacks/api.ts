@@ -170,13 +170,13 @@ export class ApiStack extends Stack {
     });
     // The paths anyone can call without signing in get their own, lower limits, so a flood of
     // them can't take every request the stage allows. Throttled requests never reach the Lambda.
-    const open = {
+    const openPaths = {
       "/auth/{proxy+}": { rateLimit: 5, burstLimit: 10 },
       "/public/{proxy+}": { rateLimit: 2, burstLimit: 5 },
       "/hooks/{proxy+}": { rateLimit: 10, burstLimit: 20 },
       "/slack/{proxy+}": { rateLimit: 5, burstLimit: 10 },
     } satisfies Record<string, ThrottleSettings>;
-    const routes = Object.keys(open).flatMap((path) =>
+    const routes = Object.keys(openPaths).flatMap((path) =>
       this.api.addRoutes({ path, methods: [HttpMethod.ANY], integration }),
     );
     const accessLogs = new LogGroup(this, "AccessLogs", { retention: RetentionDays.ONE_MONTH });
@@ -189,7 +189,7 @@ export class ApiStack extends Stack {
       accessLogSettings: { destination: new LogGroupLogDestination(accessLogs) },
     });
     (defaultStage.node.defaultChild as CfnStage).routeSettings = Object.fromEntries(
-      Object.entries(open).map(([path, limit]) => [
+      Object.entries(openPaths).map(([path, limit]) => [
         `ANY ${path}`,
         // A raw CloudFormation map: CDK passes its keys through as they are.
         { ThrottlingRateLimit: limit.rateLimit, ThrottlingBurstLimit: limit.burstLimit },

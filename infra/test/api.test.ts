@@ -1,5 +1,5 @@
 import { App, Validations } from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
 import { ApiStack } from "../stacks/api.ts";
@@ -136,6 +136,7 @@ test("alarms when the API answers far more requests in an hour than a dashboard 
     Threshold: 5000,
     ComparisonOperator: "GreaterThanThreshold",
     TreatMissingData: "notBreaching",
+    AlarmActions: [{ Ref: Match.stringLikeRegexp("alarmtopicarn") }],
   });
 });
 

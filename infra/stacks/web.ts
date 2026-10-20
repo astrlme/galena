@@ -168,7 +168,7 @@ export class WebStack extends Stack {
       [
         "AwsSolutions-CFR2",
         props.api
-          ? "WAF costs more than the monthly budget; the app authenticates every route and the HTTP API is throttled at 50 rps."
+          ? "WAF costs more than the monthly budget; the app authenticates every route and the HTTP API is throttled at 20 rps, and lower on the paths open to anyone."
           : "The site is static files with no forms or sign-in; WAF costs more than the monthly budget.",
       ],
       [
