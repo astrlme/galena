@@ -19,6 +19,8 @@ export const env = z
     GLN_DB_CLUSTER_ARN: z.string().startsWith("arn:").optional(),
     GLN_DB_SECRET_ARN: z.string().startsWith("arn:").optional(),
     GLN_DB_NAME: z.string().min(1).default("galena"),
+    // AWS: where migrations record the last one they ran, which `galena deploy` reads.
+    GLN_SCHEMA_PARAM: z.string().startsWith("/").optional(),
     AWS_REGION: awsRegion.optional(),
     // AWS reads the auth secret from this SecureString parameter at cold start.
     GLN_AUTH_SECRET: z.string().min(32).optional(),
