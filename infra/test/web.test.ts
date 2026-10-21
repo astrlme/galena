@@ -13,7 +13,7 @@ import { fixture } from "./fixture.ts";
 const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
 const env = { region: "eu-central-1", account: "111111111111" };
-const api = new ApiStack(app, "Api", { env, config: fixture });
+const api = new ApiStack(app, "Api", { env, config: fixture, version: "1.2.3" });
 // A one-page export, so the upload and its cdk-nag acknowledgements are always exercised.
 const siteDir = mkdtempSync(join(tmpdir(), "galena-web-"));
 writeFileSync(join(siteDir, "index.html"), "<!doctype html><title>Galena</title>");
@@ -151,7 +151,7 @@ test("with a certificate, answers on the stage's domain over TLS 1.2 and publish
     domain: "galena.example.com",
     crossRegionReferences: true,
   });
-  const domainApi = new ApiStack(withDomain, "Api", { env, config: fixture });
+  const domainApi = new ApiStack(withDomain, "Api", { env, config: fixture, version: "1.2.3" });
   const stack = new WebStack(withDomain, "Web", {
     env,
     config: fixture,

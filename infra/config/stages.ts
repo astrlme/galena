@@ -127,6 +127,16 @@ export function expectedStacks(config: StageConfig): { id: string; region: strin
  * The deployment described by the JSON file at `path` (untracked: `galena init` writes it, and
  * the maintainer's Deploy workflow writes it from the `GLN_CONFIG` repository variable).
  */
+/** A release's version, `major.minor.patch`. */
+export const releaseVersion = z.string().regex(/^\d+\.\d+\.\d+$/, "a version like 1.2.3");
+
+/** The release this repository deploys: one version for all of it, in its root package.json. */
+export function readReleaseVersion(): string {
+  const root = new URL("../../package.json", import.meta.url);
+  return z.object({ version: releaseVersion }).parse(JSON.parse(readFileSync(root, "utf8")))
+    .version;
+}
+
 export function loadConfig(path: string): StageConfig {
   let text: string;
   try {

@@ -8,7 +8,22 @@ import { fixture } from "./fixture.ts";
 // Skip esbuild here; `pnpm infra:synth` bundles for real.
 const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
 Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
-const template = Template.fromStack(new ApiStack(app, "Api", { config: fixture }));
+const template = Template.fromStack(
+  new ApiStack(app, "Api", { config: fixture, version: "1.2.3" }),
+);
+
+test("records the release it deploys where galena deploy reads it, once migrations ran", () => {
+  const [[id, parameter] = []] = Object.entries(
+    template.findResources("AWS::SSM::Parameter", {
+      Properties: { Name: `/galena/${fixture.stage}/version` },
+    }),
+  );
+  expect(parameter?.Properties).toMatchObject({ Type: "String", Value: "1.2.3" });
+  expect(parameter?.DependsOn).toEqual(
+    expect.arrayContaining([expect.stringMatching(/^MigrateOnDeploy/)]),
+  );
+  expect(id).toBeDefined();
+});
 
 test("runs the API on Node 24 arm64 Lambda outside any VPC", () => {
   template.hasResourceProperties("AWS::Lambda::Function", {
@@ -51,7 +66,26 @@ test("the API and migration roles get logs, the Data API, their secrets and tele
     "secretsmanager:GetSecretValue",
     "sqs:SendMessage",
     "ssm:GetParameter",
+    "ssm:PutParameter",
   ]);
+});
+
+test("only the migrations write, and only their schema record", () => {
+  const writes = Object.entries(template.findResources("AWS::IAM::Policy")).flatMap(([, p]) =>
+    p.Properties.PolicyDocument.Statement.filter((s: { Action: unknown }) =>
+      [s.Action].flat().includes("ssm:PutParameter"),
+    ).map((s: { Resource: unknown }) => ({ roles: p.Properties.Roles, resource: s.Resource })),
+  );
+  expect(writes).toHaveLength(1);
+  expect(writes[0]?.roles).toEqual([{ Ref: expect.stringMatching(/^MigrateRole/) }]);
+  expect(JSON.stringify(writes[0]?.resource)).toContain(
+    `:parameter/galena/${fixture.stage}/schema`,
+  );
+  template.hasResourceProperties("AWS::Lambda::Function", {
+    Environment: {
+      Variables: Match.objectLike({ GLN_SCHEMA_PARAM: `/galena/${fixture.stage}/schema` }),
+    },
+  });
 });
 
 test("generates the origin secret, copies it to the page region, and the API reads it via SSM", () => {

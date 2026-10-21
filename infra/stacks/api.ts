@@ -38,7 +38,12 @@ export const SETUP_TOKEN_HEADER = "x-galena-setup-token";
 export class ApiStack extends Stack {
   readonly api: HttpApi;
 
-  constructor(scope: Construct, id: string, props: StackProps & { config: StageConfig }) {
+  /** `version` is the release being deployed, which the stack records for `galena deploy`. */
+  constructor(
+    scope: Construct,
+    id: string,
+    props: StackProps & { config: StageConfig; version: string },
+  ) {
     super(scope, id, props);
 
     const { stage, probeRegions, pageRegions } = props.config;
@@ -139,6 +144,21 @@ export class ApiStack extends Stack {
     // Migrations run on every deploy that changes them: a Trigger invokes this after the update.
     const migrationLogs = new LogGroup(this, "MigrateLogs", { retention: RetentionDays.ONE_MONTH });
     const migrations = source("packages/db/migrations");
+    // Written by the migrations, not by CloudFormation, so a stack rollback can't undo it.
+    const schemaParam = `/galena/${stage}/schema`;
+    const migrateRole = lambdaRole("MigrateRole", migrationLogs);
+    migrateRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["ssm:GetParameter", "ssm:PutParameter"],
+        resources: [
+          this.formatArn({
+            service: "ssm",
+            resource: "parameter",
+            resourceName: schemaParam.slice(1),
+          }),
+        ],
+      }),
+    );
     const migrate = new NodejsFunction(this, "Migrate", {
       entry: source("apps/api/src/migrate.ts"),
       handler: "handler",
@@ -147,9 +167,9 @@ export class ApiStack extends Stack {
       memorySize: 512,
       // The first statement after Aurora pauses waits ~15 s for it to resume.
       timeout: Duration.minutes(2),
-      role: lambdaRole("MigrateRole", migrationLogs),
+      role: migrateRole,
       logGroup: migrationLogs,
-      environment: { GLN_STAGE: stage, ...database },
+      environment: { GLN_STAGE: stage, GLN_SCHEMA_PARAM: schemaParam, ...database },
       bundling: {
         ...bundling,
         commandHooks: {
@@ -161,7 +181,19 @@ export class ApiStack extends Stack {
         },
       },
     });
-    new Trigger(this, "MigrateOnDeploy", { handler: migrate, executeOnHandlerChange: true });
+    const migrateOnDeploy = new Trigger(this, "MigrateOnDeploy", {
+      handler: migrate,
+      executeOnHandlerChange: true,
+    });
+    // The release, updated once its migrations ran. `galena deploy` refuses an older one; the
+    // schema record above guards the database, since a rollback after the migrations committed
+    // would put this back.
+    const version = new StringParameter(this, "Version", {
+      parameterName: `/galena/${stage}/version`,
+      stringValue: props.version,
+      description: "The Galena release this deployment runs",
+    });
+    migrateOnDeploy.executeBefore(version);
 
     const integration = new HttpLambdaIntegration("Lambda", handler);
     this.api = new HttpApi(this, "HttpApi", {

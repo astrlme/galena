@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { App, Validations } from "aws-cdk-lib";
 import { AwsSolutionsChecks } from "cdk-nag";
-import { checkRepository, loadConfig } from "../config/stages.ts";
+import { checkRepository, loadConfig, readReleaseVersion } from "../config/stages.ts";
 import { ApiStack } from "../stacks/api.ts";
 import { CiAccessStack } from "../stacks/ci-access.ts";
 import { DetectionStack } from "../stacks/detection.ts";
@@ -62,7 +62,11 @@ if (config.smoke && config.github) {
     config: { ...config, github: config.github },
   });
 }
-const api = new ApiStack(app, `galena-${config.stage}-api`, { env, config });
+const api = new ApiStack(app, `galena-${config.stage}-api`, {
+  env,
+  config,
+  version: readReleaseVersion(),
+});
 api.addStackDependency(foundation);
 const webCertificate = config.webDomain
   ? new CertificateStack(app, `galena-${config.stage}-dashboard-certificate`, {
