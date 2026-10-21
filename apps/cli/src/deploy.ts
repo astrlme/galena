@@ -23,6 +23,7 @@ import {
 import { describeError, doctor, nodeCheck } from "./doctor.ts";
 import { prompter } from "./prompt.ts";
 import { pnpm } from "./run.ts";
+import { describeDeploy, readCheckout } from "./version.ts";
 
 type Say = (text: string) => void;
 
@@ -255,11 +256,12 @@ function summarize(config: StageConfig, stacks: Map<string, Stack>, say: Say) {
 
 /**
  * Deploys the config's deployment, or upgrades it: each step checks first and skips what is
- * already done. It prints no secret, and stores the ones it makes only in SSM.
+ * already done. It prints no secret, and stores the ones it makes only in SSM. It refuses to
+ * deploy an older version than the deployment runs, unless `force`.
  */
 export async function deploy(
   path: string,
-  { input, output }: { input?: Readable; output?: Writable } = {},
+  { input, output, force = false }: { input?: Readable; output?: Writable; force?: boolean } = {},
 ): Promise<number> {
   const prompt = prompter(input, output);
   const { say } = prompt;
@@ -268,9 +270,15 @@ export async function deploy(
     const node = nodeCheck();
     if (node.status === "fail") throw new Error(node.summary);
     const { account, arn } = await callerIdentity(config.homeRegion);
-    say(
-      `Deploying ${config.stage} to account ${account} as ${arn}. Running this again upgrades it.`,
-    );
+    // The API stack records the release it deployed, and its migrations the last one they ran;
+    // both are checked before anything is built.
+    const checkout = readCheckout();
+    const [version, schema] = await Promise.all([
+      parameter(config, "version"),
+      parameter(config, "schema"),
+    ]);
+    const note = describeDeploy({ version, schema }, checkout, force);
+    say(`Deploying ${config.stage} ${checkout.version} to account ${account} as ${arn}: ${note}.`);
 
     const configPath = resolve(path);
     await bootstrap(config, account, configPath, say);

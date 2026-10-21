@@ -92,7 +92,7 @@ export async function parameterTypes(config: StageConfig): Promise<Map<string, s
   return types;
 }
 
-/** A parameter's value, decrypted, to hand on; never print it. Undefined when it's missing. */
+/** A parameter's value, decrypted; never print a secret's. Undefined when it's missing. */
 export async function parameter(config: StageConfig, name: string): Promise<string | undefined> {
   return ssm(config.homeRegion)
     .send(

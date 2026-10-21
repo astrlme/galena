@@ -17,6 +17,7 @@ Commands:
 Options:
   --config <path>  The deployment's config file (default: galena.config.json)
   --force          init: replace an existing config file
+                   deploy: deploy an older version than the deployment runs
   --json           doctor: print the checks as JSON
 `;
 
@@ -43,7 +44,7 @@ switch (values.help ? "help" : positionals[0]) {
     process.exitCode = await init(path, { force: values.force });
     break;
   case "deploy":
-    process.exitCode = await deploy(path);
+    process.exitCode = await deploy(path, { force: values.force });
     break;
   case "doctor":
     process.exitCode = await doctor(path, { json: values.json });
