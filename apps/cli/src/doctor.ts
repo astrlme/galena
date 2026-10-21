@@ -3,14 +3,16 @@ import type { Writable } from "node:stream";
 import { DescribeTableCommand, DynamoDBClient, paginateListTables } from "@aws-sdk/client-dynamodb";
 import { GetAccountSettingsCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { GetAccountCommand, GetEmailIdentityCommand, SESv2Client } from "@aws-sdk/client-sesv2";
-import { expectedStacks, loadConfig, type StageConfig } from "@galena/infra/config";
+import { expectedStacks, loadConfig, releaseVersion, type StageConfig } from "@galena/infra/config";
 import {
   bootstrapVersions,
   callerIdentity,
+  parameter,
   parameterTypes,
   readStacks,
   type Stack,
 } from "./aws.ts";
+import { fetchLatestRelease, isNewer, REPOSITORY, readCheckout } from "./version.ts";
 
 export type Status = "ok" | "warn" | "fail";
 export type Check = { id: string; status: Status; summary: string; details: string[] };
@@ -76,6 +78,62 @@ export function capacityCheck(
         text: `${table.name}: ${table.read} read, ${table.write} write`,
       })),
   );
+}
+
+/**
+ * The deployed version against this CLI's and the latest release, which is undefined when GitHub
+ * couldn't be read. `isDeployed` is whether the API stack, which records the version, exists.
+ */
+export function versionCheck({
+  own,
+  deployed,
+  latest,
+  isDeployed,
+}: {
+  own: string;
+  deployed: string | undefined;
+  latest: string | undefined;
+  isDeployed: boolean;
+}): Finding {
+  const summary =
+    isDeployed || deployed !== undefined
+      ? [
+          `Deployed ${deployed ?? "without a version"}`,
+          `this CLI ${own}`,
+          ...(latest ? [`latest release ${latest}`] : []),
+        ].join(", ")
+      : `Not deployed yet; this CLI deploys ${own}`;
+  if (deployed !== undefined && !releaseVersion.safeParse(deployed).success) {
+    return judge(summary, [
+      {
+        status: "fail",
+        text: `${deployed} isn't a version like 1.2.3; galena deploy --force records ${own}`,
+      },
+    ]);
+  }
+  const findings: Problem[] = [];
+  if (deployed === undefined && isDeployed) {
+    findings.push({
+      status: "warn",
+      text: `Deployed before releases were recorded; galena deploy records ${own}`,
+    });
+  }
+  if (deployed !== undefined && isNewer(own, deployed)) {
+    findings.push({ status: "warn", text: `galena deploy upgrades it to ${own}` });
+  }
+  if (deployed !== undefined && isNewer(deployed, own)) {
+    findings.push({
+      status: "warn",
+      text: `This CLI is older than the deployment; check out v${deployed} or later before deploying`,
+    });
+  }
+  if (latest && isNewer(latest, own)) {
+    findings.push({
+      status: "warn",
+      text: `${latest} is out: read its upgrade notes at https://github.com/${REPOSITORY}/releases/tag/v${latest}`,
+    });
+  }
+  return judge(summary, findings);
 }
 
 /**
@@ -149,6 +207,16 @@ function checks(config: StageConfig) {
           findings,
         );
       },
+    ],
+    [
+      "version",
+      async () =>
+        versionCheck({
+          own: readCheckout().version,
+          deployed: await parameter(config, "version"),
+          latest: await fetchLatestRelease(),
+          isDeployed: stacks.get(`galena-${config.stage}-api`)?.status !== undefined,
+        }),
     ],
     [
       "dns",

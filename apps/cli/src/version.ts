@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { readReleaseVersion, releaseVersion } from "@galena/infra/config";
 import { z } from "zod";
 
+/** Where releases are published. */
+export const REPOSITORY = "astrlme/galena";
+
 /** What a deployment records: its release, and the last migration its database ran. */
 export type Deployed = { version?: string | undefined; schema?: string | undefined };
 /** What this checkout would deploy: its release, and the migrations it carries, oldest first. */
@@ -75,4 +78,20 @@ export function describeDeploy(deployed: Deployed, checkout: Checkout, force: bo
       ),
   };
   return notes[classifyDeploy(version, own)]();
+}
+
+/** The latest release's version, or undefined when GitHub can't say within 5 seconds. */
+export async function fetchLatestRelease(): Promise<string | undefined> {
+  try {
+    const response = await fetch(`https://api.github.com/repos/${REPOSITORY}/releases/latest`, {
+      headers: { accept: "application/vnd.github+json" },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return undefined;
+    const tag = z.object({ tag_name: z.string() }).parse(await response.json()).tag_name;
+    const version = tag.replace(/^v/, "");
+    return releaseVersion.safeParse(version).success ? version : undefined;
+  } catch {
+    return undefined;
+  }
 }
