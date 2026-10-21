@@ -31,10 +31,13 @@ again. It never replaces an existing file unless you pass `--force`.
 
 ## galena deploy
 
-Deploys the config's deployment with your AWS credentials, or upgrades it: run it again after
-pulling a new version. Each step checks first and skips what is already done.
+Deploys the config's deployment with your AWS credentials, or upgrades it: run it again from a
+checkout of a newer release. Each step checks first and skips what is already done.
 
-1. Checks Node and your AWS credentials.
+1. Checks Node and your AWS credentials, and compares what your deployment records with the
+   checkout: its release (`/galena/<stage>/version`) and the last migration its database ran
+   (`/galena/<stage>/schema`). An older release, or a checkout without that migration, is
+   refused, since the database only moves forward; `--force` deploys it anyway.
 2. Bootstraps CDK in every region that needs it.
 3. Stores secrets as SecureStrings under `/galena/<stage>/`: a new auth secret and app key, and a
    one-time setup token on the first deploy.
@@ -51,7 +54,7 @@ It prints no secret, and keeps the ones it makes only in SSM.
 ## galena doctor
 
 Checks a deployment against its config with your AWS credentials, and changes nothing. It reads
-the names of your secrets, never their values.
+the names of your secrets, never their values, and asks GitHub for the latest release.
 
 | Check | What it reads | Not ok when |
 | --- | --- | --- |
@@ -60,6 +63,7 @@ the names of your secrets, never their values.
 | `bootstrap` | CDK's bootstrap version in every region the deployment uses, us-east-1 included | A region isn't bootstrapped |
 | `parameters` | The SecureStrings under `/galena/<stage>/` | `auth-secret` or `app-key` is missing or not a SecureString |
 | `stacks` | Every stack the config creates, in its region | One is missing or failed. One still updating, or whose last update rolled back, is a warning |
+| `version` | The version the deployment runs, the CLI's, and the latest release on GitHub | A warning when they differ or none is recorded. GitHub not answering within 5 seconds leaves the latest release out |
 | `dns` | The CNAME of each custom domain | It doesn't point at its CloudFront distribution (with Cloudflare, also when the record is proxied) |
 | `email` | Your SES identity and account | The domain, DKIM or MAIL FROM isn't verified. SES still in the sandbox is a warning |
 | `telemetry` | Provisioned DynamoDB capacity of every table in the home region, any app's | Past the free tier's 25 read or write units (one free tier for a whole AWS Organization): a warning |

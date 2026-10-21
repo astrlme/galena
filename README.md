@@ -112,11 +112,13 @@ the details.
 
 ## Deploy to AWS
 
-Galena deploys with the AWS CDK from a GitHub Actions workflow that signs in to AWS with OIDC, so
-no AWS keys are stored in GitHub. You need an AWS account that holds nothing but Galena, a fork
-of this repository and a domain whose DNS you control. The
+Galena deploys with the AWS CDK, from your machine with `pnpm galena deploy` or from a GitHub
+Actions workflow that signs in to AWS with OIDC. You need an AWS account that holds nothing but
+Galena, a clone of this repository at a release tag (a fork, to deploy from GitHub Actions),
+and a domain whose DNS you control. The
 [self-hosting guide](https://galena.astrl.me/docs/getting-started/self-hosting/) goes from an
-empty account to a live status page.
+empty account to a live status page, and upgrades are a newer tag and `deploy` again; see
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Commands
 

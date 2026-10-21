@@ -27,6 +27,11 @@ Deploys never overlap: a second run waits for the first.
 Deploying from your own machine with `pnpm infra:deploy` works too, with your own credentials
 and your `galena.config.json`.
 
+Either way, the API stack records the release it deployed in `/galena/<stage>/version`, from
+the root `package.json`, and the migrations record the last one they ran in
+`/galena/<stage>/schema`, outside CloudFormation so a rollback can't undo it. `galena deploy` reads
+both first and refuses an older release, or code without that migration.
+
 Neither deploy removes a stack that has left the app. A deployment from before background jobs
 moved into AWS keeps one, with an IAM user and its key:
 [remove them by hand](/docs/decisions/background-jobs/#upgrading-an-older-deployment).

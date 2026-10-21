@@ -23,8 +23,31 @@ pnpm galena deploy
 ```
 
 `init` writes the config. `deploy` does everything in the steps below except the DNS records,
-which it prints for you to add, and on the first run it asks for the owner's details. Run it again after pulling a new version to upgrade. See
-the [CLI reference](/docs/reference/cli/#galena-deploy) for each step.
+which it prints for you to add, and on the first run it asks for the owner's details. See the
+[CLI reference](/docs/reference/cli/#galena-deploy) for each step. Deploy a release rather than
+`main`: check out its tag first, such as `git checkout v0.1.0`.
+
+## Upgrading
+
+Each release is a tag, `vX.Y.Z`, with its notes in
+[CHANGELOG.md](https://github.com/astrlme/galena/blob/main/CHANGELOG.md). `pnpm galena doctor`
+says which version your deployment runs and whether a newer release is out.
+
+```bash
+git fetch --tags
+git checkout v0.1.1
+pnpm install --frozen-lockfile
+pnpm galena deploy
+```
+
+Read the upgrade notes of every release between yours and the new one first; most need nothing.
+The database only moves forward, so `deploy` refuses a release older than the one your deployment
+runs, and code without the last migration your database ran. Going back means checking out a
+release at least as new, or `--force` when you know the older code works on the newer schema.
+
+Deploying from GitHub Actions instead: the Deploy workflow deploys your fork's `main`, so move it
+to the release (merge the tag, or reset `main` to it) and run Deploy. The workflow doesn't refuse
+older code; check `pnpm galena doctor` before you run it.
 
 ## Step by step
 
