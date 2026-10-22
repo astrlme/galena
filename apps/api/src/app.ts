@@ -274,6 +274,18 @@ export function createApp(deps: Deps) {
         detail: "Another setup finished first. Sign in instead, or ask an owner to invite you.",
       });
     }
+    // The rollup creates the page and publishes it, so a new deployment's page is live now
+    // rather than at the next hourly heartbeat, which still publishes it if this trigger fails.
+    await deps.engine
+      .trigger(
+        "rollup.uptime",
+        { timestamp: new Date().toISOString() },
+        { idempotencyKey: `setup:${id}` },
+      )
+      .catch((error: unknown) => {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn("rollup.uptime was not triggered", { workspaceId: id, reason });
+      });
     for (const cookie of signUp.headers.getSetCookie()) {
       c.header("set-cookie", cookie, { append: true });
     }
