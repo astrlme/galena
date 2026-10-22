@@ -19,6 +19,7 @@
     "dev": "docker compose up -d --wait && pnpm db:migrate && pnpm db:seed && turbo run dev dev:local",
     "dev:local": "node --watch --env-file-if-exists=apps/api/.env --import ./scripts/register-tsx.mjs scripts/dev.ts",
     "galena": "node apps/cli/src/main.ts",
+    "pack:cli": "node scripts/pack-cli.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:deps",
     "lint": "biome check && oxlint --type-aware --deny-warnings",
     "format": "biome check --write",
