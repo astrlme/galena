@@ -5,10 +5,10 @@ description: The deployment config, SSM parameters, and every environment variab
 
 ## Deployment config
 
-A deployment is described by `galena.config.json`, which is never committed; `pnpm galena init`
-writes one. CDK reads it from
-the repository root, or from the path in `-c config=<path>`, and validates it with Zod when it
-synthesises. `infra/test/fixture.config.json` is a complete example with every option set.
+A deployment is described by `galena.config.json`, which is never committed; `galena init`
+writes one. `galena deploy` hands CDK its full path, and CDK validates it with Zod when it
+synthesises; run by hand in a clone, CDK reads it from the repository root, or from the path in
+`-c config=<path>`. `infra/test/fixture.config.json` is a complete example with every option set.
 
 | Field | Type | Meaning |
 | --- | --- | --- |

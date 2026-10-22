@@ -9,49 +9,56 @@ included, so AWS is the only account you need.
 
 <Callout title="Before you start">
 You need an AWS account that holds nothing but Galena, with credentials on your machine (for
-example `aws configure sso`), a clone of the repository (a fork, to deploy from GitHub Actions)
-and a domain whose DNS you control (the examples use Cloudflare). Allow a day for AWS to approve
-SES production access if you send email, and for a higher Lambda concurrency quota.
+example `aws configure sso`), Node 24 or newer, and a domain whose DNS you control (the examples
+use Cloudflare). Allow a day for AWS to approve SES production access if you send email, and for a
+higher Lambda concurrency quota.
 </Callout>
 
 ## Two commands
 
+In an empty directory:
+
 ```bash
-pnpm install
-pnpm galena init
-pnpm galena deploy
+npx @astrlme/galena init
+npx @astrlme/galena deploy
 ```
 
-`init` writes the config. `deploy` does everything in the steps below except the DNS records,
-which it prints for you to add, and on the first run it asks for the owner's details. See the
-[CLI reference](/docs/reference/cli/#galena-deploy) for each step. Deploy a release rather than
-`main`: check out its tag first, such as `git checkout v0.1.0`.
+`init` writes the config, `galena.config.json`, in that directory. `deploy` does everything in the
+steps below except the DNS records, which it prints for you to add, and on the first run it asks
+for the owner's details. See the [CLI reference](/docs/reference/cli/#galena-deploy) for each step.
+Keep the directory: every later command reads the config from it.
+
+The package carries Galena's source for its version. Its first run copies that to
+`~/.galena/<version>` and installs the dependencies there with pnpm, which corepack provides
+(Node 24 includes corepack; on a newer Node, run `npm install --global corepack` first), so the
+first command of a version takes longer. Nothing needs Docker or git.
 
 ## Upgrading
 
-Each release is a tag, `vX.Y.Z`, with its notes in
-[CHANGELOG.md](https://github.com/astrlme/galena/blob/main/CHANGELOG.md). `pnpm galena doctor`
-says which version your deployment runs and whether a newer release is out.
+Each release has its notes in
+[CHANGELOG.md](https://github.com/astrlme/galena/blob/main/CHANGELOG.md).
+`npx @astrlme/galena doctor` says which version your deployment runs and whether a newer release
+is out. Name the release you deploy:
 
 ```bash
-git fetch --tags
-git checkout v0.1.1
-pnpm install --frozen-lockfile
-pnpm galena deploy
+npx @astrlme/galena@0.2.0 deploy
 ```
 
 Read the upgrade notes of every release between yours and the new one first; most need nothing.
 The database only moves forward, so `deploy` refuses a release older than the one your deployment
-runs, and code without the last migration your database ran. Going back means checking out a
-release at least as new, or `--force` when you know the older code works on the newer schema.
+runs, and code without the last migration your database ran. Going back means a release at least
+as new, or `--force` when you know the older code works on the newer schema.
 
-Deploying from GitHub Actions instead: the Deploy workflow deploys your fork's `main`, so move it
-to the release (merge the tag, or reset `main` to it) and run Deploy. The workflow doesn't refuse
-older code; check `pnpm galena doctor` before you run it.
+From a clone of the repository instead, check out the release's tag (`git checkout v0.2.0`), run
+`pnpm install --frozen-lockfile`, then the same commands as `pnpm galena <command>` from the
+repository root. Deploying from GitHub Actions: the Deploy workflow deploys your fork's `main`, so
+move it to the release (merge the tag, or reset `main` to it) and run Deploy. The workflow doesn't
+refuse older code; check `pnpm galena doctor` before you run it.
 
-## Step by step
+## Appendix: deploying from a fork
 
-The same deployment by hand, or with deploys from GitHub Actions.
+The same deployment by hand, or with deploys from GitHub Actions. This path needs a fork of the
+repository, and runs the CLI from its root as `pnpm galena <command>`.
 
 <Steps>
 <Step>

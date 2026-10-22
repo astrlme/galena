@@ -1,7 +1,8 @@
 # Changelog
 
 Every release of Galena, newest first. Each one says what changed and what to do when you upgrade
-to it. To upgrade, check out the release's tag and run `pnpm galena deploy`; see
+to it. To upgrade, run `npx @astrlme/galena@<version> deploy`, or check out the release's tag and
+run `pnpm galena deploy`; see
 [Upgrading](https://galena.astrl.me/docs/getting-started/self-hosting/#upgrading).
 
 ## 0.1.1

@@ -3,9 +3,11 @@ title: CLI
 description: galena init writes a deployment's config, galena deploy deploys or upgrades it, galena doctor checks it, and galena slack-manifest describes its Slack app.
 ---
 
-Run the CLI from the repository root with `pnpm galena <command>`. `init` writes
-`galena.config.json` there and the other commands read it; pass `--config <path>` for another
-file.
+Run the CLI with `npx @astrlme/galena <command>`, or `npx @astrlme/galena@<version> <command>`
+for a given release. `init` writes `galena.config.json` in the current directory and the other
+commands read it from there; pass `--config <path>` for another file. Each version installs its
+source and dependencies once in `~/.galena/<version>` on its first run. From a clone of the
+repository, run `pnpm galena <command>` at its root instead.
 
 ## galena init
 
@@ -31,12 +33,12 @@ again. It never replaces an existing file unless you pass `--force`.
 
 ## galena deploy
 
-Deploys the config's deployment with your AWS credentials, or upgrades it: run it again from a
-checkout of a newer release. Each step checks first and skips what is already done.
+Deploys the config's deployment with your AWS credentials, or upgrades it: run it again with a
+newer release. Each step checks first and skips what is already done.
 
 1. Checks Node and your AWS credentials, and compares what your deployment records with the
-   checkout: its release (`/galena/<stage>/version`) and the last migration its database ran
-   (`/galena/<stage>/schema`). An older release, or a checkout without that migration, is
+   code it runs: its release (`/galena/<stage>/version`) and the last migration its database ran
+   (`/galena/<stage>/schema`). An older release, or code without that migration, is
    refused, since the database only moves forward; `--force` deploys it anyway.
 2. Bootstraps CDK in every region that needs it.
 3. Stores secrets as SecureStrings under `/galena/<stage>/`: a new auth secret and app key, and a
