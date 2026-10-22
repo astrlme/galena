@@ -47,6 +47,16 @@ describe("link tokens", () => {
     }
   });
 
+  test("are refused when the signature is spelled another way, even with the same bytes", () => {
+    const token = linkToken(keys, "hook", subscriber, issued);
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    // A 32-byte signature's last character carries two unused bits: flipping one keeps the bytes.
+    const respelled = token.slice(0, -1) + alphabet[alphabet.indexOf(token.at(-1) ?? "") ^ 1];
+    const bytes = (text: string) => Buffer.from(text.split(".").at(-1) ?? "", "base64url");
+    expect(bytes(respelled)).toEqual(bytes(token));
+    expect(readLinkToken(keys, "hook", respelled)).toBeUndefined();
+  });
+
   test("a hook token fits a URL path and opens only as a hook", () => {
     const token = linkToken(keys, "hook", subscriber, issued);
     expect(token).toMatch(/^[\w.-]+$/);

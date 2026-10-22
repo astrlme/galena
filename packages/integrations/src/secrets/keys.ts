@@ -69,8 +69,9 @@ export function readLinkToken(
   const parts = token.split(".");
   if (parts.length !== 4 || parts[0] !== purpose) return undefined;
   const [, id = "", seconds = "", signature = ""] = parts;
-  const expected = mac(keys, `${purpose}.${id}.${seconds}`);
-  const given = Buffer.from(signature, "base64url");
+  // Compared as text, so a token has one spelling: base64url's spare bits can't make a second.
+  const expected = Buffer.from(b64(mac(keys, `${purpose}.${id}.${seconds}`)));
+  const given = Buffer.from(signature);
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) return undefined;
   if (!/^\d+$/.test(seconds)) return undefined;
   return { id, issuedAt: new Date(Number(seconds) * 1000) };
