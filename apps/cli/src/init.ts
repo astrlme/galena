@@ -114,7 +114,9 @@ export async function init(
       emailFrom,
     });
     writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
-    say(`Wrote ${path}. Next: pnpm galena doctor checks your AWS account against it.`);
+    // The npm package's launcher names itself; in a clone the CLI runs as `pnpm galena`.
+    const command = process.env.GALENA_COMMAND ?? "pnpm galena";
+    say(`Wrote ${path}. Next: ${command} doctor checks your AWS account against it.`);
     return 0;
   } catch (error) {
     say(error instanceof Error ? error.message : String(error));

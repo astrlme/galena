@@ -18,7 +18,7 @@ test("refuses to deploy an older version over a newer one unless forced", () => 
   const deployed = { version: "0.1.0", schema: "0001_monitors" };
   const older = { ...checkout, version: "0.0.9" };
   expect(() => describeDeploy(deployed, older, false)).toThrow(
-    "This deployment runs 0.1.0 and this checkout is 0.0.9.",
+    "This deployment runs 0.1.0 and this code is 0.0.9.",
   );
   expect(describeDeploy(deployed, older, true)).toBe("going back from 0.1.0, as --force asks");
   expect(describeDeploy(deployed, { ...checkout, version: "0.1.1" }, false)).toBe(
@@ -32,7 +32,7 @@ test("refuses a checkout without the migration the database is at, whatever its 
   // `main` between releases keeps the last release's version but can carry newer migrations.
   const deployed = { version: "0.1.0", schema: "0002_incidents" };
   expect(() => describeDeploy(deployed, checkout, false)).toThrow(
-    "This deployment's database is at migration 0002_incidents, which this checkout doesn't have.",
+    "This deployment's database is at migration 0002_incidents, which this code doesn't have.",
   );
   expect(describeDeploy(deployed, checkout, true)).toBe(
     "going back from migration 0002_incidents, as --force asks",

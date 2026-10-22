@@ -57,13 +57,13 @@ export function describeDeploy(deployed: Deployed, checkout: Checkout, force: bo
   };
   if (schema && !checkout.migrations.includes(schema)) {
     return refuse(
-      `This deployment's database is at migration ${schema}, which this checkout doesn't have. Migrations only move forward, so its older code is refused: check out a release that has it, or pass --force if you know this code runs on that schema.`,
+      `This deployment's database is at migration ${schema}, which this code doesn't have. Migrations only move forward, so its older code is refused: use a release that has it, or pass --force if you know this code runs on that schema.`,
       `going back from migration ${schema}, as --force asks`,
     );
   }
   if (version !== undefined && !releaseVersion.safeParse(version).success) {
     return refuse(
-      `The deployment records ${version} as its version, which isn't like 1.2.3, so this checkout can't tell whether it's older. Pass --force to deploy ${own} over it.`,
+      `The deployment records ${version} as its version, which isn't like 1.2.3, so this code can't tell whether it's older. Pass --force to deploy ${own} over it.`,
       `replacing the recorded version ${version}, as --force asks`,
     );
   }
@@ -73,7 +73,7 @@ export function describeDeploy(deployed: Deployed, checkout: Checkout, force: bo
     upgrade: () => `upgrading from ${version}`,
     downgrade: () =>
       refuse(
-        `This deployment runs ${version} and this checkout is ${own}. Migrations only move forward, so an older release is refused: check out v${version} or later, or pass --force if you know ${own} runs on the newer schema.`,
+        `This deployment runs ${version} and this code is ${own}. Migrations only move forward, so an older release is refused: use v${version} or later, or pass --force if you know ${own} runs on the newer schema.`,
         `going back from ${version}, as --force asks`,
       ),
   };

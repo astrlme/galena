@@ -11,7 +11,6 @@ import {
   stackState,
   versionCheck,
 } from "./doctor.ts";
-import { buildConfig } from "./init.ts";
 
 test("Node 24 or later passes, anything older fails", () => {
   expect(nodeCheck("24.13.0").status).toBe("ok");
@@ -34,7 +33,7 @@ test("the deployment runs this CLI's version, or doctor says which way to move",
   });
   expect(check("0.1.0").details).toEqual(["galena deploy upgrades it to 0.2.0"]);
   expect(check("0.3.0").details).toEqual([
-    "This CLI is older than the deployment; check out v0.3.0 or later before deploying",
+    "This CLI is older than the deployment; use v0.3.0 or later to deploy",
   ]);
   expect(check(undefined).details).toEqual([
     "Deployed before releases were recorded; galena deploy records 0.2.0",

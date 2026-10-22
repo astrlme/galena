@@ -124,7 +124,7 @@ export function versionCheck({
   if (deployed !== undefined && isNewer(deployed, own)) {
     findings.push({
       status: "warn",
-      text: `This CLI is older than the deployment; check out v${deployed} or later before deploying`,
+      text: `This CLI is older than the deployment; use v${deployed} or later to deploy`,
     });
   }
   if (latest && isNewer(latest, own)) {
