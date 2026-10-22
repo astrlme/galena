@@ -5,6 +5,19 @@ to it. To upgrade, run `npx @astrlme/galena@<version> deploy`, or check out the 
 run `pnpm galena deploy`; see
 [Upgrading](https://galena.astrl.me/docs/getting-started/self-hosting/#upgrading).
 
+## 0.2.0
+
+Galena installs from npm: `npx @astrlme/galena init` and `npx @astrlme/galena deploy` in an empty
+directory, with no clone of the repository. The package carries the release's source, and its
+first run installs it in `~/.galena/0.2.0` with the pnpm that corepack provides. Hook URLs and
+confirmation and unsubscribe links are accepted only as Galena wrote them.
+
+### Upgrade notes
+
+- Nothing to do by hand. From a clone, `pnpm galena deploy` at the `v0.2.0` tag works as before.
+  To move to npm, run `npx @astrlme/galena@0.2.0 deploy` in the directory that holds your
+  `galena.config.json`, or pass `--config <path>`.
+
 ## 0.1.1
 
 A new deployment's status page is published as soon as first-run setup finishes. Before, it

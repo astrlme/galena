@@ -1,6 +1,6 @@
 {
   "name": "galena",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "description": "An open-source status page you deploy into your own AWS account.",
   "license": "Apache-2.0",
