@@ -46,6 +46,28 @@ jobs:
         env:
           GLN_SITE: demo
 
+  # The npm package as someone without pnpm gets it: packed, installed in an empty directory and
+  # run. Its first run installs the source in ~/.galena/<version> through corepack's pnpm.
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: node scripts/pack-cli.ts
+      - run: npm pack ./dist/npm --pack-destination "$RUNNER_TEMP"
+      - name: Run the packed CLI from an empty directory
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir project && cd project
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund ../astrlme-galena-*.tgz
+          npx galena --help
+          printf 'ci\neu\n\n\n\n' | npx galena init
+          grep '"stage": "ci"' galena.config.json
+
   # Testcontainers starts Postgres and DynamoDB Local itself; the runner only needs Docker.
   integration:
     runs-on: ubuntu-latest
