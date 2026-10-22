@@ -5,7 +5,7 @@ import * as schema from "./index.ts";
 
 // Schema conventions, checked for every table in the schema.
 // Keys are camelCase here; the client and drizzle-kit write them as snake_case.
-const IDENTITY_TABLES = ["user", "session", "account", "verification", "two_factor", "rate_limit"];
+const IDENTITY_TABLES = ["user", "session", "account", "verification", "two_factor"];
 // Drizzle's concrete table types don't narrow to PgTable under exactOptionalPropertyTypes.
 const tables = Object.values(schema).flatMap((value) =>
   is(value, PgTable) ? [getTableConfig(value as unknown as PgTable)] : [],
@@ -53,7 +53,6 @@ test("the schema has exactly the expected tables", () => {
       "outbox",
       "page",
       "page_component",
-      "rate_limit",
       "session",
       "signal_receipt",
       "slack_installation",
