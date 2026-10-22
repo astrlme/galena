@@ -4,6 +4,17 @@ Every release of Galena, newest first. Each one says what changed and what to do
 to it. To upgrade, check out the release's tag and run `pnpm galena deploy`; see
 [Upgrading](https://galena.astrl.me/docs/getting-started/self-hosting/#upgrading).
 
+## 0.1.1
+
+A new deployment's status page is published as soon as first-run setup finishes. Before, it
+answered 403 until the hourly heartbeat at 35 past the hour. The database drops the `rate_limit`
+table, unused since sign-in limits are counted in memory.
+
+### Upgrade notes
+
+- Nothing to do by hand: `galena deploy` runs the migration `0016_drop_rate_limit`. Once it has
+  run, `galena deploy` from a checkout of 0.1.0 is refused, since that checkout lacks it.
+
 ## 0.1.0
 
 The first release with a version. A deployment records the release it runs and the last
