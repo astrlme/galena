@@ -21,6 +21,7 @@ import { Trigger } from "aws-cdk-lib/triggers";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
 import { bundling, source } from "./bundling.ts";
+import { addDashboard } from "./dashboard.ts";
 import { dataApiAccess } from "./data-api.ts";
 import { jobAccess } from "./job-access.ts";
 
@@ -263,14 +264,14 @@ export class ApiStack extends Stack {
     // A change saved while the job queue was unreachable commits all the same and waits for the
     // six-hourly outbox sweep; a new workspace's first publish waits for the hourly heartbeat.
     // The API logs each job it couldn't start as "<job> was not triggered", and this says so.
-    new MetricFilter(this, "UntriggeredJobs", {
+    const untriggeredJobs = new MetricFilter(this, "UntriggeredJobs", {
       logGroup,
       filterPattern: FilterPattern.allTerms("was not triggered"),
       metricNamespace: "Galena",
       metricName: "untriggered_jobs",
       metricValue: "1",
-    })
-      .metric({ statistic: "Sum", period: Duration.minutes(5) })
+    }).metric({ statistic: "Sum", period: Duration.minutes(5) });
+    untriggeredJobs
       .createAlarm(this, "UntriggeredJobsAlarm", {
         alarmDescription:
           "The API couldn't start a job, so a saved change waits for the outbox sweep, up to six hours. Check SQS and Scheduler in the home region, and the API's log for the reason.",
@@ -280,6 +281,15 @@ export class ApiStack extends Stack {
         treatMissingData: TreatMissingData.NOT_BREACHING,
       })
       .addAlarmAction(notify);
+
+    addDashboard(this, {
+      stage,
+      probeRegions,
+      api: this.api,
+      handler,
+      untriggeredJobs,
+      clusterArn: database.GLN_DB_CLUSTER_ARN,
+    });
 
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });
   }

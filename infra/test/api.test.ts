@@ -194,6 +194,38 @@ test("alarms as soon as the API logs a job it couldn't start", () => {
   });
 });
 
+test("one dashboard shows the probes, detection, the queues, the jobs, the API and Aurora", () => {
+  const dashboards = Object.values(template.findResources("AWS::CloudWatch::Dashboard"));
+  expect(dashboards).toHaveLength(1);
+  expect(dashboards[0]?.Properties.DashboardName).toBe("galena-dev");
+  const body = JSON.stringify(dashboards[0]?.Properties.DashboardBody);
+  for (const title of [
+    "Checks by probe region",
+    "Check results sent",
+    "Evaluator",
+    "Oldest message in each queue (s)",
+    "Dead letters",
+    "Jobs and builds",
+    "API requests",
+    "API latency (ms)",
+    "Aurora capacity (ACU)",
+  ]) {
+    expect(body).toContain(`\\"title\\":\\"${title}\\"`);
+  }
+  // Other stacks' functions and queues are found by name: only this deployment's.
+  expect(body).toContain("FunctionName=galena-dev-detection-Evaluator");
+  expect(body).toContain("QueueName=galena-dev-foundation-CheckResults NOT Dlq");
+  expect(body).toContain("QueueName=galena-dev-foundation NOT Dlq");
+  // Each probe region's own metrics, read in that region.
+  for (const region of fixture.probeRegions) {
+    expect(body).toContain(`[\\"Galena\\",\\"checks\\",\\"region\\",\\"${region}\\"`);
+  }
+  // The API by its id, Aurora by the cluster identifier at the end of its ARN.
+  expect(body).toMatch(/AWS\/ApiGateway\\",\\"Count\\",\\"ApiId\\"/);
+  expect(body).toMatch(/ServerlessDatabaseCapacity\\",\\"DBClusterIdentifier/);
+  expect(body).toContain('"Fn::Select":[6,{"Fn::Split":[":"');
+});
+
 test("passes cdk-nag AwsSolutions", () => {
   expect(() => app.synth()).not.toThrow();
 });
