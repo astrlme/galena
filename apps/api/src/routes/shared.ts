@@ -116,6 +116,7 @@ async function trigger(deps: Deps, id: OutboxId, options: { idempotencyKey: stri
     await deps.engine.trigger("outbox.dispatch", { outboxId: id }, options);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
+    // The API stack's UntriggeredJobs alarm matches "was not triggered": keep the words.
     console.warn("outbox.dispatch was not triggered", { outboxId: id, reason });
   }
 }

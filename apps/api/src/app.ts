@@ -284,6 +284,7 @@ export function createApp(deps: Deps) {
       )
       .catch((error: unknown) => {
         const reason = error instanceof Error ? error.message : String(error);
+        // The API stack's UntriggeredJobs alarm matches "was not triggered": keep the words.
         console.warn("rollup.uptime was not triggered", { workspaceId: id, reason });
       });
     for (const cookie of signUp.headers.getSetCookie()) {

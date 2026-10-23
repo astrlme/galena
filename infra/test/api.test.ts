@@ -174,6 +174,26 @@ test("alarms when the API answers far more requests in an hour than a dashboard 
   });
 });
 
+test("alarms as soon as the API logs a job it couldn't start", () => {
+  template.hasResourceProperties("AWS::Logs::MetricFilter", {
+    FilterPattern: '"was not triggered"',
+    MetricTransformations: [
+      { MetricNamespace: "Galena", MetricName: "untriggered_jobs", MetricValue: "1" },
+    ],
+  });
+  template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+    MetricName: "untriggered_jobs",
+    Namespace: "Galena",
+    Statistic: "Sum",
+    Period: 300,
+    Threshold: 1,
+    EvaluationPeriods: 1,
+    ComparisonOperator: "GreaterThanOrEqualToThreshold",
+    TreatMissingData: "notBreaching",
+    AlarmActions: [{ Ref: Match.stringLikeRegexp("alarmtopicarn") }],
+  });
+});
+
 test("passes cdk-nag AwsSolutions", () => {
   expect(() => app.synth()).not.toThrow();
 });

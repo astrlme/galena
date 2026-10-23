@@ -13,7 +13,7 @@ import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
+import { FilterPattern, LogGroup, MetricFilter, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { Topic } from "aws-cdk-lib/aws-sns";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
@@ -247,6 +247,7 @@ export class ApiStack extends Stack {
       this,
       `/galena/${stage}/alarm-topic-arn`,
     );
+    const notify = new SnsAction(Topic.fromTopicArn(this, "Alarms", alarms));
     this.api
       .metricCount({ statistic: "Sum", period: Duration.hours(1) })
       .createAlarm(this, "TrafficAlarm", {
@@ -257,7 +258,28 @@ export class ApiStack extends Stack {
         comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
         treatMissingData: TreatMissingData.NOT_BREACHING,
       })
-      .addAlarmAction(new SnsAction(Topic.fromTopicArn(this, "Alarms", alarms)));
+      .addAlarmAction(notify);
+
+    // A change saved while the job queue was unreachable commits all the same and waits for the
+    // six-hourly outbox sweep; a new workspace's first publish waits for the hourly heartbeat.
+    // The API logs each job it couldn't start as "<job> was not triggered", and this says so.
+    new MetricFilter(this, "UntriggeredJobs", {
+      logGroup,
+      filterPattern: FilterPattern.allTerms("was not triggered"),
+      metricNamespace: "Galena",
+      metricName: "untriggered_jobs",
+      metricValue: "1",
+    })
+      .metric({ statistic: "Sum", period: Duration.minutes(5) })
+      .createAlarm(this, "UntriggeredJobsAlarm", {
+        alarmDescription:
+          "The API couldn't start a job, so a saved change waits for the outbox sweep, up to six hours. Check SQS and Scheduler in the home region, and the API's log for the reason.",
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+      })
+      .addAlarmAction(notify);
 
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });
   }
