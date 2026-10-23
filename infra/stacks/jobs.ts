@@ -63,6 +63,9 @@ export class JobsStack extends Stack {
     const configBucket = `arn:${this.partition}:s3:::${param("config-bucket")}`;
     const pageBucket = `arn:${this.partition}:s3:::${pageBucketName(stage, this.account)}`;
     const appKey = `/galena/${stage}/app-key`;
+    // Optional, made by the operator: the ping URL of an outside dead-man's switch, pinged after
+    // each page.heartbeat run.
+    const heartbeat = `/galena/${stage}/jobs-heartbeat`;
     const database = dataApiAccess(this, stage);
 
     // What both functions read: the database, the page bucket, their queue and its dead letters.
@@ -101,9 +104,9 @@ export class JobsStack extends Stack {
     for (const statement of [
       new PolicyStatement({
         actions: ["ssm:GetParameter"],
-        resources: [
-          this.formatArn({ service: "ssm", resource: "parameter", resourceName: appKey.slice(1) }),
-        ],
+        resources: [appKey, heartbeat].map((name) =>
+          this.formatArn({ service: "ssm", resource: "parameter", resourceName: name.slice(1) }),
+        ),
       }),
       // outbox.dispatch rebuilds monitors.json after every monitor change.
       new PolicyStatement({
@@ -174,6 +177,7 @@ export class JobsStack extends Stack {
           ? { GLN_EMAIL_FROM: config.email.from, GLN_SES_CONFIGURATION_SET: `galena-${stage}` }
           : {}),
         GLN_APP_KEY_PARAM: appKey,
+        GLN_HEARTBEAT_PARAM: heartbeat,
         ...access.environment,
       },
       bundling,

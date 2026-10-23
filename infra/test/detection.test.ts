@@ -1,5 +1,5 @@
 import { App, Validations } from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
 import { DetectionStack } from "../stacks/detection.ts";
@@ -47,7 +47,7 @@ test("consumes the queue 10 at a time and reports failed messages one by one", (
   });
 });
 
-test("the evaluator reaches telemetry, monitors.json, its queue and the jobs queue, not Postgres or Scheduler", () => {
+test("the evaluator reaches telemetry, monitors.json, its queue, the jobs queue and its heartbeat URL, not Postgres or Scheduler", () => {
   const statements = Object.values(template.findResources("AWS::IAM::Policy")).flatMap(
     (p) => p.Properties.PolicyDocument.Statement,
   );
@@ -65,8 +65,20 @@ test("the evaluator reaches telemetry, monitors.json, its queue and the jobs que
     "sqs:GetQueueUrl",
     "sqs:ReceiveMessage",
     "sqs:SendMessage",
+    "ssm:GetParameter",
   ]);
-  expect(JSON.stringify(statements)).not.toMatch(/rds-data|secretsmanager|scheduler|ssm/);
+  expect(JSON.stringify(statements)).not.toMatch(/rds-data|secretsmanager|scheduler/);
+  // One parameter, and not the app key or any other secret of the deployment.
+  const parameters = statements
+    .filter((s) => s.Action === "ssm:GetParameter")
+    .flatMap((s) => [s.Resource].flat().map((r) => JSON.stringify(r)));
+  expect(parameters).toHaveLength(1);
+  expect(parameters[0]).toMatch(/:parameter\/galena\/dev\/evaluator-heartbeat"/);
+  template.hasResourceProperties("AWS::Lambda::Function", {
+    Environment: {
+      Variables: Match.objectLike({ GLN_HEARTBEAT_PARAM: "/galena/dev/evaluator-heartbeat" }),
+    },
+  });
 });
 
 test("passes cdk-nag AwsSolutions", () => {

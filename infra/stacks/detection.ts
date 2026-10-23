@@ -51,6 +51,21 @@ export class DetectionStack extends Stack {
     }
     // A transition starts its job with one message to the jobs queue; nothing else, no schedule.
     jobs.grant(role);
+    // Optional, made by the operator: the ping URL of an outside dead-man's switch, read at cold
+    // start. Detection pings it at most once a minute.
+    const heartbeat = `/galena/${stage}/evaluator-heartbeat`;
+    role.addToPolicy(
+      new PolicyStatement({
+        actions: ["ssm:GetParameter"],
+        resources: [
+          this.formatArn({
+            service: "ssm",
+            resource: "parameter",
+            resourceName: heartbeat.slice(1),
+          }),
+        ],
+      }),
+    );
 
     const evaluator = new NodejsFunction(this, "Evaluator", {
       entry: source("apps/evaluator/src/handler.ts"),
@@ -66,6 +81,7 @@ export class DetectionStack extends Stack {
         GLN_TELEMETRY_TABLE: table,
         GLN_CONFIG_BUCKET: configBucket,
         GLN_PROBE_REGIONS: probeRegions.join(","),
+        GLN_HEARTBEAT_PARAM: heartbeat,
         ...jobs.environment,
       },
       bundling,

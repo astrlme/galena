@@ -79,6 +79,7 @@ test("the jobs function gets the workers' settings, its queues and Scheduler, ne
     "GLN_DB_SECRET_ARN",
     "GLN_DEAD_LETTER_URL",
     "GLN_EMAIL_FROM",
+    "GLN_HEARTBEAT_PARAM",
     "GLN_HOME_REGION",
     "GLN_JOBS_QUEUE_ARN",
     "GLN_JOBS_QUEUE_URL",
@@ -141,6 +142,18 @@ test("the jobs function may do what the jobs do, and no more", () => {
     "sqs:SendMessage",
     "ssm:GetParameter",
   ]);
+});
+
+test("the jobs function reads the app key and its heartbeat URL, and no other parameter", () => {
+  const parameters = Object.values(template.findResources("AWS::IAM::Policy"))
+    .filter((p) => p.Properties.Roles.some((r: { Ref: string }) => r.Ref.startsWith("JobsRole")))
+    .flatMap((p) => p.Properties.PolicyDocument.Statement)
+    .filter((s: { Action: string }) => s.Action === "ssm:GetParameter")
+    .flatMap((s: { Resource: unknown }) => [s.Resource].flat().map((r) => JSON.stringify(r)));
+  expect(parameters).toHaveLength(2);
+  expect(parameters[0]).toMatch(/:parameter\/galena\/dev\/app-key"/);
+  expect(parameters[1]).toMatch(/:parameter\/galena\/dev\/jobs-heartbeat"/);
+  expect(fn("Jobs").Environment.Variables.GLN_HEARTBEAT_PARAM).toBe("/galena/dev/jobs-heartbeat");
 });
 
 test("the builder may build and upload the page, and no more: no app key, email or Scheduler", () => {
