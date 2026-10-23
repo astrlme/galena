@@ -67,6 +67,20 @@ export function appKey(): string {
   return LOCAL_APP_KEY;
 }
 
+let hostHeartbeatUrl: string | undefined;
+
+/**
+ * On Lambda the host reads the ping URL of the operator's outside dead-man's switch from SSM at
+ * cold start, when the deployment has one. Locally nothing pings.
+ */
+export function setHeartbeatUrl(url: string | undefined) {
+  hostHeartbeatUrl = url;
+}
+
+export function heartbeatUrl(): string | undefined {
+  return hostHeartbeatUrl;
+}
+
 const arn = z.string().startsWith("arn:");
 
 /** What a job function on Lambda reads besides the above: its queue, and where failures go. */
@@ -78,6 +92,7 @@ export const engineEnv = () =>
   z
     .object({
       GLN_APP_KEY_PARAM: z.string().startsWith("/"),
+      GLN_HEARTBEAT_PARAM: z.string().startsWith("/").optional(),
       GLN_JOBS_QUEUE_URL: z.url(),
       GLN_JOBS_QUEUE_ARN: arn,
       GLN_BUILDS_QUEUE_URL: z.url(),

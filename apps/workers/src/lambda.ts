@@ -1,19 +1,37 @@
 import { SchedulerClient } from "@aws-sdk/client-scheduler";
-import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
+import { GetParameterCommand, ParameterNotFound, SSMClient } from "@aws-sdk/client-ssm";
 import { sqsEngine } from "@galena/integrations/jobs/aws";
 import { setEngine } from "./engine.ts";
-import { engineEnv, setAppKey } from "./env.ts";
+import { engineEnv, setAppKey, setHeartbeatUrl } from "./env.ts";
 import { sqsLambda } from "./lambda-host.ts";
+import { errorFields, log } from "./log.ts";
 
 const host = engineEnv();
 
 /** The jobs function: every job but the HTML build, starting others through SQS and Scheduler. */
 export const handler = sqsLambda(async (sqs) => {
-  const { Parameter } = await new SSMClient({}).send(
-    new GetParameterCommand({ Name: host.GLN_APP_KEY_PARAM, WithDecryption: true }),
-  );
-  if (!Parameter?.Value) throw new Error(`SSM parameter ${host.GLN_APP_KEY_PARAM} has no value.`);
-  setAppKey(Parameter.Value);
+  const ssm = new SSMClient({});
+  const parameter = async (name: string) =>
+    (
+      await ssm.send(new GetParameterCommand({ Name: name, WithDecryption: true }), {
+        abortSignal: AbortSignal.timeout(5_000),
+      })
+    ).Parameter?.Value;
+  const key = await parameter(host.GLN_APP_KEY_PARAM);
+  if (!key) throw new Error(`SSM parameter ${host.GLN_APP_KEY_PARAM} has no value.`);
+  setAppKey(key);
+  // Optional: without it there is no outside dead-man's switch, and a read that fails leaves it
+  // off (which the switch then reports) instead of failing every job.
+  if (host.GLN_HEARTBEAT_PARAM) {
+    setHeartbeatUrl(
+      await parameter(host.GLN_HEARTBEAT_PARAM).catch((error: unknown) => {
+        if (!(error instanceof ParameterNotFound)) {
+          log.error("heartbeat URL not read", errorFields(error));
+        }
+        return undefined;
+      }),
+    );
+  }
   setEngine(
     sqsEngine({
       sqs,
