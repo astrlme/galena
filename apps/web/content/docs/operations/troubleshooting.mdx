@@ -10,7 +10,7 @@ below, and the dashboard's own error messages, which name what to do.
 
 ## Alarms
 
-Twelve CloudWatch alarms in the home region publish to the SNS topic `galena-<stage>-alarms`:
+Thirteen CloudWatch alarms in the home region publish to the SNS topic `galena-<stage>-alarms`:
 
 | Alarm | Fires when |
 | --- | --- |
@@ -24,6 +24,7 @@ Twelve CloudWatch alarms in the home region publish to the SNS topic `galena-<st
 | No heartbeat | `page.heartbeat` hasn't run for two hours |
 | Database awake | Aurora has been awake for 4 hours in a row: something keeps querying it |
 | API traffic | The API answered over 5,000 requests in an hour: look for unexpected callers |
+| Untriggered jobs | The API couldn't start a job, so a saved change waits for the outbox sweep, up to six hours: check SQS and Scheduler, and the API's log for the reason |
 
 Nothing subscribes to the topic in code, so no address is kept in your fork. Subscribe one once,
 then confirm the email AWS sends:
@@ -32,6 +33,50 @@ then confirm the email AWS sends:
 aws sns subscribe --region <home region> --protocol email --notification-endpoint you@example.com \
   --topic-arn "$(aws ssm get-parameter --region <home region> --name /galena/dev/alarm-topic-arn --query Parameter.Value --output text)"
 ```
+
+## Outside heartbeats
+
+The alarms run in the same AWS account as everything they watch. If the account, CloudWatch or
+the email path stops, they stop too, and nothing says so. An outside dead-man's switch covers
+that: Galena pings it while it works, and the service emails you when the pings stop.
+
+Galena pings two URLs, each optional:
+
+| Parameter | Pinged | Set the check to |
+| --- | --- | --- |
+| `/galena/dev/evaluator-heartbeat` | By the evaluator, at most once a minute while it evaluates check results | Period 1 minute, grace 4 minutes |
+| `/galena/dev/jobs-heartbeat` | After each hourly `page.heartbeat` run | Period 1 hour, grace 1 hour |
+
+The evaluator runs only when probes send results, so its check needs at least one monitor. Any
+service that takes a plain `GET` to a ping URL works. [Healthchecks.io](https://healthchecks.io/)
+does on its free plan, and is open source if you'd rather run it yourself.
+
+1. Create the two checks with the periods above, and copy each one's ping URL.
+2. Store each URL as a SecureString in the home region. Anyone who has the URL can keep the
+   check quiet, so treat it as a secret:
+
+   ```bash
+   aws ssm put-parameter --region <home region> --name /galena/dev/evaluator-heartbeat \
+     --type SecureString --value "https://hc-ping.com/<uuid>"
+   aws ssm put-parameter --region <home region> --name /galena/dev/jobs-heartbeat \
+     --type SecureString --value "https://hc-ping.com/<uuid>"
+   ```
+
+3. The evaluator and the jobs read their URL when a Lambda container starts. Store the URLs
+   before your first deploy and the pings start with it. On a running deployment, a deploy
+   that changes nothing starts no new containers, so start them yourself:
+
+   ```bash
+   for fn in $(aws lambda list-functions --region <home region> --output text --query \
+     "Functions[?starts_with(FunctionName, 'galena-dev-detection-Evaluator') || starts_with(FunctionName, 'galena-dev-jobs-Jobs')].FunctionName"); do
+     aws lambda update-function-configuration --region <home region> --function-name "$fn" \
+       --description "Heartbeat URL read $(date -u +%FT%TZ)" > /dev/null
+   done
+   ```
+
+   `galena doctor` warns while either URL is missing.
+
+A ping that fails is logged as `heartbeat ping failed` and never fails the work it follows.
 
 ## The first request is slow
 

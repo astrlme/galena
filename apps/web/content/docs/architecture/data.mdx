@@ -71,5 +71,6 @@ Under `/galena/<stage>/`:
 | Parameter | Kind | Set by |
 | --- | --- | --- |
 | `auth-secret`, `app-key`, `setup-token` | SecureString | You once, or `galena deploy` |
+| `evaluator-heartbeat`, `jobs-heartbeat` (optional) | SecureString | You: the ping URLs of an [outside dead-man's switch](/docs/operations/troubleshooting/#outside-heartbeats) |
 | `public-url` | String | The web stack: the dashboard's address |
 | `database-cluster-arn`, `database-secret-arn`, `telemetry-table`, `check-results-queue-url`, `check-results-queue-arn`, `config-bucket`, `alarm-topic-arn` | String | The foundation stack |

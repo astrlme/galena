@@ -149,7 +149,10 @@ The API and the background jobs read them when a Lambda container starts. Keep t
 key makes stored Slack URLs, webhook secrets and old subscription links unreadable.
 
 A fourth, `/galena/dev/slack-app`, is optional: it holds your Slack app's secrets for
-[approvals in Slack](/docs/guides/slack-app/).
+[approvals in Slack](/docs/guides/slack-app/). So are `/galena/dev/evaluator-heartbeat` and
+`/galena/dev/jobs-heartbeat`, the ping URLs of an
+[outside dead-man's switch](/docs/operations/troubleshooting/#outside-heartbeats) that emails you
+when Galena stops, even if AWS can't.
 
 </Step>
 <Step>

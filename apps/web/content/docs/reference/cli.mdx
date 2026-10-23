@@ -64,6 +64,7 @@ the names of your secrets, never their values, and asks GitHub for the latest re
 | `aws` | Who your credentials belong to | There are none |
 | `bootstrap` | CDK's bootstrap version in every region the deployment uses, us-east-1 included | A region isn't bootstrapped |
 | `parameters` | The SecureStrings under `/galena/<stage>/` | `auth-secret` or `app-key` is missing or not a SecureString |
+| `heartbeat` | The [outside heartbeat](/docs/operations/troubleshooting/#outside-heartbeats) URLs under `/galena/<stage>/` | `evaluator-heartbeat` or `jobs-heartbeat` is missing or not a SecureString: a warning |
 | `stacks` | Every stack the config creates, in its region | One is missing or failed. One still updating, or whose last update rolled back, is a warning |
 | `version` | The version the deployment runs, the CLI's, and the latest release on GitHub | A warning when they differ or none is recorded. GitHub not answering within 5 seconds leaves the latest release out |
 | `dns` | The CNAME of each custom domain | It doesn't point at its CloudFront distribution (with Cloudflare, also when the record is proxied) |
