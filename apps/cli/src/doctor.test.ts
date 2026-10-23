@@ -7,6 +7,7 @@ import {
   capacityCheck,
   doctor,
   formatCheck,
+  heartbeatCheck,
   nodeCheck,
   stackState,
   versionCheck,
@@ -105,5 +106,24 @@ test("capacity past the free tier is a warning naming each table that uses some"
     "galena-dev-telemetry: 5 read, 5 write",
     "other-app: 20 read, 10 write",
     "telemetry (not deployed yet): 5 read, 5 write",
+  ]);
+});
+
+test("a missing outside heartbeat URL is a warning saying what nobody would hear about", () => {
+  const both = new Map([
+    ["/galena/dev/evaluator-heartbeat", "SecureString"],
+    ["/galena/dev/jobs-heartbeat", "SecureString"],
+  ]);
+  expect(heartbeatCheck(both, "dev")).toEqual({
+    status: "ok",
+    summary: "2 of 2 outside heartbeat URLs are SecureStrings under /galena/dev/",
+    details: [],
+  });
+  const one = heartbeatCheck(new Map([["/galena/dev/jobs-heartbeat", "String"]]), "dev");
+  expect(one.status).toBe("warn");
+  expect(one.summary).toBe("0 of 2 outside heartbeat URLs are SecureStrings under /galena/dev/");
+  expect(one.details).toEqual([
+    "/galena/dev/evaluator-heartbeat is missing: nothing outside AWS emails you when detection stops",
+    "/galena/dev/jobs-heartbeat is a String, not a SecureString: anyone who reads it can keep the check quiet",
   ]);
 });

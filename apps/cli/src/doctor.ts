@@ -53,6 +53,33 @@ export function stackState(status: string | undefined): Status {
 /** The secrets the API and the jobs read at cold start. */
 const SECRETS = ["auth-secret", "app-key"];
 
+/** Optional ping URLs of an outside dead-man's switch, and what goes unheard without each. */
+const HEARTBEATS = [
+  ["evaluator-heartbeat", "detection stops"],
+  ["jobs-heartbeat", "the background jobs stop"],
+] as const;
+
+/** Whether each outside heartbeat URL is set, as a SecureString: the URL is the operator's secret. */
+export function heartbeatCheck(types: Map<string, string>, stage: string): Finding {
+  const prefix = `/galena/${stage}`;
+  const findings = HEARTBEATS.flatMap(([name, unheard]): Problem[] => {
+    const type = types.get(`${prefix}/${name}`);
+    if (type === "SecureString") return [];
+    return [
+      {
+        status: "warn",
+        text: type
+          ? `${prefix}/${name} is a ${type}, not a SecureString: anyone who reads it can keep the check quiet`
+          : `${prefix}/${name} is missing: nothing outside AWS emails you when ${unheard}`,
+      },
+    ];
+  });
+  return judge(
+    `${HEARTBEATS.length - findings.length} of ${HEARTBEATS.length} outside heartbeat URLs are SecureStrings under ${prefix}/`,
+    findings,
+  );
+}
+
 type Table = { name: string; read: number; write: number };
 const FREE_UNITS = 25;
 
@@ -143,6 +170,7 @@ export function versionCheck({
 function checks(config: StageConfig) {
   const home = config.homeRegion;
   let stacks = new Map<string, Stack>();
+  let types: Map<string, string> | undefined;
 
   return [
     ["node", async () => nodeCheck()],
@@ -173,9 +201,9 @@ function checks(config: StageConfig) {
       "parameters",
       async () => {
         const prefix = `/galena/${config.stage}`;
-        const types = await parameterTypes(config);
+        types = await parameterTypes(config);
         const findings = SECRETS.flatMap((name): Problem[] => {
-          const type = types.get(`${prefix}/${name}`);
+          const type = types?.get(`${prefix}/${name}`);
           if (type === "SecureString") return [];
           return [
             {
@@ -189,6 +217,10 @@ function checks(config: StageConfig) {
           findings,
         );
       },
+    ],
+    [
+      "heartbeat",
+      async () => heartbeatCheck(types ?? (await parameterTypes(config)), config.stage),
     ],
     [
       "stacks",
