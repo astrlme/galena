@@ -23,5 +23,7 @@ export const env = z
     GLN_SCHEDULE_GROUP: z.string().min(1),
     GLN_SCHEDULER_ROLE_ARN: z.string().startsWith("arn:"),
     GLN_SCHEDULE_DEAD_LETTER_ARN: z.string().startsWith("arn:"),
+    /** An optional SecureString: the ping URL of the operator's outside dead-man's switch. */
+    GLN_HEARTBEAT_PARAM: z.string().startsWith("/").optional(),
   })
   .parse(process.env);
