@@ -79,7 +79,7 @@ ports, so the same rules run in Lambda, in local development, in tests and in th
 | `galena-<stage>-foundation` | Home | VPC with isolated subnets only, Aurora, DynamoDB, the SQS FIFO queues for check results, jobs and HTML builds with their dead-letter queues, the job schedules' group, the config bucket, SSM parameters |
 | `galena-<stage>-probe-<region>` | Each probe region | The probe Lambda and its every-minute schedule |
 | `galena-<stage>-detection` | Home | The evaluator |
-| `galena-<stage>-api` | Home | The API Lambda, HTTP API, the migration Lambda, the origin secret |
+| `galena-<stage>-api` | Home | The API Lambda, HTTP API, the migration Lambda, the origin secret, the CloudWatch dashboard |
 | `galena-<stage>-web`, `-dashboard-certificate` | Home, us-east-1 | The dashboard's bucket, CloudFront distribution and, with a domain, its certificate |
 | `galena-<stage>-email` | Home | SES identity, configuration set and bounce handling |
 | `galena-<stage>-page`, `-page-replica`, `-page-certificate` | Page regions, us-east-1 | Page buckets, CloudFront, certificate |

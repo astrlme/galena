@@ -8,6 +8,12 @@ Most problems show up in one of three places: CloudWatch Logs (the jobs log
 `/galena/<stage>/builder`, and every other Lambda has its own, all kept a month), the alarms
 below, and the dashboard's own error messages, which name what to do.
 
+The CloudWatch dashboard `galena-<stage>` in the home region shows the trend behind the alarms:
+checks in each probe region, check results sent, the evaluator's errors, throttles and
+transitions, how long the oldest message in each queue has waited, dead letters (where a job that
+failed for good ends up), job crashes and heartbeat runs, API requests and latency, and Aurora's
+capacity. It adds no custom metrics, and it is one of the three dashboards the free tier covers.
+
 ## Alarms
 
 Thirteen CloudWatch alarms in the home region publish to the SNS topic `galena-<stage>-alarms`:
