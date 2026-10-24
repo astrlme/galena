@@ -10,7 +10,7 @@ import {
   Token,
   Validations,
 } from "aws-cdk-lib";
-import { ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
+import { ComparisonOperator, MathExpression, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
 import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
 import { type IRole, PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { Architecture, Code, Function as LambdaFunction, Runtime } from "aws-cdk-lib/aws-lambda";
@@ -224,7 +224,9 @@ export class JobsStack extends Stack {
     }
 
     // Nothing else says the cold path stopped: the hourly heartbeat logs each run, and two hours
-    // without one alarm. Locally the heartbeat logs the same line, but nothing counts it.
+    // without one alarm. Locally the heartbeat logs the same line, but nothing counts it. The
+    // filter writes nothing in an hour without a run, and CloudWatch ignores missing data while
+    // older runs are still in the alarm's evaluation range, so the silent hours are filled with 0.
     const heartbeats = new MetricFilter(this, "HeartbeatRuns", {
       logGroup: jobsLogs,
       filterPattern: FilterPattern.stringValue("$.message", "=", "page.heartbeat"),
@@ -232,8 +234,11 @@ export class JobsStack extends Stack {
       metricName: "heartbeat_runs",
       metricValue: "1",
     });
-    heartbeats
-      .metric({ period: Duration.hours(1), statistic: "Sum" })
+    new MathExpression({
+      expression: "FILL(runs, 0)",
+      usingMetrics: { runs: heartbeats.metric({ statistic: "Sum" }) },
+      period: Duration.hours(1),
+    })
       .createAlarm(this, "NoHeartbeatAlarm", {
         alarmDescription:
           "No page.heartbeat ran for two hours: the jobs, their schedules or Scheduler stopped.",

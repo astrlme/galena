@@ -1,5 +1,5 @@
 import { App, Validations } from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
 import { JobsStack } from "../stacks/jobs.ts";
@@ -221,8 +221,17 @@ test("the functions log to named groups, and two hours without a heartbeat alarm
     ],
   });
   template.hasResourceProperties("AWS::CloudWatch::Alarm", {
-    MetricName: "heartbeat_runs",
-    Period: 3600,
+    Metrics: Match.arrayWith([
+      Match.objectLike({ Expression: "FILL(runs, 0)", ReturnData: true }),
+      Match.objectLike({
+        Id: "runs",
+        MetricStat: Match.objectLike({
+          Metric: Match.objectLike({ Namespace: "Galena", MetricName: "heartbeat_runs" }),
+          Period: 3600,
+          Stat: "Sum",
+        }),
+      }),
+    ]),
     EvaluationPeriods: 2,
     Threshold: 1,
     ComparisonOperator: "LessThanThreshold",
