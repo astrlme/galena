@@ -89,6 +89,18 @@ describe("planAutopilot: going down", () => {
     });
   });
 
+  test("an internal incident on the component doesn't take the outage: the public still hears", () => {
+    const internal = { ...manual, visibility: "internal" as const };
+    expect(plan({ openIncidents: [internal] })).toMatchObject({
+      action: "open",
+      visibility: "draft",
+    });
+    expect(plan({ openIncidents: [internal, manual] })).toEqual({
+      action: "attach",
+      incidentId: manual.id,
+    });
+  });
+
   test("failing again before it is stable takes its incident back to Investigating", () => {
     expect(plan({ from: "recovering", openIncidents: [own("monitoring")] })).toEqual({
       action: "update",

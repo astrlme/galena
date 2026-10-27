@@ -108,7 +108,8 @@ export function planSignal(input: {
   if (input.inMaintenance) return { action: "none", outcome: "suppressed" };
   const components = input.routed.filter((c) => componentNames.has(c.componentId));
   if (components.length === 0) return { action: "none", outcome: "no_route" };
-  const [covering] = input.covering;
+  // An internal incident tells nobody outside, so the integration's policy still decides.
+  const covering = input.covering.find((i) => i.visibility !== "internal");
   if (covering) return { action: "attach", incidentId: covering.id };
 
   const names = named(components.map((c) => c.componentId));

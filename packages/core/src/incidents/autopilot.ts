@@ -109,7 +109,8 @@ export function planAutopilot(input: {
         body: investigating,
       };
     }
-    const covering = own ?? input.openIncidents[0];
+    // An internal incident tells nobody outside, so the monitor's policy still decides.
+    const covering = own ?? input.openIncidents.find((i) => i.visibility !== "internal");
     if (covering) return { action: "attach", incidentId: covering.id };
     const draft = monitor.publishPolicy === "approve";
     return {

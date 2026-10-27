@@ -145,6 +145,11 @@ describe("planSignal: firing", () => {
     expect(plan({ covering: [manual] })).toEqual({ action: "attach", incidentId: manual.id });
   });
 
+  test("an internal incident on a routed component doesn't take the alert", () => {
+    const internal = { ...manual, visibility: "internal" as const };
+    expect(plan({ covering: [internal] })).toMatchObject({ action: "open" });
+  });
+
   test("internal_only and maintenance open nothing", () => {
     expect(plan({ policy: "internal_only" })).toEqual({ action: "none", outcome: "internal_only" });
     expect(plan({ inMaintenance: true })).toEqual({ action: "none", outcome: "suppressed" });
