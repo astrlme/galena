@@ -32,7 +32,7 @@ export const incidentCreate = z.object({
   body: updateBody,
   components: affectedComponents.default([]),
   /** `internal`: on the internal page only, and nobody is told. */
-  visibility: z.enum(["published", "internal"]).default("published"),
+  visibility: z.enum(incidentVisibilities).extract(["published", "internal"]).default("published"),
 });
 export type IncidentCreate = z.infer<typeof incidentCreate>;
 
