@@ -13,6 +13,7 @@ type View = {
   title: string;
   status: string;
   impact: string;
+  visibility: string;
   resolvedAt: string | null;
   components: { componentId: string; status: string }[];
   updates: { status: string; body: string }[];
@@ -111,6 +112,25 @@ test("an incident is published, updated and resolved, and leaves the open list",
     "incident.resolved",
   ]);
   expect(triggered.filter((t) => t.task === "outbox.dispatch").length).toBeGreaterThanOrEqual(3);
+});
+
+test("an incident for the internal page only stays internal, so it tells nobody", async () => {
+  const created = await post("/v1/incidents", {
+    title: "Build runners slow",
+    impact: "minor",
+    visibility: "internal",
+    body: "Builds take twice as long as usual.",
+  });
+  expect(created).toMatchObject({ visibility: "internal", status: "investigating" });
+  const [event] = await deps.db
+    .select({ payload: schema.outbox.payload })
+    .from(schema.outbox)
+    .where(sql`${schema.outbox.payload}->'data'->>'incidentId' = ${created.id}`);
+  // The fan-out tells subscribers and endpoints only about published incidents.
+  expect(event?.payload).toMatchObject({ data: { visibility: "internal" } });
+  // Drafts come from monitors; a person posts to the page or the internal page.
+  const draft = { title: "Slow builds", impact: "minor", visibility: "draft", body: "Slow." };
+  await post("/v1/incidents", draft, 400);
 });
 
 test("refuses a move the lifecycle doesn't have, and writes nothing", async () => {

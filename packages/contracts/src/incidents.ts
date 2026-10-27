@@ -31,6 +31,8 @@ export const incidentCreate = z.object({
   status: z.enum(incidentStatuses).default("investigating"),
   body: updateBody,
   components: affectedComponents.default([]),
+  /** `internal`: on the internal page only, and nobody is told. */
+  visibility: z.enum(["published", "internal"]).default("published"),
 });
 export type IncidentCreate = z.infer<typeof incidentCreate>;
 

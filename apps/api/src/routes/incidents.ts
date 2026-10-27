@@ -139,7 +139,7 @@ export function registerIncidentRoutes(app: App, deps: Deps) {
       method: "post",
       path: "/v1/incidents",
       tags: ["Incidents"],
-      summary: "Publish an incident with its first update",
+      summary: "Publish an incident with its first update, or post it to the internal page only",
       middleware: [editor],
       request: jsonBody(incidentCreate),
       responses: { 201: json(incidentView, "The new incident") },
@@ -156,7 +156,7 @@ export function registerIncidentRoutes(app: App, deps: Deps) {
         workspaceId: member.workspaceId,
         title: input.title,
         impact: input.impact,
-        visibility: "published" as const,
+        visibility: input.visibility,
         source: "manual" as const,
         startedAt: now,
       };

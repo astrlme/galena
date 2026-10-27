@@ -1034,7 +1034,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Publish an incident with its first update */
+        /** Publish an incident with its first update, or post it to the internal page only */
         post: {
             parameters: {
                 query?: never;
@@ -1061,6 +1061,11 @@ export interface paths {
                             /** @enum {string} */
                             status: "operational" | "degraded_performance" | "partial_outage" | "major_outage";
                         }[];
+                        /**
+                         * @default published
+                         * @enum {string}
+                         */
+                        visibility?: "published" | "internal";
                     };
                 };
             };

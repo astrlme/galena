@@ -1914,7 +1914,7 @@
         "tags": [
           "Incidents"
         ],
-        "summary": "Publish an incident with its first update",
+        "summary": "Publish an incident with its first update, or post it to the internal page only",
         "requestBody": {
           "required": true,
           "content": {
@@ -1978,6 +1978,14 @@
                     },
                     "maxItems": 100,
                     "default": []
+                  },
+                  "visibility": {
+                    "type": "string",
+                    "enum": [
+                      "published",
+                      "internal"
+                    ],
+                    "default": "published"
                   }
                 },
                 "required": [

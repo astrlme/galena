@@ -3,7 +3,7 @@ import { incidentCreate, incidentUpdateCreate } from "./incidents.ts";
 
 const api = "01920000-0000-7000-8000-000000000011";
 
-test("a new incident starts investigating with no components unless told otherwise", () => {
+test("a new incident starts investigating, published, with no components unless told otherwise", () => {
   expect(
     incidentCreate.parse({ title: " API errors ", impact: "major", body: "We're looking." }),
   ).toEqual({
@@ -12,6 +12,7 @@ test("a new incident starts investigating with no components unless told otherwi
     status: "investigating",
     body: "We're looking.",
     components: [],
+    visibility: "published",
   });
 });
 
