@@ -60,6 +60,7 @@ export function IncidentForm({
   });
   const { errors, isSubmitting } = form.formState;
   const affected: Affected[] = form.watch("components") ?? [];
+  const internal = form.watch("visibility") === "internal";
   useTemplate(
     form.watch("status") ?? "investigating",
     componentNames(components, affected),
@@ -129,7 +130,7 @@ export function IncidentForm({
         <input
           type="checkbox"
           className="mt-1 accent-ink"
-          checked={form.watch("visibility") === "internal"}
+          checked={internal}
           onChange={(e) =>
             form.setValue("visibility", e.target.checked ? "internal" : "published", {
               shouldDirty: true,
@@ -149,7 +150,13 @@ export function IncidentForm({
       </p>
       <div className="flex gap-4">
         <Button type="submit" variant="primary" disabled={isSubmitting}>
-          {isSubmitting ? "Publishing…" : "Publish incident"}
+          {internal
+            ? isSubmitting
+              ? "Posting…"
+              : "Post to the internal page"
+            : isSubmitting
+              ? "Publishing…"
+              : "Publish incident"}
         </Button>
         <Button
           type="button"
