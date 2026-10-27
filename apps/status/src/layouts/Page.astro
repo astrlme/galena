@@ -13,10 +13,14 @@ interface Props {
   publishedAt?: string;
 }
 const { title, description, pageName, snapshotVersion, publishedAt } = Astro.props;
-const { url: pageUrl, subscribe } = readSnapshot().page;
+const { url: pageUrl, subscribe, visibility } = readSnapshot().page;
+// The internal view is served under /internal/ behind sign-in: a feed reader can't sign in, and
+// search engines have no business there.
+const base = import.meta.env.BASE_URL;
+const internal = visibility === "internal";
 const feeds = [
-  { id: "feed-rss", name: "RSS", url: new URL("/feed.rss", pageUrl).href },
-  { id: "feed-atom", name: "Atom", url: new URL("/feed.atom", pageUrl).href },
+  { id: "feed-rss", name: "RSS", url: new URL("feed.rss", pageUrl).href },
+  { id: "feed-atom", name: "Atom", url: new URL("feed.atom", pageUrl).href },
 ];
 ---
 
@@ -27,14 +31,15 @@ const feeds = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="alternate" type="application/rss+xml" title={`${pageName} status`} href="/feed.rss" />
-    <link rel="alternate" type="application/atom+xml" title={`${pageName} status`} href="/feed.atom" />
+    {internal && <meta name="robots" content="noindex" />}
+    <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
+    {!internal && <link rel="alternate" type="application/rss+xml" title={`${pageName} status`} href="/feed.rss" />}
+    {!internal && <link rel="alternate" type="application/atom+xml" title={`${pageName} status`} href="/feed.atom" />}
   </head>
   <body>
     <main>
       <header class="brand">
-        <a href="/">
+        <a href={base}>
           <svg class="mark" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
             <path
               fill-rule="evenodd"
@@ -42,34 +47,36 @@ const feeds = [
             ></path>
           </svg>{pageName} status
         </a>
-        {subscribe && <a href="/#subscribe" class="subscribe-link" data-open="subscribe">Subscribe</a>}
+        {subscribe && <a href={`${base}#subscribe`} class="subscribe-link" data-open="subscribe">Subscribe</a>}
       </header>
       <slot />
       <footer>
-        <a href="#feeds" data-open="feeds">Feeds</a>
+        {!internal && <a href="#feeds" data-open="feeds">Feeds</a>}
         <a href="https://galena.astrl.me/">Powered by Galena</a>
       </footer>
       <!-- Like the subscribe dialog: a dialog with JavaScript, a plain section at the end without. -->
-      <dialog id="feeds" class="sheet" aria-labelledby="feeds-title">
-        <div class="sheet-grip" data-grip aria-hidden="true"><span class="sheet-handle"></span></div>
-        <div class="sheet-head">
-          <h2 id="feeds-title">Follow in a feed reader</h2>
-          <button type="button" class="sheet-close" data-close aria-label="Close">
-            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-          </button>
-        </div>
-        <p class="secondary">Incidents, newest first, from the last 14 days.</p>
-        {feeds.map((feed) => (
-          <div class="feed">
-            <label for={feed.id}>{feed.name}</label>
-            <div class="copy-row">
-              <input id={feed.id} type="text" readonly value={feed.url} />
-              <button type="button" data-copy={feed.id} data-name={feed.name}>Copy<span class="sr-only"> the {feed.name} address</span></button>
-            </div>
+      {!internal && (
+        <dialog id="feeds" class="sheet" aria-labelledby="feeds-title">
+          <div class="sheet-grip" data-grip aria-hidden="true"><span class="sheet-handle"></span></div>
+          <div class="sheet-head">
+            <h2 id="feeds-title">Follow in a feed reader</h2>
+            <button type="button" class="sheet-close" data-close aria-label="Close">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+            </button>
           </div>
-        ))}
-        <p class="secondary" role="status" data-copied></p>
-      </dialog>
+          <p class="secondary">Incidents, newest first, from the last 14 days.</p>
+          {feeds.map((feed) => (
+            <div class="feed">
+              <label for={feed.id}>{feed.name}</label>
+              <div class="copy-row">
+                <input id={feed.id} type="text" readonly value={feed.url} />
+                <button type="button" data-copy={feed.id} data-name={feed.name}>Copy<span class="sr-only"> the {feed.name} address</span></button>
+              </div>
+            </div>
+          ))}
+          <p class="secondary" role="status" data-copied></p>
+        </dialog>
+      )}
     </main>
     <script>
       import "../scripts/sheet.ts";

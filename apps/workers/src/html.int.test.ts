@@ -67,6 +67,11 @@ test("builds the HTML from the published snapshot once per version, with no form
   const internal = await readFile(join(dir, "internal", "index.html"), "utf8");
   expect(internal).toContain(`data-snapshot-version="${version}"`);
   expect(internal).toContain("/internal/_astro/");
+  expect(internal).toContain("internal status</title>");
+  expect(internal).toContain('<meta name="robots" content="noindex"');
+  expect(internal).not.toContain("feed.rss");
   expect(html).not.toContain("/internal/");
+  expect(html).not.toContain("noindex");
+  expect(html).toContain("feed.rss");
   expect(await rebuildHtml({ version }, deps)).toEqual({ outcome: "superseded" });
 }, 120_000);

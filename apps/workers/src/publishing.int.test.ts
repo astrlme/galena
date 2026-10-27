@@ -105,6 +105,7 @@ test("publishes the page, and a late run for an older change leaves the newer pa
     snapshotVersion: first + 1,
     page: {
       slug: "internal",
+      name: "Acme internal",
       url: "https://dashboard.example.com/internal/",
       subscribe: false,
       visibility: "internal",

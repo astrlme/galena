@@ -58,7 +58,7 @@ function apply(s: Snapshot) {
 
 async function poll() {
   try {
-    const response = await fetch("/snapshot.json", { cache: "no-cache" });
+    const response = await fetch(`${import.meta.env.BASE_URL}snapshot.json`, { cache: "no-cache" });
     if (response.ok) {
       const s = (await response.json()) as Snapshot;
       if (s.snapshotVersion > version) {

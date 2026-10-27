@@ -25,7 +25,7 @@ const preview = (body: string) => (body.length > 160 ? `${body.slice(0, 157).tri
   <div class="incident-title">
     <span class="label">
       {incident.impact !== "none" && <Glyph name={pageIndicatorStates[incident.impact]} />}
-      <a href={`/incidents/${incident.id}/`}>{incident.title}</a>
+      <a href={`${import.meta.env.BASE_URL}incidents/${incident.id}/`}>{incident.title}</a>
     </span>
     {incident.impact !== "none" && <span class="secondary">{incidentImpactLabels[incident.impact]}</span>}
   </div>
@@ -40,6 +40,6 @@ const preview = (body: string) => (body.length > 160 ? `${body.slice(0, 157).tri
     </ol>
   )}
   {earlier > 0 && (
-    <p class="secondary"><a href={`/incidents/${incident.id}/`}>{earlier} earlier {earlier === 1 ? "update" : "updates"}</a></p>
+    <p class="secondary"><a href={`${import.meta.env.BASE_URL}incidents/${incident.id}/`}>{earlier} earlier {earlier === 1 ? "update" : "updates"}</a></p>
   )}
 </article>

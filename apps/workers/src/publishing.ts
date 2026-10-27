@@ -96,6 +96,7 @@ export async function publishPage(
   await deps.store.write(target.slug, pageFiles(buildSnapshot(inputs, deps.clock)));
   const internal = {
     ...inputs.page,
+    name: `${inputs.page.name} internal`,
     slug: INTERNAL_SLUG,
     url: deps.internalUrl,
     subscribe: false,
