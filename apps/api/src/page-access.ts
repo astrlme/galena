@@ -1,4 +1,5 @@
 import { createSign } from "node:crypto";
+import { generateCookie } from "hono/cookie";
 
 /** Where the internal view is served on the dashboard's origin, behind CloudFront's key group. */
 export const PAGE_PATH = "/internal";
@@ -10,9 +11,20 @@ export const PAGE_COOKIES = [
   "CloudFront-Hash-Algorithm",
 ] as const;
 
+/**
+ * Sent only to the internal page, never readable by a script, and along with a link from Slack
+ * or an email. Session cookies: the policy inside says when access ends.
+ */
+export const PAGE_COOKIE = {
+  path: PAGE_PATH,
+  secure: true,
+  httpOnly: true,
+  sameSite: "Lax",
+} as const;
+
 /** Expired copies of the cookies, for sign-out: the browser drops them at once. */
-export const expiredPageCookies = PAGE_COOKIES.map(
-  (name) => `${name}=; Max-Age=0; Path=${PAGE_PATH}; Secure; HttpOnly; SameSite=Lax`,
+export const expiredPageCookies = PAGE_COOKIES.map((name) =>
+  generateCookie(name, "", { ...PAGE_COOKIE, maxAge: 0 }),
 );
 
 /** Base64 in CloudFront's alphabet: `+`, `=` and `/` become `-`, `_` and `~`. */

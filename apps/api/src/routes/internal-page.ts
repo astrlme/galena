@@ -1,7 +1,7 @@
 import { createRoute } from "@hono/zod-openapi";
 import { setCookie } from "hono/cookie";
 import { type App, type Deps, fail, requireRole } from "../http.ts";
-import { PAGE_PATH, signedCookies } from "../page-access.ts";
+import { PAGE_COOKIE, signedCookies } from "../page-access.ts";
 import { noContent } from "./shared.ts";
 
 // Long enough to keep working through an outage that began after a member opened the page; a
@@ -29,9 +29,9 @@ export function registerInternalPageRoutes(app: App, deps: Deps) {
         return fail({
           status: 503,
           code: "internal_page_off",
-          title: "The internal page isn't set up",
+          title: "The internal page isn't available",
           detail:
-            "This deployment has no key to sign access with. Run galena doctor to see what is missing.",
+            "The API couldn't read the key that signs access to the internal page. Deploy again, which makes the key if it's missing; if that doesn't help, the API's log says why.",
         });
       }
       const cookies = signedCookies({
@@ -39,14 +39,7 @@ export function registerInternalPageRoutes(app: App, deps: Deps) {
         expires: new Date(Date.now() + ACCESS_MS),
         ...access,
       });
-      for (const [name, value] of Object.entries(cookies)) {
-        setCookie(c, name, value, {
-          path: PAGE_PATH,
-          secure: true,
-          httpOnly: true,
-          sameSite: "Lax",
-        });
-      }
+      for (const [name, value] of Object.entries(cookies)) setCookie(c, name, value, PAGE_COOKIE);
       return c.body(null, 204);
     },
   );
