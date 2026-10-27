@@ -58,7 +58,7 @@ export function Time({ iso }: { iso: string }) {
 const NOT_PUBLISHED: Record<Exclude<IncidentVisibility, "published">, string> = {
   draft: "Draft, not on the status page",
   dismissed: "Dismissed, never published",
-  internal: "Internal, never published",
+  internal: "On the internal page only, not the status page",
 };
 
 /** Says when an incident isn't on the status page; a waiting draft says when it publishes. */

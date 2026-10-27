@@ -55,6 +55,7 @@ export function IncidentForm({
       status: "investigating",
       body: "",
       components: [],
+      visibility: "published",
     },
   });
   const { errors, isSubmitting } = form.formState;
@@ -124,6 +125,25 @@ export function IncidentForm({
         error={errors.body?.message}
         registration={form.register("body")}
       />
+      <label className="flex gap-3">
+        <input
+          type="checkbox"
+          className="mt-1 accent-ink"
+          checked={form.watch("visibility") === "internal"}
+          onChange={(e) =>
+            form.setValue("visibility", e.target.checked ? "internal" : "published", {
+              shouldDirty: true,
+            })
+          }
+        />
+        <span className="flex flex-col">
+          <span className="font-semibold">Internal page only</span>
+          <span className="text-[14px] text-slate">
+            Members see it on the internal page. It stays off the status page, and nobody is
+            notified.
+          </span>
+        </span>
+      </label>
       <p aria-live="polite" className="font-semibold text-major empty:hidden">
         {problem}
       </p>
