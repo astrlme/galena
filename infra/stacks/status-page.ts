@@ -44,7 +44,6 @@ import {
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
 import { ORIGIN_HEADER, originSecretName } from "./api.ts";
-import { indexRewrite } from "./web.ts";
 
 // The page the workers publish: `ensurePage` creates it with this slug.
 const PAGE_SLUG = "status";
@@ -58,6 +57,15 @@ export const corsPreflight = `function handler(event) {
   var request = event.request;
   if (request.method !== "OPTIONS") return request;
   return { statusCode: 204, statusDescription: "No Content" };
+}`;
+
+// S3 behind OAC has no index documents: /x/ and /x serve x/index.html, as Astro and Next's
+// static export write them. The page and the dashboard both use it.
+export const indexRewrite = `function handler(event) {
+  var request = event.request;
+  if (request.uri.endsWith("/")) request.uri += "index.html";
+  else if (request.uri.lastIndexOf(".") < request.uri.lastIndexOf("/")) request.uri += "/index.html";
+  return request;
 }`;
 
 /** Bucket names are fixed so the stacks in each region, and the workers, can name them. */

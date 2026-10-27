@@ -79,6 +79,7 @@ const web = new WebStack(app, `galena-${config.stage}-web`, {
   env,
   config,
   api: api.api,
+  pageKeyGroup: api.pageKeyGroup,
   domain: config.webDomain,
   ...(webCertificate ? { certificate: webCertificate, crossRegionReferences: true } : {}),
 });

@@ -16,6 +16,7 @@ import type { HttpApi } from "aws-cdk-lib/aws-apigatewayv2";
 import type { ICertificate } from "aws-cdk-lib/aws-certificatemanager";
 import {
   AllowedMethods,
+  type BehaviorOptions,
   CacheCookieBehavior,
   CacheHeaderBehavior,
   CachePolicy,
@@ -27,6 +28,7 @@ import {
   FunctionRuntime,
   HeadersFrameOption,
   HeadersReferrerPolicy,
+  type IKeyGroup,
   OriginRequestCookieBehavior,
   OriginRequestHeaderBehavior,
   OriginRequestPolicy,
@@ -35,21 +37,14 @@ import {
   SecurityPolicyProtocol,
   ViewerProtocolPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
-import { HttpOrigin, S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
+import { HttpOrigin, OriginGroup, S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
 import { BlockPublicAccess, Bucket, BucketEncryption, type CfnBucket } from "aws-cdk-lib/aws-s3";
 import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
 import type { StageConfig } from "../config/stages.ts";
 import { ORIGIN_HEADER, originSecretName, SETUP_TOKEN_HEADER } from "./api.ts";
-
-// The export writes /dashboard/ as dashboard/index.html; S3 behind OAC has no index documents.
-export const indexRewrite = `function handler(event) {
-  var request = event.request;
-  if (request.uri.endsWith("/")) request.uri += "index.html";
-  else if (request.uri.lastIndexOf(".") < request.uri.lastIndexOf("/")) request.uri += "/index.html";
-  return request;
-}`;
+import { indexRewrite, pageBucketName } from "./status-page.ts";
 
 /**
  * The Next.js static export in S3 behind CloudFront. With `api` it is the dashboard: /auth/* and
@@ -68,6 +63,8 @@ export class WebStack extends Stack {
       certificate?: ICertificate;
       /** The static export to upload; tests pass a fixture. */
       siteDir?: string;
+      /** With `api`: the key CloudFront trusts on /internal*, where the page's internal view is. */
+      pageKeyGroup?: IKeyGroup;
     },
   ) {
     super(scope, id, props);
@@ -116,6 +113,23 @@ export class WebStack extends Stack {
       },
     });
 
+    const indexFunction = new CloudFrontFunction(this, "IndexRewrite", {
+      code: FunctionCode.fromInline(indexRewrite),
+      runtime: FunctionRuntime.JS_2_0,
+    });
+    const behaviors =
+      apiBehaviors && props.pageKeyGroup
+        ? {
+            ...apiBehaviors,
+            "/internal*": this.internalBehavior(
+              props.config,
+              props.pageKeyGroup,
+              headers,
+              indexFunction,
+            ),
+          }
+        : apiBehaviors;
+
     const domain = props.certificate ? props.domain : undefined;
     const distribution = new Distribution(this, "Distribution", {
       comment: `Galena ${props.config.stage} ${kind}`,
@@ -131,20 +145,14 @@ export class WebStack extends Stack {
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         responseHeadersPolicy: headers,
         functionAssociations: [
-          {
-            eventType: FunctionEventType.VIEWER_REQUEST,
-            function: new CloudFrontFunction(this, "IndexRewrite", {
-              code: FunctionCode.fromInline(indexRewrite),
-              runtime: FunctionRuntime.JS_2_0,
-            }),
-          },
+          { eventType: FunctionEventType.VIEWER_REQUEST, function: indexFunction },
         ],
       },
       // The dashboard has no custom error pages: CloudFront applies them to every behaviour and
       // would turn the API's JSON 403 and 404 problems into HTML. The site has no API, and S3
       // answers 403 for a missing file.
-      ...(apiBehaviors
-        ? { additionalBehaviors: apiBehaviors }
+      ...(behaviors
+        ? { additionalBehaviors: behaviors }
         : {
             errorResponses: [403, 404].map((httpStatus) => ({
               httpStatus,
@@ -268,6 +276,42 @@ export class WebStack extends Stack {
       originRequestPolicy: apiRequests,
     };
     return { "/auth/*": behavior, "/v1/*": behavior, "/slack/*": behavior, "/hooks/*": behavior };
+  }
+
+  /**
+   * The page's internal view, from the page buckets where `page.publish` writes it beside the
+   * page (`/internal/x` is `pages/internal/x`), for browsers holding cookies the API signed.
+   * GET and HEAD only: CloudFront doesn't check signatures on OPTIONS.
+   */
+  private internalBehavior(
+    config: StageConfig,
+    keyGroup: IKeyGroup,
+    headers: ResponseHeadersPolicy,
+    indexFunction: CloudFrontFunction,
+  ): BehaviorOptions {
+    const page = (replica: boolean) =>
+      S3BucketOrigin.withOriginAccessControl(
+        Bucket.fromBucketAttributes(this, replica ? "PageReplica" : "Page", {
+          bucketName: pageBucketName(config.stage, this.account, replica),
+          region: replica ? config.pageRegions.replica : config.pageRegions.primary,
+        }),
+        { originPath: "/pages" },
+      );
+    return {
+      // Like the page's own distribution: the replica answers when the primary region can't.
+      origin: new OriginGroup({
+        primaryOrigin: page(false),
+        fallbackOrigin: page(true),
+        fallbackStatusCodes: [403, 500, 502, 503, 504],
+      }),
+      viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      allowedMethods: AllowedMethods.ALLOW_GET_HEAD,
+      responseHeadersPolicy: headers,
+      trustedKeyGroups: [keyGroup],
+      functionAssociations: [
+        { eventType: FunctionEventType.VIEWER_REQUEST, function: indexFunction },
+      ],
+    };
   }
 }
 

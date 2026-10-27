@@ -6,8 +6,8 @@ import { Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { describe, expect, test } from "vitest";
 import { ApiStack } from "../stacks/api.ts";
-import { CertificateStack } from "../stacks/status-page.ts";
-import { indexRewrite, WebStack } from "../stacks/web.ts";
+import { CertificateStack, indexRewrite } from "../stacks/status-page.ts";
+import { WebStack } from "../stacks/web.ts";
 import { fixture } from "./fixture.ts";
 
 const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
@@ -17,13 +17,19 @@ const api = new ApiStack(app, "Api", { env, config: fixture, version: "1.2.3" })
 // A one-page export, so the upload and its cdk-nag acknowledgements are always exercised.
 const siteDir = mkdtempSync(join(tmpdir(), "galena-web-"));
 writeFileSync(join(siteDir, "index.html"), "<!doctype html><title>Galena</title>");
-const web = new WebStack(app, "Web", { env, config: fixture, api: api.api, siteDir });
+const web = new WebStack(app, "Web", {
+  env,
+  config: fixture,
+  api: api.api,
+  pageKeyGroup: api.pageKeyGroup,
+  siteDir,
+});
 const template = Template.fromStack(web);
 const distribution = () =>
   Object.values(template.findResources("AWS::CloudFront::Distribution"))[0]?.Properties
     .DistributionConfig;
 
-test("keeps the site bucket private and reads it through origin access control", () => {
+test("keeps the site bucket private and reads it and the page buckets through origin access control", () => {
   template.hasResourceProperties("AWS::S3::Bucket", {
     PublicAccessBlockConfiguration: {
       BlockPublicAcls: true,
@@ -32,7 +38,7 @@ test("keeps the site bucket private and reads it through origin access control",
       RestrictPublicBuckets: true,
     },
   });
-  template.resourceCountIs("AWS::CloudFront::OriginAccessControl", 1);
+  template.resourceCountIs("AWS::CloudFront::OriginAccessControl", 3);
 });
 
 test("serves the export over HTTPS with a CSP, HSTS and no framing, and the index rewrite", () => {
@@ -50,11 +56,13 @@ test("serves the export over HTTPS with a CSP, HSTS and no framing, and the inde
 });
 
 test("forwards /auth/*, /v1/*, /slack/* and /hooks/* to the API uncached, with every method", () => {
-  const behaviors = distribution().CacheBehaviors as {
-    PathPattern: string;
-    AllowedMethods: string[];
-    CachePolicyId: { Ref: string };
-  }[];
+  const behaviors = (
+    distribution().CacheBehaviors as {
+      PathPattern: string;
+      AllowedMethods: string[];
+      CachePolicyId: { Ref: string };
+    }[]
+  ).filter((b) => b.PathPattern !== "/internal*");
   expect(behaviors.map((b) => b.PathPattern).sort()).toEqual([
     "/auth/*",
     "/hooks/*",
@@ -114,6 +122,47 @@ test("adds the origin secret to every request it forwards to the API", () => {
       HeaderName: "x-galena-origin",
       HeaderValue: "{{resolve:secretsmanager:galena/dev/origin-secret:SecretString:::}}",
     },
+  ]);
+});
+
+test("serves the internal view from the page buckets, only with cookies the API signed", () => {
+  const behaviors = distribution().CacheBehaviors as {
+    PathPattern: string;
+    TargetOriginId: string;
+    TrustedKeyGroups?: unknown[];
+    AllowedMethods?: string[];
+  }[];
+  const internal = behaviors.find((b) => b.PathPattern === "/internal*");
+  expect(internal).toMatchObject({
+    ViewerProtocolPolicy: "redirect-to-https",
+    TrustedKeyGroups: [expect.objectContaining({ "Fn::ImportValue": expect.any(String) })],
+    FunctionAssociations: [{ EventType: "viewer-request" }],
+  });
+  // GET and HEAD only: CloudFront doesn't check signatures on OPTIONS.
+  expect(internal?.AllowedMethods ?? ["GET", "HEAD"]).toEqual(["GET", "HEAD"]);
+  // Nothing else needs the cookies: the dashboard and the API stay as they were.
+  expect(distribution().DefaultCacheBehavior.TrustedKeyGroups).toBeUndefined();
+  for (const b of behaviors.filter((b) => b !== internal))
+    expect(b.TrustedKeyGroups).toBeUndefined();
+
+  // The page buckets, primary then replica, under /pages: /internal/x is pages/internal/x.
+  const group = distribution().OriginGroups.Items.find(
+    (g: { Id: string }) => g.Id === internal?.TargetOriginId,
+  );
+  const members = group.Members.Items.map((m: { OriginId: string }) =>
+    distribution().Origins.find((o: { Id: string }) => o.Id === m.OriginId),
+  );
+  expect(
+    members.map((o: { DomainName: string; OriginPath: string }) => [o.DomainName, o.OriginPath]),
+  ).toEqual([
+    [
+      `galena-${fixture.stage}-page-111111111111.s3.${fixture.pageRegions.primary}.amazonaws.com`,
+      "/pages",
+    ],
+    [
+      `galena-${fixture.stage}-page-replica-111111111111.s3.${fixture.pageRegions.replica}.amazonaws.com`,
+      "/pages",
+    ],
   ]);
 });
 

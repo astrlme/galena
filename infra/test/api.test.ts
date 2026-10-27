@@ -70,16 +70,20 @@ test("the API and migration roles get logs, the Data API, their secrets and tele
   ]);
 });
 
-test("only the migrations write, and only their schema record", () => {
+test("only the migrations and the page key maker write, each only its own record", () => {
   const writes = Object.entries(template.findResources("AWS::IAM::Policy")).flatMap(([, p]) =>
     p.Properties.PolicyDocument.Statement.filter((s: { Action: unknown }) =>
       [s.Action].flat().includes("ssm:PutParameter"),
     ).map((s: { Resource: unknown }) => ({ roles: p.Properties.Roles, resource: s.Resource })),
   );
-  expect(writes).toHaveLength(1);
-  expect(writes[0]?.roles).toEqual([{ Ref: expect.stringMatching(/^MigrateRole/) }]);
-  expect(JSON.stringify(writes[0]?.resource)).toContain(
-    `:parameter/galena/${fixture.stage}/schema`,
+  expect(writes).toHaveLength(2);
+  const writer = (role: RegExp) =>
+    writes.find((w) => JSON.stringify(w.roles).match(role) !== null)?.resource;
+  expect(JSON.stringify(writer(/"MigrateRole/))).toContain(
+    `:parameter/galena/${fixture.stage}/schema"`,
+  );
+  expect(JSON.stringify(writer(/"PageKeyMakerRole/))).toContain(
+    `:parameter/galena/${fixture.stage}/page-signing-key"`,
   );
   template.hasResourceProperties("AWS::Lambda::Function", {
     Environment: {
@@ -243,4 +247,25 @@ test("only the API's own role reads telemetry, and it never writes it", () => {
   expect(dynamo).toHaveLength(1);
   expect(dynamo[0]?.roles).toEqual([expect.stringMatching(/^HandlerRole/)]);
   expect(dynamo[0]?.actions.sort()).toEqual(["dynamodb:BatchGetItem", "dynamodb:Query"]);
+});
+
+test("makes the internal page's key once, trusts its public half, and the API signs with it", () => {
+  const [key] = Object.entries(template.findResources("AWS::CloudFormation::CustomResource"));
+  expect(key?.[1].Properties.ParameterName).toBe(`/galena/${fixture.stage}/page-signing-key`);
+  const [publicKey] = Object.entries(template.findResources("AWS::CloudFront::PublicKey"));
+  expect(publicKey?.[1].Properties.PublicKeyConfig.EncodedKey).toEqual({
+    "Fn::GetAtt": [key?.[0], "PublicKey"],
+  });
+  template.hasResourceProperties("AWS::CloudFront::KeyGroup", {
+    KeyGroupConfig: Match.objectLike({ Items: [{ Ref: publicKey?.[0] }] }),
+  });
+  template.hasResourceProperties("AWS::Lambda::Function", {
+    Timeout: 29,
+    Environment: {
+      Variables: Match.objectLike({
+        GLN_PAGE_KEY_ID: { Ref: publicKey?.[0] },
+        GLN_PAGE_KEY_PARAM: `/galena/${fixture.stage}/page-signing-key`,
+      }),
+    },
+  });
 });

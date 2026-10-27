@@ -8,6 +8,7 @@ import {
   type ThrottleSettings,
 } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
+import type { IKeyGroup } from "aws-cdk-lib/aws-cloudfront";
 import { ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
 import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
@@ -24,6 +25,7 @@ import { bundling, source } from "./bundling.ts";
 import { addDashboard } from "./dashboard.ts";
 import { dataApiAccess } from "./data-api.ts";
 import { jobAccess } from "./job-access.ts";
+import { PageKey } from "./page-key.ts";
 
 /**
  * CloudFront adds this header, holding the origin secret, to every request it forwards to the
@@ -38,6 +40,8 @@ export const SETUP_TOKEN_HEADER = "x-galena-setup-token";
 /** apps/api on Lambda behind an HTTP API. */
 export class ApiStack extends Stack {
   readonly api: HttpApi;
+  /** Trusted by the dashboard's distribution on /internal*, where the internal page is. */
+  readonly pageKeyGroup: IKeyGroup;
 
   /** `version` is the release being deployed, which the stack records for `galena deploy`. */
   constructor(
@@ -74,11 +78,15 @@ export class ApiStack extends Stack {
     const publicUrl = `/galena/${stage}/public-url`;
     // Optional: the Slack app's client id and secrets, as JSON. Without it, Slack is off.
     const slackApp = `/galena/${stage}/slack-app`;
+    // Made on the first deploy; the API signs the internal page's access cookies with it.
+    const pageKey = new PageKey(this, "PageKey", { stage });
+    this.pageKeyGroup = pageKey.keyGroup;
     role.addToPolicy(
       new PolicyStatement({
         actions: ["ssm:GetParameter"],
-        resources: [authSecret, appKey, setupToken, publicUrl, slackApp].map((name) =>
-          this.formatArn({ service: "ssm", resource: "parameter", resourceName: name.slice(1) }),
+        resources: [authSecret, appKey, setupToken, publicUrl, slackApp, pageKey.parameterName].map(
+          (name) =>
+            this.formatArn({ service: "ssm", resource: "parameter", resourceName: name.slice(1) }),
         ),
       }),
     );
@@ -134,6 +142,8 @@ export class ApiStack extends Stack {
         GLN_SLACK_APP_PARAM: slackApp,
         GLN_PUBLIC_URL_PARAM: publicUrl,
         GLN_ORIGIN_SECRET_PARAM: originSecretParam,
+        GLN_PAGE_KEY_ID: pageKey.publicKeyId,
+        GLN_PAGE_KEY_PARAM: pageKey.parameterName,
         GLN_TELEMETRY_TABLE: telemetryTable,
         GLN_PROBE_REGIONS: probeRegions.join(","),
         // Without it the deployment sends no email, and the API takes no subscriptions.
