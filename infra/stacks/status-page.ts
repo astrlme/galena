@@ -152,6 +152,21 @@ export class StatusPageStack extends Stack {
       region: config.pageRegions.replica,
     });
     const primary = pageBucket(this, pageBucketName(config.stage, this.account), replica);
+    // The dashboard's distribution serves the page's internal view from here, behind signed
+    // cookies. Known limit: as on the replica, any distribution of this account may read it;
+    // naming the dashboard's would take its ARN from the home region into this stack.
+    primary.addToResourcePolicy(
+      new PolicyStatement({
+        actions: ["s3:GetObject"],
+        principals: [new ServicePrincipal("cloudfront.amazonaws.com")],
+        resources: [primary.arnForObjects("pages/internal/*")],
+        conditions: {
+          StringLike: {
+            "AWS:SourceArn": `arn:${this.partition}:cloudfront::${this.account}:distribution/*`,
+          },
+        },
+      }),
+    );
 
     const origin = (bucket: IBucket) =>
       S3BucketOrigin.withOriginAccessControl(bucket, { originPath: `/pages/${PAGE_SLUG}` });

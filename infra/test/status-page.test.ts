@@ -51,6 +51,21 @@ test("the replica is private and readable only by this account's CloudFront dist
   expect(policy).toContain(":cloudfront::111111111111:distribution/*");
 });
 
+test("the dashboard's distribution may read the internal view from the primary, and only that", () => {
+  const statements = Object.values(template.findResources("AWS::S3::BucketPolicy")).flatMap(
+    (p) => p.Properties.PolicyDocument.Statement,
+  );
+  const anyDistribution = statements.filter((s: { Condition?: unknown }) =>
+    JSON.stringify(s.Condition ?? {}).includes(":cloudfront::111111111111:distribution/*"),
+  );
+  expect(anyDistribution).toHaveLength(1);
+  expect(anyDistribution[0]).toMatchObject({
+    Action: "s3:GetObject",
+    Principal: { Service: "cloudfront.amazonaws.com" },
+  });
+  expect(JSON.stringify(anyDistribution[0].Resource)).toContain("/pages/internal/*");
+});
+
 test("the primary bucket replicates every object to the replica", () => {
   template.hasResourceProperties("AWS::S3::Bucket", {
     BucketName: "galena-dev-page-111111111111",
