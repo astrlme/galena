@@ -54,6 +54,13 @@ test("refuses every change with a message the dashboard shows", async () => {
   }
 });
 
+test("says the demo has no internal page instead of letting anyone in", async () => {
+  const request = new Request(`${origin}/v1/internal-page/access`, { method: "POST" });
+  const response = await demoFetch(request);
+  expect(response.status).toBe(503);
+  expect((await response.json()).detail).toBe("The demo has no internal page.");
+});
+
 test("an unknown route is a 404", async () => {
   expect((await get("/v1/nothing-here")).status).toBe(404);
   expect((await get("/v1/incidents/not-an-incident")).status).toBe(404);

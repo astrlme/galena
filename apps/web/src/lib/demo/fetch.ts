@@ -17,8 +17,11 @@ const problem = (status: number, code: string, detail: string) =>
 
 /** Answers one request the way the API would, as of the moment it's asked. */
 export async function demoFetch(request: Request): Promise<Response> {
-  if (request.method !== "GET") return problem(403, "demo_read_only", READ_ONLY);
   const url = new URL(request.url);
+  if (url.pathname === "/v1/internal-page/access") {
+    return problem(503, "internal_page_off", "The demo has no internal page.");
+  }
+  if (request.method !== "GET") return problem(403, "demo_read_only", READ_ONLY);
   const data = demoData(new Date());
   const state = url.searchParams.get("state");
   const incidents = data.incidents

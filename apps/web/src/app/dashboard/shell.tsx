@@ -6,6 +6,7 @@ import {
   Bell,
   Boxes,
   LayoutDashboard,
+  Lock,
   LogOut,
   type LucideIcon,
   Megaphone,
@@ -42,6 +43,8 @@ const nav = [
     title: s.title,
     Icon: ICONS[s.slug],
   })),
+  // Opens the page's internal view, outside the dashboard, after letting this browser in.
+  { href: "/dashboard/internal/", title: "Internal page", Icon: Lock },
 ];
 const icon = { "aria-hidden": true, size: 20, strokeWidth: 1.5, className: "shrink-0" } as const;
 // 10 + 20 + 10 px fills the rail's 40 px, so each icon sits centred in it.
