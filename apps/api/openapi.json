@@ -4589,6 +4589,20 @@
         }
       }
     },
+    "/v1/internal-page/access": {
+      "post": {
+        "tags": [
+          "Internal page"
+        ],
+        "summary": "Let this browser open the internal page for 12 hours",
+        "description": "Sets CloudFront's signed cookies for /internal/ on the dashboard's origin. Signing out clears them.",
+        "responses": {
+          "204": {
+            "description": "Done"
+          }
+        }
+      }
+    },
     "/v1/slack": {
       "get": {
         "tags": [

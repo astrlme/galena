@@ -39,6 +39,11 @@ export type Deps = {
   subscriptions: boolean;
   /** The deployment's Slack app, when its secrets exist; without them Slack's routes answer 404. */
   slack?: SlackAppConfig & { api: Pick<SlackApi, "exchangeCode" | "revoke"> };
+  /**
+   * CloudFront's key for the internal page: the key group's public key id and the private key
+   * that signs access cookies. Without it the access route answers 503.
+   */
+  pageAccess?: { keyPairId: string; privateKey: string };
 };
 
 /** Infra's CloudFront distributions add this header to requests they send to the API. */

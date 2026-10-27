@@ -16,12 +16,14 @@ import {
   sameSecret,
   viewerAddress,
 } from "./http.ts";
+import { expiredPageCookies } from "./page-access.ts";
 import { registerApiKeyRoutes } from "./routes/api-keys.ts";
 import { registerComponentRoutes } from "./routes/components.ts";
 import { registerEndpointRoutes } from "./routes/endpoints.ts";
 import { registerHookRoutes } from "./routes/hooks.ts";
 import { registerIncidentRoutes } from "./routes/incidents.ts";
 import { registerIntegrationRoutes } from "./routes/integrations.ts";
+import { registerInternalPageRoutes } from "./routes/internal-page.ts";
 import { registerMaintenanceRoutes } from "./routes/maintenance.ts";
 import { registerMonitorRoutes } from "./routes/monitors.ts";
 import { registerNotificationRoutes } from "./routes/notifications.ts";
@@ -190,7 +192,7 @@ export function createApp(deps: Deps) {
 
   // Better Auth: sign-in, sign-out, sessions, two-factor, GitHub OAuth. Its rate limits key on
   // the visitor's address, which only we set, from CloudFront's.
-  app.on(["GET", "POST"], "/auth/*", (c) => {
+  app.on(["GET", "POST"], "/auth/*", async (c) => {
     const endpoint = `${c.req.method} ${c.req.path.slice("/auth/".length)}`;
     if (endpoint.startsWith("POST sign-up/")) {
       return problemResponse({
@@ -212,7 +214,12 @@ export function createApp(deps: Deps) {
     headers.delete(CLIENT_IP_HEADER);
     const address = viewerAddress(headers);
     if (address) headers.set(CLIENT_IP_HEADER, address);
-    return auth.handler(new Request(c.req.raw, { headers }));
+    const response = await auth.handler(new Request(c.req.raw, { headers }));
+    if (endpoint !== "POST sign-out") return response;
+    // Signing out also ends this browser's access to the internal page.
+    const out = new Headers(response.headers);
+    for (const cookie of expiredPageCookies) out.append("set-cookie", cookie);
+    return new Response(response.body, { status: response.status, headers: out });
   });
 
   app.openapi(setup, async (c) => {
@@ -317,6 +324,7 @@ export function createApp(deps: Deps) {
   registerEndpointRoutes(app, deps);
   registerNotificationRoutes(app, deps);
   registerIntegrationRoutes(app, deps);
+  registerInternalPageRoutes(app, deps);
   registerPublicRoutes(app, deps);
   registerSlackRoutes(app, deps);
   registerHookRoutes(app, deps);

@@ -104,6 +104,17 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
       : undefined);
   const slackApp = slackAppFrom(slackJson);
 
+  // Optional too: a key that can't be read turns off the internal page's access route only.
+  const pageKey =
+    env.GLN_PAGE_KEY_ID && env.GLN_PAGE_KEY_PARAM
+      ? await parameter(env.GLN_PAGE_KEY_PARAM).catch((error: unknown) => {
+          console.error("The internal page's signing key couldn't be read; access is off.", {
+            error: error instanceof Error ? error.name : "unknown",
+          });
+          return undefined;
+        })
+      : undefined;
+
   // DynamoDB Local takes any credentials; AWS uses the function's role.
   const endpoint =
     env.GLN_DYNAMODB_ENDPOINT ?? (env.GLN_STAGE === "local" ? "http://localhost:8000" : undefined);
@@ -132,6 +143,9 @@ export async function createDeps(): Promise<Deps & { close: () => Promise<void> 
     ...(originSecret ? { originSecret } : {}),
     setup: env.GLN_STAGE === "local" ? "open" : setupToken ? { token: setupToken } : {},
     ...(slackApp ? { slack: { ...slackApp, api: slackApi({ guard }) } } : {}),
+    ...(pageKey && env.GLN_PAGE_KEY_ID
+      ? { pageAccess: { keyPairId: env.GLN_PAGE_KEY_ID, privateKey: pageKey } }
+      : {}),
     // Locally the workers put mail in a directory, so subscribing always works.
     subscriptions: env.GLN_STAGE === "local" || Boolean(env.GLN_EMAIL_FROM),
     close,

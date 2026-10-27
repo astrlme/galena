@@ -62,6 +62,10 @@ export const env = z
     GLN_SETUP_TOKEN_PARAM: z.string().startsWith("/").optional(),
     // AWS: the secret CloudFront adds to every request it forwards, read through SSM's
     // /aws/reference/secretsmanager/ path. Unset locally, where nothing checks it.
+    // CloudFront's key for the internal page: its public key id, and the SecureString holding
+    // the private key. Written by the Api stack.
+    GLN_PAGE_KEY_ID: z.string().min(1).optional(),
+    GLN_PAGE_KEY_PARAM: z.string().startsWith("/").optional(),
     GLN_ORIGIN_SECRET_PARAM: z.string().startsWith("/aws/reference/secretsmanager/").optional(),
   })
   .refine((e) => !e.GLN_DB_CLUSTER_ARN || (e.GLN_DB_SECRET_ARN && e.AWS_REGION), {
