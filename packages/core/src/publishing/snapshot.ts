@@ -90,6 +90,22 @@ export function isPageEvent(type: string): boolean {
   return PAGE_EVENT_PREFIXES.some((prefix) => type.startsWith(prefix));
 }
 
+/** Where the page's internal view is published beside it. */
+export const INTERNAL_SLUG = "internal";
+
+/** The page's internal view: the same page for members, at `url`, with no email updates. */
+export const internalPage = (
+  page: SnapshotInputs["page"],
+  url: string,
+): SnapshotInputs["page"] => ({
+  ...page,
+  name: `${page.name} internal`,
+  slug: INTERNAL_SLUG,
+  url,
+  subscribe: false,
+  visibility: "internal",
+});
+
 /** The last 90 UTC dates, oldest first, ending with `now`'s date. */
 function stripDates(now: Date): string[] {
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
@@ -108,7 +124,9 @@ export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
   const running = (m: Maintenance) => m.status === "in_progress" || m.status === "verifying";
   const dates = stripDates(now);
   const internal = inputs.page.visibility === "internal";
-  const shown = internal
+  // On the internal page, internal incidents are published like the rest: every rule below that
+  // looks for `published` then counts them, and drafts and dismissed ones stay out.
+  const incidentsHere = internal
     ? inputs.incidents.map((i) =>
         i.visibility === "internal" ? { ...i, visibility: "published" as const } : i,
       )
@@ -118,7 +136,7 @@ export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
     const monitors = inputs.monitors.filter(
       (m) => m.enabled && m.componentId === component.id && (internal || onPage(m)),
     );
-    const incidents = shown.flatMap((i) =>
+    const incidents = incidentsHere.flatMap((i) =>
       i.components
         .filter((c) => c.componentId === component.id)
         .map((c) => ({ status: i.status, visibility: i.visibility, componentStatus: c.status })),
@@ -166,7 +184,7 @@ export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
     };
   });
 
-  const published = shown.filter((i) => i.visibility === "published");
+  const published = incidentsHere.filter((i) => i.visibility === "published");
   const recentSince = now.getTime() - RECENT_DAYS * DAY;
   return {
     version: 1,
@@ -175,7 +193,7 @@ export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
     page: inputs.page,
     indicator: pageIndicator(
       components.map((c) => c.status),
-      shown,
+      incidentsHere,
     ),
     groups: inputs.groups.map((g) => ({
       id: g.id,

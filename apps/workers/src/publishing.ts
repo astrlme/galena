@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { GetObjectCommand, NoSuchKey, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { buildSnapshot, type Clock } from "@galena/core";
+import { buildSnapshot, type Clock, INTERNAL_SLUG, internalPage } from "@galena/core";
 import {
   advancePageVersion,
   type Db,
@@ -22,9 +22,6 @@ const cacheControl = (path: string) =>
     : "public, max-age=2, stale-if-error=86400";
 
 export type StoredFile = { path: string; body: string | Uint8Array; contentType: string };
-
-/** Where the page's internal view goes beside it; the page itself is always `status`. */
-export const INTERNAL_SLUG = "internal";
 
 /** Where a page's files go; paths are relative to the page's root. */
 export type PageStore = {
@@ -94,18 +91,8 @@ export async function publishPage(
     now: deps.clock.now(),
   });
   await deps.store.write(target.slug, pageFiles(buildSnapshot(inputs, deps.clock)));
-  const internal = {
-    ...inputs.page,
-    name: `${inputs.page.name} internal`,
-    slug: INTERNAL_SLUG,
-    url: deps.internalUrl,
-    subscribe: false,
-    visibility: "internal" as const,
-  };
-  await deps.store.write(
-    INTERNAL_SLUG,
-    pageFiles(buildSnapshot({ ...inputs, page: internal }, deps.clock)),
-  );
+  const internal = { ...inputs, page: internalPage(inputs.page, deps.internalUrl) };
+  await deps.store.write(INTERNAL_SLUG, pageFiles(buildSnapshot(internal, deps.clock)));
   // The page is out either way. Without a note for this version the heartbeat runs the rollup,
   // whose publish writes the note again.
   await deps.note

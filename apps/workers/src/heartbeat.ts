@@ -1,6 +1,6 @@
 import { monitorId, snapshot } from "@galena/contracts";
-import { type Clock, type HeartbeatPlan, planHeartbeat } from "@galena/core";
-import { INTERNAL_SLUG, type NoteFile, type PageStore } from "./publishing.ts";
+import { type Clock, type HeartbeatPlan, INTERNAL_SLUG, planHeartbeat } from "@galena/core";
+import type { NoteFile, PageStore } from "./publishing.ts";
 import type { ReadStates } from "./states.ts";
 
 export type HeartbeatDeps = {

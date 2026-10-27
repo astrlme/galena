@@ -4,12 +4,13 @@ import {
   incidentId,
   incidentUpdateId,
   maintenanceId,
+  type PageVisibility,
   snapshot,
   workspaceId,
 } from "@galena/contracts";
 import { expect, test } from "vitest";
 import { fixedClock, type Incident, type IncidentUpdate, type Maintenance } from "../ports.ts";
-import { buildSnapshot, isPageEvent, type SnapshotInputs } from "./snapshot.ts";
+import { buildSnapshot, internalPage, isPageEvent, type SnapshotInputs } from "./snapshot.ts";
 
 const ws = workspaceId.parse("01920000-0000-7000-8000-000000000001");
 const core = componentGroupId.parse("01920000-0000-7000-8000-000000000031");
@@ -201,7 +202,7 @@ test("the internal page counts internal-only monitors and lists internal inciden
   const built = buildSnapshot(
     {
       ...inputs,
-      page: { ...inputs.page, visibility: "internal" },
+      page: internalPage(inputs.page, "https://dashboard.example.com/internal/"),
       monitors: inputs.monitors.map((m) => ({ ...m, publishPolicy: "internal_only" as const })),
       incidents: [
         open,
@@ -212,7 +213,13 @@ test("the internal page counts internal-only monitors and lists internal inciden
     },
     fixedClock(NOW),
   );
-  expect(built.page.visibility).toBe("internal");
+  expect(built.page).toEqual({
+    slug: "internal",
+    name: "Acme internal",
+    url: "https://dashboard.example.com/internal/",
+    subscribe: false,
+    visibility: "internal",
+  });
   expect(built.components.find((c) => c.name === "API")).toMatchObject({
     status: "partial_outage",
     observed: true,
@@ -227,7 +234,7 @@ test("an internal incident moves the internal page's components, not the public 
     visibility: "internal",
     components: [{ componentId: web, status: "major_outage" }],
   });
-  const status = (visibility: "public" | "internal") =>
+  const status = (visibility: PageVisibility) =>
     buildSnapshot(
       { ...inputs, page: { ...inputs.page, visibility }, incidents: [open], maintenance: [] },
       fixedClock(NOW),

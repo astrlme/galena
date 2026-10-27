@@ -1,3 +1,4 @@
+import { INTERNAL_SLUG } from "@galena/core";
 import { db } from "../db.ts";
 import { engine } from "../engine.ts";
 import { env } from "../env.ts";
@@ -20,7 +21,7 @@ export const pagePublishJob = defineJob({
       store: pageStore,
       note: noteFile,
       url: env.GLN_PAGE_URL,
-      internalUrl: new URL("/internal/", env.GLN_DASHBOARD_URL).href,
+      internalUrl: new URL(`/${INTERNAL_SLUG}/`, env.GLN_DASHBOARD_URL).href,
       // Locally mail lands in GLN_MAIL_DIR; a deployment without an address has none to send.
       subscribe: Boolean(env.GLN_EMAIL_FROM) || !env.GLN_DB_CLUSTER_ARN,
       rebuildHtml: (version) =>

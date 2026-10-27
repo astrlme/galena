@@ -6,9 +6,10 @@ import { tmpdir } from "node:os";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { snapshot } from "@galena/contracts";
+import { INTERNAL_SLUG } from "@galena/core";
 import { advancePageVersion, type Db, ensurePage } from "@galena/db";
 import { z } from "zod";
-import { INTERNAL_SLUG, type PageStore, type StoredFile } from "./publishing.ts";
+import type { PageStore, StoredFile } from "./publishing.ts";
 
 export const rebuildPayload = z.object({ version: z.int().min(1) });
 export type RebuildPayload = z.infer<typeof rebuildPayload>;
@@ -45,7 +46,7 @@ export async function rebuildHtml(
     await build(target.slug, body, "/");
     // The internal view, written by the same publish, is served under /internal/ on the dashboard.
     const internal = await deps.store.read(INTERNAL_SLUG, "snapshot.json");
-    if (internal) await build(INTERNAL_SLUG, internal, "/internal/");
+    if (internal) await build(INTERNAL_SLUG, internal, `/${INTERNAL_SLUG}/`);
   } finally {
     await rm(work, { recursive: true, force: true });
   }
