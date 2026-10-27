@@ -83,7 +83,7 @@ test("only the migrations and the page key maker write, each only its own record
     `:parameter/galena/${fixture.stage}/schema"`,
   );
   expect(JSON.stringify(writer(/"PageKeyMakerRole/))).toContain(
-    `:parameter/galena/${fixture.stage}/page-signing-key"`,
+    `:parameter/galena/${fixture.stage}/page-signing-key-1"`,
   );
   template.hasResourceProperties("AWS::Lambda::Function", {
     Environment: {
@@ -251,7 +251,7 @@ test("only the API's own role reads telemetry, and it never writes it", () => {
 
 test("makes the internal page's key once, trusts its public half, and the API signs with it", () => {
   const [key] = Object.entries(template.findResources("AWS::CloudFormation::CustomResource"));
-  expect(key?.[1].Properties.ParameterName).toBe(`/galena/${fixture.stage}/page-signing-key`);
+  expect(key?.[1].Properties.ParameterName).toBe(`/galena/${fixture.stage}/page-signing-key-1`);
   const [publicKey] = Object.entries(template.findResources("AWS::CloudFront::PublicKey"));
   expect(publicKey?.[1].Properties.PublicKeyConfig.EncodedKey).toEqual({
     "Fn::GetAtt": [key?.[0], "PublicKey"],
@@ -264,7 +264,7 @@ test("makes the internal page's key once, trusts its public half, and the API si
     Environment: {
       Variables: Match.objectLike({
         GLN_PAGE_KEY_ID: { Ref: publicKey?.[0] },
-        GLN_PAGE_KEY_PARAM: `/galena/${fixture.stage}/page-signing-key`,
+        GLN_PAGE_KEY_PARAM: `/galena/${fixture.stage}/page-signing-key-1`,
       }),
     },
   });
