@@ -72,5 +72,6 @@ Under `/galena/<stage>/`:
 | --- | --- | --- |
 | `auth-secret`, `app-key`, `setup-token` | SecureString | You once, or `galena deploy` |
 | `evaluator-heartbeat`, `jobs-heartbeat` (optional) | SecureString | You: the ping URLs of an [outside dead-man's switch](/docs/operations/troubleshooting/#outside-heartbeats) |
+| `page-signing-key-<generation>` | SecureString | The API stack, once: the key that signs access to the [internal page](/docs/concepts/internal-page/). Never deleted with its stack |
 | `public-url` | String | The web stack: the dashboard's address |
 | `database-cluster-arn`, `database-secret-arn`, `telemetry-table`, `check-results-queue-url`, `check-results-queue-arn`, `config-bucket`, `alarm-topic-arn` | String | The foundation stack |

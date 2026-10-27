@@ -28,6 +28,7 @@ synthesises; run by hand in a clone, CDK reads it from the repository root, or f
 | `auroraMaxAcu` | 1 to 16 | Aurora's capacity ceiling; the floor is 0, so it pauses |
 | `smoke` | boolean, default `false` | Adds the deployed smoke test's target and role; needs `github` |
 | `retainData` | boolean, default `true` | Keeps the telemetry table and the config bucket if their stack is deleted |
+| `pageKeyGeneration` | integer, default `1` | The [internal page](/docs/concepts/internal-page/)'s signing key; raise it to rotate the key, or after its parameter was lost |
 
 Every deployment keeps 14 days of database backups, turns on deletion protection for the
 database and keeps it if its stack is ever deleted, whatever `retainData` says.

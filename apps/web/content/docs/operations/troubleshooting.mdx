@@ -146,6 +146,20 @@ The page hasn't been confirmed for two hours, though `page.heartbeat` should con
 Check its lines in the jobs log and the No heartbeat alarm. A run that answered `rollup` read
 the database, so a paused or unreachable Aurora shows up there.
 
+## The internal page isn't available
+
+The API couldn't read the key that signs access to the internal page, the SecureString
+`/galena/<stage>/page-signing-key-<generation>`. Its log says why: usually the parameter was
+deleted. A deploy doesn't make a lost key again, because CloudFront can't take a new public key in
+place. Raise `pageKeyGeneration` in the deployment's config and deploy: that makes a new key under
+a new name, and members open the page again from the dashboard. Raising it also rotates a key you
+no longer trust.
+
+## The internal page answers 403
+
+Its access ends 12 hours after a member opened it from the dashboard, and at sign-out. Open
+**Internal page** in the dashboard again; bookmark that link, not the page itself.
+
 ## `403 not_through_cloudfront`
 
 The API only answers requests that came through CloudFront. Call it on the dashboard's address,
