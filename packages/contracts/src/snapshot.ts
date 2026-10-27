@@ -5,6 +5,7 @@ import {
   incidentStatuses,
   maintenanceStatuses,
   pageIndicators,
+  pageVisibilities,
 } from "./enums.ts";
 import {
   componentGroupId,
@@ -94,6 +95,8 @@ export const snapshot = z.object({
     url: z.url(),
     /** Whether the page offers email updates: a deployment without email has nothing to send. */
     subscribe: z.boolean().default(true),
+    /** `internal` also shows internal-only monitors and internal incidents, behind sign-in. */
+    visibility: z.enum(pageVisibilities).default("public"),
   }),
   indicator: z.enum(pageIndicators),
   /** In page order; components with no group come first. */

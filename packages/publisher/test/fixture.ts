@@ -19,7 +19,13 @@ const at = (iso: string) => new Date(iso);
 
 export const inputs: SnapshotInputs = {
   snapshotVersion: 7,
-  page: { slug: "acme", name: "Acme", url: "https://status.example.com", subscribe: true },
+  page: {
+    slug: "acme",
+    name: "Acme",
+    url: "https://status.example.com",
+    subscribe: true,
+    visibility: "public",
+  },
   groups: [{ id: core, workspaceId: ws, name: "Core", position: 0 }],
   components: [
     {

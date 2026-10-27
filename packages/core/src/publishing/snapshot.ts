@@ -3,6 +3,7 @@ import type {
   ComponentStatus,
   DownStatus,
   MonitorState,
+  PageVisibility,
   PublishPolicy,
   Snapshot,
   SnapshotDay,
@@ -34,7 +35,7 @@ export type UptimeDay = {
 /** Everything the page shows, as loaded from the database. */
 export type SnapshotInputs = {
   snapshotVersion: number;
-  page: { slug: string; name: string; url: string; subscribe: boolean };
+  page: { slug: string; name: string; url: string; subscribe: boolean; visibility: PageVisibility };
   /** In page order. */
   groups: readonly ComponentGroup[];
   /** In page order. */
@@ -97,17 +98,27 @@ function stripDates(now: Date): string[] {
   );
 }
 
-/** The page's read model. Pure: every published file derives from what this returns. */
+/**
+ * The page's read model. Pure: every published file derives from what this returns. The internal
+ * page shows the same components, also moved by internal-only monitors, and lists internal
+ * incidents as published.
+ */
 export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
   const now = clock.now();
   const running = (m: Maintenance) => m.status === "in_progress" || m.status === "verifying";
   const dates = stripDates(now);
+  const internal = inputs.page.visibility === "internal";
+  const shown = internal
+    ? inputs.incidents.map((i) =>
+        i.visibility === "internal" ? { ...i, visibility: "published" as const } : i,
+      )
+    : inputs.incidents;
 
   const components = inputs.components.map((component) => {
     const monitors = inputs.monitors.filter(
-      (m) => m.enabled && m.componentId === component.id && onPage(m),
+      (m) => m.enabled && m.componentId === component.id && (internal || onPage(m)),
     );
-    const incidents = inputs.incidents.flatMap((i) =>
+    const incidents = shown.flatMap((i) =>
       i.components
         .filter((c) => c.componentId === component.id)
         .map((c) => ({ status: i.status, visibility: i.visibility, componentStatus: c.status })),
@@ -155,7 +166,7 @@ export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
     };
   });
 
-  const published = inputs.incidents.filter((i) => i.visibility === "published");
+  const published = shown.filter((i) => i.visibility === "published");
   const recentSince = now.getTime() - RECENT_DAYS * DAY;
   return {
     version: 1,
@@ -164,7 +175,7 @@ export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
     page: inputs.page,
     indicator: pageIndicator(
       components.map((c) => c.status),
-      inputs.incidents,
+      shown,
     ),
     groups: inputs.groups.map((g) => ({
       id: g.id,

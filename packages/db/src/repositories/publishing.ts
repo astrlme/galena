@@ -245,7 +245,13 @@ export async function loadSnapshotInputs(
   ]);
   return {
     snapshotVersion: options.snapshotVersion,
-    page: { slug: target.slug, name: target.name, url: options.url, subscribe: options.subscribe },
+    page: {
+      slug: target.slug,
+      name: target.name,
+      url: options.url,
+      subscribe: options.subscribe,
+      visibility: "public",
+    },
     groups,
     components,
     monitors,

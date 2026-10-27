@@ -21,3 +21,7 @@ test("a page without email offers no subscriptions", () => {
   const page = { ...published.page, subscribe: false };
   expect(snapshot.parse({ ...published, page }).page.subscribe).toBe(false);
 });
+
+test("a snapshot published before internal pages existed is a public page", () => {
+  expect(snapshot.parse(published).page.visibility).toBe("public");
+});

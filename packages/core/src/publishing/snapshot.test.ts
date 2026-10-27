@@ -62,7 +62,13 @@ const window = (n: number, overrides: Partial<Maintenance>): Maintenance => ({
 
 const inputs: SnapshotInputs = {
   snapshotVersion: 42,
-  page: { slug: "acme", name: "Acme", url: "https://status.example.com", subscribe: true },
+  page: {
+    slug: "acme",
+    name: "Acme",
+    url: "https://status.example.com",
+    subscribe: true,
+    visibility: "public",
+  },
   groups: [{ id: core, workspaceId: ws, name: "Core", position: 0 }],
   components: [
     {
@@ -187,6 +193,47 @@ test("an internal-only monitor moves nothing on the page and doesn't count as re
   );
   const api = built.components.find((c) => c.name === "API");
   expect(api).toMatchObject({ status: "operational", observed: false });
+});
+
+test("the internal page counts internal-only monitors and lists internal incidents", () => {
+  const open = incident({ visibility: "internal", impact: "critical" });
+  const resolved = incident({ visibility: "internal", status: "resolved", resolvedAt: daysAgo(2) });
+  const built = buildSnapshot(
+    {
+      ...inputs,
+      page: { ...inputs.page, visibility: "internal" },
+      monitors: inputs.monitors.map((m) => ({ ...m, publishPolicy: "internal_only" as const })),
+      incidents: [
+        open,
+        resolved,
+        incident({ visibility: "draft", impact: "major" }),
+        incident({ visibility: "dismissed", status: "resolved", resolvedAt: daysAgo(1) }),
+      ],
+    },
+    fixedClock(NOW),
+  );
+  expect(built.page.visibility).toBe("internal");
+  expect(built.components.find((c) => c.name === "API")).toMatchObject({
+    status: "partial_outage",
+    observed: true,
+  });
+  expect(built.indicator).toBe("critical");
+  expect(built.incidents.active.map((i) => i.id)).toEqual([open.id]);
+  expect(built.incidents.recent.map((i) => i.id)).toEqual([resolved.id]);
+});
+
+test("an internal incident moves the internal page's components, not the public page's", () => {
+  const open = incident({
+    visibility: "internal",
+    components: [{ componentId: web, status: "major_outage" }],
+  });
+  const status = (visibility: "public" | "internal") =>
+    buildSnapshot(
+      { ...inputs, page: { ...inputs.page, visibility }, incidents: [open], maintenance: [] },
+      fixedClock(NOW),
+    ).components.find((c) => c.id === web)?.status;
+  expect(status("internal")).toBe("major_outage");
+  expect(status("public")).toBe("operational");
 });
 
 test("draws 90 days, ending today, from the daily rollups", () => {
