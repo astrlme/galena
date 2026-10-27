@@ -1,56 +1,18 @@
 import { CustomResource, Duration, Stack, Validations } from "aws-cdk-lib";
 import { KeyGroup, PublicKey } from "aws-cdk-lib/aws-cloudfront";
 import { PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
-import {
-  Architecture,
-  type CfnFunction,
-  Code,
-  Function as LambdaFunction,
-  Runtime,
-} from "aws-cdk-lib/aws-lambda";
+import { Architecture, type CfnFunction, Runtime } from "aws-cdk-lib/aws-lambda";
+import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { Provider } from "aws-cdk-lib/custom-resources";
 import { Construct } from "constructs";
-
-// Raise it to rotate the key: the next deploy makes a new pair under a new name, CloudFront
-// trusts only the new public key, and members open the page again from the dashboard.
-const GENERATION = 1;
-
-// Runs on deploy. The first time it makes an RSA key pair and keeps the private half in a
-// SecureString; afterwards it derives the same public half from it, so a redeploy never changes
-// the key CloudFront trusts (a CloudFront public key can't be updated in place). It never deletes
-// the parameter: CloudFormation deletes a replaced resource after making its successor, which
-// may have found the same key.
-const MAKER = `
-const { GetParameterCommand, PutParameterCommand, SSMClient } = require("@aws-sdk/client-ssm");
-const { createPublicKey, generateKeyPairSync } = require("node:crypto");
-const ssm = new SSMClient({});
-const missing = (error) => {
-  if (error.name === "ParameterNotFound") return undefined;
-  throw error;
-};
-exports.handler = async (event) => {
-  const name = event.ResourceProperties.ParameterName;
-  if (event.RequestType === "Delete") return { PhysicalResourceId: event.PhysicalResourceId };
-  let privateKey = await ssm
-    .send(new GetParameterCommand({ Name: name, WithDecryption: true }))
-    .then((r) => r.Parameter.Value, missing);
-  if (!privateKey) {
-    privateKey = generateKeyPairSync("rsa", {
-      modulusLength: 2048,
-      privateKeyEncoding: { type: "pkcs8", format: "pem" },
-      publicKeyEncoding: { type: "spki", format: "pem" },
-    }).privateKey;
-    await ssm.send(new PutParameterCommand({ Name: name, Value: privateKey, Type: "SecureString" }));
-  }
-  const publicKey = createPublicKey(privateKey).export({ type: "spki", format: "pem" });
-  return { PhysicalResourceId: name, Data: { PublicKey: publicKey } };
-};
-`;
+import { bundling, source } from "./bundling.ts";
 
 /**
- * The key CloudFront trusts for the internal page. The API signs access cookies with its private
- * half, read at cold start from `parameterName`. Known limit: deleting the stack, or rotating,
+ * The key CloudFront trusts for the internal page, made on the first deploy by
+ * `apps/api/src/page-key-maker.ts`. The API signs access cookies with its private half, read at
+ * cold start from `parameterName`. A new `generation` rotates it: a new key under a new name, and
+ * members open the page again from the dashboard. Known limit: deleting the stack, or rotating,
  * leaves the old parameter behind; delete it by hand.
  */
 export class PageKey extends Construct {
@@ -58,10 +20,11 @@ export class PageKey extends Construct {
   readonly publicKeyId: string;
   readonly parameterName: string;
 
-  constructor(scope: Construct, id: string, props: { stage: string }) {
+  constructor(scope: Construct, id: string, props: { stage: string; generation: number }) {
     super(scope, id);
     const stack = Stack.of(this);
-    this.parameterName = `/galena/${props.stage}/page-signing-key-${GENERATION}`;
+    const { generation } = props;
+    this.parameterName = `/galena/${props.stage}/page-signing-key-${generation}`;
 
     const logGroup = new LogGroup(this, "MakerLogs", { retention: RetentionDays.ONE_MONTH });
     const role = new Role(this, "MakerRole", {
@@ -80,16 +43,17 @@ export class PageKey extends Construct {
         ],
       }),
     );
-    const maker = new LambdaFunction(this, "Maker", {
+    const maker = new NodejsFunction(this, "Maker", {
+      entry: source("apps/api/src/page-key-maker.ts"),
+      handler: "handler",
       runtime: Runtime.NODEJS_24_X,
       architecture: Architecture.ARM_64,
-      handler: "index.handler",
-      code: Code.fromInline(MAKER),
       // RSA key generation is the slow part: a second or two at this size.
       memorySize: 512,
       timeout: Duration.minutes(1),
       role,
       logGroup,
+      bundling,
     });
     const provider = new Provider(this, "Provider", {
       onEventHandler: maker,
@@ -112,12 +76,12 @@ export class PageKey extends Construct {
     }
     // Each generation is a new resource and a new public key; the key group stays, so the
     // dashboard's distribution keeps the same reference.
-    const key = new CustomResource(this, `Key${GENERATION}`, {
+    const key = new CustomResource(this, `Key${generation}`, {
       serviceToken: provider.serviceToken,
       properties: { ParameterName: this.parameterName },
     });
 
-    const publicKey = new PublicKey(this, `PublicKey${GENERATION}`, {
+    const publicKey = new PublicKey(this, `PublicKey${generation}`, {
       encodedKey: key.getAttString("PublicKey"),
       comment: `Galena ${props.stage} internal page`,
     });

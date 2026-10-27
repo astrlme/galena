@@ -57,6 +57,9 @@ export const stageSchema = z
     smoke: z.boolean().default(false),
     // Keep buckets and the telemetry table when a stack is deleted. Aurora is always kept.
     retainData: z.boolean().default(true),
+    // The internal page's signing key. Raise it to rotate the key, or after its SecureString was
+    // lost: the next deploy makes a new pair under a new name.
+    pageKeyGeneration: z.number().int().min(1).default(1),
   })
   // The Smoke workflow assumes its role through GitHub's OIDC.
   .refine(({ smoke, github }) => !smoke || github, "smoke needs github")

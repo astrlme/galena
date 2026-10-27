@@ -79,7 +79,10 @@ export class ApiStack extends Stack {
     // Optional: the Slack app's client id and secrets, as JSON. Without it, Slack is off.
     const slackApp = `/galena/${stage}/slack-app`;
     // Made on the first deploy; the API signs the internal page's access cookies with it.
-    const pageKey = new PageKey(this, "PageKey", { stage });
+    const pageKey = new PageKey(this, "PageKey", {
+      stage,
+      generation: props.config.pageKeyGeneration,
+    });
     this.pageKeyGroup = pageKey.keyGroup;
     role.addToPolicy(
       new PolicyStatement({
