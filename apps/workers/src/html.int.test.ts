@@ -49,6 +49,7 @@ test("builds the HTML from the published snapshot once per version, with no form
       store,
       note: { read: async () => undefined, write: async () => {} },
       url,
+      internalUrl: "https://dashboard.example.com/internal/",
       subscribe: false,
       rebuildHtml: rebuild,
     },
@@ -62,5 +63,10 @@ test("builds the HTML from the published snapshot once per version, with no form
   expect(html).toContain(`data-snapshot-version="${version}"`);
   expect(html).not.toContain('id="subscribe"');
   expect(html).not.toContain("subscribe-link");
+  // The internal view is built beside it, with its assets under /internal/.
+  const internal = await readFile(join(dir, "internal", "index.html"), "utf8");
+  expect(internal).toContain(`data-snapshot-version="${version}"`);
+  expect(internal).toContain("/internal/_astro/");
+  expect(html).not.toContain("/internal/");
   expect(await rebuildHtml({ version }, deps)).toEqual({ outcome: "superseded" });
 }, 120_000);

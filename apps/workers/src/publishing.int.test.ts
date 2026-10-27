@@ -59,15 +59,16 @@ afterAll(async () => {
   await container?.stop();
 });
 
-/** Keeps each write's files, keyed by path. */
+/** Keeps each write's page and files, keyed by path. */
 function memoryStore() {
-  const writes: Map<string, StoredFile>[] = [];
+  const writes: { slug: string; files: Map<string, StoredFile> }[] = [];
   const store: PageStore = {
-    write: async (_slug, files) => void writes.push(new Map(files.map((f) => [f.path, f]))),
+    write: async (slug, files) =>
+      void writes.push({ slug, files: new Map(files.map((f) => [f.path, f])) }),
     read: async () => undefined,
   };
-  const published = () => {
-    const body = writes.at(-1)?.get("snapshot.json")?.body;
+  const published = (slug = "status") => {
+    const body = writes.findLast((w) => w.slug === slug)?.files.get("snapshot.json")?.body;
     return typeof body === "string" ? snapshot.parse(JSON.parse(body)) : undefined;
   };
   return { writes, store, published };
@@ -84,6 +85,7 @@ test("publishes the page, and a late run for an older change leaves the newer pa
     store,
     note: { read: async () => notes.at(-1), write: async (n: PublishedNote) => void notes.push(n) },
     url: "https://status.example.com",
+    internalUrl: "https://dashboard.example.com/internal/",
     subscribe: false,
     rebuildHtml,
   };
@@ -96,6 +98,17 @@ test("publishes the page, and a late run for an older change leaves the newer pa
     snapshotVersion: first + 1,
     page: { slug: "status", name: "Acme", url: "https://status.example.com", subscribe: false },
     indicator: "none",
+    components: [{ id: web, name: "Web", status: "operational" }],
+  });
+  // Beside it, the internal view from the same read, for members only.
+  expect(published("internal")).toMatchObject({
+    snapshotVersion: first + 1,
+    page: {
+      slug: "internal",
+      url: "https://dashboard.example.com/internal/",
+      subscribe: false,
+      visibility: "internal",
+    },
     components: [{ id: web, name: "Web", status: "operational" }],
   });
   // The note names the page and each monitor's transition, for the hourly heartbeat.
@@ -128,7 +141,14 @@ test("publishes the page, and a late run for an older change leaves the newer pa
 
   // The first change's run again (a retry, or a slow queue): the page already shows it.
   expect(await publishPage({ version: first }, deps)).toEqual({ outcome: "superseded" });
-  expect(writes).toHaveLength(3);
+  expect(writes.map((w) => w.slug)).toEqual([
+    "status",
+    "internal",
+    "status",
+    "internal",
+    "status",
+    "internal",
+  ]);
   expect(rebuilds).toEqual([first + 1, second + 1, third + 1]);
   expect(published()?.indicator).toBe("critical");
 });
@@ -151,6 +171,7 @@ test("a note that can't be written doesn't hold the page back", async () => {
         },
       },
       url: "https://status.example.com",
+      internalUrl: "https://dashboard.example.com/internal/",
       subscribe: false,
       rebuildHtml: async (v) => void rebuilds.push(v),
     },

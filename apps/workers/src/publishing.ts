@@ -23,6 +23,9 @@ const cacheControl = (path: string) =>
 
 export type StoredFile = { path: string; body: string | Uint8Array; contentType: string };
 
+/** Where the page's internal view goes beside it; the page itself is always `status`. */
+export const INTERNAL_SLUG = "internal";
+
 /** Where a page's files go; paths are relative to the page's root. */
 export type PageStore = {
   write: (slug: string, files: readonly StoredFile[]) => Promise<void>;
@@ -58,6 +61,8 @@ export type PublishDeps = {
   store: PageStore;
   note: NoteFile;
   url: string;
+  /** Where members open the internal view, behind sign-in. */
+  internalUrl: string;
   /** Whether the page offers email updates. */
   subscribe: boolean;
   /** Starts `page.rebuild-html` for the version just published. */
@@ -89,6 +94,17 @@ export async function publishPage(
     now: deps.clock.now(),
   });
   await deps.store.write(target.slug, pageFiles(buildSnapshot(inputs, deps.clock)));
+  const internal = {
+    ...inputs.page,
+    slug: INTERNAL_SLUG,
+    url: deps.internalUrl,
+    subscribe: false,
+    visibility: "internal" as const,
+  };
+  await deps.store.write(
+    INTERNAL_SLUG,
+    pageFiles(buildSnapshot({ ...inputs, page: internal }, deps.clock)),
+  );
   // The page is out either way. Without a note for this version the heartbeat runs the rollup,
   // whose publish writes the note again.
   await deps.note

@@ -6,7 +6,10 @@ import { noteFile, pageStore } from "../page-store.ts";
 import { publishPage, publishPayload } from "../publishing.ts";
 import { defineJob } from "../runner.ts";
 
-/** Writes `snapshot.json`, the feeds, the badge and the favicons for the page, `pub:{version}`. */
+/**
+ * Writes `snapshot.json`, the feeds, the badge and the favicons for the page and its internal
+ * view, `pub:{version}`.
+ */
 export const pagePublishJob = defineJob({
   name: "page.publish",
   payload: publishPayload,
@@ -17,6 +20,7 @@ export const pagePublishJob = defineJob({
       store: pageStore,
       note: noteFile,
       url: env.GLN_PAGE_URL,
+      internalUrl: new URL("/internal/", env.GLN_DASHBOARD_URL).href,
       // Locally mail lands in GLN_MAIL_DIR; a deployment without an address has none to send.
       subscribe: Boolean(env.GLN_EMAIL_FROM) || !env.GLN_DB_CLUSTER_ARN,
       rebuildHtml: (version) =>

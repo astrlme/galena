@@ -8,13 +8,13 @@ import { promisify } from "node:util";
 import { snapshot } from "@galena/contracts";
 import { advancePageVersion, type Db, ensurePage } from "@galena/db";
 import { z } from "zod";
-import type { PageStore, StoredFile } from "./publishing.ts";
+import { INTERNAL_SLUG, type PageStore, type StoredFile } from "./publishing.ts";
 
 export const rebuildPayload = z.object({ version: z.int().min(1) });
 export type RebuildPayload = z.infer<typeof rebuildPayload>;
 
-/** Renders the status page for the snapshot in `snapshotFile` into `outDir`. */
-export type BuildPage = (snapshotFile: string, outDir: string) => Promise<void>;
+/** Renders the status page for the snapshot in `snapshotFile` into `outDir`, served at `base`. */
+export type BuildPage = (snapshotFile: string, outDir: string, base: string) => Promise<void>;
 export type RebuildDeps = { db: Db; store: PageStore; build: BuildPage };
 export type RebuildOutcome = "no_page" | "no_snapshot" | "superseded" | "built";
 
@@ -35,11 +35,17 @@ export async function rebuildHtml(
   if (target.htmlVersion >= snapshotVersion) return { outcome: "superseded" };
 
   const work = await mkdtemp(join(tmpdir(), "galena-html-"));
+  const build = async (slug: string, text: string, base: string) => {
+    const file = join(work, `${slug}.json`);
+    await writeFile(file, text);
+    await deps.build(file, join(work, slug), base);
+    await deps.store.write(slug, await readTree(join(work, slug)));
+  };
   try {
-    const file = join(work, "snapshot.json");
-    await writeFile(file, body);
-    await deps.build(file, join(work, "dist"));
-    await deps.store.write(target.slug, await readTree(join(work, "dist")));
+    await build(target.slug, body, "/");
+    // The internal view, written by the same publish, is served under /internal/ on the dashboard.
+    const internal = await deps.store.read(INTERNAL_SLUG, "snapshot.json");
+    if (internal) await build(INTERNAL_SLUG, internal, "/internal/");
   } finally {
     await rm(work, { recursive: true, force: true });
   }
@@ -96,7 +102,7 @@ const buildEnv = () =>
   );
 
 /** `astro build` of the status app, wherever it sits beside the process. */
-export const astroBuild: BuildPage = async (snapshotFile, outDir) => {
+export const astroBuild: BuildPage = async (snapshotFile, outDir, base) => {
   // The builder Lambda (from /tmp), apps/workers, tests (the repository root).
   const dir = ["status", "../status", "apps/status"].find((d) =>
     existsSync(join(d, "astro.config.mjs")),
@@ -108,7 +114,7 @@ export const astroBuild: BuildPage = async (snapshotFile, outDir) => {
     "bin",
     "astro.mjs",
   );
-  await run(process.execPath, [astro, "build", "--outDir", outDir], {
+  await run(process.execPath, [astro, "build", "--outDir", outDir, "--base", base], {
     cwd: app,
     env: { ...buildEnv(), ASTRO_TELEMETRY_DISABLED: "1", GLN_SNAPSHOT_FILE: snapshotFile },
   });

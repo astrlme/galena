@@ -23,19 +23,24 @@ const note: PublishedNote = {
 
 let files: Map<string, string>;
 let written: StoredFile[];
+let writtenTo: string[];
 let rollups: number;
 let reads: MonitorId[][];
 
 beforeEach(() => {
   files = new Map([["status/snapshot.json", golden]]);
   written = [];
+  writtenTo = [];
   rollups = 0;
   reads = [];
 });
 
 const store: PageStore = {
   read: async (slug, path) => files.get(`${slug}/${path}`),
-  write: async (_slug, batch) => void written.push(...batch),
+  write: async (slug, batch) => {
+    written.push(...batch);
+    writtenTo.push(slug);
+  },
 };
 // `null`: no note at all (an explicit undefined would take the default).
 const run = (detected: [MonitorId, DetectedState][], stored: PublishedNote | null = note) =>
@@ -85,4 +90,24 @@ test("runs the rollup with no note to go on, or when the page's file can't be re
   expect(await run([])).toEqual({ action: "rollup", reason: "other_snapshot" });
   expect(rollups).toBe(2);
   expect(written).toEqual([]);
+});
+
+test("stamps the internal page with the same time when it shows the same version", async () => {
+  const published = JSON.parse(golden);
+  const internal = { ...published, page: { ...published.page, visibility: "internal" } };
+  files.set("internal/snapshot.json", JSON.stringify(internal));
+  const up: [MonitorId, DetectedState] = [
+    probe,
+    { state: "up", transitionSeq: 3, enteredAt: minutesAgo(600) },
+  ];
+  expect(await run([up])).toEqual({ action: "confirm" });
+  expect(writtenTo).toEqual(["status", "internal"]);
+  const stamped = JSON.parse(String(written[1]?.body));
+  expect(stamped).toEqual({ ...internal, publishedAt: "2026-09-29T14:35:00.000Z" });
+
+  // An internal page left on another version would be stamped as current while it isn't.
+  writtenTo = [];
+  files.set("internal/snapshot.json", JSON.stringify({ ...internal, snapshotVersion: 6 }));
+  expect(await run([up])).toEqual({ action: "confirm" });
+  expect(writtenTo).toEqual(["status"]);
 });

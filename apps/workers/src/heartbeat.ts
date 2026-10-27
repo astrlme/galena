@@ -1,6 +1,6 @@
 import { monitorId, snapshot } from "@galena/contracts";
 import { type Clock, type HeartbeatPlan, planHeartbeat } from "@galena/core";
-import type { NoteFile, PageStore } from "./publishing.ts";
+import { INTERNAL_SLUG, type NoteFile, type PageStore } from "./publishing.ts";
 import type { ReadStates } from "./states.ts";
 
 export type HeartbeatDeps = {
@@ -40,14 +40,22 @@ export async function beat(deps: HeartbeatDeps): Promise<HeartbeatPlan> {
   });
   if (plan.action === "confirm" && note && raw !== undefined) {
     // Only the time changes; every other byte is what the publish wrote.
-    const confirmed = { ...(raw as object), publishedAt: now.toISOString() };
-    await deps.store.write(note.slug, [
-      {
-        path: "snapshot.json",
-        body: `${JSON.stringify(confirmed)}\n`,
-        contentType: "application/json",
-      },
-    ]);
+    const stamp = (slug: string, page: unknown) =>
+      deps.store.write(slug, [
+        {
+          path: "snapshot.json",
+          body: `${JSON.stringify({ ...(page as object), publishedAt: now.toISOString() })}\n`,
+          contentType: "application/json",
+        },
+      ]);
+    await stamp(note.slug, raw);
+    // The publish wrote the internal page from the same read; one left on another version
+    // isn't confirmed by this note.
+    const internal = parse(await deps.store.read(INTERNAL_SLUG, "snapshot.json"));
+    const parsed = snapshot.safeParse(internal);
+    if (parsed.success && parsed.data.snapshotVersion === note.snapshotVersion) {
+      await stamp(INTERNAL_SLUG, internal);
+    }
   }
   if (plan.action === "rollup") await deps.rollup();
   return plan;
