@@ -31,7 +31,7 @@ export function registerInternalPageRoutes(app: App, deps: Deps) {
           code: "internal_page_off",
           title: "The internal page isn't available",
           detail:
-            "The API couldn't read the key that signs access to the internal page. Deploy again, which makes the key if it's missing; if that doesn't help, the API's log says why.",
+            "The API couldn't read the key that signs access to the internal page. The API's log says why; Troubleshooting in the docs says how to make a new key.",
         });
       }
       const cookies = signedCookies({
