@@ -184,6 +184,38 @@ test("a note that can't be written doesn't hold the page back", async () => {
   warn.mockRestore();
 });
 
+test("an internal view that can't be written doesn't hold the page back", async () => {
+  const { writes, store } = memoryStore();
+  const refusing: PageStore = {
+    ...store,
+    write: async (slug, files) => {
+      if (slug === "internal") throw new Error("AccessDenied");
+      await store.write(slug, files);
+    },
+  };
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const rebuilds: number[] = [];
+  const version = await nextSnapshotVersion(db);
+  const result = await publishPage(
+    { version },
+    {
+      db,
+      clock,
+      store: refusing,
+      note: { read: async () => undefined, write: async () => {} },
+      url: "https://status.example.com",
+      internalUrl: "https://dashboard.example.com/internal/",
+      subscribe: false,
+      rebuildHtml: async (v) => void rebuilds.push(v),
+    },
+  );
+  expect(result).toEqual({ outcome: "published", published: version + 1 });
+  expect(writes.map((w) => w.slug)).toEqual(["status"]);
+  expect(rebuilds).toEqual([version + 1]);
+  expect(warn).toHaveBeenCalledOnce();
+  warn.mockRestore();
+});
+
 test("the local store writes each file under the page's slug", async () => {
   const dir = await mkdtemp(join(tmpdir(), "galena-pages-"));
   try {

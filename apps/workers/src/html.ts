@@ -45,8 +45,13 @@ export async function rebuildHtml(
   try {
     await build(target.slug, body, "/");
     // The internal view, written by the same publish, is served under /internal/ on the dashboard.
+    // A failure here waits for the next publish rather than building the page again.
     const internal = await deps.store.read(INTERNAL_SLUG, "snapshot.json");
-    if (internal) await build(INTERNAL_SLUG, internal, `/${INTERNAL_SLUG}/`);
+    if (internal) {
+      await build(INTERNAL_SLUG, internal, `/${INTERNAL_SLUG}/`).catch((error: unknown) => {
+        console.warn("page.rebuild-html internal view not built", { error: String(error) });
+      });
+    }
   } finally {
     await rm(work, { recursive: true, force: true });
   }

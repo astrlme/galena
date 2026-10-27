@@ -91,8 +91,14 @@ export async function publishPage(
     now: deps.clock.now(),
   });
   await deps.store.write(target.slug, pageFiles(buildSnapshot(inputs, deps.clock)));
+  // The internal view never holds the page back: one left on an older version waits for the next
+  // publish, and the heartbeat doesn't confirm it meanwhile.
   const internal = { ...inputs, page: internalPage(inputs.page, deps.internalUrl) };
-  await deps.store.write(INTERNAL_SLUG, pageFiles(buildSnapshot(internal, deps.clock)));
+  await deps.store
+    .write(INTERNAL_SLUG, pageFiles(buildSnapshot(internal, deps.clock)))
+    .catch((error: unknown) => {
+      console.warn("page.publish internal view not written", { error: String(error) });
+    });
   // The page is out either way. Without a note for this version the heartbeat runs the rollup,
   // whose publish writes the note again.
   await deps.note
