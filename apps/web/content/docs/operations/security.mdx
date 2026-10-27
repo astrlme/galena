@@ -11,6 +11,7 @@ description: Trust boundaries, how secrets are kept, and what protects each way 
 | --- | --- | --- |
 | Status page | Anyone | Static files only. HSTS, `X-Frame-Options: DENY`, a content security policy with hashed scripts |
 | `/public/*` on the page's domain | Anyone | Subscribe, confirm and unsubscribe only; rate limits; answers that never reveal whether an address is subscribed |
+| `/internal*` on the dashboard's domain | Members | Static files only. CloudFront signed cookies, set by the API after sign-in, for 12 hours; sign-out expires them |
 | Dashboard and `/v1/*` | Members and their API keys | Session cookies from Better Auth or scoped API keys, role checks on every route, a content security policy, CloudFront in front |
 | `/auth/*` | Anyone | Better Auth: password hashing, TOTP two-factor, rate limits |
 | `/hooks/*` | Alert sources | A signed token in the URL, checked without the database; at most 120 alerts per integration a minute |
@@ -87,6 +88,7 @@ Every outbound URL (monitor checks, Slack, webhooks, the canary) passes the SSRF
 | App key | SSM SecureString, read by the API and the jobs | See below |
 | Database credentials | Secrets Manager, rotated by RDS every 7 days | The Data API |
 | Origin secret | Secrets Manager, replicated to the page region | CloudFront and the API |
+| Page signing key | SSM SecureString, made by the first deploy | Signing the internal page's cookies; CloudFront holds only the public half |
 
 The **app key** is 32 random bytes. Galena never uses it directly; it derives a separate key for
 each purpose with HKDF-SHA256, so no key can stand in for another:
@@ -107,8 +109,9 @@ shown once, when the endpoint is created.
 - Subscriber email addresses are visible only to admins, and only masked (`a***@example.com`).
 - The subscribe form keeps visitors' IP addresses only as keyed hashes. Better Auth records a
   member's IP address on each session, and keys its sign-in rate limits by address.
-- The status page and every published file contain public information only: nothing from a
-  draft, dismissed or internal incident.
+- The public status page and its files contain public information only: nothing from a draft,
+  dismissed or internal incident. The internal page, behind sign-in, adds internal incidents
+  and internal-only monitors; nothing from a draft or a dismissed incident.
 
 ## Infrastructure
 

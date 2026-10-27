@@ -1,0 +1,33 @@
+---
+title: Internal page
+description: The status page as members see it, behind sign-in.
+---
+
+The **internal page** is the status page as the people of your workspace see it. It shows
+everything the public page shows, and also:
+
+- the status that [internal-only monitors](/docs/concepts/monitors/#publish-policy) give their
+  components, and
+- incidents posted with **Internal page only**, which nobody is notified about.
+
+It lives on the dashboard's address, at `/internal/`. Open it from **Internal page** in the
+dashboard's menu: that lets your browser in for 12 hours, and signing out ends it at once.
+Bookmark the menu link rather than the page itself: once the 12 hours are up, the page answers
+403 until you open it from the dashboard again.
+
+## How it keeps working
+
+Like the public page, it is static. Each publish writes its files next to the public page's, and
+CloudFront serves them from the same buckets, falling back to the replica region. A browser that
+was let in keeps reading it while the API and the database are down.
+
+CloudFront checks a signed cookie on every request. The API signs it, after a member signs in,
+with a key that the first deploy makes and keeps as an SSM SecureString; CloudFront holds only the
+public half. API keys can't open the page.
+
+## Limits
+
+- The 90-day bars and uptime percentages come from the same history as the public page:
+  internal-only monitors change a component's current status, not its history.
+- Someone removed from the workspace can read the page until their 12 hours run out.
+- It has no feeds and no email subscriptions, since a feed reader can't sign in.

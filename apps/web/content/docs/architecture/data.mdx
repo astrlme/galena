@@ -60,7 +60,7 @@ recovery: everything in it can be rebuilt by checking again.
 | Bucket | Notes |
 | --- | --- |
 | Config | Private. One file, `monitors.json`: enabled monitors and their unfinished maintenance windows, sorted so the same state always writes the same bytes. |
-| Page primary | Private, read by CloudFront. Files under `pages/<slug>/`. Versioned for replication; old versions expire after a day. |
+| Page primary | Private, read by CloudFront. Files under `pages/<slug>/`, and the page's internal view under `pages/internal/`, served only on the dashboard's `/internal*` with signed cookies. Versioned for replication; old versions expire after a day. |
 | Page replica | The same, in a second region, filled by replication. |
 | Dashboard | Private, read by CloudFront. The Next.js static export. |
 

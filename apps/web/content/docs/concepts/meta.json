@@ -8,6 +8,7 @@
     "incidents",
     "maintenance",
     "status-and-uptime",
+    "internal-page",
     "notifications"
   ]
 }

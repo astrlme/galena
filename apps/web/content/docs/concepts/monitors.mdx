@@ -52,7 +52,7 @@ Each monitor carries a publish policy for incidents it will draft on its own:
 | --- | --- |
 | Ask a person first (`approve`) | The draft waits 10 minutes for a person, then publishes if the monitor is still down. |
 | Publish automatically (`auto`) | The draft publishes as soon as the monitor is down. |
-| Internal only (`internal_only`) | The monitor shows in the dashboard only. It moves no component status or history on the page, opens no incident, and tells no subscriber. |
+| Internal only (`internal_only`) | The monitor shows in the dashboard and on the [internal page](/docs/concepts/internal-page/) only. It moves no component status or history on the public page, opens no incident, and tells no subscriber. |
 
 When a monitor goes down, Galena first looks for an open incident on its component: if there
 is one, it covers the monitor too and nothing new opens. Otherwise it opens one named after the
