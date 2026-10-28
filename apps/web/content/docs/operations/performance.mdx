@@ -1,0 +1,127 @@
+---
+title: Performance
+description: How the status page held up at 10,000 requests a second, and the budgets every change to it must meet.
+---
+
+The status page is static files in S3 behind CloudFront, so the rush of visitors an outage brings
+lands on CloudFront's edges, not on Galena. This page records the load test that shows it and the
+budgets that keep the page small.
+
+## Load test
+
+On 2026-10-28, k6 sent a live Galena status page (`status.astrl.me`) a one-minute ramp to 10,000
+requests a second, then held that rate for two minutes.
+
+| What | Result |
+| --- | --- |
+| Requests | 1,502,913, every one answered `200` |
+| Busiest minute | 600,000 requests (10,000 a second), counted by CloudFront |
+| Failed requests | 0 |
+| CloudFront 4xx and 5xx error rates | 0% in every minute |
+| Requests k6 couldn't start on time | 0 |
+| Response time, once connected | median 1.86 ms, 95th percentile 14.5 ms, 99th 95.39 ms, slowest 203.58 ms |
+| Data served | 2.4 GB, counted by CloudFront |
+
+CloudFront's own count, minute by minute (UTC):
+
+| Minute | Requests | Data served | 4xx | 5xx |
+| --- | --- | --- | --- | --- |
+| 21:51 | 4,948 | 7.9 MB | 0% | 0% |
+| 21:52 | 369,677 | 593.9 MB | 0% | 0% |
+| 21:53 | 600,000 | 963.5 MB | 0% | 0% |
+| 21:54 | 528,288 | 847.9 MB | 0% | 0% |
+
+**What was asked for:** 80% `snapshot.json` (what an open page polls every 30 seconds), 10% the
+page itself, 5% the history page and 5% `/api/v2/summary.json`, each with
+`Accept-Encoding: br, gzip` as a browser sends. Compressed, the busiest minute came to 0.13 Gbps.
+
+**From where:** one c7g.xlarge instance (4 vCPU) in AWS's Frankfurt region running k6 2.2.0. The
+response times are measured from there; a visitor farther away adds their own network time. All
+the load came from one place, so it reached the edges that serve that place, not CloudFront's
+whole network.
+
+**Why the buckets stay quiet:** the pages and JSON files are served with
+`Cache-Control: public, max-age=2, stale-if-error=86400` (scripts and styles have hashed names
+and are cached for a year). A CloudFront cache asks S3 for a file again at most every two
+seconds, however many visitors want it, and keeps serving its last copy for a day if S3 answers
+with an error.
+
+**What the numbers can't show:** CloudFront's standard metrics count what visitors got back. They
+don't count requests to S3 on their own, and because of `stale-if-error` a failed refresh would
+still reach a visitor as the cached copy. So 0% means no visitor saw an error, not that S3 never
+failed; the distribution keeps no access logs or origin metrics that could show that.
+
+**Cost:** 1.5 million requests and 2.4 GB fit in CloudFront's always-free tier (10 million
+requests and 1 TB a month). The load generator ran for under 24 minutes and was deleted
+afterwards.
+
+k6's summary of the run:
+
+```text
+  █ THRESHOLDS
+
+    dropped_iterations
+    ✓ 'count==0' count=0
+
+    http_req_failed
+    ✓ 'rate==0' rate=0.00%
+    ✓ 'rate<0.01' rate=0.00%
+
+  █ TOTAL RESULTS
+
+    checks_total.......: 1502913 8349.39515/s
+    checks_succeeded...: 100.00% 1502913 out of 1502913
+    checks_failed......: 0.00%   0 out of 1502913
+
+    ✓ status is 200
+
+    HTTP
+    http_req_duration..............: med=1.86ms p(95)=14.5ms  p(99)=95.39ms max=203.58ms
+    http_req_failed................: 0.00%   0 out of 1502913
+    http_reqs......................: 1502913 8349.39515/s
+
+    EXECUTION
+    dropped_iterations.............: 0       0/s
+    vus............................: 27      min=2            max=37
+    vus_max........................: 1000    min=1000         max=1000
+
+    NETWORK
+    data_received..................: 2.5 GB  14 MB/s
+    data_sent......................: 67 MB   373 kB/s
+```
+
+The rate per second there is averaged over the whole run, ramp included.
+
+### Run it yourself
+
+The script is
+[`scripts/load/status-page.js`](https://github.com/astrlme/galena/blob/main/scripts/load/status-page.js).
+Point it at your own deployment's page only, and run it from inside AWS: a home connection
+can't send this much.
+
+```sh
+docker run --rm -i -e GLN_PAGE_URL=https://status.example.com \
+  grafana/k6:2.2.0@sha256:9bd01d6941fca969cb61bb57d2da5ee9b385fe2aa8881df3798c196564d6ace6 \
+  run -q - < scripts/load/status-page.js
+```
+
+`GLN_RATE` sets a lower rate. CloudFront is on AWS's list of services you may test without
+asking first, but read its [penetration testing policy](https://aws.amazon.com/security/penetration-testing/)
+before you start. AWS's stress-test guidance begins at 1 Gbps sustained, well above this mix.
+
+## Page budgets
+
+`pnpm check:page` builds the page from a fixture and fails if it misses any budget. CI runs it
+on every pull request that changes something the page is built from, and on every push to
+`main`.
+
+| Budget | Limit | Measured on 2026-10-28 |
+| --- | --- | --- |
+| Lighthouse performance, throttled mobile | 100 | 100 |
+| Lighthouse accessibility | 100 | 100 |
+| JavaScript per page, gzipped | 15,360 bytes | 3,446 bytes at most |
+| Each HTML file | under 40,000 characters | 16,349 at most |
+| axe, light and dark, dialogs open | no violations | none |
+
+On the same run Lighthouse's throttled phone showed the first content after 1.2 s, the largest
+after 1.5 s, and no blocking time.
