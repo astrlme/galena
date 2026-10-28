@@ -13,7 +13,7 @@
     "dev": "astro dev --port 4321",
     "build": "astro build",
     "preview": "astro preview --port 4321",
-    "fixture": "node -e \"require('node:fs').copyFileSync('../../packages/publisher/test/golden/snapshot.json', 'src/data/snapshot.json')\"",
+    "fixture": "node -e \"const fs = require('node:fs'); fs.mkdirSync('src/data', { recursive: true }); fs.copyFileSync('../../packages/publisher/test/golden/snapshot.json', 'src/data/snapshot.json')\"",
     "typecheck": "tsc --noEmit",
     "check:page": "pnpm fixture && astro build && node scripts/check-page.mjs"
   },
