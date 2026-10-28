@@ -1,7 +1,36 @@
 ---
 title: Security model
-description: Trust boundaries, how secrets are kept, and what protects each way in.
+description: The threat model, trust boundaries, how secrets are kept, and what protects each way in.
 ---
+
+## Threat model
+
+What Galena protects, from whom, and how. Each control below has a test in the repository or is
+described on this page.
+
+**What it protects:** what the status page says, the members' accounts and the dashboard, the
+secrets of its integrations (Slack's token, webhook URLs and signing secrets, alert hook URLs),
+subscribers' email addresses, and the owner's AWS bill.
+
+**Who might try:** anyone on the internet, through the status page, sign-in, the subscribe form
+and hook URLs; a service Galena calls, such as a monitored endpoint, a webhook receiver or Slack;
+a member with a lower role; whoever holds a leaked API key or hook URL; a compromised dependency.
+
+| Threat | What stops it |
+| --- | --- |
+| Someone changes what the status page says | The page is static files that only the background jobs write; every change through the API checks the member's role; an incident a monitor opens publishes only as its publish policy allows |
+| Someone signs in as a member | Hashed passwords, TOTP two-factor with backup codes, signed session cookies, sign-in limits per visitor address; sign-up is closed |
+| A script runs up the owner's bill | Requests without a valid credential are refused before any database query; throttles per path; caps on monitors, destinations, integrations and keys; alarms on traffic and on a database kept awake |
+| A monitor or webhook URL reaches inside AWS | Every outbound request resolves the name first and refuses loopback, link-local (the instance metadata service), private ranges and other schemes, again after each redirect |
+| A forged Slack request or alert | Slack's signature is checked on the raw body, within five minutes, before anything is parsed; an alert needs a signed hook URL: a forged one is refused before any database query, a replaced one within a minute |
+| A script injected into a page | Incident text is Markdown: refused with HTML or unsafe links when it's written, and escaped on the page, in emails and in feeds; the status page runs only its own hashed scripts |
+| A stored secret leaks | Integration secrets are sealed with AES-256-GCM under a key derived from the app key; the API never returns them; logs and error answers carry no secrets, tokens or request bodies |
+| Internal information reaches the public | Drafts, dismissed and internal incidents and internal-only monitors never reach the public page or a subscriber; the internal page needs cookies the API signs |
+| A vulnerable or malicious dependency | Frozen installs, pinned actions, install scripts allowed for one package, a weekly audit, a software bill of materials with each release |
+| A role does more than it should | Each function has its own IAM role, scoped to what it reads and writes and checked by tests; deploys assume a role that trusts only `main` |
+
+Out of scope: a compromised AWS or GitHub account of the owner, floods beyond the throttles (there
+is no WAF; see [Limits](/docs/reference/limits/)), and the security of the services Galena watches.
 
 ## Ways in
 
@@ -24,6 +53,15 @@ The API Lambda sits behind API Gateway, which has a public address of its own. C
 random header, `x-galena-origin`, to every request it forwards; the value lives in Secrets Manager
 and the API compares it in constant time. Anything that skips CloudFront, including attempts to
 forge the visitor's address, is refused with `403`. Only `/health` answers without it.
+
+### Content security policy
+
+The status page runs only the scripts and styles whose hashes it lists, written by Astro at build
+time, under a header that forbids framing, plugins and other base URLs. The dashboard's header
+allows inline scripts and styles, because Next.js's static export starts every page with inline
+scripts whose contents change with each build. It allows scripts and requests only from its own
+origin and can't be framed; React escapes everything it renders, and the dashboard loads no
+third-party scripts.
 
 ### Rate limits
 
@@ -122,8 +160,16 @@ shown once, when the endpoint is created.
 - Every stack passes cdk-nag's AWS Solutions rules, with each exception explained in code.
 - GitHub Actions deploys through OIDC: no AWS keys are stored in GitHub, and the deploy role
   trusts only `main` of one repository, by its immutable ids.
-- Third-party actions are pinned to commit SHAs, installs use the frozen lockfile, and only
+
+## Supply chain
+
+- Installs use the frozen lockfile, third-party actions are pinned to commit SHAs, and only
   `esbuild` may run an install script.
+- A workflow audits the locked dependencies every week and whenever the lockfile changes, and
+  fails on a high or critical advisory. One with no fixed release is listed, with the reason,
+  in `pnpm-workspace.yaml`.
+- Each release carries a software bill of materials: every package's production dependencies, as
+  CycloneDX.
 
 ## Reporting a vulnerability
 
