@@ -159,7 +159,8 @@ module.exports = {
       comment: "an import that does not resolve is a typo or a missing dependency",
       severity: "error",
       from: {},
-      to: { couldNotResolve: true },
+      // k6's modules exist only inside the k6 binary that runs scripts/load.
+      to: { couldNotResolve: true, pathNot: "^k6(?:/|$)" },
     },
   ],
   options: {
