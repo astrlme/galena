@@ -36,6 +36,22 @@ test("an unknown route answers 404 problem details", async () => {
   expect(body.detail).toContain("GET /nope");
 });
 
+test("nothing the API answers is for a cache, problems and the auth routes included", async () => {
+  const app = newApp();
+  const answers = await Promise.all([
+    app.request("/health"),
+    app.request("/nope"),
+    app.request("/v1/me"),
+    app.request("/auth/sign-up/email", { method: "POST" }),
+  ]);
+  expect(answers.map((r) => [r.status, r.headers.get("cache-control")])).toEqual([
+    [200, "no-store"],
+    [404, "no-store"],
+    [401, "no-store"],
+    [403, "no-store"],
+  ]);
+});
+
 test("invalid input answers 400 problem details naming the field", async () => {
   const app = newApp();
   const route = createRoute({
