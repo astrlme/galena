@@ -190,6 +190,7 @@ test("loads open incidents with their updates and those resolved in the last 14 
     name: "Acme",
     url: "https://status.example.com",
     subscribe: true,
+    visibility: "public",
   });
   expect(inputs.components.map((c) => c.id)).toEqual([web]);
   expect(inputs.monitors).toEqual([
