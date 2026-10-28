@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
@@ -120,8 +120,18 @@ export const astroBuild: BuildPage = async (snapshotFile, outDir, base) => {
     "bin",
     "astro.mjs",
   );
-  await run(process.execPath, [astro, "build", "--outDir", outDir, "--base", base], {
-    cwd: app,
-    env: { ...buildEnv(), ASTRO_TELEMETRY_DISABLED: "1", GLN_SNAPSHOT_FILE: snapshotFile },
-  });
+  // Astro builds an output outside the app in the app's own folder, then moves the files there
+  // with rename(), which fails across filesystems (EXDEV), as between a CI checkout and /tmp. So
+  // it builds inside the app's ignored dist/ and the result is copied out.
+  await mkdir(join(app, "dist"), { recursive: true });
+  const local = await mkdtemp(join(app, "dist", "build-"));
+  try {
+    await run(process.execPath, [astro, "build", "--outDir", local, "--base", base], {
+      cwd: app,
+      env: { ...buildEnv(), ASTRO_TELEMETRY_DISABLED: "1", GLN_SNAPSHOT_FILE: snapshotFile },
+    });
+    await cp(local, outDir, { recursive: true });
+  } finally {
+    await rm(local, { recursive: true, force: true });
+  }
 };
