@@ -20,6 +20,7 @@
     "dev:local": "node --watch --env-file-if-exists=apps/api/.env --import ./scripts/register-tsx.mjs scripts/dev.ts",
     "galena": "node apps/cli/src/main.ts",
     "pack:cli": "node scripts/pack-cli.ts",
+    "release:sbom": "node -e \"require('node:fs').mkdirSync('dist',{recursive:true})\" && pnpm sbom --sbom-format cyclonedx --sbom-type application --prod --lockfile-only > dist/galena.cdx.json",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:deps",
     "lint": "biome check && oxlint --type-aware --deny-warnings",
     "format": "biome check --write",
