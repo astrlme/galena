@@ -1,0 +1,41 @@
+diff --git a/dist/ui/operation/index.js b/dist/ui/operation/index.js
+index dcb5279ba8d4dc113ee853fb47836ad5eddec2d0..62e7cf166fbc62e712faef392a1882fe2c0b05c6 100644
+--- a/dist/ui/operation/index.js
++++ b/dist/ui/operation/index.js
+@@ -83,6 +83,7 @@ function OperationContent({ showTitle, showDescription, headingLevel = 2 }) {
+ 						children: t("Request Body")
+ 					}), contentTypes.length > 1 ? /* @__PURE__ */ jsx(SelectTabTrigger, {
+ 						items,
++						"aria-label": "Content type",
+ 						className: "font-medium"
+ 					}) : /* @__PURE__ */ jsx("p", {
+ 						className: "text-fd-muted-foreground not-prose",
+@@ -172,7 +173,7 @@ function OperationContent({ showTitle, showDescription, headingLevel = 2 }) {
+ 					depth: headingLevel,
+ 					className: "my-0!",
+ 					children: t("Authorization")
+-				}), items.length > 1 ? /* @__PURE__ */ jsx(SelectTabTrigger, { items }) : /* @__PURE__ */ jsx("div", {
++				}), items.length > 1 ? /* @__PURE__ */ jsx(SelectTabTrigger, { items, "aria-label": t("Authorization") }) : /* @__PURE__ */ jsx("div", {
+ 					className: "not-prose",
+ 					children: items[0].label
+ 				})]
+@@ -361,6 +362,7 @@ function ResponseAccordion({ item: { status, response, content } }) {
+ 				children: items[0].label
+ 			}) : items.length > 0 && /* @__PURE__ */ jsx(SelectTabTrigger, {
+ 				items,
++				"aria-label": "Content type",
+ 				className: "my-1.5 py-1"
+ 			})] }), /* @__PURE__ */ jsxs(AccordionContent, {
+ 				className: "ps-4.5 pe-3 border rounded-xl",
+diff --git a/dist/ui/operation/usage-tabs.js b/dist/ui/operation/usage-tabs.js
+index 893c240261424aea8cb08015ba85d6714027c67f..365b67e7d2d19419277bd8eb2cc2a48c87b5a3b7 100644
+--- a/dist/ui/operation/usage-tabs.js
++++ b/dist/ui/operation/usage-tabs.js
+@@ -66,6 +66,7 @@ function UsageTabsSelector() {
+ 		onValueChange: (v) => v !== null && select(v),
+ 		children: [/* @__PURE__ */ jsx(SelectTrigger, {
+ 			className: "not-prose mb-2",
++			"aria-label": "Example",
+ 			children: /* @__PURE__ */ jsx(SelectValue, {})
+ 		}), /* @__PURE__ */ jsx(SelectContent, { children: options.map((item) => /* @__PURE__ */ jsx(SelectItem, {
+ 			value: item.value,

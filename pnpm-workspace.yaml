@@ -38,3 +38,8 @@ auditConfig:
   # covers every copy of zod, so if zod 3 ever reaches a deployed app, drop it and replace that path.
   ignoreGhsas:
     - GHSA-mrhx-c7xc-m3w5
+patchedDependencies:
+  # Base UI gives the reference's select triggers `role="combobox"`, which takes no name from its
+  # text, so screen readers announced an unnamed control; the patch labels each one. Still
+  # unlabelled in 12.5.5: carry the patch forward on an upgrade, or drop it once upstream names them.
+  fumadocs-openapi@12.1.0: patches/fumadocs-openapi@12.1.0.patch
