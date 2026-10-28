@@ -31,3 +31,10 @@ overrides:
   "http-cache-semantics@>=4.0.0 <4.2.1": ^4.2.1
   "fast-uri@>=3.0.0 <3.1.9": ^3.1.9
   "zod@>=4.0.0 <4.6.6": ^4.6.7
+auditConfig:
+  # Advisories that would fail the audit (high or critical) and have no fixed release. Zod's memory
+  # advisory, for the zod 3 that Lighthouse's chromium-bidi pins (the local `check:page` only):
+  # zod 3 has no fixed release, and zod 4 is held at a fixed one by the override above. The ignore
+  # covers every copy of zod, so if zod 3 ever reaches a deployed app, drop it and replace that path.
+  ignoreGhsas:
+    - GHSA-mrhx-c7xc-m3w5
