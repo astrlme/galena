@@ -57,7 +57,13 @@ explains why.
 
 One version covers the whole repository, in the root `package.json`. A release bumps it, adds its
 section to `CHANGELOG.md` with upgrade notes (manual steps, or that none are needed), and is tagged
-`vX.Y.Z` on `main` with a GitHub release that carries the same notes.
+`vX.Y.Z` on `main` with a GitHub release that carries the same notes. The release also carries a
+software bill of materials: `pnpm release:sbom` writes the production dependencies of every
+package, from the lockfile, as CycloneDX to `dist/galena.cdx.json`, which the release attaches.
+
+A workflow audits the locked dependencies every week and whenever the lockfile changes, and fails
+on a high or critical advisory. One with no fixed release is listed, with the reason, under
+`auditConfig` in `pnpm-workspace.yaml`.
 
 ## Security
 
