@@ -7,12 +7,52 @@ Galena deploys with the AWS CDK, from your machine with `galena deploy` or from 
 workflow that signs in to AWS with OIDC. Everything runs in your account, background jobs
 included, so AWS is the only account you need.
 
-<Callout title="Before you start">
-You need an AWS account that holds nothing but Galena, with credentials on your machine (for
-example `aws configure sso`), Node 24 or newer, and a domain whose DNS you control (the examples
-use Cloudflare). Allow a day for AWS to approve SES production access if you send email, and for a
-higher Lambda concurrency quota.
-</Callout>
+## Before you start
+
+1. **An AWS account that holds nothing but Galena.** Sign in as root once, turn on MFA, and stop
+   using root. Create an IAM Identity Center user with administrator access, and set a monthly
+   budget with email alerts.
+2. **The AWS CLI**, signed in as that user with `aws configure sso`. `aws sts get-caller-identity`
+   should name the account.
+3. **Node 24 or newer.**
+4. **A higher Lambda quota, asked for a day ahead.** A new account allows 10 concurrent Lambda
+   executions per region, and Galena's API, detection and background jobs share them in the home
+   region. Ask for more in Service Quotas ("Concurrent executions") in your home region, and
+   allow a day for AWS to answer.
+5. **Your regions**, below. The presets work as they are.
+6. Optional: **a domain whose DNS you control**, for the status page and the dashboard (the
+   examples use Cloudflare). Without one, both are on CloudFront addresses.
+7. Optional: **email**. Notification email needs that domain, and SES production access, which
+   AWS also takes about a day to approve.
+
+## Choose your regions
+
+`galena init` offers two presets, `eu` and `us` (see the [CLI](/docs/reference/cli/#galena-init)
+for their regions). Galena's own deployment runs `eu`. To change a region, edit
+`galena.config.json` before the first deploy: the database lives in the home region, so moving
+it later starts an empty deployment there.
+
+**Home region.** The API, the database, detection and the background jobs run here. Pick a region
+where the services you watch don't run. If they share one and it fails, detection stops when you
+need it most. The status page keeps showing its last snapshot, nothing can change it until the
+region is back, and two hours after its last confirmation it says "Status not confirmed since …".
+Outside the presets, check that the region offers Aurora Serverless v2 with the RDS Data API,
+EventBridge Scheduler and, if you send email, SES. Apart from the subscribe form, visitors to the
+status page never reach this region, so pick it for independence, not for their latency.
+
+**Probe regions.** At least three, where your monitors are checked every minute. By default,
+detection acts only when two regions agree, so a network problem near one of them doesn't open an
+incident on its own. Spread them out, and put them near the people who use your services. A probe
+region can also be a page region.
+
+**Page regions.** The status page's buckets: a primary, and a replica that CloudFront switches to
+if the primary fails. Both must differ from the home region and from each other, so the page
+keeps serving while the home region is down. Visitors load the page from the CloudFront edge
+nearest them, which asks the bucket for a file at most every two seconds, so on a busy page most
+requests never leave the edge. A primary near most of your visitors makes the rest a little
+faster.
+
+CloudFront's certificates for custom domains always live in us-east-1, whatever you pick.
 
 ## Two commands
 
@@ -27,6 +67,10 @@ npx @astrlme/galena deploy
 steps below except the DNS records, which it prints for you to add, and on the first run it asks
 for the owner's details. See the [CLI reference](/docs/reference/cli/#galena-deploy) for each step.
 Keep the directory: every later command reads the config from it.
+
+Most of the first deploy is AWS creating resources, several stacks at a time; the database takes
+longest. With a domain, `deploy` prints each certificate's validation record while it waits for
+it: add the record at your DNS host and the deploy carries on.
 
 The package carries Galena's source for its version. Its first run copies that to
 `~/.galena/<version>` and installs the dependencies there with pnpm, which corepack provides
@@ -73,9 +117,9 @@ for the presets.
 
 | Setting | Meaning |
 | --- | --- |
-| `homeRegion` | Where the API, the database, detection and the background jobs run. Pick a region where your own services do not run, so an outage there does not take Galena down with them. |
-| `probeRegions` | At least three regions that run checks. Detection needs two of them to agree. |
-| `pageRegions` | The status page's primary and replica regions. The config refuses either one sharing a region with `homeRegion`. |
+| `homeRegion` | Where the API, the database, detection and the background jobs run. See [Choose your regions](#choose-your-regions). |
+| `probeRegions` | At least three regions that run checks. See [Choose your regions](#choose-your-regions). |
+| `pageRegions` | The status page's primary and replica regions. The config refuses either one sharing a region with `homeRegion`, or with each other. |
 | `github.repository`, `github.oidcSubject` | Your fork. The subject has the form `repo:<owner>@<owner id>/<repo>@<repo id>`; `gh api repos/<owner>/<repo>` shows both ids. |
 | `pageDomain` | Optional: the status page's own hostname, for example `status.example.com`. |
 | `webDomain` | Optional: the dashboard's own hostname, for example `galena.example.com`. Without it, the dashboard is on its CloudFront address. |
@@ -84,21 +128,13 @@ for the presets.
 | `telemetryCapacity` | DynamoDB read and write units. Deployments in one account and region share the free tier of 25 each, and so do the accounts of an AWS Organization. |
 | `smoke`, `retainData` | Leave `smoke` out (it's the maintainer's deployed test). `retainData` keeps the table and config bucket if their stack is deleted. |
 
-A new AWS account allows 10 concurrent Lambda executions per region. Galena's API, evaluator,
-background jobs and probes share that pool, so ask AWS for more (Service Quotas, "Concurrent
-executions") before you deploy.
-
 </Step>
 <Step>
 
 ### Prepare the account
 
-1. Sign in as root once, turn on MFA, and stop using root.
-2. Create an IAM Identity Center user with administrator access for the first deploy, and sign
-   in with `aws configure sso`.
-3. Set a monthly budget with email alerts.
-4. Bootstrap the CDK in every region the stage uses, plus `us-east-1` for CloudFront
-   certificates:
+Set up the account and the AWS CLI as in [Before you start](#before-you-start), then bootstrap
+the CDK in every region the stage uses, plus `us-east-1` for CloudFront certificates:
 
 ```bash
 pnpm --filter @galena/infra exec cdk bootstrap \
