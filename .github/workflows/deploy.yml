@@ -47,7 +47,7 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.GLN_HOME_REGION }}
       - run: >-
-          pnpm --filter @galena/infra exec cdk deploy --all
+          pnpm --filter @galena/infra exec cdk deploy --all --concurrency 8
           --require-approval never --outputs-file cdk-outputs.json
       - name: Smoke test
         run: |
