@@ -94,14 +94,15 @@ export function validationRecords(
 }
 
 /**
- * While CDK runs, prints each validation record once: CloudFormation waits until the record
- * exists at the DNS host, and ACM only names it after the certificate is created.
+ * While CDK runs, prints each validation record, and again every two minutes until ACM sees it:
+ * CloudFormation waits until the record exists at the DNS host, ACM only names it after the
+ * certificate is created, and CDK's output soon scrolls a record printed once out of sight.
  */
 async function watchCertificates(config: StageConfig, say: Say, signal: AbortSignal) {
   const domains = domainsOf(config);
   if (!domains.length) return;
   const acm = new ACMClient({ region: "us-east-1" });
-  const printed = new Set<string>();
+  const printedAt = new Map<string, number>();
   while (!signal.aborted) {
     const { CertificateSummaryList = [] } = await acm.send(
       new ListCertificatesCommand({ CertificateStatuses: ["PENDING_VALIDATION"] }),
@@ -115,8 +116,8 @@ async function watchCertificates(config: StageConfig, say: Say, signal: AbortSig
       ),
     );
     for (const { domain, name, value } of validationRecords(domains, pending)) {
-      if (printed.has(name)) continue;
-      printed.add(name);
+      if (Date.now() - (printedAt.get(name) ?? 0) < 120_000) continue;
+      printedAt.set(name, Date.now());
       say(
         `\nThe certificate for ${domain} waits for this record at your DNS host (DNS only):\n  CNAME  ${name}  ${value}\n`,
       );

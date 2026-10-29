@@ -45,7 +45,8 @@ newer release. Each step checks first and skips what is already done.
    one-time setup token on the first deploy.
 4. Builds the dashboard and deploys every stack, the background jobs included, several at a time
    where they don't depend on each other. With custom domains, it prints each certificate's
-   validation CNAME while CloudFormation waits for it; add them at your DNS host.
+   validation CNAME while CloudFormation waits for it, and again every two minutes until ACM
+   sees it; add them at your DNS host.
 5. On the first deploy, asks for the workspace name and the owner's name, email and password,
    creates them through first-run setup, and deletes the setup token.
 6. Prints the dashboard and status page addresses and the DNS records still needed, then runs
