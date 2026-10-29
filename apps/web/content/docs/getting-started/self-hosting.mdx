@@ -69,8 +69,12 @@ for the owner's details. See the [CLI reference](/docs/reference/cli/#galena-dep
 Keep the directory: every later command reads the config from it.
 
 Most of the first deploy is AWS creating resources, several stacks at a time; the database takes
-longest. With a domain, `deploy` prints each certificate's validation record while it waits for
-it: add the record at your DNS host and the deploy carries on.
+longest. A fresh deploy of the `eu` preset with both domains took 22 minutes, plus the time until
+ACM saw its certificates' DNS records. With a domain, `deploy` prints each certificate's
+validation record as soon as ACM makes it, and again every two minutes until ACM sees it. Add
+the records at your DNS host right away: the dashboard and the status page wait for their
+certificates. The deploy ends with the CNAMEs that point your domains at CloudFront, and a
+`doctor` run whose DNS check fails until you add them.
 
 The package carries Galena's source for its version. Its first run copies that to
 `~/.galena/<version>` and installs the dependencies there with pnpm, which corepack provides
