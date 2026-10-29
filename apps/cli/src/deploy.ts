@@ -134,6 +134,9 @@ async function deployStacks(config: StageConfig, configPath: string, say: Say) {
     say(`Couldn't read the certificates' validation records: ${describeError(error)}`),
   );
   try {
+    // CDK deploys one stack at a time without it. The dependencies in infra/bin/galena.ts
+    // still hold each stack until what it reads exists; the presets never have more than 8
+    // ready at once.
     await pnpm([
       "--filter",
       "@galena/infra",
@@ -141,6 +144,8 @@ async function deployStacks(config: StageConfig, configPath: string, say: Say) {
       "cdk",
       "deploy",
       "--all",
+      "--concurrency",
+      "8",
       "--require-approval",
       "never",
       "-c",
