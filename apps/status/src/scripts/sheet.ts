@@ -2,9 +2,11 @@
 // each is a plain section at the end of the page, which its link's #anchor reaches.
 
 // Motion starts a frame after the dialogs exist, so a section turning into a closed dialog never
-// fades.
+// fades. Two callbacks: the first runs before that frame's styles, which would see both classes.
 document.documentElement.classList.add("js");
-requestAnimationFrame(() => document.documentElement.classList.add("motion"));
+requestAnimationFrame(() =>
+  requestAnimationFrame(() => document.documentElement.classList.add("motion")),
+);
 
 for (const sheet of document.querySelectorAll<HTMLDialogElement>("dialog.sheet")) {
   const open = () => {

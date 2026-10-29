@@ -1,7 +1,8 @@
 // `pnpm check:page`: the built status page against its budgets. Lighthouse mobile scores 100
 // for performance and accessibility, JavaScript stays within 15 KB gzipped, every HTML file
-// under 40 KB, and axe finds nothing in light or dark. Serves the build in dist/ the way
-// CloudFront does (a directory means its index.html) and drives the installed Chrome.
+// under 40 KB, axe finds nothing in light or dark, and nothing moves on load. Serves the build
+// in dist/ the way CloudFront does (a directory means its index.html) and drives the installed
+// Chrome.
 import { readdirSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
@@ -52,13 +53,18 @@ const types = {
   ".woff2": "font/woff2",
 };
 const server = createServer((req, res) => {
-  let path = decodeURIComponent(new URL(req.url, ORIGIN).pathname);
+  const url = new URL(req.url, ORIGIN);
+  let path = decodeURIComponent(url.pathname);
   if (path.endsWith("/")) path += "index.html";
   const file = join("dist", normalize(path));
   try {
     const body = readFileSync(file);
     res.writeHead(200, { "content-type": types[extname(file)] ?? "application/octet-stream" });
-    res.end(body);
+    // `?slow`, like a slow connection: the browser paints the page before its scripts arrive.
+    const cut = url.searchParams.has("slow") ? body.indexOf('<script type="module">') : -1;
+    if (cut < 0) return res.end(body);
+    res.write(body.subarray(0, cut));
+    setTimeout(() => res.end(body.subarray(cut)), 300);
   } catch {
     res.writeHead(404).end();
   }
@@ -109,6 +115,13 @@ try {
         await context.close();
       }
     }
+    // Nothing moves until the person does, even when the page painted before its scripts ran.
+    const loading = await browser.newPage();
+    await loading.goto(`${ORIGIN}?slow`, { waitUntil: "commit" });
+    await loading.waitForFunction(() => document.documentElement.classList.contains("motion"));
+    const moving = await loading.evaluate(() => document.getAnimations().length);
+    check(moving === 0, `after a slow first paint, ${moving} animations run on load (budget 0)`);
+    await loading.close();
     // Both dialogs: their buttons open them, they pass axe open, Escape closes them.
     const dialogs = [
       {
