@@ -8,9 +8,8 @@ export type Check = (answer: string) => string | undefined;
  * Hidden answers aren't echoed when `input` is a terminal.
  */
 export function prompter(input: Readable = process.stdin, output: Writable = process.stdout) {
-  const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY })[
-    Symbol.asyncIterator
-  ]();
+  const reader = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
+  const lines = reader[Symbol.asyncIterator]();
   const say = (text: string) => output.write(`${text}\n`);
   const next = async () => {
     const line = await lines.next();
@@ -51,5 +50,7 @@ export function prompter(input: Readable = process.stdin, output: Writable = pro
     ask: (question: string, check: Check = () => undefined, fallback = "") =>
       ask(question, check, fallback),
     askHidden: (question: string, check: Check = () => undefined) => ask(question, check, "", true),
+    /** Stops reading `input`: a terminal that is still read keeps the process from exiting. */
+    close: () => reader.close(),
   };
 }

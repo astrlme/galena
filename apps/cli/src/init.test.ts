@@ -62,6 +62,15 @@ test("asks again after an answer the config refuses, then writes a config infra 
   expect(loadConfig(path).webDomain).toBeUndefined();
 });
 
+test("lets go of a terminal's input when it is done, so the process can exit", async () => {
+  const path = join(mkdtempSync(join(tmpdir(), "galena-init-")), "galena.config.json");
+  // A terminal never ends its input, unlike the piped answers above.
+  const input = new PassThrough();
+  input.write(["acme", "eu", "", "", "", ""].map((a) => `${a}\n`).join(""));
+  expect(await init(path, { input, output: new PassThrough() })).toBe(0);
+  expect(input.listenerCount("data")).toBe(0);
+});
+
 test("never replaces an existing config without --force", async () => {
   const path = join(mkdtempSync(join(tmpdir(), "galena-init-")), "galena.config.json");
   writeFileSync(path, "{}");

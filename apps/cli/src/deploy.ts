@@ -295,6 +295,8 @@ export async function deploy(
   } catch (error) {
     say(describeError(error));
     return 1;
+  } finally {
+    prompt.close();
   }
   say("\nChecking the deployment:\n");
   await doctor(path, output ? { output } : {});

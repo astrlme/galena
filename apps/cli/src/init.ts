@@ -69,13 +69,13 @@ export async function init(
     output = process.stdout,
   }: { force?: boolean; input?: Readable; output?: Writable } = {},
 ): Promise<number> {
-  const { say, ask } = prompter(input, output);
-  if (existsSync(path) && !force) {
-    say(`${path} already exists. Run galena init --force to replace it.`);
-    return 1;
-  }
+  const { say, ask, close } = prompter(input, output);
   const { shape } = stageSchema;
   try {
+    if (existsSync(path) && !force) {
+      say(`${path} already exists. Run galena init --force to replace it.`);
+      return 1;
+    }
     const stage = await ask(
       "Deployment name, used in stack and parameter names",
       field(shape.stage, false),
@@ -121,5 +121,7 @@ export async function init(
   } catch (error) {
     say(error instanceof Error ? error.message : String(error));
     return 1;
+  } finally {
+    close();
   }
 }

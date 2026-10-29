@@ -1,8 +1,26 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import { expect, test } from "vitest";
-import { dnsRecords, newSecret, retryable, secretsToMake, validationRecords } from "./deploy.ts";
+import {
+  deploy,
+  dnsRecords,
+  newSecret,
+  retryable,
+  secretsToMake,
+  validationRecords,
+} from "./deploy.ts";
 import { buildConfig } from "./init.ts";
 
 const config = buildConfig({ stage: "demo", preset: "eu" });
+
+test("lets go of a terminal's input when it stops, so the process can exit", async () => {
+  const input = new PassThrough();
+  const output = new PassThrough();
+  output.resume();
+  expect(await deploy(join(tmpdir(), "galena-no-such-config.json"), { input, output })).toBe(1);
+  expect(input.listenerCount("data")).toBe(0);
+});
 
 test("new secrets are 32 random bytes: hex, or base64 for the app key", () => {
   expect(newSecret["auth-secret"]()).toMatch(/^[0-9a-f]{64}$/);
