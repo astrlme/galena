@@ -52,7 +52,7 @@ for (const region of config.probeRegions) {
     crossRegionReferences: true,
   });
 }
-// Both read Foundation's queues and Scheduler settings from SSM when they deploy.
+// Both read Foundation's parameters from SSM when they deploy, so they wait for it.
 new DetectionStack(app, `galena-${config.stage}-detection`, { env, config }).addStackDependency(
   foundation,
 );
@@ -60,7 +60,7 @@ if (config.smoke && config.github) {
   new SmokeStack(app, `galena-${config.stage}-smoke`, {
     env,
     config: { ...config, github: config.github },
-  });
+  }).addStackDependency(foundation);
 }
 const api = new ApiStack(app, `galena-${config.stage}-api`, {
   env,
@@ -100,10 +100,11 @@ if (config.siteDomain) {
   }).addStackDependency(web);
 }
 if (config.email) {
+  // Reads the database's ARNs from SSM, which Foundation writes.
   new EmailStack(app, `galena-${config.stage}-email`, {
     env,
     config: { ...config, email: config.email },
-  });
+  }).addStackDependency(foundation);
 }
 // The status page shares nothing with the stacks above, so it serves while they are down.
 const replica = new PageReplicaStack(app, `galena-${config.stage}-page-replica`, {
