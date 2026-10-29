@@ -66,8 +66,7 @@ published page still serves.
   fails again, and resolve once it is stable.
 - The static status page: a 90-day history per component, incident pages with a timeline of
   updates, RSS and Atom feeds, a status badge, state favicons and Statuspage-compatible
-  `/api/v2` files. A component that no monitor reports on shows "No data" rather than a made-up
-  100%.
+  `/api/v2` files.
 - Email subscribers, Slack incoming webhooks and signed outgoing webhooks.
 - A dashboard whose forms open in a side sheet and keep what you typed as a draft.
 - Approvals in Slack: a draft's approval card in a channel, and `/incident`.
