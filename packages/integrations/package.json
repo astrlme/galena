@@ -12,7 +12,8 @@
     "./slack": "./src/slack/index.ts",
     "./signals": "./src/signals/index.ts",
     "./jobs": "./src/jobs/index.ts",
-    "./jobs/aws": "./src/jobs/sqs-engine.ts"
+    "./jobs/aws": "./src/jobs/sqs-engine.ts",
+    "./telemetry": "./src/telemetry/rollup-items.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
