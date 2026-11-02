@@ -8,6 +8,7 @@ import {
   monitorStates,
   monitorTypes,
   publishPolicies,
+  seriesSteps,
 } from "./enums.ts";
 import { eventEnvelope } from "./events.ts";
 import { componentId, eventId, monitorId, workspaceId } from "./ids.ts";
@@ -112,6 +113,16 @@ export type MonitorsFile = z.infer<typeof monitorsFile>;
 
 const ms = z.number().nonnegative();
 
+/** Undici phase timings in ms; `tls` is null for http:// targets. */
+const checkPhases = z.object({ dns: ms, connect: ms, tls: ms.nullable(), ttfb: ms, total: ms });
+
+/**
+ * How far back a monitor's response-time chart reaches, written as its tabs read. A duration in a
+ * query string, not a domain state, so it isn't one of the snake_case enums.
+ */
+export const seriesRanges = ["24h", "7d", "30d", "90d"] as const;
+export type SeriesRange = (typeof seriesRanges)[number];
+
 /** One probe's outcome for one monitor at one scheduled minute, sent through SQS FIFO. */
 export const checkResult = z
   .object({
@@ -123,8 +134,7 @@ export const checkResult = z
     status: z.enum(checkStatuses),
     httpStatus: z.int().min(100).max(599).nullable(),
     latencyMs: ms.nullable(),
-    /** Undici phase timings in ms; `tls` is null for http:// targets. */
-    phases: z.object({ dns: ms, connect: ms, tls: ms.nullable(), ttfb: ms, total: ms }).nullable(),
+    phases: checkPhases.nullable(),
     error: z.object({ code: z.enum(checkErrorCodes), message: z.string().max(500) }).nullable(),
     /** Correlation id from probe to delivery. */
     eventId,
@@ -156,6 +166,43 @@ export const monitorTelemetry = z.object({
   results: z.array(recentResult),
 });
 export type MonitorTelemetry = z.infer<typeof monitorTelemetry>;
+
+/** One region's point on a response-time chart: a minute, an hour or a day of its checks. */
+export const seriesPoint = z.object({
+  /** The span's start, UTC: `YYYY-MM-DDTHH:MM`, `YYYY-MM-DDTHH` or `YYYY-MM-DD`. */
+  at: z.string(),
+  region: awsRegion,
+  checks: z.int().nonnegative(),
+  down: z.int().nonnegative(),
+  /** Over answers only (up or degraded); null when the span had none. */
+  medianMs: ms.nullable(),
+  p95Ms: ms.nullable(),
+  maxMs: ms.nullable(),
+  /** Where a typical answer spent its time. */
+  phases: z.object({
+    dns: ms.nullable(),
+    connect: ms.nullable(),
+    tls: ms.nullable(),
+    ttfb: ms.nullable(),
+  }),
+});
+
+export const monitorSeries = z.object({
+  range: z.enum(seriesRanges),
+  step: z.enum(seriesSteps),
+  points: z.array(seriesPoint),
+});
+
+/** A calendar month, UTC: `2026-11`. */
+export const month = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/, "Use a month such as 2026-11.");
+
+/** A month of one monitor: minutes checked, minutes a quorum of regions saw it down, incidents it opened. */
+export const monitorUptime = z.object({
+  month,
+  minutes: z.int().nonnegative(),
+  minutesDown: z.int().nonnegative(),
+  incidents: z.int().nonnegative(),
+});
 
 const epochMinute = (scheduledAt: string) => Math.floor(Date.parse(scheduledAt) / 60_000);
 
@@ -217,3 +264,29 @@ export type MonitorTransitioned = z.infer<typeof monitorTransitioned>;
 /** `mon:{monitorId}:{transitionSeq}`: triggering the same transition twice starts one run. */
 export const transitionIdempotencyKey = ({ data }: MonitorTransitioned) =>
   `mon:${data.monitorId}:${data.transitionSeq}`;
+
+// The telemetry table's items as the rollup and the API read them back: parsed, not trusted.
+const count = z.int().nonnegative();
+const mean = z.object({ sum: z.number().nonnegative(), count });
+
+/** A raw check item (`R#<scheduledAt>#<region>`), the fields a rollup reads. */
+export const storedCheck = z.object({
+  status: z.enum(checkStatuses),
+  latencyMs: ms.nullish(),
+  phases: checkPhases.nullish(),
+});
+
+/** One region's hour or day (`H#`, `D#`). */
+export const storedRegionRollup = z.object({
+  checks: count,
+  up: count,
+  degraded: count,
+  down: count,
+  error: count,
+  maxMs: ms.nullable(),
+  total: z.array(count),
+  phases: z.object({ dns: mean, connect: mean, tls: mean, ttfb: mean }),
+});
+
+/** A monitor's minutes for an hour or a day (`UH#`, `UD#`). */
+export const storedMinutes = z.object({ minutes: count, down: count });

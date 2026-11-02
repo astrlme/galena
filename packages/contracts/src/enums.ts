@@ -62,6 +62,10 @@ export type MonitorState = (typeof monitorStates)[number];
 export const checkStatuses = ["up", "degraded", "down", "error"] as const;
 export type CheckStatus = (typeof checkStatuses)[number];
 
+// How finely a response-time chart is cut: raw minutes, hourly rollups or daily ones.
+export const seriesSteps = ["hour", "day"] as const;
+export type SeriesStep = (typeof seriesSteps)[number];
+
 // Why a check failed. `blocked_by_guard` is the SSRF guard; `probe_failed` means the probe broke.
 export const checkErrorCodes = [
   "timeout",
