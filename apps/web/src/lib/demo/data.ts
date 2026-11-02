@@ -314,6 +314,7 @@ export function demoData(now: Date) {
       email: "owner@example.com",
       role: "owner",
       workspaceId: id(0x02),
+      workspaceName: "Acme",
     } satisfies Answer<"/v1/me">,
     session: {
       session: { id: id(0x03) },

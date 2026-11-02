@@ -128,6 +128,7 @@ export interface paths {
                             email: string;
                             role: string;
                             workspaceId: string;
+                            workspaceName: string;
                         };
                     };
                 };

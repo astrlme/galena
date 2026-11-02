@@ -198,13 +198,17 @@
                     },
                     "workspaceId": {
                       "type": "string"
+                    },
+                    "workspaceName": {
+                      "type": "string"
                     }
                   },
                   "required": [
                     "userId",
                     "email",
                     "role",
-                    "workspaceId"
+                    "workspaceId",
+                    "workspaceName"
                   ]
                 }
               }

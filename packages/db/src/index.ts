@@ -85,6 +85,7 @@ export {
   createWorkspace,
   findMemberByEmail,
   findMembership,
+  findWorkspaceName,
   workspaceExists,
 } from "./repositories/workspace.ts";
 export * as schema from "./schema/index.ts";

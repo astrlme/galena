@@ -1,5 +1,5 @@
 import { memberId, workspaceId } from "@galena/contracts";
-import { createWorkspace, workspaceExists } from "@galena/db";
+import { createWorkspace, findWorkspaceName, workspaceExists } from "@galena/db";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { APIError } from "better-auth/api";
 import { HTTPException } from "hono/http-exception";
@@ -117,6 +117,7 @@ const me = createRoute({
             email: z.string(),
             role: z.string(),
             workspaceId: z.string(),
+            workspaceName: z.string(),
           }),
         },
       },
@@ -314,7 +315,11 @@ export function createApp(deps: Deps) {
   });
 
   app.use("/v1/me", requireRole(deps, "viewer"));
-  app.openapi(me, (c) => c.json(c.get("member"), 200));
+  app.openapi(me, async (c) => {
+    const member = c.get("member");
+    const workspaceName = (await findWorkspaceName(deps.db, member.workspaceId)) ?? "";
+    return c.json({ ...member, workspaceName }, 200);
+  });
 
   registerComponentRoutes(app, deps);
   registerMonitorRoutes(app, deps);

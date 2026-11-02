@@ -22,6 +22,19 @@ export async function findMembership(
   return row;
 }
 
+/** The workspace's name, as the dashboard shows it at the top of its sidebar. */
+export async function findWorkspaceName(
+  db: Db,
+  workspaceId: WorkspaceId,
+): Promise<string | undefined> {
+  const [row] = await db
+    .select({ name: workspace.name })
+    .from(workspace)
+    .where(eq(workspace.id, workspaceId))
+    .limit(1);
+  return row?.name;
+}
+
 /** The member of `workspaceId` who signs in with `email`, matched without regard to case. */
 export async function findMemberByEmail(
   db: Db,

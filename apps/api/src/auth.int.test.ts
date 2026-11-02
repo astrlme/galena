@@ -65,7 +65,11 @@ describe("sign-up", () => {
     expect(response.status).toBe(201);
     const me = await owner.call("/v1/me");
     expect(me.status).toBe(200);
-    expect(await me.json()).toMatchObject({ email: OWNER.email, role: "owner" });
+    expect(await me.json()).toMatchObject({
+      email: OWNER.email,
+      role: "owner",
+      workspaceName: "Acme",
+    });
   });
 
   test("setup works only once", async () => {
