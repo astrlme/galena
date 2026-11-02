@@ -14,11 +14,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@base-ui/react": "1.8.0",
     "@galena/contracts": "workspace:*",
     "@galena/core": "workspace:*",
     "@galena/ui": "workspace:*",
     "@hookform/resolvers": "^5.9.1",
     "@tanstack/react-query": "^5.103.2",
+    "@tanstack/react-table": "^9.3.1",
     "fumadocs-core": "16.15.17",
     "fumadocs-mdx": "15.4.5",
     "fumadocs-openapi": "12.1.0",
