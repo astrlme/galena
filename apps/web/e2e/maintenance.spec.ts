@@ -11,7 +11,7 @@ test("schedule a window, change it, then cancel it after confirming its name", a
 
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
-  await openSection(page, "Maintenance");
+  await openSection(page, "Status page", "Maintenance");
   await expect(page.getByRole("heading", { name: "Maintenance", level: 1 })).toBeVisible();
 
   const upcoming = page.getByRole("region", { name: "Upcoming and running" });

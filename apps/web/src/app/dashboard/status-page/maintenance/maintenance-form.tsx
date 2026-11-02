@@ -4,11 +4,11 @@ import { maintenanceInput } from "@galena/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Button } from "../../../components/button.tsx";
-import { useDraft } from "../../../components/drafts.tsx";
-import { Field } from "../../../components/field.tsx";
-import type { paths } from "../../../lib/api-schema.ts";
-import { MessageField } from "../incidents/message-field.tsx";
+import { Button } from "../../../../components/button.tsx";
+import { useDraft } from "../../../../components/drafts.tsx";
+import { Field } from "../../../../components/field.tsx";
+import type { paths } from "../../../../lib/api-schema.ts";
+import { MessageField } from "../../incidents/message-field.tsx";
 
 export type Window =
   paths["/v1/maintenances"]["get"]["responses"][200]["content"]["application/json"]["maintenances"][number];

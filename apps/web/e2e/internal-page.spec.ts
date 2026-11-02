@@ -28,7 +28,7 @@ test("post an incident to the internal page only", async ({ page }, testInfo) =>
 
 test("the internal page link says why it can't open without a signing key", async ({ page }) => {
   await signIn(page);
-  await openSection(page, "Internal page");
+  await openSection(page, "Status page", "Internal page");
   await expect(page.getByRole("heading", { name: "Internal page", level: 1 })).toBeVisible();
   // Locally there is no CloudFront and no key, so the API answers 503 with the way to fix it.
   await expect(page.getByText(/couldn't read the key that signs access/)).toBeVisible();

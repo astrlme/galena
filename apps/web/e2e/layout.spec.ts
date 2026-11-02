@@ -40,7 +40,7 @@ test("sending a restored draft clears it", async ({ page }, testInfo) => {
   const name = `Draft group ${testInfo.project.name} ${Date.now()}`;
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
-  await page.goto("/dashboard/components/");
+  await page.goto("/dashboard/status-page/components/");
   await page.getByRole("button", { name: "Add group" }).click();
   const sheet = page.getByRole("dialog", { name: "Add a group" });
   await sheet.getByLabel("Group name").fill(name);
@@ -70,7 +70,7 @@ test("a destination's draft never holds its URL, and signing out forgets every d
   const name = `Draft hook ${testInfo.project.name} ${Date.now()}`;
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
-  await page.goto("/dashboard/subscribers/");
+  await page.goto("/dashboard/status-page/subscribers/");
   await page
     .getByRole("region", { name: "Slack and webhooks" })
     .getByRole("button", { name: "Add destination" })
@@ -132,7 +132,7 @@ test.describe("on a phone", () => {
   test("forms open in a bottom drawer and minimize the same way", async ({ page }) => {
     await signIn(page);
     await expect(page).toHaveURL(/\/dashboard\/$/);
-    await page.goto("/dashboard/maintenance/");
+    await page.goto("/dashboard/status-page/maintenance/");
     await page.getByRole("button", { name: "Schedule window" }).click();
     const sheet = page.getByRole("dialog", { name: "Schedule a window" });
     await sheet.getByLabel("Title").fill("Phone draft");

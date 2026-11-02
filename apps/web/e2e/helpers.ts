@@ -89,7 +89,13 @@ export async function dashboardNav(page: Page) {
   return page.getByRole("navigation", { name: "Dashboard" }).filter({ visible: true });
 }
 
-/** Opens a dashboard section from its link, at any width. */
-export async function openSection(page: Page, name: string) {
+/** Opens a dashboard section from its link, at any width, then one of its parts if given. */
+export async function openSection(page: Page, name: string, part?: string) {
   await (await dashboardNav(page)).getByRole("link", { name, exact: true }).click();
+  if (part) {
+    await page
+      .getByRole("navigation", { name })
+      .getByRole("link", { name: part, exact: true })
+      .click();
+  }
 }

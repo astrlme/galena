@@ -11,7 +11,7 @@ test("create a group, add components, reorder them and delete one after confirmi
 
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
-  await openSection(page, "Components");
+  await openSection(page, "Status page", "Components");
   await expect(page.getByRole("heading", { name: "Components", level: 1 })).toBeVisible();
 
   await page.getByRole("button", { name: "Add group" }).click();
@@ -57,7 +57,7 @@ test("create a group, add components, reorder them and delete one after confirmi
 test("the delete dialog closes on Escape without deleting", async ({ page }) => {
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
-  await page.goto("/dashboard/components/");
+  await page.goto("/dashboard/status-page/components/");
   const ungrouped = page.getByRole("region", { name: "Not in a group" });
   const firstRow = ungrouped.getByRole("listitem").first();
   const name = (await firstRow.locator("span.font-semibold").textContent()) ?? "";

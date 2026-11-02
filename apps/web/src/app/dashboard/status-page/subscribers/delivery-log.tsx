@@ -4,13 +4,13 @@ import type { NoticeKind } from "@galena/contracts";
 import { assertNever } from "@galena/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button } from "../../../components/button.tsx";
-import { Modal } from "../../../components/modal.tsx";
-import { EmptyState } from "../../../components/ui/empty-state.tsx";
-import { Loading } from "../../../components/ui/loading.tsx";
-import { api, unwrap } from "../../../lib/api.ts";
-import type { paths } from "../../../lib/api-schema.ts";
-import { Time } from "../incidents/incident-ui.tsx";
+import { Button } from "../../../../components/button.tsx";
+import { Modal } from "../../../../components/modal.tsx";
+import { EmptyState } from "../../../../components/ui/empty-state.tsx";
+import { Loading } from "../../../../components/ui/loading.tsx";
+import { api, unwrap } from "../../../../lib/api.ts";
+import type { paths } from "../../../../lib/api-schema.ts";
+import { Time } from "../../incidents/incident-ui.tsx";
 import { card, row, small } from "./styles.ts";
 
 type Endpoint =

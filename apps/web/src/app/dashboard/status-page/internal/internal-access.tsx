@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, unwrap } from "../../../lib/api.ts";
+import { api, unwrap } from "../../../../lib/api.ts";
 
 /** Asks the API to let this browser in, then opens the internal page in its place. */
 export function InternalAccess() {

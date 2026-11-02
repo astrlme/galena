@@ -3,10 +3,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Activity,
-  Bell,
-  Boxes,
-  LayoutDashboard,
-  Lock,
+  Globe,
+  House,
   LogOut,
   type LucideIcon,
   Megaphone,
@@ -15,7 +13,6 @@ import {
   PanelLeftOpen,
   Plug,
   Settings,
-  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -25,28 +22,17 @@ import { DraftDock, forgetDrafts } from "../../components/drafts.tsx";
 import { Toasts } from "../../components/ui/toast.tsx";
 import { Wordmark } from "../../components/wordmark.tsx";
 import { api, authPost, demo } from "../../lib/api.ts";
-import { sections } from "./sections.ts";
+import { isCurrent, type SectionKey, sections } from "./sections.ts";
 
 // No triangle for incidents: ▲ is the partial-outage glyph.
-const ICONS: Record<(typeof sections)[number]["slug"], LucideIcon> = {
+const ICONS: Record<SectionKey, LucideIcon> = {
+  home: House,
   incidents: Megaphone,
-  maintenance: Wrench,
   monitors: Activity,
-  components: Boxes,
-  subscribers: Bell,
+  "status-page": Globe,
   integrations: Plug,
   settings: Settings,
 };
-const nav = [
-  { href: "/dashboard/", title: "Overview", Icon: LayoutDashboard },
-  ...sections.map((s) => ({
-    href: `/dashboard/${s.slug}/`,
-    title: s.title,
-    Icon: ICONS[s.slug],
-  })),
-  // Opens the page's internal view, outside the dashboard, after letting this browser in.
-  { href: "/dashboard/internal/", title: "Internal page", Icon: Lock },
-];
 const icon = { "aria-hidden": true, size: 20, strokeWidth: 1.5, className: "shrink-0" } as const;
 // 10 + 20 + 10 px fills the rail's 40 px, so each icon sits centred in it.
 const row =
@@ -65,17 +51,19 @@ function readCollapsed(): boolean {
   }
 }
 
-type Me = { email: string };
+type Me = { email: string; workspaceName: string };
 
 /** The section links. In the rail each shows its icon, named for assistive tech and on hover. */
 function NavLinks({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
     <ul className="flex flex-col gap-1">
-      {nav.map(({ href, title, Icon }) => {
-        const current = pathname === href;
+      {sections.map((section) => {
+        const { key, href, title } = section;
+        const Icon = ICONS[key];
+        const current = isCurrent(section, pathname);
         return (
-          <li key={href}>
+          <li key={key}>
             <Link
               href={href}
               onClick={() => onNavigate?.()}
@@ -175,8 +163,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   style={FROM_LEFT}
                   className="fixed inset-y-2 left-2 z-50 flex w-[min(280px,calc(100vw-4rem))] flex-col gap-6 overflow-y-auto rounded-2xl border border-mist bg-surface px-3 py-5 text-ink outline-none"
                 >
-                  <Drawer.Title className="px-2.5">
+                  <Drawer.Title className="flex flex-col gap-2 px-2.5">
                     <Wordmark />
+                    <span className="text-[14px] font-semibold">{me.workspaceName}</span>
                     <span className="sr-only"> menu</span>
                   </Drawer.Title>
                   <nav aria-label="Dashboard">
@@ -196,9 +185,16 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             aria-label="Dashboard"
             className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-8 overflow-y-auto overflow-x-hidden border-mist border-r px-3 py-6 transition-[width] duration-[120ms] ease-out motion-reduce:transition-none md:flex ${collapsed ? "w-16" : "w-[240px]"}`}
           >
-            <span className="px-2">
+            <div className="flex flex-col gap-3 px-2">
               <Wordmark markOnly={collapsed} />
-            </span>
+              {/* The workspace slot: its name now, a switcher once a deployment holds several. */}
+              <span
+                title={collapsed ? me.workspaceName : undefined}
+                className={collapsed ? "sr-only" : "truncate text-[14px] font-semibold"}
+              >
+                {me.workspaceName}
+              </span>
+            </div>
             <NavLinks collapsed={collapsed} />
             <div className="mt-auto flex flex-col gap-1 text-[14px]">
               <button
@@ -217,7 +213,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </div>
           </nav>
           {/* Room at the foot for the drafts dock. */}
-          <main className="w-full max-w-[1080px] p-4 pb-24 md:p-8 md:pb-24">
+          <main className="w-full min-w-0 p-4 pb-24 md:p-8 md:pb-24">
             {demo && (
               <p className="mb-6 rounded-xl border border-mist bg-surface px-4 py-3 text-[14px] text-graphite">
                 A demo with sample data. Changes aren't saved.{" "}
