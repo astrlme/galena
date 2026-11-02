@@ -20,7 +20,11 @@ export {
   setEndpointHealth,
   settleResend,
 } from "./repositories/endpoints.ts";
-export { incidentRepository, listDrafts } from "./repositories/incidents.ts";
+export {
+  countMonitorIncidents,
+  incidentRepository,
+  listDrafts,
+} from "./repositories/incidents.ts";
 export {
   createIntegration,
   deleteIntegration,

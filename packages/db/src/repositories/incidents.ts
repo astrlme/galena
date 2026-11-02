@@ -1,6 +1,24 @@
-import type { AffectedComponent, IncidentId, WorkspaceId } from "@galena/contracts";
-import type { Incident, IncidentChange, IncidentRepository } from "@galena/core";
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import type { AffectedComponent, IncidentId, MonitorId, WorkspaceId } from "@galena/contracts";
+import {
+  type Incident,
+  type IncidentChange,
+  type IncidentRepository,
+  monitorDedupKey,
+} from "@galena/core";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
 import { v5, v7 } from "uuid";
 import type { Db } from "../client.ts";
 import { incident, incidentComponent, incidentUpdate, timelineEvent } from "../schema/index.ts";
@@ -278,4 +296,27 @@ export function listDrafts(db: Db) {
     )
     .orderBy(asc(incident.approvalDeadline), asc(incident.id))
     .limit(MAX_INCIDENTS);
+}
+
+/** How many incidents a monitor opened from `from` up to `to`, dismissed drafts and deleted ones aside. */
+export async function countMonitorIncidents(
+  db: Db,
+  workspaceId: WorkspaceId,
+  monitorId: MonitorId,
+  span: { from: Date; to: Date },
+): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(incident)
+    .where(
+      and(
+        eq(incident.workspaceId, workspaceId),
+        eq(incident.dedupKey, monitorDedupKey(monitorId)),
+        gte(incident.startedAt, span.from),
+        lt(incident.startedAt, span.to),
+        isNull(incident.deletedAt),
+        sql`${incident.visibility}::text <> 'dismissed'`,
+      ),
+    );
+  return row?.n ?? 0;
 }
