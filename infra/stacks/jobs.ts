@@ -108,9 +108,10 @@ export class JobsStack extends Stack {
           this.formatArn({ service: "ssm", resource: "parameter", resourceName: name.slice(1) }),
         ),
       }),
-      // outbox.dispatch rebuilds monitors.json after every monitor change.
+      // outbox.dispatch rebuilds monitors.json after every monitor change; rollup.telemetry
+      // reads it for the monitors to roll up, so it never wakes Aurora.
       new PolicyStatement({
-        actions: ["s3:PutObject"],
+        actions: ["s3:PutObject", "s3:GetObject"],
         resources: [`${configBucket}/monitors.json`],
       }),
       // page.publish notes which monitor states the page shows; page.heartbeat reads the note
@@ -120,9 +121,10 @@ export class JobsStack extends Stack {
         resources: [`${configBucket}/published.json`],
       }),
       new PolicyStatement({ actions: ["s3:ListBucket"], resources: [configBucket] }),
-      // rollup.uptime catches monitor states up with what the evaluator wrote; read only.
+      // rollup.uptime catches monitor states up with what the evaluator wrote; rollup.telemetry
+      // reads an hour of raw checks and writes its rollups beside them.
       new PolicyStatement({
-        actions: ["dynamodb:BatchGetItem"],
+        actions: ["dynamodb:BatchGetItem", "dynamodb:Query", "dynamodb:BatchWriteItem"],
         resources: [
           this.formatArn({
             service: "dynamodb",

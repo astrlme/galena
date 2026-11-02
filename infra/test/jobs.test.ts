@@ -120,6 +120,8 @@ const actionsOf = (rolePrefix: string) =>
 test("the jobs function may do what the jobs do, and no more", () => {
   expect([...new Set(actionsOf("JobsRole"))]).toEqual([
     "dynamodb:BatchGetItem",
+    "dynamodb:BatchWriteItem",
+    "dynamodb:Query",
     "iam:PassRole",
     "logs:CreateLogStream",
     "logs:PutLogEvents",
@@ -189,7 +191,12 @@ test("the scheduled jobs run from Scheduler into the jobs queue, in their lanes,
     (r) => r.Properties,
   );
   const byJob = new Map(schedules.map((p) => [JSON.parse(p.Target.Input).job, p]));
-  expect([...byJob.keys()].sort()).toEqual(["outbox.sweep", "page.heartbeat", "rollup.uptime"]);
+  expect([...byJob.keys()].sort()).toEqual([
+    "outbox.sweep",
+    "page.heartbeat",
+    "rollup.telemetry",
+    "rollup.uptime",
+  ]);
   expect(byJob.get("page.heartbeat")).toMatchObject({
     GroupName: "galena-dev-jobs",
     ScheduleExpression: "cron(35 * * * ? *)",
@@ -207,6 +214,10 @@ test("the scheduled jobs run from Scheduler into the jobs queue, in their lanes,
     payload: { timestamp: "<aws.scheduler.scheduled-time>" },
   });
   expect(byJob.get("rollup.uptime")?.ScheduleExpression).toBe("cron(5 0/6 * * ? *)");
+  expect(byJob.get("rollup.telemetry")).toMatchObject({
+    ScheduleExpression: "cron(5 * * * ? *)",
+    Target: { SqsParameters: { MessageGroupId: "rollup" } },
+  });
 });
 
 test("the functions log to named groups, and two hours without a heartbeat alarm", () => {

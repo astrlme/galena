@@ -6,6 +6,8 @@ export const cronPatterns = {
   "outbox.sweep": "5 */6 * * *",
   "rollup.uptime": "5 */6 * * *",
   "page.heartbeat": "35 * * * *",
+  // Reads monitors.json and DynamoDB only, never Aurora, so it may run every hour.
+  "rollup.telemetry": "5 * * * *",
 } as const;
 
 /**
