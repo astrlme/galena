@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { choose, expectAccessible, rowAction, signIn } from "./helpers.ts";
+import { choose, expectAccessible, openSection, rowAction, signIn } from "./helpers.ts";
 
 test("create a group, add components, reorder them and delete one after confirming its name", async ({
   page,
@@ -11,10 +11,7 @@ test("create a group, add components, reorder them and delete one after confirmi
 
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
-  await page
-    .getByRole("navigation", { name: "Dashboard" })
-    .getByRole("link", { name: "Components" })
-    .click();
+  await openSection(page, "Components");
   await expect(page.getByRole("heading", { name: "Components", level: 1 })).toBeVisible();
 
   await page.getByRole("button", { name: "Add group" }).click();

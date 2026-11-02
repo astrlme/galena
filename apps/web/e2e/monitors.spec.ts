@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, rowAction, signIn } from "./helpers.ts";
+import { expectAccessible, openSection, rowAction, signIn } from "./helpers.ts";
 
 test("add a monitor, edit it, pause it and delete it after confirming its name", async ({
   page,
@@ -10,10 +10,7 @@ test("add a monitor, edit it, pause it and delete it after confirming its name",
 
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
-  await page
-    .getByRole("navigation", { name: "Dashboard" })
-    .getByRole("link", { name: "Monitors" })
-    .click();
+  await openSection(page, "Monitors");
   await expect(page.getByRole("heading", { name: "Monitors", level: 1 })).toBeVisible();
 
   const list = page.getByRole("region", { name: "All monitors" });

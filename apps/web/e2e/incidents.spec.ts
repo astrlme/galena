@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { choose, expectAccessible, signIn } from "./helpers.ts";
+import { choose, expectAccessible, openSection, signIn } from "./helpers.ts";
 
 test("publish an incident, post an update, resolve it", async ({ page }, testInfo) => {
   // The local database outlives runs, so every run uses a title of its own.
@@ -7,10 +7,7 @@ test("publish an incident, post an update, resolve it", async ({ page }, testInf
 
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
-  await page
-    .getByRole("navigation", { name: "Dashboard" })
-    .getByRole("link", { name: "Incidents" })
-    .click();
+  await openSection(page, "Incidents");
   await expect(page.getByRole("heading", { name: "Incidents", level: 1 })).toBeVisible();
 
   await page

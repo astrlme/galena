@@ -1,5 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const desktop = {
+  ...devices["Desktop Chrome"],
+  channel: "chrome",
+  viewport: { width: 1280, height: 800 },
+};
+const phone = { ...desktop, viewport: { width: 390, height: 844 }, hasTouch: true };
+const PHONE_SKIPS = ["**/layout.spec.ts"];
+
 // Run through `pnpm test:e2e`, which starts Postgres, migrates and seeds the local owner first.
 export default defineConfig({
   testDir: "e2e",
@@ -7,12 +15,13 @@ export default defineConfig({
   reporter: [["list"]],
   use: { baseURL: "http://localhost:3000", trace: "retain-on-failure" },
   // The installed Google Chrome (GitHub's Ubuntu runners have it too), so no browser download.
+  // Every spec runs at 1280 and at 390 px (a phone), in light and dark. The layout spec sets its
+  // own phone viewport and checks the desktop sidebar, so it runs at desktop width only.
   projects: [
-    {
-      name: "light",
-      use: { ...devices["Desktop Chrome"], channel: "chrome", colorScheme: "light" },
-    },
-    { name: "dark", use: { ...devices["Desktop Chrome"], channel: "chrome", colorScheme: "dark" } },
+    { name: "light", use: { ...desktop, colorScheme: "light" } },
+    { name: "dark", use: { ...desktop, colorScheme: "dark" } },
+    { name: "phone-light", use: { ...phone, colorScheme: "light" }, testIgnore: PHONE_SKIPS },
+    { name: "phone-dark", use: { ...phone, colorScheme: "dark" }, testIgnore: PHONE_SKIPS },
   ],
   webServer: [
     {

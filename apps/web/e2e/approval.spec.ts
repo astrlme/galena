@@ -1,16 +1,5 @@
-import { execSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
-import { expectAccessible, signIn } from "./helpers.ts";
-
-/** A monitor's draft on the local database, written as autopilot would but with no deadline job. */
-const draft = (title: string) =>
-  execSync("pnpm --filter @galena/api --silent draft:local", {
-    encoding: "utf8",
-    env: { ...process.env, GLN_DRAFT_TITLE: title },
-  })
-    .trim()
-    .split("\n")
-    .at(-1);
+import { draft, expectAccessible, signIn } from "./helpers.ts";
 
 test("approve one monitor draft and dismiss another before their deadline", async ({
   page,

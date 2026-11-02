@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, rowAction, signIn } from "./helpers.ts";
+import { expectAccessible, openSection, rowAction, signIn } from "./helpers.ts";
 
 test("add an Alertmanager integration with a route, see its URL once, replace the URL, edit and delete it", async ({
   page,
@@ -8,10 +8,7 @@ test("add an Alertmanager integration with a route, see its URL once, replace th
 
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
-  await page
-    .getByRole("navigation", { name: "Dashboard" })
-    .getByRole("link", { name: "Integrations" })
-    .click();
+  await openSection(page, "Integrations");
   await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
 
   await page

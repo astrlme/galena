@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { choose, expectAccessible, rowAction, signIn } from "./helpers.ts";
+import { choose, expectAccessible, openSection, rowAction, signIn } from "./helpers.ts";
 
 test("add a webhook destination, see its secret once, then delete it after confirming its name", async ({
   page,
@@ -8,10 +8,7 @@ test("add a webhook destination, see its secret once, then delete it after confi
 
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
-  await page
-    .getByRole("navigation", { name: "Dashboard" })
-    .getByRole("link", { name: "Subscribers" })
-    .click();
+  await openSection(page, "Subscribers");
   await expect(page.getByRole("heading", { name: "Subscribers", level: 1 })).toBeVisible();
   await expect(page.getByRole("region", { name: "Email" })).toBeVisible();
 

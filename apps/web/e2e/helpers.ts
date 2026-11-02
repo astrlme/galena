@@ -1,9 +1,37 @@
+import { execSync } from "node:child_process";
 import { createHmac } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page } from "@playwright/test";
 
 // Seeded by `pnpm db:seed` (apps/api/src/seed.ts); local databases only.
 export const OWNER = { email: "owner@example.com", password: "galena-local-owner" };
+
+/** A monitor's draft on the local database, written as autopilot would but with no deadline job. */
+export const draft = (title: string) =>
+  execSync("pnpm --filter @galena/api --silent draft:local", {
+    encoding: "utf8",
+    env: { ...process.env, GLN_DRAFT_TITLE: title },
+  })
+    .trim()
+    .split("\n")
+    .at(-1);
+
+/**
+ * Counts the clicks a journey takes, so a task can promise "approved in 2 clicks" and a test can
+ * hold it to that. Only clicks made through `click` count.
+ */
+export function journey() {
+  let clicks = 0;
+  return {
+    async click(target: Locator) {
+      clicks += 1;
+      await target.click();
+    },
+    get clicks() {
+      return clicks;
+    },
+  };
+}
 
 export async function expectAccessible(page: Page) {
   // A dialog fading in has text at partial opacity; check what people read once it has opened.
@@ -50,4 +78,18 @@ export async function choose(scope: Locator, label: string, option: string) {
 export async function rowAction(scope: Locator, name: string, action: string) {
   await scope.getByRole("button", { name: `Actions for ${name}`, exact: true }).click();
   await scope.page().getByRole("menuitem", { name: action, exact: true }).click();
+}
+
+/** The dashboard's section links as a person sees them: the sidebar, or behind Menu on a phone. */
+export async function dashboardNav(page: Page) {
+  // Below 768 px the sidebar is a drawer; the click waits for the shell to finish loading.
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await page.getByRole("button", { name: "Menu" }).click();
+  }
+  return page.getByRole("navigation", { name: "Dashboard" }).filter({ visible: true });
+}
+
+/** Opens a dashboard section from its link, at any width. */
+export async function openSection(page: Page, name: string) {
+  await (await dashboardNav(page)).getByRole("link", { name, exact: true }).click();
 }

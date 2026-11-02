@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, signIn } from "./helpers.ts";
+import { dashboardNav, expectAccessible, signIn } from "./helpers.ts";
 
 test("signed out, the dashboard sends you to sign-in", async ({ page }) => {
   await page.goto("/dashboard/");
@@ -30,7 +30,7 @@ test("signing in lands on the overview, which lists what exists", async ({ page 
       monitors.length,
     );
   }
-  const nav = page.getByRole("navigation", { name: "Dashboard" });
+  const nav = await dashboardNav(page);
   await expect(nav.getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
   await expectAccessible(page);
 

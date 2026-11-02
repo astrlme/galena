@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, rowAction, signIn } from "./helpers.ts";
+import { expectAccessible, openSection, rowAction, signIn } from "./helpers.ts";
 
 /** A datetime-local value in UTC, `hours` from now, as the form reads it. */
 const utc = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString().slice(0, 16);
@@ -11,10 +11,7 @@ test("schedule a window, change it, then cancel it after confirming its name", a
 
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
-  await page
-    .getByRole("navigation", { name: "Dashboard" })
-    .getByRole("link", { name: "Maintenance" })
-    .click();
+  await openSection(page, "Maintenance");
   await expect(page.getByRole("heading", { name: "Maintenance", level: 1 })).toBeVisible();
 
   const upcoming = page.getByRole("region", { name: "Upcoming and running" });
