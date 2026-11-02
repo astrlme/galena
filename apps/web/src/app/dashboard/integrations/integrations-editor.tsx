@@ -6,6 +6,8 @@ import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { EmptyState } from "../../../components/ui/empty-state.tsx";
+import { Loading } from "../../../components/ui/loading.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
@@ -101,7 +103,7 @@ export function IntegrationsEditor() {
     );
 
   if (integrations.isPending || components.isPending) {
-    return <p className="mt-8 text-slate">Loading integrations</p>;
+    return <Loading label="Loading integrations" />;
   }
   const failed = integrations.error ?? components.error;
   if (failed) return <p className="mt-8 font-semibold">{failed.message}</p>;
@@ -149,10 +151,10 @@ export function IntegrationsEditor() {
           </Button>
         </div>
         {integrations.data?.length === 0 ? (
-          <p className={`${card} p-4 text-[14px] text-slate`}>
+          <EmptyState>
             None yet. Add one, then point Alertmanager, or anything that can send JSON, at its hook
             URL.
-          </p>
+          </EmptyState>
         ) : (
           <ul className={card}>
             {integrations.data?.map((i) => (

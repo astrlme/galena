@@ -7,6 +7,7 @@ import { type ReactNode, useState } from "react";
 import { Button } from "../../../components/button.tsx";
 import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { Loading } from "../../../components/ui/loading.tsx";
 import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
@@ -43,7 +44,7 @@ export function IncidentsEditor() {
   });
 
   if (open.isPending || resolved.isPending || components.isPending) {
-    return <p className="mt-8 text-slate">Loading incidents</p>;
+    return <Loading label="Loading incidents" />;
   }
   const failed = open.error ?? resolved.error ?? components.error;
   if (failed) return <p className="mt-8 font-semibold">{failed.message}</p>;

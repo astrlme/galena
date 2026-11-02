@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ButtonLink } from "../../components/button.tsx";
 import { StatusLabel } from "../../components/status.tsx";
+import { EmptyState } from "../../components/ui/empty-state.tsx";
+import { Loading } from "../../components/ui/loading.tsx";
 import { api, unwrap } from "../../lib/api.ts";
 import { Time } from "./incidents/incident-ui.tsx";
 import { PausedNotice, useTelemetry } from "./monitors/monitor-health.tsx";
@@ -46,7 +48,7 @@ export function OverviewSummary() {
   });
 
   if (monitors.isPending || incidents.isPending || windows.isPending) {
-    return <p className="mt-8 text-slate">Loading overview</p>;
+    return <Loading label="Loading overview" />;
   }
   const failed = monitors.error ?? incidents.error ?? windows.error;
   if (failed) return <p className="mt-8 font-semibold">{failed.message}</p>;
@@ -54,14 +56,15 @@ export function OverviewSummary() {
   const list = monitors.data?.monitors ?? [];
   if (list.length === 0) {
     return (
-      <section className="mt-8 flex max-w-[72ch] flex-col items-start gap-4 rounded-xl border border-mist bg-surface p-6">
-        <p className="text-[16px] leading-[1.55]">
-          No monitors yet. Add a URL and Galena checks it every minute from 3 regions.
-        </p>
-        <ButtonLink href="/dashboard/monitors/" variant="primary">
-          Add monitor
-        </ButtonLink>
-      </section>
+      <EmptyState
+        action={
+          <ButtonLink href="/dashboard/monitors/" variant="primary">
+            Add monitor
+          </ButtonLink>
+        }
+      >
+        No monitors yet. Add a URL and Galena checks it every minute from 3 regions.
+      </EmptyState>
     );
   }
 

@@ -11,6 +11,8 @@ import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { EmptyState } from "../../../components/ui/empty-state.tsx";
+import { Loading } from "../../../components/ui/loading.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
 import { toast } from "../../../components/ui/toast.tsx";
@@ -92,13 +94,13 @@ export function ApiKeys() {
         the workspace.
       </p>
       {keys.isPending ? (
-        <p className={`${card} p-4 text-slate`}>Loading the API keys</p>
+        <Loading label="Loading the API keys" className="mt-4" rows={2} />
       ) : keys.error ? (
         <p className={`${card} p-4 font-semibold`}>{keys.error.message}</p>
       ) : keys.data.length === 0 ? (
-        <p className={`${card} p-4 text-[14px] text-slate`}>
+        <EmptyState>
           None yet. Make one key per script, so you can delete one without stopping the others.
-        </p>
+        </EmptyState>
       ) : (
         <ul className={card}>
           {keys.data.map((k) => (

@@ -12,6 +12,8 @@ import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { StatusLabel } from "../../../components/status.tsx";
+import { EmptyState } from "../../../components/ui/empty-state.tsx";
+import { Loading } from "../../../components/ui/loading.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
 import { toast } from "../../../components/ui/toast.tsx";
@@ -68,7 +70,7 @@ export function ComponentsEditor() {
       }),
     );
 
-  if (listing.isPending) return <p className="mt-8 text-slate">Loading components</p>;
+  if (listing.isPending) return <Loading label="Loading components" />;
   if (listing.isError) return <p className="mt-8 font-semibold">{listing.error.message}</p>;
   const { groups, components } = listing.data;
   const ids = components.map((c) => c.id);
@@ -100,9 +102,7 @@ export function ComponentsEditor() {
 
   const list = (items: Item[]) =>
     items.length === 0 ? (
-      <p className="mt-4 rounded-xl border border-mist bg-surface p-4 text-[14px] text-slate">
-        No components here yet.
-      </p>
+      <EmptyState>No components here yet.</EmptyState>
     ) : (
       <ul className="mt-4 rounded-xl border border-mist bg-surface">
         {items.map((item, index) => (

@@ -11,6 +11,8 @@ import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { EmptyState } from "../../../components/ui/empty-state.tsx";
+import { Loading } from "../../../components/ui/loading.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
 import { toast } from "../../../components/ui/toast.tsx";
@@ -18,7 +20,7 @@ import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { Time } from "../incidents/incident-ui.tsx";
 import { DeliveryLog } from "./delivery-log.tsx";
-import { card, empty, heading, row } from "./styles.ts";
+import { card, heading, row } from "./styles.ts";
 
 type Endpoint =
   paths["/v1/webhook-endpoints"]["get"]["responses"][200]["content"]["application/json"][number];
@@ -71,7 +73,7 @@ export function SubscribersEditor() {
   });
 
   if (endpoints.isPending || subscribers.isPending || components.isPending) {
-    return <p className="mt-8 text-slate">Loading subscribers</p>;
+    return <Loading label="Loading subscribers" />;
   }
   const failed = endpoints.error ?? subscribers.error ?? components.error;
   if (failed) return <p className="mt-8 font-semibold">{failed.message}</p>;
@@ -122,9 +124,9 @@ export function SubscribersEditor() {
           </Button>
         </div>
         {endpoints.data?.length === 0 ? (
-          <p className={empty}>
+          <EmptyState>
             None yet. Add a Slack channel's incoming webhook, or a URL to receive signed webhooks.
-          </p>
+          </EmptyState>
         ) : (
           <ul className={card}>
             {endpoints.data?.map((e) => (
@@ -242,9 +244,9 @@ export function SubscribersEditor() {
           Email
         </h2>
         {subscribers.data?.length === 0 ? (
-          <p className={empty}>
+          <EmptyState>
             Nobody yet. People subscribe from the Subscribe button on the status page.
-          </p>
+          </EmptyState>
         ) : (
           <ul className={card}>
             {subscribers.data?.map((s) => (

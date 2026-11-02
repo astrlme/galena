@@ -3,6 +3,7 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Button } from "../../../components/button.tsx";
+import { Loading } from "../../../components/ui/loading.tsx";
 import { toast } from "../../../components/ui/toast.tsx";
 import { authGet, authPost } from "../../../lib/api.ts";
 import { Time } from "../incidents/incident-ui.tsx";
@@ -77,7 +78,7 @@ export function Sessions({ currentId }: { currentId: string }) {
         {notice}
       </p>
       {sessions.isPending ? (
-        <p className="mt-4 text-slate">Loading sessions</p>
+        <Loading label="Loading sessions" className="mt-4" rows={2} />
       ) : sessions.error ? (
         <p className="mt-4 font-semibold">
           Couldn't load where you're signed in. Reload the page to try again.

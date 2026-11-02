@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Loading } from "../../../components/ui/loading.tsx";
 import { authGet } from "../../../lib/api.ts";
 import { ApiKeys } from "./api-keys.tsx";
 import { Password } from "./password.tsx";
@@ -20,7 +21,7 @@ export function SettingsEditor() {
     queryFn: () => authGet<CurrentSession | null>("get-session"),
   });
 
-  if (current.isPending) return <p className="mt-8 text-slate">Loading your account</p>;
+  if (current.isPending) return <Loading label="Loading your account" />;
   if (current.error) {
     return (
       <p className="mt-8 font-semibold">

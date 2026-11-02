@@ -6,10 +6,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "../../../components/button.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { EmptyState } from "../../../components/ui/empty-state.tsx";
+import { Loading } from "../../../components/ui/loading.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { Time } from "../incidents/incident-ui.tsx";
-import { card, empty, row, small } from "./styles.ts";
+import { card, row, small } from "./styles.ts";
 
 type Endpoint =
   paths["/v1/webhook-endpoints"]["get"]["responses"][200]["content"]["application/json"][number];
@@ -83,13 +85,13 @@ export function DeliveryLog({ endpoint, onClose }: { endpoint: Endpoint; onClose
           : "One that fails is tried again within a few minutes."}
       </Modal.Description>
       {deliveries.isPending ? (
-        <p className="mt-6 text-slate">Loading deliveries</p>
+        <Loading label="Loading deliveries" className="mt-6" />
       ) : deliveries.error ? (
         <p className="mt-6 font-semibold">{deliveries.error.message}</p>
       ) : deliveries.data.length === 0 ? (
-        <p className={empty}>
+        <EmptyState>
           Nothing sent yet. Incident and maintenance notices for this destination show here.
-        </p>
+        </EmptyState>
       ) : (
         <ul className={card}>
           {deliveries.data.map((d) => (

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Button, buttonClass } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
+import { Loading } from "../../../components/ui/loading.tsx";
 import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import { Time } from "../incidents/incident-ui.tsx";
@@ -70,7 +71,7 @@ export function SlackConnection() {
       </p>
       <div className={card}>
         {slack.isPending ? (
-          <p className="text-slate">Loading the Slack connection</p>
+          <Loading label="Loading the Slack connection" className="" rows={1} />
         ) : slack.error ? (
           <p className="font-semibold">{slack.error.message}</p>
         ) : !slack.data.available ? (

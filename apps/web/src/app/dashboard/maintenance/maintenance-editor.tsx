@@ -6,6 +6,7 @@ import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { Loading } from "../../../components/ui/loading.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
@@ -60,7 +61,7 @@ export function MaintenanceEditor() {
     );
 
   if (windows.isPending || components.isPending) {
-    return <p className="mt-8 text-slate">Loading maintenance</p>;
+    return <Loading label="Loading maintenance" />;
   }
   const failed = windows.error ?? components.error;
   if (failed) return <p className="mt-8 font-semibold">{failed.message}</p>;

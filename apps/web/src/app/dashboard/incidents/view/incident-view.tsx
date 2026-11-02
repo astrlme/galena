@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "../../../../components/button.tsx";
 import { StatusLabel } from "../../../../components/status.tsx";
+import { Loading } from "../../../../components/ui/loading.tsx";
 import { FormSelect } from "../../../../components/ui/select.tsx";
 import { toast } from "../../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../../lib/api.ts";
@@ -49,7 +50,7 @@ export function IncidentView() {
 
   if (id === "") return <p className="mt-8 font-semibold">This link has no incident in it.</p>;
   if (incident.isPending || components.isPending) {
-    return <p className="mt-8 text-slate">Loading incident</p>;
+    return <Loading label="Loading incident" />;
   }
   const failed = incident.error ?? components.error;
   if (failed) return <p className="mt-8 font-semibold">{failed.message}</p>;
