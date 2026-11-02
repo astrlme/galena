@@ -96,7 +96,7 @@ export function registerEndpointRoutes(app: App, deps: Deps) {
   async function sampleNotice(): Promise<Notice> {
     const page = await ensurePage(db);
     const now = new Date().toISOString();
-    const url = `${deps.publicUrl}/dashboard/subscribers/`;
+    const url = `${deps.publicUrl}/dashboard/status-page/subscribers/`;
     return {
       kind: "incident_created",
       eventId: eventId.parse(v7()),
