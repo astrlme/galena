@@ -11,6 +11,7 @@ import { outboxSweepJob } from "./outbox-sweep.ts";
 import { pageHeartbeatJob } from "./page-heartbeat.ts";
 import { pagePublishJob } from "./page-publish.ts";
 import { pageRebuildHtmlJob } from "./page-rebuild-html.ts";
+import { rollupTelemetryJob } from "./rollup-telemetry.ts";
 import { rollupUptimeJob } from "./rollup-uptime.ts";
 import { signalIngestJob } from "./signal-ingest.ts";
 import { slackApprovalCardJob, slackCommandJob, slackInteractionJob } from "./slack.ts";
@@ -33,6 +34,7 @@ export const jobs: ReadonlyMap<string, Job<unknown>> = new Map(
     pageHeartbeatJob,
     pagePublishJob,
     pageRebuildHtmlJob,
+    rollupTelemetryJob,
     rollupUptimeJob,
     signalIngestJob,
     slackApprovalCardJob,
@@ -46,4 +48,5 @@ export const crons = {
   outboxSweep: { job: outboxSweepJob, pattern: cronPatterns["outbox.sweep"] },
   rollupUptime: { job: rollupUptimeJob, pattern: cronPatterns["rollup.uptime"] },
   pageHeartbeat: { job: pageHeartbeatJob, pattern: cronPatterns["page.heartbeat"] },
+  rollupTelemetry: { job: rollupTelemetryJob, pattern: cronPatterns["rollup.telemetry"] },
 };
