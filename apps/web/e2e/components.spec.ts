@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { choose, expectAccessible, signIn } from "./helpers.ts";
+import { choose, expectAccessible, rowAction, signIn } from "./helpers.ts";
 
 test("create a group, add components, reorder them and delete one after confirming its name", async ({
   page,
@@ -39,11 +39,11 @@ test("create a group, add components, reorder them and delete one after confirmi
   await expect(rows).toHaveText([new RegExp(first), new RegExp(second)]);
   await expect(rows.first()).toContainText("Operational");
 
-  await section.getByRole("button", { name: `Move up ${second}` }).click();
+  await rowAction(section, second, "Move up");
   await expect(rows).toHaveText([new RegExp(second), new RegExp(first)]);
   await expectAccessible(page);
 
-  await section.getByRole("button", { name: `Delete ${first}` }).click();
+  await rowAction(section, first, "Delete");
   const dialog = page.getByRole("dialog", { name: `Delete ${first}?` });
   const confirm = dialog.getByRole("button", { name: "Delete component" });
   await expect(confirm).toBeDisabled();
@@ -65,7 +65,7 @@ test("the delete dialog closes on Escape without deleting", async ({ page }) => 
   const ungrouped = page.getByRole("region", { name: "Not in a group" });
   const firstRow = ungrouped.getByRole("listitem").first();
   const name = (await firstRow.locator("span.font-semibold").textContent()) ?? "";
-  await ungrouped.getByRole("button", { name: `Delete ${name}` }).click();
+  await rowAction(ungrouped, name, "Delete");
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toBeHidden();

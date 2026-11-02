@@ -12,6 +12,7 @@ import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { StatusLabel } from "../../../components/status.tsx";
+import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
@@ -20,8 +21,6 @@ type Listing = paths["/v1/components"]["get"]["responses"][200]["content"]["appl
 type Item = Listing["components"][number];
 type Group = Listing["groups"][number];
 type Deleting = { kind: "component" | "group"; id: string; name: string };
-
-const small = "px-2 py-1 text-[14px]";
 
 /** Swaps two ids in a full order, so a move sends the complete list the API expects. */
 function swapped(ids: string[], a: string, b: string): string[] {
@@ -109,27 +108,28 @@ export function ComponentsEditor() {
               )}
             </div>
             <StatusLabel status={item.status} />
-            <div className="ml-auto flex gap-2">
-              <Button
-                className={small}
-                disabled={index === 0}
-                onClick={() => move(item, items, -1)}
-              >
-                Move up<span className="sr-only"> {item.name}</span>
-              </Button>
-              <Button
-                className={small}
-                disabled={index === items.length - 1}
-                onClick={() => move(item, items, 1)}
-              >
-                Move down<span className="sr-only"> {item.name}</span>
-              </Button>
-              <Button
-                className={small}
-                onClick={() => setDeleting({ kind: "component", id: item.id, name: item.name })}
-              >
-                Delete<span className="sr-only"> {item.name}</span>
-              </Button>
+            <div className="ml-auto">
+              <RowMenu
+                name={item.name}
+                actions={[
+                  {
+                    label: "Move up",
+                    disabled: index === 0,
+                    onSelect: () => move(item, items, -1),
+                  },
+                  {
+                    label: "Move down",
+                    disabled: index === items.length - 1,
+                    onSelect: () => move(item, items, 1),
+                  },
+                  {
+                    label: "Delete",
+                    destructive: true,
+                    onSelect: () =>
+                      setDeleting({ kind: "component", id: item.id, name: item.name }),
+                  },
+                ]}
+              />
             </div>
           </li>
         ))}
@@ -197,23 +197,23 @@ export function ComponentsEditor() {
             <h2 id={`group-${group.id}`} className="text-[19px] font-semibold leading-[1.35]">
               {group.name}
             </h2>
-            <div className="ml-auto flex gap-2">
-              <Button className={small} disabled={index === 0} onClick={() => moveGroup(group, -1)}>
-                Move up<span className="sr-only"> group {group.name}</span>
-              </Button>
-              <Button
-                className={small}
-                disabled={index === groups.length - 1}
-                onClick={() => moveGroup(group, 1)}
-              >
-                Move down<span className="sr-only"> group {group.name}</span>
-              </Button>
-              <Button
-                className={small}
-                onClick={() => setDeleting({ kind: "group", id: group.id, name: group.name })}
-              >
-                Delete group<span className="sr-only"> {group.name}</span>
-              </Button>
+            <div className="ml-auto">
+              <RowMenu
+                name={`group ${group.name}`}
+                actions={[
+                  { label: "Move up", disabled: index === 0, onSelect: () => moveGroup(group, -1) },
+                  {
+                    label: "Move down",
+                    disabled: index === groups.length - 1,
+                    onSelect: () => moveGroup(group, 1),
+                  },
+                  {
+                    label: "Delete group",
+                    destructive: true,
+                    onSelect: () => setDeleting({ kind: "group", id: group.id, name: group.name }),
+                  },
+                ]}
+              />
             </div>
           </div>
           {list(components.filter((c) => c.groupId === group.id))}

@@ -11,12 +11,13 @@ import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { Time } from "../incidents/incident-ui.tsx";
 import { DeliveryLog } from "./delivery-log.tsx";
-import { card, empty, heading, row, small } from "./styles.ts";
+import { card, empty, heading, row } from "./styles.ts";
 
 type Endpoint =
   paths["/v1/webhook-endpoints"]["get"]["responses"][200]["content"]["application/json"][number];
@@ -146,24 +147,21 @@ export function SubscribersEditor() {
                     {tested?.id === e.id ? tested.detail : ""}
                   </span>
                 </div>
-                <div className="ml-auto flex flex-wrap gap-2">
-                  <Button className={small} onClick={() => setViewing(e.id)}>
-                    Deliveries<span className="sr-only"> to {e.name}</span>
-                  </Button>
-                  {e.state === "disabled" ? (
-                    <Button className={small} disabled={busy(e)} onClick={() => void turnOn(e)}>
-                      {busy(e) ? "Turning on…" : "Turn on"}
-                      <span className="sr-only"> {e.name}</span>
-                    </Button>
-                  ) : (
-                    <Button className={small} disabled={busy(e)} onClick={() => void test(e)}>
-                      {busy(e) ? "Sending…" : "Send test"}
-                      <span className="sr-only"> to {e.name}</span>
-                    </Button>
-                  )}
-                  <Button className={small} onClick={() => setRemoving({ endpoint: e })}>
-                    Delete<span className="sr-only"> {e.name}</span>
-                  </Button>
+                <div className="ml-auto">
+                  <RowMenu
+                    name={e.name}
+                    actions={[
+                      { label: "View deliveries", onSelect: () => setViewing(e.id) },
+                      e.state === "disabled"
+                        ? { label: "Turn on", disabled: busy(e), onSelect: () => void turnOn(e) }
+                        : { label: "Send test", disabled: busy(e), onSelect: () => void test(e) },
+                      {
+                        label: "Delete",
+                        destructive: true,
+                        onSelect: () => setRemoving({ endpoint: e }),
+                      },
+                    ]}
+                  />
                 </div>
               </li>
             ))}
@@ -256,9 +254,16 @@ export function SubscribersEditor() {
                   </span>
                 </div>
                 <div className="ml-auto">
-                  <Button className={small} onClick={() => setRemoving({ subscriber: s })}>
-                    Delete<span className="sr-only"> {s.email}</span>
-                  </Button>
+                  <RowMenu
+                    name={s.email}
+                    actions={[
+                      {
+                        label: "Delete",
+                        destructive: true,
+                        onSelect: () => setRemoving({ subscriber: s }),
+                      },
+                    ]}
+                  />
                 </div>
               </li>
             ))}

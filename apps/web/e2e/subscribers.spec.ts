@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { choose, expectAccessible, signIn } from "./helpers.ts";
+import { choose, expectAccessible, rowAction, signIn } from "./helpers.ts";
 
 test("add a webhook destination, see its secret once, then delete it after confirming its name", async ({
   page,
@@ -45,7 +45,7 @@ test("add a webhook destination, see its secret once, then delete it after confi
   await expect(page.getByText("https://example.com/hook")).toHaveCount(0);
 
   // Nothing has been sent to it yet; its delivery log says so.
-  await row.getByRole("button", { name: `Deliveries to ${name}` }).click();
+  await rowAction(row, name, "View deliveries");
   const log = page.getByRole("dialog", { name: `Deliveries to ${name}` });
   await expect(log).toContainText("Nothing sent yet.");
   await expect(log).toContainText("tried again 5 s, 30 s, 2 min, 10 min, 1 h, 6 h and 24 h later");
@@ -53,7 +53,7 @@ test("add a webhook destination, see its secret once, then delete it after confi
   await log.getByRole("button", { name: "Close" }).click();
   await expect(log).toBeHidden();
 
-  await row.getByRole("button", { name: `Delete ${name}` }).click();
+  await rowAction(row, name, "Delete");
   const dialog = page.getByRole("dialog", { name: `Delete ${name}?` });
   await dialog.getByLabel("Type the destination name").fill(name);
   await expectAccessible(page);

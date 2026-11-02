@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import { expect, type Page, test } from "@playwright/test";
-import { choose, expectAccessible, signIn, totp } from "./helpers.ts";
+import { choose, expectAccessible, rowAction, signIn, totp } from "./helpers.ts";
 
 // Each run signs in as a member of its own (`member:local`), so the seeded owner every other
 // spec uses never has two-factor turned on or its password changed.
@@ -140,7 +140,7 @@ test("make an API key, see it once, then delete it after confirming its name; a 
 
   const row = section.getByRole("listitem").filter({ hasText: name });
   await expect(row).toContainText("Write, like an editor: also creates and changes. Starts gln_");
-  await row.getByRole("button", { name: `Delete ${name}` }).click();
+  await rowAction(row, name, "Delete");
   const dialog = page.getByRole("dialog", { name: `Delete ${name}?` });
   await dialog.getByLabel("Type the API key name").fill(name);
   await dialog.getByRole("button", { name: "Delete API key" }).click();

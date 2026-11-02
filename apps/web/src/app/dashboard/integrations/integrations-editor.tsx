@@ -6,6 +6,7 @@ import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import { Time } from "../incidents/incident-ui.tsx";
 import {
@@ -42,7 +43,6 @@ const HOW_TO_SEND: Record<Integration["source"], ReactNode> = {
     </>
   ),
 };
-const small = "px-2 py-1 text-[14px]";
 const card = "mt-4 rounded-xl border border-mist bg-surface";
 const row =
   "flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist px-4 py-3 last:border-b-0";
@@ -175,28 +175,27 @@ export function IntegrationsEditor() {
                     )}
                   </span>
                 </div>
-                <div className="ml-auto flex gap-2">
-                  <Button
-                    className={small}
-                    onClick={() => {
-                      setProblem(undefined);
-                      setEditing(i);
-                    }}
-                  >
-                    Edit<span className="sr-only"> {i.name}</span>
-                  </Button>
-                  <Button
-                    className={small}
-                    onClick={() => {
-                      setProblem(undefined);
-                      setRenewing(i);
-                    }}
-                  >
-                    Make new URL<span className="sr-only"> for {i.name}</span>
-                  </Button>
-                  <Button className={small} onClick={() => setDeleting(i)}>
-                    Delete<span className="sr-only"> {i.name}</span>
-                  </Button>
+                <div className="ml-auto">
+                  <RowMenu
+                    name={i.name}
+                    actions={[
+                      {
+                        label: "Edit",
+                        onSelect: () => {
+                          setProblem(undefined);
+                          setEditing(i);
+                        },
+                      },
+                      {
+                        label: "Make new URL",
+                        onSelect: () => {
+                          setProblem(undefined);
+                          setRenewing(i);
+                        },
+                      },
+                      { label: "Delete", destructive: true, onSelect: () => setDeleting(i) },
+                    ]}
+                  />
                 </div>
               </li>
             ))}

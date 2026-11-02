@@ -12,6 +12,7 @@ import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { StatusLabel } from "../../../components/status.tsx";
+import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
@@ -56,7 +57,6 @@ const EMPTY: FormIn = {
   downStatus: "major_outage",
   enabled: true,
 };
-const small = "px-2 py-1 text-[14px]";
 
 /** A full PUT body from a listed monitor: PUT replaces every setting. */
 const toInput = ({ id: _, ...input }: Monitor): FormIn => input;
@@ -204,17 +204,18 @@ export function MonitorsEditor() {
                     {monitor.enabled ? "" : " Paused."}
                   </span>
                 </div>
-                <div className="ml-auto flex gap-2">
-                  <Button className={small} onClick={() => setEditing(monitor)}>
-                    Edit<span className="sr-only"> {monitor.name}</span>
-                  </Button>
-                  <Button className={small} onClick={() => toggle(monitor)}>
-                    {monitor.enabled ? "Pause" : "Resume"}
-                    <span className="sr-only"> {monitor.name}</span>
-                  </Button>
-                  <Button className={small} onClick={() => setDeleting(monitor)}>
-                    Delete<span className="sr-only"> {monitor.name}</span>
-                  </Button>
+                <div className="ml-auto">
+                  <RowMenu
+                    name={monitor.name}
+                    actions={[
+                      { label: "Edit", onSelect: () => setEditing(monitor) },
+                      {
+                        label: monitor.enabled ? "Pause" : "Resume",
+                        onSelect: () => void toggle(monitor),
+                      },
+                      { label: "Delete", destructive: true, onSelect: () => setDeleting(monitor) },
+                    ]}
+                  />
                 </div>
                 {telemetry.data && (
                   <MonitorHealth

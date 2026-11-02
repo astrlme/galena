@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, test } from "@playwright/test";
-import { expectAccessible, signIn } from "./helpers.ts";
+import { expectAccessible, rowAction, signIn } from "./helpers.ts";
 
 test("a monitor turns down when the endpoint it checks stops answering", async ({
   page,
@@ -41,7 +41,7 @@ test("a monitor turns down when the endpoint it checks stops answering", async (
   await expect(row.getByRole("img", { name: /down everywhere/ })).toBeVisible();
   await expectAccessible(page);
 
-  await row.getByRole("button", { name: `Delete ${name}` }).click();
+  await rowAction(row, name, "Delete");
   const dialog = page.getByRole("dialog", { name: `Delete ${name}?` });
   await dialog.getByLabel("Type the monitor name").fill(name);
   await dialog.getByRole("button", { name: "Delete monitor" }).click();

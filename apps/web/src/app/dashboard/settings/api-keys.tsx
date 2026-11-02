@@ -11,6 +11,7 @@ import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
@@ -109,9 +110,10 @@ export function ApiKeys() {
                 </span>
               </div>
               <div className="ml-auto">
-                <Button className="px-2 py-1 text-[14px]" onClick={() => setRemoving(k)}>
-                  Delete<span className="sr-only"> {k.name}</span>
-                </Button>
+                <RowMenu
+                  name={k.name}
+                  actions={[{ label: "Delete", destructive: true, onSelect: () => setRemoving(k) }]}
+                />
               </div>
             </li>
           ))}

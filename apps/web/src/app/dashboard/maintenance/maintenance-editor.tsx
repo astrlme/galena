@@ -6,6 +6,7 @@ import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import { Time } from "../incidents/incident-ui.tsx";
 import { MaintenanceForm, type Window, type WindowInput } from "./maintenance-form.tsx";
@@ -16,7 +17,6 @@ const STATUS: Record<Window["status"], string> = {
   verifying: "Verifying",
   completed: "Completed",
 };
-const small = "px-2 py-1 text-[14px]";
 
 export function MaintenanceEditor() {
   const queryClient = useQueryClient();
@@ -117,15 +117,22 @@ export function MaintenanceEditor() {
                 )}
               </div>
               {w.status !== "completed" && (
-                <div className="ml-auto flex gap-2">
-                  <Button className={small} onClick={() => setEditing(w)}>
-                    Edit<span className="sr-only"> {w.title}</span>
-                  </Button>
-                  {w.status === "scheduled" && (
-                    <Button className={small} onClick={() => setCancelling(w)}>
-                      Cancel<span className="sr-only"> {w.title}</span>
-                    </Button>
-                  )}
+                <div className="ml-auto">
+                  <RowMenu
+                    name={w.title}
+                    actions={[
+                      { label: "Edit", onSelect: () => setEditing(w) },
+                      ...(w.status === "scheduled"
+                        ? [
+                            {
+                              label: "Cancel window",
+                              destructive: true,
+                              onSelect: () => setCancelling(w),
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
                 </div>
               )}
             </li>

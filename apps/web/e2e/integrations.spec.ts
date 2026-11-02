@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, signIn } from "./helpers.ts";
+import { expectAccessible, rowAction, signIn } from "./helpers.ts";
 
 test("add an Alertmanager integration with a route, see its URL once, replace the URL, edit and delete it", async ({
   page,
@@ -51,7 +51,7 @@ test("add an Alertmanager integration with a route, see its URL once, replace th
   // The URL holds the token: the page never shows it again.
   await expect(page.getByText(url)).toHaveCount(0);
 
-  await row.getByRole("button", { name: `Make new URL for ${name}` }).click();
+  await rowAction(row, name, "Make new URL");
   const renew = page.getByRole("dialog", { name: `Make a new URL for ${name}?` });
   await expect(renew).toContainText("The current URL stops working at once.");
   await renew.getByRole("button", { name: "Make new URL" }).click();
@@ -59,7 +59,7 @@ test("add an Alertmanager integration with a route, see its URL once, replace th
   await expect(shown).not.toContainText(url);
   await page.getByRole("button", { name: "Done" }).click();
 
-  await row.getByRole("button", { name: `Edit ${name}` }).click();
+  await rowAction(row, name, "Edit");
   const edit = page.getByRole("form", { name: `Edit ${name}` });
   await expect(edit.getByRole("group", { name: "Route 1" }).getByLabel("Labels")).toHaveValue(
     "service=api",
@@ -69,7 +69,7 @@ test("add an Alertmanager integration with a route, see its URL once, replace th
   await expect(edit).toBeHidden();
   await expect(row).toContainText("Publish automatically.");
 
-  await row.getByRole("button", { name: `Delete ${name}` }).click();
+  await rowAction(row, name, "Delete");
   const dialog = page.getByRole("dialog", { name: `Delete ${name}?` });
   await dialog.getByLabel("Type the integration name").fill(name);
   await expectAccessible(page);

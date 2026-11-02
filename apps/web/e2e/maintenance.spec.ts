@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, signIn } from "./helpers.ts";
+import { expectAccessible, rowAction, signIn } from "./helpers.ts";
 
 /** A datetime-local value in UTC, `hours` from now, as the form reads it. */
 const utc = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString().slice(0, 16);
@@ -36,13 +36,13 @@ test("schedule a window, change it, then cancel it after confirming its name", a
   await expect(row).toContainText("API.");
   await expectAccessible(page);
 
-  await row.getByRole("button", { name: `Edit ${title}` }).click();
+  await rowAction(row, title, "Edit");
   const edit = page.getByRole("form", { name: `Edit ${title}` });
   await edit.getByLabel("Ends (UTC)").fill(utc(4));
   await edit.getByRole("button", { name: "Save window" }).click();
   await expect(edit).toBeHidden();
 
-  await row.getByRole("button", { name: `Cancel ${title}` }).click();
+  await rowAction(row, title, "Cancel window");
   const dialog = page.getByRole("dialog", { name: `Cancel ${title}?` });
   await dialog.getByLabel("Type the window name").fill(title);
   await expectAccessible(page);

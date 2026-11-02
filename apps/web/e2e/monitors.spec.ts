@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, signIn } from "./helpers.ts";
+import { expectAccessible, rowAction, signIn } from "./helpers.ts";
 
 test("add a monitor, edit it, pause it and delete it after confirming its name", async ({
   page,
@@ -40,9 +40,7 @@ test("add a monitor, edit it, pause it and delete it after confirming its name",
   await expect(row()).toContainText("Ask a person first.");
   await expectAccessible(page);
 
-  await row()
-    .getByRole("button", { name: `Edit ${name}` })
-    .click();
+  await rowAction(row(), name, "Edit");
   const edit = page.getByRole("form", { name: `Edit ${name}` });
   await expect(edit.getByLabel("Keyword (optional)")).toHaveValue("ok");
   await edit.getByLabel("Monitor name").fill(renamed);
@@ -52,18 +50,12 @@ test("add a monitor, edit it, pause it and delete it after confirming its name",
   await expect(row()).toContainText(renamed);
   await expect(row()).toContainText("Internal only.");
 
-  await row()
-    .getByRole("button", { name: `Pause ${renamed}` })
-    .click();
+  await rowAction(row(), renamed, "Pause");
   await expect(row()).toContainText("Paused.");
-  await row()
-    .getByRole("button", { name: `Resume ${renamed}` })
-    .click();
+  await rowAction(row(), renamed, "Resume");
   await expect(row()).not.toContainText("Paused.");
 
-  await row()
-    .getByRole("button", { name: `Delete ${renamed}` })
-    .click();
+  await rowAction(row(), renamed, "Delete");
   const dialog = page.getByRole("dialog", { name: `Delete ${renamed}?` });
   await dialog.getByLabel("Type the monitor name").fill(renamed);
   await expectAccessible(page);
