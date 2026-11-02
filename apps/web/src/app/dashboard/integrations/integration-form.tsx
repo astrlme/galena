@@ -45,8 +45,8 @@ export const POLICIES: { value: PublishPolicy; label: string; help: string }[] =
 export const code = (text: string) => <code className="font-mono">{text}</code>;
 const small = "px-2 py-1 text-[14px]";
 const DOWN_STATUS = [
-  { value: "major_outage" as const, label: "Major outage" },
-  { value: "partial_outage" as const, label: "Partial outage" },
+  { value: "partial_outage" as const, label: "Partial outage", status: "partial_outage" as const },
+  { value: "major_outage" as const, label: "Major outage", status: "major_outage" as const },
 ];
 
 /** "service=api, severity=critical": how a route's labels are typed. */

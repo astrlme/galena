@@ -81,3 +81,20 @@ export function StatusLabel({ status }: { status: ComponentStatus | null }) {
     </span>
   );
 }
+
+const GLYPH_TONE: Record<ComponentStatus, string> = {
+  operational: "text-operational",
+  degraded_performance: "text-degraded",
+  partial_outage: "text-partial",
+  major_outage: "text-major",
+  under_maintenance: "text-maintenance",
+};
+
+/** A state's glyph in its colour, for beside its label (in a select, say). */
+export function StateGlyph({ status }: { status: ComponentStatus }) {
+  return (
+    <span className={`inline-flex shrink-0 ${GLYPH_TONE[status]}`}>
+      <Glyph status={status} />
+    </span>
+  );
+}

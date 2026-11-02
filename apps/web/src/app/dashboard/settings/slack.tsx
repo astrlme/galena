@@ -71,7 +71,7 @@ export function SlackConnection() {
       </p>
       <div className={card}>
         {slack.isPending ? (
-          <Loading label="Loading the Slack connection" className="" rows={1} />
+          <Loading label="Loading the Slack connection" className="" rows={1} framed={false} />
         ) : slack.error ? (
           <p className="font-semibold">{slack.error.message}</p>
         ) : !slack.data.available ? (

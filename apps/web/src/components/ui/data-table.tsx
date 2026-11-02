@@ -26,7 +26,7 @@ type Features = typeof features;
 /** Typed column builders for a table of `T`. */
 export const columnsFor = <T extends RowData>() => createColumnHelper<Features, T>();
 
-const icon = { "aria-hidden": true, size: 14, strokeWidth: 1.5 } as const;
+const icon = { "aria-hidden": true, size: 16, strokeWidth: 1.5 } as const;
 
 /**
  * A dense table: 36 px rows, headers that sort when pressed, and one menu per row at the end.
@@ -66,7 +66,7 @@ export function DataTable<T extends { id: string }>({
                       <button
                         type="button"
                         onClick={header.column.getToggleSortingHandler()}
-                        className="inline-flex items-center gap-1 font-semibold hover:underline"
+                        className="inline-flex min-h-[44px] items-center gap-1 font-semibold hover:underline md:min-h-0"
                       >
                         <table.FlexRender header={header} />
                         {sorted === "asc" && <ArrowUp {...icon} />}

@@ -8,10 +8,15 @@ import { Diagram } from "./diagram.tsx";
 /** A wide table scrolls sideways on a phone; taking focus lets keyboard users scroll it too. */
 function Table(props: ComponentProps<"table">) {
   return (
-    // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrolling region must be reachable by keyboard
-    <div tabIndex={0} className="relative my-6 overflow-auto prose-no-margin">
+    // A named section is a region, so a screen reader says what the stop is.
+    <section
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrolling region must be reachable by keyboard
+      tabIndex={0}
+      aria-label="Table"
+      className="relative my-6 overflow-auto prose-no-margin"
+    >
       <table {...props} />
-    </div>
+    </section>
   );
 }
 

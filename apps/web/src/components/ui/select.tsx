@@ -1,12 +1,16 @@
 "use client";
 
 import { Select as Base } from "@base-ui/react/select";
+import type { ComponentStatus } from "@galena/contracts";
 import { Check, ChevronsUpDown } from "lucide-react";
+import { useId } from "react";
 import { type Control, type FieldValues, type Path, useController } from "react-hook-form";
 import { control } from "../field.tsx";
+import { StateGlyph } from "../status.tsx";
 import { usePortalContainer } from "./portal.tsx";
 
-export type Option<V> = { value: V; label: string };
+/** A choice; a state ("Major outage") carries its status, so it shows its glyph as well. */
+export type Option<V> = { value: V; label: string; status?: ComponentStatus };
 
 type SelectProps<V> = {
   label: string;
@@ -19,6 +23,15 @@ type SelectProps<V> = {
   /** Hides the label visually, for a select whose row already says what it is. */
   hideLabel?: boolean;
 };
+
+function OptionLabel<V>({ option }: { option: Option<V> }) {
+  return (
+    <span className="flex items-center gap-2">
+      {option.status && <StateGlyph status={option.status} />}
+      {option.label}
+    </span>
+  );
+}
 
 /**
  * A select in the input's look: label above, help or error below, a list that opens under it.
@@ -35,6 +48,7 @@ export function Select<V extends string | null>({
   hideLabel = false,
 }: SelectProps<V>) {
   const container = usePortalContainer();
+  const noteId = useId();
   const note = error ?? help;
   return (
     <Base.Root
@@ -49,15 +63,24 @@ export function Select<V extends string | null>({
         </Base.Label>
         <Base.Trigger
           aria-invalid={error ? true : undefined}
+          aria-describedby={note ? noteId : undefined}
           className={`${control} flex min-h-[44px] min-w-[200px] items-center justify-between gap-3 text-left data-popup-open:border-ink data-disabled:text-slate`}
         >
-          <Base.Value />
+          <Base.Value>
+            {(current: V) => {
+              const option = options.find((o) => o.value === current);
+              return option ? <OptionLabel option={option} /> : null;
+            }}
+          </Base.Value>
           <Base.Icon className="text-slate">
             <ChevronsUpDown aria-hidden="true" size={16} strokeWidth={1.5} />
           </Base.Icon>
         </Base.Trigger>
         {note && (
-          <p className={`text-[14px] ${error ? "font-semibold text-major" : "text-slate"}`}>
+          <p
+            id={noteId}
+            className={`text-[14px] ${error ? "font-semibold text-major" : "text-slate"}`}
+          >
             {note}
           </p>
         )}
@@ -68,15 +91,18 @@ export function Select<V extends string | null>({
           <Base.Popup className="min-w-[var(--anchor-width)] rounded-xl border border-mist bg-surface py-1 text-ink outline-none">
             <Base.List className="max-h-[min(320px,var(--available-height))] overflow-y-auto">
               {options.map((option) => (
+                // The global focus ring, drawn inside the item so the list's edge doesn't clip it.
                 <Base.Item
                   key={option.value ?? ""}
                   value={option.value}
-                  className="grid min-h-[44px] cursor-default grid-cols-[16px_minmax(0,1fr)] items-center gap-2 px-3 text-[16px] outline-none select-none data-highlighted:bg-mist"
+                  className="grid min-h-[44px] cursor-default grid-cols-[16px_minmax(0,1fr)] items-center gap-2 px-3 text-[16px] -outline-offset-2 select-none data-highlighted:bg-mist"
                 >
                   <Base.ItemIndicator className="col-start-1">
                     <Check aria-hidden="true" size={16} strokeWidth={1.5} />
                   </Base.ItemIndicator>
-                  <Base.ItemText className="col-start-2">{option.label}</Base.ItemText>
+                  <Base.ItemText className="col-start-2">
+                    <OptionLabel option={option} />
+                  </Base.ItemText>
                 </Base.Item>
               ))}
             </Base.List>

@@ -44,7 +44,7 @@ const KEY_COLUMNS = keyColumn.columns([
     cell: (c) => SCOPE[c.getValue()],
   }),
   keyColumn.accessor("prefix", {
-    header: "Starts",
+    header: "Starts with",
     enableSorting: false,
     cell: (c) => <span className="font-mono">{c.getValue()}</span>,
   }),
@@ -112,7 +112,7 @@ export function ApiKeys() {
         the workspace.
       </p>
       {keys.isPending ? (
-        <Loading label="Loading the API keys" className="mt-4" rows={2} />
+        <Loading label="Loading the API keys" className="mt-4" rows={2} table />
       ) : keys.error ? (
         <p className={`${card} p-4 font-semibold`}>{keys.error.message}</p>
       ) : keys.data.length === 0 ? (

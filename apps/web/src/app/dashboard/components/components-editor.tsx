@@ -100,9 +100,9 @@ export function ComponentsEditor() {
       { onSuccess: () => toast(kind === "component" ? "Component deleted" : "Group deleted") },
     );
 
-  const list = (items: Item[]) =>
+  const list = (items: Item[], empty: string) =>
     items.length === 0 ? (
-      <EmptyState>No components here yet.</EmptyState>
+      <EmptyState>{empty}</EmptyState>
     ) : (
       <ul className="mt-4 rounded-xl border border-mist bg-surface">
         {items.map((item, index) => (
@@ -231,14 +231,20 @@ export function ComponentsEditor() {
               />
             </div>
           </div>
-          {list(components.filter((c) => c.groupId === group.id))}
+          {list(
+            components.filter((c) => c.groupId === group.id),
+            "No components in this group yet. Choose this group when you add a component.",
+          )}
         </section>
       ))}
       <section aria-labelledby="ungrouped" className="mt-8">
         <h2 id="ungrouped" className="text-[19px] font-semibold leading-[1.35]">
           Not in a group
         </h2>
-        {list(components.filter((c) => c.groupId === null))}
+        {list(
+          components.filter((c) => c.groupId === null),
+          "Every component is in a group. Add one without a group to see it here.",
+        )}
       </section>
 
       {deleting && (

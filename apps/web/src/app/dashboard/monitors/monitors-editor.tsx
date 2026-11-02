@@ -332,8 +332,8 @@ function MonitorForm({
         name="downStatus"
         label="Status while down"
         options={[
-          { value: "major_outage", label: "Major outage" },
-          { value: "partial_outage", label: "Partial outage" },
+          { value: "partial_outage", label: "Partial outage", status: "partial_outage" },
+          { value: "major_outage", label: "Major outage", status: "major_outage" },
         ]}
       />
       <fieldset className="flex flex-col gap-3">

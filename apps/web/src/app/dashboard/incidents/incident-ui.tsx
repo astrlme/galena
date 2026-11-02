@@ -34,11 +34,12 @@ export const IMPACT_TITLE: Record<IncidentImpact, string> = {
   critical: "font-[650]",
 };
 
+// In order of severity, as everywhere else.
 const COMPONENT_STATUS_LABELS: Record<IncidentComponentStatus, string> = {
+  operational: "Operational",
   degraded_performance: "Degraded performance",
   partial_outage: "Partial outage",
   major_outage: "Major outage",
-  operational: "Operational",
 };
 
 const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
@@ -124,6 +125,7 @@ export function ComponentPicker({
                 options={Object.entries(COMPONENT_STATUS_LABELS).map(([value, label]) => ({
                   value: value as IncidentComponentStatus,
                   label,
+                  status: value as IncidentComponentStatus,
                 }))}
               />
             )}
