@@ -12,6 +12,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
+  Search,
   Settings,
 } from "lucide-react";
 import Link from "next/link";
@@ -22,6 +23,7 @@ import { DraftDock, forgetDrafts } from "../../components/drafts.tsx";
 import { Toasts } from "../../components/ui/toast.tsx";
 import { Wordmark } from "../../components/wordmark.tsx";
 import { api, authPost, demo } from "../../lib/api.ts";
+import { CommandPalette } from "./command-palette.tsx";
 import { isCurrent, type SectionKey, sections } from "./sections.ts";
 
 // No triangle for incidents: ▲ is the partial-outage glyph.
@@ -91,6 +93,19 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const [unreachable, setUnreachable] = useState(false);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Ctrl/Cmd+K opens the palette from anywhere, even while typing in a field.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     // Explain the wait once it passes 10 s (Aurora resuming).
@@ -151,6 +166,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           {/* Below 768 px: a bar whose menu opens the same links in a drawer from the left. */}
           <header className="flex items-center justify-between border-mist border-b px-4 py-2 md:hidden">
             <Wordmark />
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              className={`${row} ml-auto hover:bg-surface`}
+            >
+              <Search {...icon} />
+              <span className="sr-only">Search</span>
+            </button>
             <Drawer.Root open={menuOpen} onOpenChange={setMenuOpen} direction="left">
               <Drawer.Trigger className={`${row} font-semibold hover:bg-surface`}>
                 <Menu {...icon} />
@@ -195,7 +218,23 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 {me.workspaceName}
               </span>
             </div>
-            <NavLinks collapsed={collapsed} />
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                title={collapsed ? "Search (Ctrl K)" : undefined}
+                className={`${row} w-full ${quiet}`}
+              >
+                <Search {...icon} />
+                <span
+                  className={collapsed ? "sr-only" : "flex flex-1 items-center justify-between"}
+                >
+                  Search
+                  <kbd className="font-sans text-[13px] text-slate">Ctrl K</kbd>
+                </span>
+              </button>
+              <NavLinks collapsed={collapsed} />
+            </div>
             <div className="mt-auto flex flex-col gap-1 text-[14px]">
               <button
                 type="button"
@@ -226,6 +265,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </main>
         </div>
         <DraftDock />
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       </Toasts>
     </QueryClientProvider>
   );

@@ -132,6 +132,9 @@ const setRequested = (key: string | undefined) => {
   window.dispatchEvent(new Event(REQUESTED));
 };
 
+/** Asks a section's editor to open a form by key (`monitor:new`, `monitor:<id>`) once it loads. */
+export const openEditor = (key: string) => setRequested(key);
+
 /**
  * Opens the draft the dock asked for when its key starts with `prefix:`. `open` gets the rest of
  * the key (`new` or an id) once `ready`, and says whether there was anything to open.
