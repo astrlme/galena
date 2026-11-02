@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Loading } from "../../../components/ui/loading.tsx";
 import { authGet } from "../../../lib/api.ts";
+import { ShortcutsSetting } from "../shortcuts.tsx";
 import { ApiKeys } from "./api-keys.tsx";
 import { Password } from "./password.tsx";
 import { Sessions } from "./sessions.tsx";
@@ -44,6 +45,7 @@ export function SettingsEditor() {
       <TwoFactor enabled={current.data.user.twoFactorEnabled === true} />
       <Password />
       <Sessions currentId={current.data.session.id} />
+      <ShortcutsSetting />
       <SlackConnection />
       <ApiKeys />
     </>

@@ -25,7 +25,7 @@ import { Wordmark } from "../../components/wordmark.tsx";
 import { api, authPost, demo } from "../../lib/api.ts";
 import { CommandPalette } from "./command-palette.tsx";
 import { isCurrent, type SectionKey, sections } from "./sections.ts";
-import { ShortcutHelp, useShortcuts } from "./shortcuts.tsx";
+import { modKey, ShortcutHelp, useShortcuts } from "./shortcuts.tsx";
 
 // No triangle for incidents: ▲ is the partial-outage glyph.
 const ICONS: Record<SectionKey, LucideIcon> = {
@@ -100,18 +100,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const openHelp = useCallback(() => setHelpOpen(true), []);
   useShortcuts({ openPalette, openHelp });
 
-  // Ctrl/Cmd+K opens the palette from anywhere, even while typing in a field.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setPaletteOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   useEffect(() => {
     // Explain the wait once it passes 10 s (Aurora resuming).
     const timer = setTimeout(() => setSlow(true), 10_000);
@@ -174,13 +162,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => setPaletteOpen(true)}
-              className={`${row} ml-auto hover:bg-surface`}
+              aria-keyshortcuts="Control+K Meta+K"
+              className={`${row} ml-auto min-h-11 min-w-11 justify-center hover:bg-surface`}
             >
               <Search {...icon} />
               <span className="sr-only">Search</span>
             </button>
             <Drawer.Root open={menuOpen} onOpenChange={setMenuOpen} direction="left">
-              <Drawer.Trigger className={`${row} font-semibold hover:bg-surface`}>
+              <Drawer.Trigger className={`${row} min-h-11 font-semibold hover:bg-surface`}>
                 <Menu {...icon} />
                 Menu
               </Drawer.Trigger>
@@ -215,9 +204,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           >
             <div className="flex flex-col gap-3 px-2">
               <Wordmark markOnly={collapsed} />
-              {/* The workspace slot: its name now, a switcher once a deployment holds several. */}
+              {/* The workspace this dashboard belongs to; the title shows a name cut short. */}
               <span
-                title={collapsed ? me.workspaceName : undefined}
+                title={me.workspaceName}
                 className={collapsed ? "sr-only" : "truncate text-[14px] font-semibold"}
               >
                 {me.workspaceName}
@@ -227,7 +216,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => setPaletteOpen(true)}
-                title={collapsed ? "Search (Ctrl K)" : undefined}
+                title={collapsed ? `Search (${modKey()} K)` : undefined}
+                aria-label="Search"
+                aria-keyshortcuts="Control+K Meta+K"
                 className={`${row} w-full ${quiet}`}
               >
                 <Search {...icon} />
@@ -235,7 +226,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   className={collapsed ? "sr-only" : "flex flex-1 items-center justify-between"}
                 >
                   Search
-                  <kbd className="font-sans text-[13px] text-slate">Ctrl K</kbd>
+                  <kbd className="font-sans text-[13px] text-slate">{modKey()} K</kbd>
                 </span>
               </button>
               <NavLinks collapsed={collapsed} />

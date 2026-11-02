@@ -4,7 +4,7 @@ import { draft, journey, rowAction, signIn } from "./helpers.ts";
 // How many clicks the work people come for takes. Each journey starts where a person would and
 // counts only the clicks of the task itself; the dashboard must not get slower to use.
 
-test("a monitor's draft is approved from the overview in 2 clicks", async ({ page }, testInfo) => {
+test("a monitor's draft is approved from Home in 2 clicks", async ({ page }, testInfo) => {
   const title = `Payments is down ${testInfo.project.name} ${Date.now()}`;
   const id = draft(title);
   await signIn(page);

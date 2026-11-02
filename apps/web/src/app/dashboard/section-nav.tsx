@@ -13,8 +13,9 @@ export function SectionNav({
 }) {
   const pathname = usePathname();
   return (
-    <nav aria-label={label} className="mb-6 overflow-x-auto border-b border-mist">
-      <ul className="flex gap-1">
+    // The rule sits on the list, so the current tab's underline overlaps it inside the scroll box.
+    <nav aria-label={label} className="mb-6 overflow-x-auto">
+      <ul className="flex w-max min-w-full gap-1 border-b border-mist">
         {parts.map(({ title, href }) => {
           const current = pathname.startsWith(href);
           return (
@@ -22,7 +23,7 @@ export function SectionNav({
               <Link
                 href={href}
                 aria-current={current ? "page" : undefined}
-                className={`-mb-px inline-flex min-h-[44px] items-center whitespace-nowrap border-b-2 px-3 text-[14px] ${current ? "border-ink font-semibold" : "border-transparent text-graphite hover:text-ink"}`}
+                className={`-mb-px inline-flex min-h-[44px] items-center whitespace-nowrap border-b-2 px-3 text-[14px] -outline-offset-2 ${current ? "border-ink font-semibold" : "border-transparent text-graphite hover:text-ink"}`}
               >
                 {title}
               </Link>

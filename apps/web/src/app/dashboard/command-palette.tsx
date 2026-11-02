@@ -7,14 +7,20 @@ import { openEditor } from "../../components/drafts.tsx";
 import { control } from "../../components/field.tsx";
 import { Modal } from "../../components/modal.tsx";
 import { api, unwrap } from "../../lib/api.ts";
-import { sections, statusPageParts } from "./sections.ts";
+import { actions, places } from "./sections.ts";
 
 type Command = { id: string; label: string; hint?: string; run: () => void };
 type Group = { value: string; items: Command[] };
 
+// Settings is one page; its parts are reached by their headings.
+const SETTINGS_PARTS = [
+  { title: "API keys", href: "/dashboard/settings/#api-keys-heading" },
+  { title: "Slack", href: "/dashboard/settings/#slack-heading" },
+];
+
 /**
- * Ctrl/Cmd+K: find a monitor, incident or component by typing part of its name, or start an
- * action. Each command goes where a person would, then opens the right form.
+ * Ctrl/Cmd+K: find a monitor, incident or component by typing part of its name, or start a page's
+ * main action. Each command goes where a person would; a monitor or an action also opens its form.
  */
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
@@ -42,24 +48,11 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const groups: Group[] = [
     {
       value: "Actions",
-      items: [
-        { id: "a:monitor", label: "Add monitor", run: go("/dashboard/monitors/", "monitor:new") },
-        {
-          id: "a:incident",
-          label: "Publish incident",
-          run: go("/dashboard/incidents/", "incident:new"),
-        },
-        {
-          id: "a:window",
-          label: "Schedule window",
-          run: go("/dashboard/status-page/maintenance/", "maintenance:new"),
-        },
-        {
-          id: "a:component",
-          label: "Add component",
-          run: go("/dashboard/status-page/components/", "component:new"),
-        },
-      ],
+      items: actions.map((a) => ({
+        id: `a:${a.label}`,
+        label: a.label,
+        run: go(a.href, a.editor),
+      })),
     },
     {
       value: "Monitors",
@@ -88,10 +81,10 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     },
     {
       value: "Go to",
-      items: [...sections, ...statusPageParts].map((s) => ({
-        id: `s:${s.href}`,
-        label: s.title,
-        run: go(s.href),
+      items: [...places, ...SETTINGS_PARTS].map((p) => ({
+        id: `g:${p.title}`,
+        label: p.title,
+        run: go(p.href),
       })),
     },
   ].filter((g) => g.items.length > 0);
@@ -109,7 +102,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       >
         <Autocomplete.Input
           aria-label="Search monitors, incidents, components and actions"
-          placeholder="Search monitors, incidents and actions"
+          placeholder="Search monitors, incidents, components and actions"
           className={`${control} w-full`}
         />
         <Autocomplete.Empty>
@@ -127,7 +120,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                     key={item.id}
                     value={item}
                     onClick={item.run}
-                    className="flex min-h-[44px] cursor-default items-center justify-between gap-3 rounded-[6px] px-3 text-[16px] -outline-offset-2 select-none data-highlighted:bg-mist"
+                    className="flex min-h-[44px] cursor-default items-center justify-between gap-3 rounded-[6px] px-3 text-[16px] -outline-offset-2 select-none data-highlighted:bg-mist data-highlighted:outline-2 data-highlighted:outline-ink data-highlighted:outline-solid"
                   >
                     <span className="truncate">{item.label}</span>
                     {item.hint && (

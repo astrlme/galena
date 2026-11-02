@@ -56,3 +56,26 @@ test("shortcuts stay out of the way while someone types", async ({ page }, testI
   // Leave the shared local database without an open incident from this run.
   await page.request.post(`/v1/incidents/${id}/decision`, { data: { decision: "dismiss" } });
 });
+
+test("single-key shortcuts can be switched off in Settings; Ctrl+K still searches", async ({
+  page,
+}) => {
+  await signIn(page);
+  await expect(page).toHaveURL(/\/dashboard\/$/);
+  await page.goto("/dashboard/settings/");
+  const setting = page.getByRole("checkbox", { name: /Single-key shortcuts/ });
+  await expect(setting).toBeChecked();
+  await setting.uncheck();
+  await expectAccessible(page);
+
+  await page.goto("/dashboard/monitors/");
+  await expect(page.getByRole("heading", { name: "Monitors", level: 1 })).toBeVisible();
+  await page.keyboard.press("g");
+  await page.keyboard.press("h");
+  await page.keyboard.press("?");
+  await expect(page).toHaveURL(/\/dashboard\/monitors\/$/);
+  await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeHidden();
+
+  await page.keyboard.press("Control+k");
+  await expect(page.getByRole("dialog", { name: "Search the dashboard" })).toBeVisible();
+});
