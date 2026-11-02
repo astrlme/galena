@@ -25,7 +25,6 @@ test("create a group, add components, reorder them and delete one after confirmi
   const section = page.getByRole("region", { name: group });
   await expect(section).toBeVisible();
 
-  // Rows repeat each name for screen readers inside their buttons, so match rows, not text.
   const rows = section.getByRole("listitem");
   for (const name of [first, second]) {
     await page.getByRole("button", { name: "Add component" }).click();

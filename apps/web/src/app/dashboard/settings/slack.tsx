@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Button, buttonClass } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
+import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import { Time } from "../incidents/incident-ui.tsx";
 
@@ -38,7 +39,8 @@ export function SlackConnection() {
   const disconnect = useMutation({
     mutationFn: () => unwrap(api.DELETE("/v1/slack")),
     onSuccess: () => {
-      setNotice("Slack disconnected.");
+      setNotice(undefined);
+      toast("Slack disconnected");
       headingRef.current?.focus();
     },
     onError: (error) => setNotice(error.message),

@@ -7,6 +7,7 @@ import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
+import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import { Time } from "../incidents/incident-ui.tsx";
 import { MaintenanceForm, type Window, type WindowInput } from "./maintenance-form.tsx";
@@ -47,9 +48,15 @@ export function MaintenanceEditor() {
     if (found) setEditing(found);
     return id === "new" || found !== undefined;
   });
-  const run = (call: () => Promise<unknown>) =>
+  const run = (call: () => Promise<unknown>, done?: string) =>
     new Promise<boolean>((resolve) =>
-      change.mutate(call, { onSuccess: () => resolve(true), onError: () => resolve(false) }),
+      change.mutate(call, {
+        onSuccess: () => {
+          if (done) toast(done);
+          resolve(true);
+        },
+        onError: () => resolve(false),
+      }),
     );
 
   if (windows.isPending || components.isPending) {
@@ -66,12 +73,17 @@ export function MaintenanceEditor() {
     setEditing(undefined);
   };
   const save = async (input: WindowInput) => {
-    const saved = await run(() =>
-      editing
-        ? unwrap(
-            api.PUT("/v1/maintenances/{id}", { params: { path: { id: editing.id } }, body: input }),
-          )
-        : unwrap(api.POST("/v1/maintenances", { body: input })),
+    const saved = await run(
+      () =>
+        editing
+          ? unwrap(
+              api.PUT("/v1/maintenances/{id}", {
+                params: { path: { id: editing.id } },
+                body: input,
+              }),
+            )
+          : unwrap(api.POST("/v1/maintenances", { body: input })),
+      editing ? "Window saved" : "Window scheduled",
     );
     if (saved) closeForm();
     return saved;
@@ -190,7 +202,10 @@ export function MaintenanceEditor() {
           onConfirm={() => {
             const params = { path: { id: cancelling.id } };
             // Errors show above the list.
-            void run(() => unwrap(api.POST("/v1/maintenances/{id}/cancel", { params })));
+            void run(
+              () => unwrap(api.POST("/v1/maintenances/{id}/cancel", { params })),
+              "Window cancelled",
+            );
             setCancelling(undefined);
           }}
           onClose={() => setCancelling(undefined)}

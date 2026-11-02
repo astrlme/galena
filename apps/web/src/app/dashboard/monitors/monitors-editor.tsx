@@ -14,6 +14,7 @@ import { Modal } from "../../../components/modal.tsx";
 import { StatusLabel } from "../../../components/status.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
+import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { MonitorHealth, PausedNotice, useTelemetry } from "./monitor-health.tsx";
@@ -96,9 +97,15 @@ export function MonitorsEditor() {
     onError: (error) => setProblem(error.message),
   });
   /** Whether the call succeeded; a failure shows in the open form, or above the list. */
-  const run = (call: () => Promise<unknown>) =>
+  const run = (call: () => Promise<unknown>, done?: string) =>
     new Promise<boolean>((resolve) =>
-      change.mutate(call, { onSuccess: () => resolve(true), onError: () => resolve(false) }),
+      change.mutate(call, {
+        onSuccess: () => {
+          if (done) toast(done);
+          resolve(true);
+        },
+        onError: () => resolve(false),
+      }),
     );
 
   if (monitors.isPending || components.isPending) {
@@ -111,27 +118,31 @@ export function MonitorsEditor() {
     componentList.find((c) => c.id === id)?.name ?? "No component";
 
   const save = async (body: FormOut) => {
-    const saved = await run(() =>
-      editing
-        ? unwrap(
-            api.PUT("/v1/monitors/{id}", {
-              params: { path: { id: editing.id } },
-              body: asBody(body),
-            }),
-          )
-        : unwrap(api.POST("/v1/monitors", { body: asBody(body) })),
+    const saved = await run(
+      () =>
+        editing
+          ? unwrap(
+              api.PUT("/v1/monitors/{id}", {
+                params: { path: { id: editing.id } },
+                body: asBody(body),
+              }),
+            )
+          : unwrap(api.POST("/v1/monitors", { body: asBody(body) })),
+      editing ? "Monitor saved" : "Monitor added",
     );
     if (saved) closeForm();
     return saved;
   };
   const toggle = (monitor: Monitor) =>
-    run(() =>
-      unwrap(
-        api.PUT("/v1/monitors/{id}", {
-          params: { path: { id: monitor.id } },
-          body: asBody({ ...toInput(monitor), enabled: !monitor.enabled }),
-        }),
-      ),
+    run(
+      () =>
+        unwrap(
+          api.PUT("/v1/monitors/{id}", {
+            params: { path: { id: monitor.id } },
+            body: asBody({ ...toInput(monitor), enabled: !monitor.enabled }),
+          }),
+        ),
+      monitor.enabled ? "Monitor paused" : "Monitor resumed",
     );
 
   const formOpen = adding || editing !== undefined;
@@ -236,7 +247,7 @@ export function MonitorsEditor() {
           consequence={`Probes stop checking ${deleting.name} within a minute. Its check history goes with it.`}
           onConfirm={() => {
             const params = { path: { id: deleting.id } };
-            void run(() => unwrap(api.DELETE("/v1/monitors/{id}", { params }))); // errors show above
+            void run(() => unwrap(api.DELETE("/v1/monitors/{id}", { params })), "Monitor deleted"); // errors show above
             setDeleting(undefined);
           }}
           onClose={() => setDeleting(undefined)}

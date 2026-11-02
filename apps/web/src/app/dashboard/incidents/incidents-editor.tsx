@@ -7,6 +7,7 @@ import { type ReactNode, useState } from "react";
 import { Button } from "../../../components/button.tsx";
 import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { IncidentForm, type NewIncident } from "./incident-form.tsx";
@@ -53,6 +54,9 @@ export function IncidentsEditor() {
     try {
       const created = await unwrap(api.POST("/v1/incidents", { body: incident }));
       await queryClient.invalidateQueries({ queryKey: ["incidents"] });
+      toast(
+        incident.visibility === "internal" ? "Posted to the internal page" : "Incident published",
+      );
       router.push(`/dashboard/incidents/view/?id=${created.id}`);
       return true;
     } catch (error) {

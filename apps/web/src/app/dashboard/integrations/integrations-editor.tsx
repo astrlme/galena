@@ -7,6 +7,7 @@ import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
+import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import { Time } from "../incidents/incident-ui.tsx";
 import {
@@ -88,9 +89,15 @@ export function IntegrationsEditor() {
     onError: (error) => setProblem(error.message),
   });
   /** Whether the call succeeded; a failure shows in the open form, or above the list. */
-  const run = (call: () => Promise<unknown>) =>
+  const run = (call: () => Promise<unknown>, done?: string) =>
     new Promise<boolean>((resolve) =>
-      change.mutate(call, { onSuccess: () => resolve(true), onError: () => resolve(false) }),
+      change.mutate(call, {
+        onSuccess: () => {
+          if (done) toast(done);
+          resolve(true);
+        },
+        onError: () => resolve(false),
+      }),
     );
 
   if (integrations.isPending || components.isPending) {
@@ -110,6 +117,7 @@ export function IntegrationsEditor() {
           api.PUT("/v1/integrations/{id}", { params: { path: { id: target.id } }, body }),
         );
         closeForm();
+        toast("Integration saved");
         return;
       }
       const created = await unwrap(api.POST("/v1/integrations", { body: { source, ...body } }));
@@ -305,7 +313,10 @@ export function IntegrationsEditor() {
           consequence="Its hook URL stops working at once. Incidents it opened stay as they are."
           onConfirm={() => {
             const params = { path: { id: deleting.id } };
-            void run(() => unwrap(api.DELETE("/v1/integrations/{id}", { params })));
+            void run(
+              () => unwrap(api.DELETE("/v1/integrations/{id}", { params })),
+              "Integration deleted",
+            );
             setDeleting(undefined);
           }}
           onClose={() => setDeleting(undefined)}

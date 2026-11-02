@@ -12,6 +12,7 @@ import type { z } from "zod";
 import { Button } from "../../../../components/button.tsx";
 import { StatusLabel } from "../../../../components/status.tsx";
 import { FormSelect } from "../../../../components/ui/select.tsx";
+import { toast } from "../../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../../lib/api.ts";
 import type { paths } from "../../../../lib/api-schema.ts";
 import { bodyChecked } from "../incident-form.tsx";
@@ -129,7 +130,6 @@ function UpdateForm({
 }) {
   const queryClient = useQueryClient();
   const [affected, setAffected] = useState<Affected[]>(incident.components);
-  const [posted, setPosted] = useState<string>();
   const form = useForm<FormIn, unknown, FormOut>({
     resolver: zodResolver(schema),
     defaultValues: { status: incident.status, body: "" },
@@ -147,10 +147,10 @@ function UpdateForm({
         }),
       ),
     onSuccess: async () => {
-      setPosted("Update posted.");
+      // The form remounts once the new update arrives, so the toast carries the news.
+      toast("Update posted");
       await queryClient.invalidateQueries({ queryKey: ["incidents"] });
     },
-    onError: () => setPosted(undefined),
   });
   const submit = form.handleSubmit((values) => post.mutateAsync(values).catch(() => {}));
 
@@ -188,9 +188,6 @@ function UpdateForm({
           {post.isPending ? "Posting…" : "Post update"}
         </Button>
       </div>
-      <p aria-live="polite" className="font-semibold empty:hidden">
-        {posted}
-      </p>
     </form>
   );
 }
@@ -208,7 +205,10 @@ function ApprovalCard({ incident }: { incident: Incident }) {
           body: { decision },
         }),
       ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["incidents"] }),
+    onSuccess: (_, decision) => {
+      toast(decision === "publish" ? "Incident published" : "Draft dismissed");
+      return queryClient.invalidateQueries({ queryKey: ["incidents"] });
+    },
   });
   return (
     <section

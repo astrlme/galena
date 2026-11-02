@@ -51,6 +51,7 @@ test("publish an incident, post an update, resolve it", async ({ page }, testInf
     .getByLabel("Message")
     .fill("We found the cause: a bad deploy. We're rolling it back. Next update by 14:45 UTC.");
   await update.getByRole("button", { name: "Post update" }).click();
+  await expect(page.getByText("Update posted")).toBeVisible();
   await expect(page.getByText("Identified. Major impact.")).toBeVisible();
 
   await choose(update, "Status", "Resolved");

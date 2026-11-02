@@ -13,6 +13,7 @@ import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
+import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { Time } from "../incidents/incident-ui.tsx";
@@ -188,6 +189,7 @@ export function SubscribersEditor() {
                     setSecret({ name: input.name, value: created.secret });
                   } else {
                     setAdding(false);
+                    toast("Destination added");
                   }
                 },
                 { onSuccess: () => resolve(true), onError: () => resolve(false) },
@@ -278,7 +280,9 @@ export function SubscribersEditor() {
           consequence="It stops getting incident and maintenance updates at once."
           onConfirm={() => {
             const params = { path: { id: removing.endpoint?.id ?? "" } };
-            change.mutate(() => unwrap(api.DELETE("/v1/webhook-endpoints/{id}", { params })));
+            change.mutate(() => unwrap(api.DELETE("/v1/webhook-endpoints/{id}", { params })), {
+              onSuccess: () => toast("Destination deleted"),
+            });
             setRemoving({});
           }}
           onClose={() => setRemoving({})}
@@ -292,7 +296,9 @@ export function SubscribersEditor() {
           consequence="The address is forgotten. It can subscribe again from the status page."
           onConfirm={() => {
             const params = { path: { id: removing.subscriber?.id ?? "" } };
-            change.mutate(() => unwrap(api.DELETE("/v1/subscribers/{id}", { params })));
+            change.mutate(() => unwrap(api.DELETE("/v1/subscribers/{id}", { params })), {
+              onSuccess: () => toast("Subscriber deleted"),
+            });
             setRemoving({});
           }}
           onClose={() => setRemoving({})}

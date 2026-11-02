@@ -34,7 +34,7 @@ test("add a monitor, edit it, pause it and delete it after confirming its name",
   await form.getByLabel("Keyword (optional)").fill("ok");
   await form.getByRole("button", { name: "Add monitor" }).click();
   await expect(form).toBeHidden();
-  // Rows repeat each name for screen readers inside their buttons, so match rows, not text.
+  await expect(page.getByText("Monitor added")).toBeVisible();
   const row = () => list.getByRole("listitem").filter({ hasText: "api.example.com" }).last();
   await expect(row()).toContainText(name);
   await expect(row()).toContainText("Ask a person first.");

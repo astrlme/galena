@@ -14,6 +14,7 @@ import { Modal } from "../../../components/modal.tsx";
 import { StatusLabel } from "../../../components/status.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
+import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 
@@ -56,9 +57,15 @@ export function ComponentsEditor() {
   useReopenDraft("component", listing.isSuccess, reopen("component"));
 
   /** Whether the call succeeded; a failure shows above the lists and the form keeps its values. */
-  const run = (call: () => Promise<unknown>) =>
+  const run = (call: () => Promise<unknown>, done?: string) =>
     new Promise<boolean>((resolve) =>
-      change.mutate(call, { onSuccess: () => resolve(true), onError: () => resolve(false) }),
+      change.mutate(call, {
+        onSuccess: () => {
+          if (done) toast(done);
+          resolve(true);
+        },
+        onError: () => resolve(false),
+      }),
     );
 
   if (listing.isPending) return <p className="mt-8 text-slate">Loading components</p>;
@@ -83,10 +90,12 @@ export function ComponentsEditor() {
     change.mutate(() => unwrap(api.PUT("/v1/component-groups/order", { body: { ids: order } })));
   };
   const remove = ({ kind, id }: Deleting) =>
-    change.mutate(() =>
-      kind === "component"
-        ? unwrap(api.DELETE("/v1/components/{id}", { params: { path: { id } } }))
-        : unwrap(api.DELETE("/v1/component-groups/{id}", { params: { path: { id } } })),
+    change.mutate(
+      () =>
+        kind === "component"
+          ? unwrap(api.DELETE("/v1/components/{id}", { params: { path: { id } } }))
+          : unwrap(api.DELETE("/v1/component-groups/{id}", { params: { path: { id } } })),
+      { onSuccess: () => toast(kind === "component" ? "Component deleted" : "Group deleted") },
     );
 
   const list = (items: Item[]) =>
@@ -168,7 +177,10 @@ export function ComponentsEditor() {
               problem={problem}
               onCancel={() => setCreating(undefined)}
               onCreate={async (body) => {
-                const done = await run(() => unwrap(api.POST("/v1/component-groups", { body })));
+                const done = await run(
+                  () => unwrap(api.POST("/v1/component-groups", { body })),
+                  "Group added",
+                );
                 if (done) setCreating(undefined);
                 return done;
               }}
@@ -182,7 +194,10 @@ export function ComponentsEditor() {
               problem={problem}
               onCancel={() => setCreating(undefined)}
               onCreate={async (body) => {
-                const done = await run(() => unwrap(api.POST("/v1/components", { body })));
+                const done = await run(
+                  () => unwrap(api.POST("/v1/components", { body })),
+                  "Component added",
+                );
                 if (done) setCreating(undefined);
                 return done;
               }}

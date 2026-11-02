@@ -3,6 +3,7 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Button } from "../../../components/button.tsx";
+import { toast } from "../../../components/ui/toast.tsx";
 import { authGet, authPost } from "../../../lib/api.ts";
 import { Time } from "../incidents/incident-ui.tsx";
 import { describeAgent } from "./describe-agent.ts";
@@ -37,7 +38,8 @@ export function Sessions({ currentId }: { currentId: string }) {
   const signOut = useMutation({
     mutationFn: ({ call }: { call: () => Promise<unknown>; done: string }) => call(),
     onSuccess: (_, { done }) => {
-      setNotice(done);
+      setNotice(undefined);
+      toast(done);
       headingRef.current?.focus();
     },
     onError: () => setNotice("Couldn't sign out that session. Try again."),
@@ -63,7 +65,7 @@ export function Sessions({ currentId }: { currentId: string }) {
             onClick={() =>
               signOut.mutate({
                 call: () => authPost("revoke-other-sessions", {}),
-                done: "Signed out everywhere else.",
+                done: "Signed out everywhere else",
               })
             }
           >
@@ -97,7 +99,7 @@ export function Sessions({ currentId }: { currentId: string }) {
                   onClick={() =>
                     signOut.mutate({
                       call: () => authPost("revoke-session", { token: s.token }),
-                      done: `Signed out of ${describeAgent(s.userAgent)}.`,
+                      done: `Signed out of ${describeAgent(s.userAgent)}`,
                     })
                   }
                 >
