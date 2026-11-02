@@ -9,9 +9,10 @@ import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
-import { control, Field } from "../../../components/field.tsx";
+import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { StatusLabel } from "../../../components/status.tsx";
+import { FormSelect } from "../../../components/ui/select.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { MonitorHealth, PausedNotice, useTelemetry } from "./monitor-health.tsx";
@@ -56,7 +57,6 @@ const EMPTY: FormIn = {
   enabled: true,
 };
 const small = "px-2 py-1 text-[14px]";
-const select = control;
 
 /** A full PUT body from a listed monitor: PUT replaces every setting. */
 const toInput = ({ id: _, ...input }: Monitor): FormIn => input;
@@ -288,15 +288,15 @@ function MonitorForm({
         error={errors.http?.url?.message}
         {...form.register("http.url")}
       />
-      <div className="flex flex-col gap-1">
-        <label htmlFor="monitor-method" className="text-[14px] font-semibold">
-          Method
-        </label>
-        <select id="monitor-method" className={select} {...form.register("http.method")}>
-          <option value="GET">GET</option>
-          <option value="HEAD">HEAD (no body, so no keyword)</option>
-        </select>
-      </div>
+      <FormSelect
+        control={form.control}
+        name="http.method"
+        label="Method"
+        options={[
+          { value: "GET", label: "GET" },
+          { value: "HEAD", label: "HEAD (no body, so no keyword)" },
+        ]}
+      />
       <Field
         id="monitor-keyword"
         label="Keyword (optional)"
@@ -306,32 +306,24 @@ function MonitorForm({
           setValueAs: (v: string | undefined) => (v?.trim() ? v : undefined),
         })}
       />
-      <div className="flex flex-col gap-1">
-        <label htmlFor="monitor-component" className="text-[14px] font-semibold">
-          Component
-        </label>
-        <select
-          id="monitor-component"
-          className={select}
-          {...form.register("componentId", { setValueAs: (v: string) => (v === "" ? null : v) })}
-        >
-          <option value="">No component</option>
-          {components.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="monitor-down-status" className="text-[14px] font-semibold">
-          Status while down
-        </label>
-        <select id="monitor-down-status" className={select} {...form.register("downStatus")}>
-          <option value="major_outage">Major outage</option>
-          <option value="partial_outage">Partial outage</option>
-        </select>
-      </div>
+      <FormSelect
+        control={form.control}
+        name="componentId"
+        label="Component"
+        options={[
+          { value: null, label: "No component" },
+          ...components.map((c) => ({ value: c.id, label: c.name })),
+        ]}
+      />
+      <FormSelect
+        control={form.control}
+        name="downStatus"
+        label="Status while down"
+        options={[
+          { value: "major_outage", label: "Major outage" },
+          { value: "partial_outage", label: "Partial outage" },
+        ]}
+      />
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 text-[14px] font-semibold">When it goes down</legend>
         {POLICIES.map((policy) => (

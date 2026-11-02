@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, signIn } from "./helpers.ts";
+import { choose, expectAccessible, signIn } from "./helpers.ts";
 
 test("add a webhook destination, see its secret once, then delete it after confirming its name", async ({
   page,
@@ -28,7 +28,7 @@ test("add a webhook destination, see its secret once, then delete it after confi
     "Slack incoming webhook URLs start with https://hooks.slack.com/.",
   );
 
-  await form.getByLabel("Kind").selectOption("webhook");
+  await choose(form, "Kind", "Outgoing webhook (signed)");
   await form.getByRole("button", { name: "Add destination" }).click();
   const secret = page.getByRole("status").filter({ hasText: `Signing secret for ${name}` });
   await expect(secret).toContainText("whsec_");

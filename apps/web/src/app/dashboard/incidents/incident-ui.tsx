@@ -6,7 +6,7 @@ import type {
   IncidentStatus,
   IncidentVisibility,
 } from "@galena/contracts";
-import { control } from "../../../components/field.tsx";
+import { Select } from "../../../components/ui/select.tsx";
 
 /** A component an incident names, as the API sends and takes it. */
 export type Affected = { componentId: string; status: IncidentComponentStatus };
@@ -78,8 +78,6 @@ export function VisibilityNote(props: {
   return <span className="text-[14px]">{NOT_PUBLISHED[props.visibility]}.</span>;
 }
 
-export const select = control;
-
 /** Which components the incident affects, and the status it gives each. */
 export function ComponentPicker({
   components,
@@ -118,18 +116,16 @@ export function ComponentPicker({
               {c.name}
             </label>
             {status !== undefined && (
-              <select
-                aria-label={`Status of ${c.name}`}
-                className={select}
+              <Select<IncidentComponentStatus>
+                label={`Status of ${c.name}`}
+                hideLabel
                 value={status}
-                onChange={(e) => set(c.id, e.target.value as IncidentComponentStatus)}
-              >
-                {Object.entries(COMPONENT_STATUS_LABELS).map(([v, label]) => (
-                  <option key={v} value={v}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+                onChange={(next) => set(c.id, next)}
+                options={Object.entries(COMPONENT_STATUS_LABELS).map(([value, label]) => ({
+                  value: value as IncidentComponentStatus,
+                  label,
+                }))}
+              />
             )}
           </div>
         );

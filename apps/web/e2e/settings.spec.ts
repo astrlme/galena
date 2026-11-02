@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import { expect, type Page, test } from "@playwright/test";
-import { expectAccessible, signIn, totp } from "./helpers.ts";
+import { choose, expectAccessible, signIn, totp } from "./helpers.ts";
 
 // Each run signs in as a member of its own (`member:local`), so the seeded owner every other
 // spec uses never has two-factor turned on or its password changed.
@@ -130,7 +130,7 @@ test("make an API key, see it once, then delete it after confirming its name; a 
   await section.getByRole("button", { name: "Make API key" }).click();
   const form = page.getByRole("form", { name: "Make an API key" });
   await form.getByLabel("Name").fill(name);
-  await form.getByLabel("Scope").selectOption("write");
+  await choose(form, "Scope", "Write, like an editor: also creates and changes");
   await form.getByRole("button", { name: "Make API key" }).click();
   const shown = page.getByRole("status").filter({ hasText: `API key for ${name}` });
   await expect(shown).toContainText("gln_");

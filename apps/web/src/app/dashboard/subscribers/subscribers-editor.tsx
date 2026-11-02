@@ -9,8 +9,9 @@ import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
-import { control, Field } from "../../../components/field.tsx";
+import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { FormSelect } from "../../../components/ui/select.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { Time } from "../incidents/incident-ui.tsx";
@@ -337,15 +338,15 @@ function DestinationForm({
       className="mt-6 flex flex-col gap-4"
       noValidate
     >
-      <div className="flex flex-col gap-1">
-        <label htmlFor="destination-kind" className="text-[14px] font-semibold">
-          Kind
-        </label>
-        <select id="destination-kind" className={control} {...form.register("kind")}>
-          <option value="slack">Slack incoming webhook</option>
-          <option value="webhook">Outgoing webhook (signed)</option>
-        </select>
-      </div>
+      <FormSelect
+        control={form.control}
+        name="kind"
+        label="Kind"
+        options={[
+          { value: "slack", label: "Slack incoming webhook" },
+          { value: "webhook", label: "Outgoing webhook (signed)" },
+        ]}
+      />
       <Field
         id="destination-name"
         label="Name"

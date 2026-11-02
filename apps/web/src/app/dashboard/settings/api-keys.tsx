@@ -9,8 +9,9 @@ import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
-import { control, Field } from "../../../components/field.tsx";
+import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { FormSelect } from "../../../components/ui/select.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { Time } from "../incidents/incident-ui.tsx";
@@ -234,26 +235,16 @@ function KeyForm({
         error={errors.name?.message}
         {...form.register("name")}
       />
-      <div className="flex flex-col gap-1">
-        <label htmlFor="api-key-scope" className="text-[14px] font-semibold">
-          Scope
-        </label>
-        <select
-          id="api-key-scope"
-          aria-describedby="api-key-scope-help"
-          className={control}
-          {...form.register("scope")}
-        >
-          {Object.entries(SCOPE).map(([scope, label]) => (
-            <option key={scope} value={scope}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <p id="api-key-scope-help" className="text-[14px] text-slate">
-          A key never does more than you can.
-        </p>
-      </div>
+      <FormSelect
+        control={form.control}
+        name="scope"
+        label="Scope"
+        help="A key never does more than you can."
+        options={Object.entries(SCOPE).map(([value, label]) => ({
+          value: value as keyof typeof SCOPE,
+          label,
+        }))}
+      />
       <p aria-live="polite" className="font-semibold text-major empty:hidden">
         {problem}
       </p>

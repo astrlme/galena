@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 // Seeded by `pnpm db:seed` (apps/api/src/seed.ts); local databases only.
 export const OWNER = { email: "owner@example.com", password: "galena-local-owner" };
@@ -38,4 +38,10 @@ export function totp(key: string, at = Date.now()): string {
   const mac = createHmac("sha1", secret).update(counter).digest();
   const offset = (mac.at(-1) ?? 0) & 0xf;
   return String((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, "0");
+}
+
+/** Picks an option in a dashboard select: opened by its label, chosen from the list it shows. */
+export async function choose(scope: Locator, label: string, option: string) {
+  await scope.getByRole("combobox", { name: label, exact: true }).click();
+  await scope.page().getByRole("option", { name: option, exact: true }).click();
 }

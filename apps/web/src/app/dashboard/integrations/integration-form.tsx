@@ -14,7 +14,8 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { useDraft } from "../../../components/drafts.tsx";
-import { control, Field } from "../../../components/field.tsx";
+import { Field } from "../../../components/field.tsx";
+import { FormSelect } from "../../../components/ui/select.tsx";
 import type { paths } from "../../../lib/api-schema.ts";
 
 export type Integration =
@@ -43,6 +44,10 @@ export const POLICIES: { value: PublishPolicy; label: string; help: string }[] =
 ];
 export const code = (text: string) => <code className="font-mono">{text}</code>;
 const small = "px-2 py-1 text-[14px]";
+const DOWN_STATUS = [
+  { value: "major_outage" as const, label: "Major outage" },
+  { value: "partial_outage" as const, label: "Partial outage" },
+];
 
 /** "service=api, severity=critical": how a route's labels are typed. */
 const labelsText = z
@@ -129,15 +134,15 @@ export function IntegrationForm({
           <span className="font-semibold">Source:</span> {SOURCE[editing.source]}
         </p>
       ) : (
-        <div className="flex flex-col gap-1">
-          <label htmlFor="integration-source" className="text-[14px] font-semibold">
-            Source
-          </label>
-          <select id="integration-source" className={control} {...form.register("source")}>
-            <option value="alertmanager">Alertmanager</option>
-            <option value="generic">Generic JSON</option>
-          </select>
-        </div>
+        <FormSelect
+          control={form.control}
+          name="source"
+          label="Source"
+          options={[
+            { value: "alertmanager", label: "Alertmanager" },
+            { value: "generic", label: "Generic JSON" },
+          ]}
+        />
       )}
       <Field
         id="integration-name"
@@ -215,19 +220,12 @@ export function IntegrationForm({
                 </p>
               )}
             </fieldset>
-            <div className="flex flex-col gap-1">
-              <label htmlFor={`route-${index}-status`} className="text-[14px] font-semibold">
-                Status while firing
-              </label>
-              <select
-                id={`route-${index}-status`}
-                className={control}
-                {...form.register(`routes.${index}.downStatus`)}
-              >
-                <option value="major_outage">Major outage</option>
-                <option value="partial_outage">Partial outage</option>
-              </select>
-            </div>
+            <FormSelect
+              control={form.control}
+              name={`routes.${index}.downStatus`}
+              label="Status while firing"
+              options={DOWN_STATUS}
+            />
             <div>
               <Button type="button" className={small} onClick={() => routes.remove(index)}>
                 Remove route {index + 1}

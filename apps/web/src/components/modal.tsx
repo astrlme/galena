@@ -17,6 +17,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Drawer } from "vaul";
+import { PortalContainer } from "./ui/portal.tsx";
 
 // A centred dialog from 640 px, a vaul bottom drawer below that. Both trap focus and lock the
 // page's scroll; they fade and scale (or slide) in 220 ms. Under reduced motion the dialog's
@@ -145,6 +146,7 @@ function ModalPortal({
   closeOnEsc: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const [panel, setPanel] = useState<HTMLElement | null>(null);
   const [visible, setVisible] = useState(open);
   const [prevOpen, setPrevOpen] = useState(open);
   if (open !== prevOpen) {
@@ -177,7 +179,10 @@ function ModalPortal({
       />
       <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
         <div
-          ref={panelRef}
+          ref={(el) => {
+            panelRef.current = el;
+            setPanel(el);
+          }}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
@@ -186,7 +191,7 @@ function ModalPortal({
           tabIndex={-1}
           className="pointer-events-auto max-h-[calc(100dvh-2rem)] w-[min(448px,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-mist bg-surface p-6 text-ink shadow-2xl outline-none animate-[modalIn_220ms_cubic-bezier(0.16,1,0.3,1)_forwards] data-closing:animate-[modalOut_220ms_cubic-bezier(0.16,1,0.3,1)_forwards] motion-reduce:[animation-duration:1ms]"
         >
-          {children}
+          <PortalContainer.Provider value={panel}>{children}</PortalContainer.Provider>
         </div>
       </div>
     </>,
@@ -231,6 +236,7 @@ function ModalRoot({
   const sheet = kind === "sheet";
   const side = sheet && !isMobile;
   const contentRef = useRef<HTMLDivElement>(null);
+  const [panel, setPanel] = useState<HTMLElement | null>(null);
   // What was shown stays while the modal animates closed.
   const [snapshot, setSnapshot] = useState<ReactNode>(children);
   if (open && snapshot !== children) setSnapshot(children);
@@ -257,7 +263,10 @@ function ModalRoot({
           <Drawer.Portal>
             <Drawer.Overlay className={SCRIM} />
             <Drawer.Content
-              ref={contentRef}
+              ref={(el) => {
+                contentRef.current = el;
+                setPanel(el);
+              }}
               aria-labelledby={titleId}
               aria-describedby={describedBy}
               // The first field, as the dialog does; on a phone that would raise the keyboard.
@@ -271,7 +280,9 @@ function ModalRoot({
             >
               {!side && <Drawer.Handle className="mb-5" />}
               {sheet && <Minimize />}
-              <div className={side ? SIDE_BODY : BOTTOM_BODY}>{stableChildren}</div>
+              <div className={side ? SIDE_BODY : BOTTOM_BODY}>
+                <PortalContainer.Provider value={panel}>{stableChildren}</PortalContainer.Provider>
+              </div>
             </Drawer.Content>
           </Drawer.Portal>
         </Drawer.Root>

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, signIn } from "./helpers.ts";
+import { choose, expectAccessible, signIn } from "./helpers.ts";
 
 test("create a group, add components, reorder them and delete one after confirming its name", async ({
   page,
@@ -31,7 +31,7 @@ test("create a group, add components, reorder them and delete one after confirmi
     await page.getByRole("button", { name: "Add component" }).click();
     const newComponent = page.getByRole("form", { name: "Add a component" });
     await newComponent.getByLabel("Component name").fill(name);
-    await newComponent.getByLabel("Group", { exact: true }).selectOption({ label: group });
+    await choose(newComponent, "Group", group);
     await newComponent.getByRole("button", { name: "Add component" }).click();
     await expect(newComponent).toBeHidden();
     await expect(rows.filter({ hasText: name })).toHaveCount(1);

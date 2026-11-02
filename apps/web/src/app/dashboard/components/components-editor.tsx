@@ -9,9 +9,10 @@ import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
-import { control, Field } from "../../../components/field.tsx";
+import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { StatusLabel } from "../../../components/status.tsx";
+import { FormSelect } from "../../../components/ui/select.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 
@@ -343,23 +344,15 @@ function ComponentForm({
         label="Description (optional)"
         {...form.register("description", { setValueAs: (v: string) => (v?.trim() ? v : null) })}
       />
-      <div className="flex flex-col gap-1">
-        <label htmlFor="component-group" className="text-[14px] font-semibold">
-          Group
-        </label>
-        <select
-          id="component-group"
-          className={control}
-          {...form.register("groupId", { setValueAs: (v: string) => (v === "" ? null : v) })}
-        >
-          <option value="">No group</option>
-          {groups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <FormSelect
+        control={form.control}
+        name="groupId"
+        label="Group"
+        options={[
+          { value: null, label: "No group" },
+          ...groups.map((g) => ({ value: g.id, label: g.name })),
+        ]}
+      />
       <p aria-live="polite" className="font-semibold text-major empty:hidden">
         {problem}
       </p>

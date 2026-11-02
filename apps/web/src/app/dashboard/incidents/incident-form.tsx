@@ -8,13 +8,13 @@ import { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { useDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
+import { FormSelect } from "../../../components/ui/select.tsx";
 import {
   type Affected,
   ComponentPicker,
   componentNames,
   IMPACT_LABELS,
   STATUS_LABELS,
-  select,
 } from "./incident-ui.tsx";
 import { MessageField, useTemplate } from "./message-field.tsx";
 
@@ -109,18 +109,12 @@ export function IncidentForm({
         value={affected}
         onChange={(next) => form.setValue("components", next, { shouldDirty: true })}
       />
-      <div className="flex flex-col gap-1">
-        <label htmlFor="incident-status" className="text-[14px] font-semibold">
-          Status
-        </label>
-        <select id="incident-status" className={select} {...form.register("status")}>
-          {OPENING.map((status) => (
-            <option key={status} value={status}>
-              {STATUS_LABELS[status]}
-            </option>
-          ))}
-        </select>
-      </div>
+      <FormSelect
+        control={form.control}
+        name="status"
+        label="Status"
+        options={OPENING.map((status) => ({ value: status, label: STATUS_LABELS[status] }))}
+      />
       <MessageField
         id="incident-body"
         error={errors.body?.message}

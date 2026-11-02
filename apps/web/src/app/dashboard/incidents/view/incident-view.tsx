@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "../../../../components/button.tsx";
 import { StatusLabel } from "../../../../components/status.tsx";
+import { FormSelect } from "../../../../components/ui/select.tsx";
 import { api, unwrap } from "../../../../lib/api.ts";
 import type { paths } from "../../../../lib/api-schema.ts";
 import { bodyChecked } from "../incident-form.tsx";
@@ -21,7 +22,6 @@ import {
   IMPACT_LABELS,
   IMPACT_TITLE,
   STATUS_LABELS,
-  select,
   Time,
   VisibilityNote,
 } from "../incident-ui.tsx";
@@ -163,18 +163,15 @@ function UpdateForm({
       noValidate
     >
       <h2 className="text-[19px] font-semibold leading-[1.35]">Post an update</h2>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="update-status" className="text-[14px] font-semibold">
-          Status
-        </label>
-        <select id="update-status" className={select} {...form.register("status")}>
-          {nextStatuses(incident.status).map((next) => (
-            <option key={next} value={next}>
-              {STATUS_LABELS[next]}
-            </option>
-          ))}
-        </select>
-      </div>
+      <FormSelect
+        control={form.control}
+        name="status"
+        label="Status"
+        options={nextStatuses(incident.status).map((next) => ({
+          value: next,
+          label: STATUS_LABELS[next],
+        }))}
+      />
       <ComponentPicker components={components} value={affected} onChange={setAffected} />
       <MessageField
         id="update-body"

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, signIn } from "./helpers.ts";
+import { choose, expectAccessible, signIn } from "./helpers.ts";
 
 test("publish an incident, post an update, resolve it", async ({ page }, testInfo) => {
   // The local database outlives runs, so every run uses a title of its own.
@@ -21,7 +21,7 @@ test("publish an incident, post an update, resolve it", async ({ page }, testInf
   await form.getByLabel("Title").fill(title);
   await form.getByRole("radio", { name: /Major impact/ }).check();
   await form.getByRole("checkbox", { name: "API" }).check();
-  await expect(form.getByLabel("Status of API")).toHaveValue("partial_outage");
+  await expect(form.getByRole("combobox", { name: "Status of API" })).toHaveText("Partial outage");
   // The message starts from the template, with the component filled in.
   const message = form.getByLabel("Message");
   await expect(message).toHaveValue(
@@ -43,7 +43,7 @@ test("publish an incident, post an update, resolve it", async ({ page }, testInf
   await expect(affected).toContainText("Partial outage");
 
   const update = page.getByRole("form", { name: "Post an update" });
-  await update.getByLabel("Status", { exact: true }).selectOption("identified");
+  await choose(update, "Status", "Identified");
   await expect(update.getByLabel("Message")).toHaveValue(
     "We found the cause: {cause}. We're {action}. Next update by {nextUpdate}.",
   );
@@ -53,7 +53,7 @@ test("publish an incident, post an update, resolve it", async ({ page }, testInf
   await update.getByRole("button", { name: "Post update" }).click();
   await expect(page.getByText("Identified. Major impact.")).toBeVisible();
 
-  await update.getByLabel("Status", { exact: true }).selectOption("resolved");
+  await choose(update, "Status", "Resolved");
   await expect(update.getByLabel("Message")).toHaveValue(
     "API has worked normally since {time}. {Summary}.",
   );
