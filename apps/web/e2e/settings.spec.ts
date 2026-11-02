@@ -138,8 +138,13 @@ test("make an API key, see it once, then delete it after confirming its name; a 
   await page.getByRole("button", { name: "Done" }).click();
   await expect(shown).toBeHidden();
 
-  const row = section.getByRole("listitem").filter({ hasText: name });
-  await expect(row).toContainText("Write, like an editor: also creates and changes. Starts gln_");
+  const row = section.getByRole("row").filter({ hasText: name });
+  await expect(row).toContainText("Write, like an editor: also creates and changes");
+  await expect(row.getByRole("cell").filter({ hasText: /^gln_/ })).toHaveCount(1);
+  // Pressing a header sorts by it and says so to assistive tech.
+  const nameHeader = section.getByRole("columnheader", { name: "Name" });
+  await nameHeader.getByRole("button").click();
+  await expect(nameHeader).toHaveAttribute("aria-sort", "ascending");
   await rowAction(row, name, "Delete");
   const dialog = page.getByRole("dialog", { name: `Delete ${name}?` });
   await dialog.getByLabel("Type the API key name").fill(name);

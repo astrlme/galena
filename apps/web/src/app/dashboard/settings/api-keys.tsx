@@ -11,6 +11,7 @@ import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { columnsFor, DataTable } from "../../../components/ui/data-table.tsx";
 import { EmptyState } from "../../../components/ui/empty-state.tsx";
 import { Loading } from "../../../components/ui/loading.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
@@ -22,8 +23,6 @@ import { Time } from "../incidents/incident-ui.tsx";
 
 const heading = "text-[19px] font-semibold leading-[1.35]";
 const card = "mt-4 rounded-xl border border-mist bg-surface";
-const row =
-  "flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist px-4 py-3 last:border-b-0";
 
 const SCOPE: Record<ApiKeyScope, string> = {
   read: "Read, like a viewer",
@@ -32,6 +31,25 @@ const SCOPE: Record<ApiKeyScope, string> = {
 };
 
 type Key = paths["/v1/api-keys"]["get"]["responses"][200]["content"]["application/json"][number];
+
+const keyColumn = columnsFor<Key>();
+const KEY_COLUMNS = keyColumn.columns([
+  keyColumn.accessor("name", {
+    header: "Name",
+    cell: (c) => <span className="font-semibold">{c.getValue()}</span>,
+  }),
+  keyColumn.accessor("scope", {
+    header: "Scope",
+    enableSorting: false,
+    cell: (c) => SCOPE[c.getValue()],
+  }),
+  keyColumn.accessor("prefix", {
+    header: "Starts",
+    enableSorting: false,
+    cell: (c) => <span className="font-mono">{c.getValue()}</span>,
+  }),
+  keyColumn.accessor("createdAt", { header: "Made", cell: (c) => <Time iso={c.getValue()} /> }),
+]);
 
 /** Admins make keys for scripts here; for everyone else the section isn't shown. */
 export function ApiKeys() {
@@ -102,25 +120,17 @@ export function ApiKeys() {
           None yet. Make one key per script, so you can delete one without stopping the others.
         </EmptyState>
       ) : (
-        <ul className={card}>
-          {keys.data.map((k) => (
-            <li key={k.id} className={row}>
-              <div className="flex min-w-0 flex-col gap-1">
-                <span className="font-semibold">{k.name}</span>
-                <span className="text-[14px]">
-                  {SCOPE[k.scope]}. Starts <span className="font-mono">{k.prefix}</span>. Made{" "}
-                  <Time iso={k.createdAt} />.
-                </span>
-              </div>
-              <div className="ml-auto">
-                <RowMenu
-                  name={k.name}
-                  actions={[{ label: "Delete", destructive: true, onSelect: () => setRemoving(k) }]}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
+        <DataTable
+          label="API keys"
+          data={keys.data}
+          columns={KEY_COLUMNS}
+          actions={(k) => (
+            <RowMenu
+              name={k.name}
+              actions={[{ label: "Delete", destructive: true, onSelect: () => setRemoving(k) }]}
+            />
+          )}
+        />
       )}
       <p role="status" className="mt-3 text-[14px] font-semibold empty:hidden">
         {making ? undefined : (problem ?? notice)}

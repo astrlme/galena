@@ -3,7 +3,7 @@
 import { endpointInput } from "@galena/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
@@ -11,6 +11,7 @@ import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { columnsFor, DataTable } from "../../../components/ui/data-table.tsx";
 import { EmptyState } from "../../../components/ui/empty-state.tsx";
 import { Loading } from "../../../components/ui/loading.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
@@ -35,6 +36,21 @@ const STATE: Record<Subscriber["state"], string> = {
 };
 const KIND: Record<Endpoint["kind"], string> = { slack: "Slack", webhook: "Webhook" };
 
+type SubscriberRow = Subscriber & { following: string };
+const subscriberColumn = columnsFor<SubscriberRow>();
+const SUBSCRIBER_COLUMNS = subscriberColumn.columns([
+  subscriberColumn.accessor("email", {
+    header: "Email",
+    cell: (c) => <span className="font-semibold tabular-nums">{c.getValue()}</span>,
+  }),
+  subscriberColumn.accessor("state", { header: "State", cell: (c) => STATE[c.getValue()] }),
+  subscriberColumn.accessor("following", { header: "Following" }),
+  subscriberColumn.accessor("createdAt", {
+    header: "Since",
+    cell: (c) => <Time iso={c.getValue()} />,
+  }),
+]);
+
 export function SubscribersEditor() {
   const queryClient = useQueryClient();
   const [problem, setProblem] = useState<string>();
@@ -55,6 +71,19 @@ export function SubscribersEditor() {
     queryKey: ["components"],
     queryFn: () => unwrap(api.GET("/v1/components")),
   });
+  // Memoized: the table rebuilds its rows whenever the array changes.
+  const subscriberRows = useMemo(() => {
+    const names = components.data?.components ?? [];
+    return (subscribers.data ?? []).map((s) => ({
+      ...s,
+      following:
+        s.componentIds.length === 0
+          ? "All components"
+          : s.componentIds
+              .map((id) => names.find((c) => c.id === id)?.name ?? "A deleted component")
+              .join(", "),
+    }));
+  }, [subscribers.data, components.data]);
   const change = useMutation({
     mutationFn: (call: () => Promise<unknown>) => call(),
     onSuccess: () => {
@@ -248,30 +277,23 @@ export function SubscribersEditor() {
             Nobody yet. People subscribe from the Subscribe button on the status page.
           </EmptyState>
         ) : (
-          <ul className={card}>
-            {subscribers.data?.map((s) => (
-              <li key={s.id} className={row}>
-                <div className="flex min-w-0 flex-col gap-1">
-                  <span className="font-semibold tabular-nums">{s.email}</span>
-                  <span className="text-[14px]">
-                    {STATE[s.state]}. {following(s.componentIds)}. Since <Time iso={s.createdAt} />.
-                  </span>
-                </div>
-                <div className="ml-auto">
-                  <RowMenu
-                    name={s.email}
-                    actions={[
-                      {
-                        label: "Delete",
-                        destructive: true,
-                        onSelect: () => setRemoving({ subscriber: s }),
-                      },
-                    ]}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <DataTable
+            label="Email subscribers"
+            data={subscriberRows}
+            columns={SUBSCRIBER_COLUMNS}
+            actions={(s) => (
+              <RowMenu
+                name={s.email}
+                actions={[
+                  {
+                    label: "Delete",
+                    destructive: true,
+                    onSelect: () => setRemoving({ subscriber: s }),
+                  },
+                ]}
+              />
+            )}
+          />
         )}
       </section>
 
