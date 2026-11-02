@@ -1,12 +1,12 @@
 // Dependencies for tests. Nothing connects until a query runs, so unit tests need no database.
 import type { MonitorId } from "@galena/contracts";
-import type { WorkflowEngine } from "@galena/core";
+import type { MinuteCounts, WorkflowEngine } from "@galena/core";
 import { createDb } from "@galena/db";
 import { guard } from "@galena/integrations/net";
 import { appKeys, LOCAL_APP_KEY } from "@galena/integrations/secrets";
 import type { Deps } from "./app.ts";
 import { createAuth } from "./auth.ts";
-import type { MonitorReading, Telemetry } from "./telemetry.ts";
+import type { MonitorReading, PointAt, Telemetry } from "./telemetry.ts";
 
 export const TEST_BASE_URL = "http://localhost:8787";
 
@@ -28,6 +28,9 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
   };
   // Telemetry the test sets directly instead of DynamoDB.
   const readings = new Map<MonitorId, MonitorReading>();
+  // A chart's points by monitor, and a month's minutes by `<monitorId> <YYYY-MM>`.
+  const points = new Map<MonitorId, PointAt[]>();
+  const months = new Map<string, MinuteCounts>();
   const telemetry: Telemetry = {
     regions: ["eu-west-1", "eu-west-3", "eu-north-1"],
     async read(ids) {
@@ -37,6 +40,12 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
           return reading ? [[id, reading] as const] : [];
         }),
       );
+    },
+    async series(id) {
+      return points.get(id) ?? [];
+    },
+    async minutes(id, month, _today) {
+      return months.get(`${id} ${month}`) ?? { minutes: 0, down: 0 };
     },
   };
   return {
@@ -53,6 +62,8 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
     } satisfies Deps,
     triggered,
     readings,
+    points,
+    months,
     migrate,
     close,
   };

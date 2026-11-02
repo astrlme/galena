@@ -1,6 +1,7 @@
 import { CreateTableCommand, DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { BatchWriteCommand, DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { monitorId } from "@galena/contracts";
+import { rollUp, seriesWindow } from "@galena/core";
 import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { dynamoTelemetry, RECENT_MINUTES } from "./telemetry.ts";
@@ -105,4 +106,76 @@ test("reads the state and the newest 60 minutes of results, newest first", async
 test("a table that doesn't exist yet reads as no data", async () => {
   const readings = await dynamoTelemetry(doc, "not-created", REGIONS).read([MONITOR]);
   expect(readings.size).toBe(0);
+});
+
+const CHARTED = monitorId.parse("01920000-0000-7000-8000-0000000000b3");
+const DAY = 24 * 60 * 60_000;
+
+/** Puts items 25 at a time. */
+async function put(items: Record<string, unknown>[]) {
+  for (let i = 0; i < items.length; i += 25) {
+    const batch = items.slice(i, i + 25).map((Item) => ({ PutRequest: { Item } }));
+    await doc.send(new BatchWriteCommand({ RequestItems: { telemetry: batch } }));
+  }
+}
+
+test("a 90-day chart reads one item per region per day, and a month adds its days and today's hours", async () => {
+  // 400 days of daily rollups in three regions, the way the rollup writes them: one answer a day
+  // of 100 ms, and Ireland down for the day's other check.
+  const day =
+    rollUp(
+      [
+        { region: "eu-west-1", scheduledAt: "t1", status: "up", latencyMs: 100, phases: null },
+        { region: "eu-west-1", scheduledAt: "t2", status: "down", latencyMs: null, phases: null },
+      ],
+      2,
+    ).regions.get("eu-west-1") ?? expect.fail("no rollup");
+  const now = new Date("2026-11-02T13:20:00.000Z");
+  const items: Record<string, unknown>[] = [];
+  for (let n = 1; n <= 400; n++) {
+    const key = new Date(now.getTime() - n * DAY).toISOString().slice(0, 10);
+    for (const region of REGIONS) {
+      items.push({ pk: `MON#${CHARTED}`, sk: `D#${key}#${region}`, ...day });
+    }
+    items.push({ pk: `MON#${CHARTED}`, sk: `UD#${key}`, minutes: 1440, down: 2 });
+  }
+  await put(items);
+
+  let read = 0;
+  const counted = {
+    send: async (command: Parameters<typeof doc.send>[0]) => {
+      const answer = (await doc.send(command)) as { Items?: unknown[] };
+      read += answer.Items?.length ?? 0;
+      return answer;
+    },
+  } as unknown as typeof doc;
+  const telemetry = dynamoTelemetry(counted, "telemetry", REGIONS);
+
+  const points = await telemetry.series(CHARTED, seriesWindow("90d", now));
+  expect(points).toHaveLength(270);
+  expect(read).toBeLessThanOrEqual(300);
+  expect(points.find((p) => p.at === "2026-11-01" && p.region === "eu-west-1")).toMatchObject({
+    checks: 2,
+    down: 1,
+    maxMs: 100,
+  });
+
+  // October: 31 days of 1440 minutes, two of each down.
+  expect(await telemetry.minutes(CHARTED, "2026-10", "2026-11-02")).toEqual({
+    minutes: 31 * 1440,
+    down: 62,
+  });
+  // November so far: the 1st rolled up, and the 2nd's hours until noon, one minute down in each.
+  await put(
+    Array.from({ length: 13 }, (_, h) => ({
+      pk: `MON#${CHARTED}`,
+      sk: `UH#2026-11-02T${String(h).padStart(2, "0")}`,
+      minutes: 60,
+      down: 1,
+    })),
+  );
+  expect(await telemetry.minutes(CHARTED, "2026-11", "2026-11-02")).toEqual({
+    minutes: 1440 + 13 * 60,
+    down: 2 + 13,
+  });
 });
