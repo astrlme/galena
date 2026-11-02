@@ -17,6 +17,7 @@
   },
   "scripts": {
     "dev": "docker compose up -d --wait && pnpm db:migrate && pnpm db:seed && turbo run dev dev:local",
+    "rollups:backfill": "node --import ./scripts/register-tsx.mjs apps/workers/src/backfill-rollups.ts",
     "dev:local": "node --watch --env-file-if-exists=apps/api/.env --import ./scripts/register-tsx.mjs scripts/dev.ts",
     "galena": "node apps/cli/src/main.ts",
     "pack:cli": "node scripts/pack-cli.ts",
