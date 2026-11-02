@@ -2,7 +2,7 @@
 
 import { Menu } from "@base-ui/react/menu";
 import { Ellipsis } from "lucide-react";
-import { Fragment } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { usePortalContainer } from "./portal.tsx";
 
 export type RowAction = {
@@ -13,16 +13,47 @@ export type RowAction = {
   destructive?: boolean;
 };
 
+// Each row's actions, by its menu button, so the keyboard can act on the focused row.
+const rowActions = new WeakMap<Element, RowAction[]>();
+const ROW = "[data-row-menu]";
+
+/** Moves focus to the next (1) or previous (-1) row's menu button in the page; false if none. */
+export function focusRow(step: 1 | -1): boolean {
+  const rows = Array.from(document.querySelectorAll<HTMLElement>(`main ${ROW}`));
+  if (rows.length === 0) return false;
+  const at = rows.indexOf(document.activeElement as HTMLElement);
+  const next = rows[at === -1 ? (step === 1 ? 0 : rows.length - 1) : at + step];
+  if (!next) return false;
+  next.focus();
+  next.scrollIntoView({ block: "nearest" });
+  return true;
+}
+
+/** Runs the focused row's Edit, if it has one; false otherwise. */
+export function editFocusedRow(): boolean {
+  const focused = document.activeElement;
+  const edit = focused && rowActions.get(focused)?.find((a) => a.label === "Edit" && !a.disabled);
+  if (!edit) return false;
+  edit.onSelect();
+  return true;
+}
+
 /**
  * A row's one control: ⋯ opens its actions. Named for the row ("Actions for API") so a screen
  * reader hears which row it acts on.
  */
 export function RowMenu({ name, actions }: { name: string; actions: RowAction[] }) {
   const container = usePortalContainer();
+  const trigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (trigger.current) rowActions.set(trigger.current, actions);
+  });
   const firstDestructive = actions.findIndex((a) => a.destructive);
   return (
     <Menu.Root>
       <Menu.Trigger
+        ref={trigger}
+        data-row-menu=""
         aria-label={`Actions for ${name}`}
         className="inline-flex size-11 shrink-0 md:size-9 items-center justify-center rounded-[6px] text-graphite transition-colors duration-[120ms] hover:bg-mist hover:text-ink data-popup-open:bg-mist data-popup-open:text-ink motion-reduce:transition-none"
       >

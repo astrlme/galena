@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useState } from "react";
 import { Drawer } from "vaul";
 import { DraftDock, forgetDrafts } from "../../components/drafts.tsx";
 import { Toasts } from "../../components/ui/toast.tsx";
@@ -25,6 +25,7 @@ import { Wordmark } from "../../components/wordmark.tsx";
 import { api, authPost, demo } from "../../lib/api.ts";
 import { CommandPalette } from "./command-palette.tsx";
 import { isCurrent, type SectionKey, sections } from "./sections.ts";
+import { ShortcutHelp, useShortcuts } from "./shortcuts.tsx";
 
 // No triangle for incidents: ▲ is the partial-outage glyph.
 const ICONS: Record<SectionKey, LucideIcon> = {
@@ -94,6 +95,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const openPalette = useCallback(() => setPaletteOpen(true), []);
+  const openHelp = useCallback(() => setHelpOpen(true), []);
+  useShortcuts({ openPalette, openHelp });
 
   // Ctrl/Cmd+K opens the palette from anywhere, even while typing in a field.
   useEffect(() => {
@@ -266,6 +271,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         </div>
         <DraftDock />
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        <ShortcutHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       </Toasts>
     </QueryClientProvider>
   );
