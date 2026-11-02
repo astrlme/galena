@@ -19,3 +19,5 @@ export * from "./publishing/uptime.ts";
 export * from "./result.ts";
 export * from "./roles.ts";
 export * from "./status/aggregate.ts";
+export * from "./telemetry/histogram.ts";
+export * from "./telemetry/rollup.ts";
