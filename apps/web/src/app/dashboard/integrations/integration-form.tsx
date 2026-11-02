@@ -15,6 +15,7 @@ import { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { useDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
+import { DOWN_STATUS_OPTIONS } from "../../../components/status.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
 import type { paths } from "../../../lib/api-schema.ts";
 
@@ -44,10 +45,6 @@ export const POLICIES: { value: PublishPolicy; label: string; help: string }[] =
 ];
 export const code = (text: string) => <code className="font-mono">{text}</code>;
 const small = "px-2 py-1 text-[14px]";
-const DOWN_STATUS = [
-  { value: "partial_outage" as const, label: "Partial outage", status: "partial_outage" as const },
-  { value: "major_outage" as const, label: "Major outage", status: "major_outage" as const },
-];
 
 /** "service=api, severity=critical": how a route's labels are typed. */
 const labelsText = z
@@ -224,7 +221,7 @@ export function IntegrationForm({
               control={form.control}
               name={`routes.${index}.downStatus`}
               label="Status while firing"
-              options={DOWN_STATUS}
+              options={DOWN_STATUS_OPTIONS}
             />
             <div>
               <Button type="button" className={small} onClick={() => routes.remove(index)}>

@@ -59,13 +59,26 @@ export function Glyph({ status }: { status: ComponentStatus | null }) {
 }
 
 /** Each state's colour; the label and glyph still say it. */
-const TONE: Record<ComponentStatus, string> = {
+const GLYPH_TONE: Record<ComponentStatus, string> = {
   operational: "text-operational",
   degraded_performance: "text-degraded",
-  partial_outage: "font-semibold text-partial",
-  major_outage: "border-major bg-major font-semibold text-paper",
+  partial_outage: "text-partial",
+  major_outage: "text-major",
   under_maintenance: "text-maintenance",
 };
+
+/** A badge's look: heavier for outages, and a major outage is the one filled badge. */
+const TONE: Record<ComponentStatus, string> = {
+  ...GLYPH_TONE,
+  partial_outage: "font-semibold text-partial",
+  major_outage: "border-major bg-major font-semibold text-paper",
+};
+
+/** What a monitor or alert route can mark its components while down, in order of severity. */
+export const DOWN_STATUS_OPTIONS = [
+  { value: "partial_outage" as const, label: "Partial outage", status: "partial_outage" as const },
+  { value: "major_outage" as const, label: "Major outage", status: "major_outage" as const },
+];
 
 /**
  * A state badge: glyph and label in the state's colour on a hairline; a major outage is the one
@@ -81,14 +94,6 @@ export function StatusLabel({ status }: { status: ComponentStatus | null }) {
     </span>
   );
 }
-
-const GLYPH_TONE: Record<ComponentStatus, string> = {
-  operational: "text-operational",
-  degraded_performance: "text-degraded",
-  partial_outage: "text-partial",
-  major_outage: "text-major",
-  under_maintenance: "text-maintenance",
-};
 
 /** A state's glyph in its colour, for beside its label (in a select, say). */
 export function StateGlyph({ status }: { status: ComponentStatus }) {

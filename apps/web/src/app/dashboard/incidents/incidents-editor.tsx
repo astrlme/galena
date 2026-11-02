@@ -7,6 +7,7 @@ import { type ReactNode, useState } from "react";
 import { Button } from "../../../components/button.tsx";
 import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { EmptyState } from "../../../components/ui/empty-state.tsx";
 import { Loading } from "../../../components/ui/loading.tsx";
 import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
@@ -81,15 +82,14 @@ export function IncidentsEditor() {
         {action}
       </div>
       {incidents.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-mist bg-surface p-4 text-[14px] text-slate">
-          {empty}
-        </p>
+        <EmptyState>{empty}</EmptyState>
       ) : (
         <ul className="mt-4 rounded-xl border border-mist bg-surface">
           {incidents.map((incident) => (
             <li key={incident.id} className="border-b border-mist px-4 py-3 last:border-b-0">
               <div className="flex flex-col gap-1">
                 <Link
+                  data-row=""
                   href={`/dashboard/incidents/view/?id=${incident.id}`}
                   className={`text-[16px] underline-offset-2 hover:underline ${IMPACT_TITLE[incident.impact]}`}
                 >

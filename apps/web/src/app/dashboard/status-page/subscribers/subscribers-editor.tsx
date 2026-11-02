@@ -37,6 +37,14 @@ const STATE: Record<Subscriber["state"], string> = {
 const KIND: Record<Endpoint["kind"], string> = { slack: "Slack", webhook: "Webhook" };
 
 type SubscriberRow = Subscriber & { following: string };
+
+/** What a subscriber or destination follows, in words: every component, or the named ones. */
+const followingText = (ids: string[], components: { id: string; name: string }[]) =>
+  ids.length === 0
+    ? "All components"
+    : ids
+        .map((id) => components.find((c) => c.id === id)?.name ?? "A deleted component")
+        .join(", ");
 const subscriberColumn = columnsFor<SubscriberRow>();
 const SUBSCRIBER_COLUMNS = subscriberColumn.columns([
   subscriberColumn.accessor("email", {
@@ -72,18 +80,14 @@ export function SubscribersEditor() {
     queryFn: () => unwrap(api.GET("/v1/components")),
   });
   // Memoized: the table rebuilds its rows whenever the array changes.
-  const subscriberRows = useMemo(() => {
-    const names = components.data?.components ?? [];
-    return (subscribers.data ?? []).map((s) => ({
-      ...s,
-      following:
-        s.componentIds.length === 0
-          ? "All components"
-          : s.componentIds
-              .map((id) => names.find((c) => c.id === id)?.name ?? "A deleted component")
-              .join(", "),
-    }));
-  }, [subscribers.data, components.data]);
+  const subscriberRows = useMemo(
+    () =>
+      (subscribers.data ?? []).map((s) => ({
+        ...s,
+        following: followingText(s.componentIds, components.data?.components ?? []),
+      })),
+    [subscribers.data, components.data],
+  );
   const change = useMutation({
     mutationFn: (call: () => Promise<unknown>) => call(),
     onSuccess: () => {
@@ -107,10 +111,7 @@ export function SubscribersEditor() {
   const failed = endpoints.error ?? subscribers.error ?? components.error;
   if (failed) return <p className="mt-8 font-semibold">{failed.message}</p>;
   const all = components.data?.components ?? [];
-  const following = (ids: string[]) =>
-    ids.length === 0
-      ? "All components"
-      : ids.map((id) => all.find((c) => c.id === id)?.name ?? "A deleted component").join(", ");
+  const following = (ids: string[]) => followingText(ids, all);
 
   const test = async (endpoint: Endpoint) => {
     setTested({ id: endpoint.id, detail: "Sending a test message…", busy: true });

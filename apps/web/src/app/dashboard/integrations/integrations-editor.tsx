@@ -6,6 +6,7 @@ import { Button } from "../../../components/button.tsx";
 import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
+import { runWith } from "../../../components/run.ts";
 import { EmptyState } from "../../../components/ui/empty-state.tsx";
 import { Loading } from "../../../components/ui/loading.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
@@ -91,16 +92,7 @@ export function IntegrationsEditor() {
     onError: (error) => setProblem(error.message),
   });
   /** Whether the call succeeded; a failure shows in the open form, or above the list. */
-  const run = (call: () => Promise<unknown>, done?: string) =>
-    new Promise<boolean>((resolve) =>
-      change.mutate(call, {
-        onSuccess: () => {
-          if (done) toast(done);
-          resolve(true);
-        },
-        onError: () => resolve(false),
-      }),
-    );
+  const run = runWith(change);
 
   if (integrations.isPending || components.isPending) {
     return <Loading label="Loading integrations" />;
@@ -191,6 +183,7 @@ export function IntegrationsEditor() {
                     actions={[
                       {
                         label: "Edit",
+                        isEdit: true,
                         onSelect: () => {
                           setProblem(undefined);
                           setEditing(i);

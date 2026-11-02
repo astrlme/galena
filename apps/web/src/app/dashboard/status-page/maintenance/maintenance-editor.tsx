@@ -6,9 +6,10 @@ import { Button } from "../../../../components/button.tsx";
 import { ConfirmDelete } from "../../../../components/confirm-delete.tsx";
 import { useReopenDraft } from "../../../../components/drafts.tsx";
 import { Modal } from "../../../../components/modal.tsx";
+import { runWith } from "../../../../components/run.ts";
+import { EmptyState } from "../../../../components/ui/empty-state.tsx";
 import { Loading } from "../../../../components/ui/loading.tsx";
 import { RowMenu } from "../../../../components/ui/row-menu.tsx";
-import { toast } from "../../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../../lib/api.ts";
 import { Time } from "../../incidents/incident-ui.tsx";
 import { MaintenanceForm, type Window, type WindowInput } from "./maintenance-form.tsx";
@@ -49,16 +50,7 @@ export function MaintenanceEditor() {
     if (found) setEditing(found);
     return id === "new" || found !== undefined;
   });
-  const run = (call: () => Promise<unknown>, done?: string) =>
-    new Promise<boolean>((resolve) =>
-      change.mutate(call, {
-        onSuccess: () => {
-          if (done) toast(done);
-          resolve(true);
-        },
-        onError: () => resolve(false),
-      }),
-    );
+  const run = runWith(change);
 
   if (windows.isPending || components.isPending) {
     return <Loading label="Loading maintenance" />;
@@ -107,9 +99,7 @@ export function MaintenanceEditor() {
         {action}
       </div>
       {shown.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-mist bg-surface p-4 text-[14px] text-slate">
-          {empty}
-        </p>
+        <EmptyState>{empty}</EmptyState>
       ) : (
         <ul className="mt-4 rounded-xl border border-mist bg-surface">
           {shown.map((w) => (
@@ -134,7 +124,7 @@ export function MaintenanceEditor() {
                   <RowMenu
                     name={w.title}
                     actions={[
-                      { label: "Edit", onSelect: () => setEditing(w) },
+                      { label: "Edit", isEdit: true, onSelect: () => setEditing(w) },
                       ...(w.status === "scheduled"
                         ? [
                             {

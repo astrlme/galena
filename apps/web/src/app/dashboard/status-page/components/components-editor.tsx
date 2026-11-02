@@ -11,6 +11,7 @@ import { ConfirmDelete } from "../../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../../components/drafts.tsx";
 import { Field } from "../../../../components/field.tsx";
 import { Modal } from "../../../../components/modal.tsx";
+import { runWith } from "../../../../components/run.ts";
 import { StatusLabel } from "../../../../components/status.tsx";
 import { EmptyState } from "../../../../components/ui/empty-state.tsx";
 import { Loading } from "../../../../components/ui/loading.tsx";
@@ -59,16 +60,7 @@ export function ComponentsEditor() {
   useReopenDraft("component", listing.isSuccess, reopen("component"));
 
   /** Whether the call succeeded; a failure shows above the lists and the form keeps its values. */
-  const run = (call: () => Promise<unknown>, done?: string) =>
-    new Promise<boolean>((resolve) =>
-      change.mutate(call, {
-        onSuccess: () => {
-          if (done) toast(done);
-          resolve(true);
-        },
-        onError: () => resolve(false),
-      }),
-    );
+  const run = runWith(change);
 
   if (listing.isPending) return <Loading label="Loading components" />;
   if (listing.isError) return <p className="mt-8 font-semibold">{listing.error.message}</p>;

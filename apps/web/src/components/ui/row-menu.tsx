@@ -11,11 +11,14 @@ export type RowAction = {
   disabled?: boolean | undefined;
   /** Deletes or removes something: set apart at the foot, and confirmed in a dialog. */
   destructive?: boolean;
+  /** The row's edit action, which E runs on the focused row. */
+  isEdit?: boolean;
 };
 
 // Each row's actions, by its menu button, so the keyboard can act on the focused row.
 const rowActions = new WeakMap<Element, RowAction[]>();
-const ROW = "[data-row-menu]";
+// A row is anything marked `data-row`: a row menu, or a row that is one link.
+const ROW = "[data-row]";
 
 /** Moves focus to the next (1) or previous (-1) row's menu button in the page; false if none. */
 export function focusRow(step: 1 | -1): boolean {
@@ -29,10 +32,15 @@ export function focusRow(step: 1 | -1): boolean {
   return true;
 }
 
-/** Runs the focused row's Edit, if it has one; false otherwise. */
+/** Edits the focused row: its menu's edit action, or the page a link row opens; false if none. */
 export function editFocusedRow(): boolean {
   const focused = document.activeElement;
-  const edit = focused && rowActions.get(focused)?.find((a) => a.label === "Edit" && !a.disabled);
+  if (!(focused instanceof HTMLElement) || !focused.matches(ROW)) return false;
+  if (focused instanceof HTMLAnchorElement) {
+    focused.click();
+    return true;
+  }
+  const edit = rowActions.get(focused)?.find((a) => a.isEdit && !a.disabled);
   if (!edit) return false;
   edit.onSelect();
   return true;
@@ -53,7 +61,7 @@ export function RowMenu({ name, actions }: { name: string; actions: RowAction[] 
     <Menu.Root>
       <Menu.Trigger
         ref={trigger}
-        data-row-menu=""
+        data-row=""
         aria-label={`Actions for ${name}`}
         className="inline-flex size-11 shrink-0 md:size-9 items-center justify-center rounded-[6px] text-graphite transition-colors duration-[120ms] hover:bg-mist hover:text-ink data-popup-open:bg-mist data-popup-open:text-ink motion-reduce:transition-none"
       >

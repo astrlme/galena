@@ -11,12 +11,12 @@ import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useDraft, useReopenDraft } from "../../../components/drafts.tsx";
 import { Field } from "../../../components/field.tsx";
 import { Modal } from "../../../components/modal.tsx";
-import { StatusLabel } from "../../../components/status.tsx";
+import { runWith } from "../../../components/run.ts";
+import { DOWN_STATUS_OPTIONS, StatusLabel } from "../../../components/status.tsx";
 import { EmptyState } from "../../../components/ui/empty-state.tsx";
 import { Loading } from "../../../components/ui/loading.tsx";
 import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
-import { toast } from "../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import type { paths } from "../../../lib/api-schema.ts";
 import { MonitorHealth, PausedNotice, useTelemetry } from "./monitor-health.tsx";
@@ -99,16 +99,7 @@ export function MonitorsEditor() {
     onError: (error) => setProblem(error.message),
   });
   /** Whether the call succeeded; a failure shows in the open form, or above the list. */
-  const run = (call: () => Promise<unknown>, done?: string) =>
-    new Promise<boolean>((resolve) =>
-      change.mutate(call, {
-        onSuccess: () => {
-          if (done) toast(done);
-          resolve(true);
-        },
-        onError: () => resolve(false),
-      }),
-    );
+  const run = runWith(change);
 
   if (monitors.isPending || components.isPending) {
     return <Loading label="Loading monitors" />;
@@ -219,7 +210,7 @@ export function MonitorsEditor() {
                   <RowMenu
                     name={monitor.name}
                     actions={[
-                      { label: "Edit", onSelect: () => setEditing(monitor) },
+                      { label: "Edit", isEdit: true, onSelect: () => setEditing(monitor) },
                       {
                         label: monitor.enabled ? "Pause" : "Resume",
                         onSelect: () => void toggle(monitor),
@@ -331,10 +322,7 @@ function MonitorForm({
         control={form.control}
         name="downStatus"
         label="Status while down"
-        options={[
-          { value: "partial_outage", label: "Partial outage", status: "partial_outage" },
-          { value: "major_outage", label: "Major outage", status: "major_outage" },
-        ]}
+        options={DOWN_STATUS_OPTIONS}
       />
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 text-[14px] font-semibold">When it goes down</legend>
