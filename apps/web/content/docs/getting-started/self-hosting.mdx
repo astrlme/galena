@@ -214,7 +214,8 @@ The first run creates, among others:
 - `galena-dev-page`, `galena-dev-page-replica` and, with a domain, `galena-dev-page-certificate`.
 - `galena-dev-dashboard-certificate`, when `webDomain` is set.
 - `galena-dev-jobs`: the background jobs and the HTML builder on Lambda, and the recurring
-  schedules for the outbox sweep, the uptime rollup and the hourly page heartbeat.
+  schedules for the outbox sweep, the uptime rollup, the hourly page heartbeat and the hourly
+  telemetry rollup.
 - `galena-dev-email`, when `email` is set.
 - `galena-dev-smoke`, on the `dev` stage only: an endpoint the end-to-end Smoke workflow takes
   down and brings back to prove detection and publishing work in AWS. It stays stopped between

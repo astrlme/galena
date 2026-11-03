@@ -52,8 +52,21 @@ recovery: everything in it can be rebuilt by checking again.
 | Item | Partition key | Sort key | Holds |
 | --- | --- | --- | --- |
 | Check result | `MON#<monitorId>` | `R#<scheduledAt>#<region>` | Status, latency, phases, error; expires after 90 days |
+| Hour of one region | `MON#<monitorId>` | `H#<YYYY-MM-DDTHH>#<region>` | Checks by status, the slowest answer, a latency histogram, the mean of each phase; expires after 30 days |
+| Day of one region | `MON#<monitorId>` | `D#<YYYY-MM-DD>#<region>` | The same, summed from the day's hours; expires after 400 days |
+| Minutes of an hour, of a day | `MON#<monitorId>` | `UH#<YYYY-MM-DDTHH>`, `UD#<YYYY-MM-DD>` | Minutes checked, and minutes a quorum of regions saw the monitor down; expire with their hours and days |
 | Monitor state | `MON#<monitorId>` | `STATE` | The detection state, a `version` every write is conditional on, the last minute applied per region, and transitions not yet confirmed as triggered |
 | Region health | `REGION#<region>` | `HEALTH` | Whether the region is excluded, and its run of canary passes |
+
+The hour and day items are rollups, written by the hourly `rollup.telemetry` job so a chart never
+reads more than it shows: a day's or a week's chart reads hours, and a month's or a quarter's reads
+days (90 days of three regions is 270 items). Latency counts answers only, in 50 buckets spaced
+evenly on a log scale from 1 ms to 60 s; summed buckets give a day's p95 within about 12% of the
+exact one, which averaging 24 hourly p95s can't. Phases keep a sum and a count, so their means add
+up to the mean answer. To build the rollups from the checks already stored, run
+`pnpm rollups:backfill --stage <name>` once with your AWS credentials. It keeps to two capacity
+units a second (`--units`) so probes' writes aren't throttled meanwhile, and if it stops it says
+how to go on.
 
 ## S3
 
