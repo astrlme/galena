@@ -799,6 +799,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/monitors/{id}/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A monitor's response times per region, for its chart
+         * @description `24h` and `7d` give hourly rollups, up to the last whole hour; `30d` and `90d` daily ones, up to yesterday. Each hour is rolled up at five past the next. Median and p95 count answers (up and degraded) only; phases are means, so they add up.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    range?: "24h" | "7d" | "30d" | "90d";
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Points oldest first, then by region */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            range: "24h" | "7d" | "30d" | "90d";
+                            /** @enum {string} */
+                            step: "hour" | "day";
+                            points: {
+                                at: string;
+                                region: string;
+                                checks: number;
+                                down: number;
+                                medianMs: number | null;
+                                p95Ms: number | null;
+                                maxMs: number | null;
+                                phases: {
+                                    dns: number | null;
+                                    connect: number | null;
+                                    tls: number | null;
+                                    ttfb: number | null;
+                                };
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/monitors/{id}/uptime": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A monitor's month: minutes checked, minutes down, incidents it opened
+         * @description A minute is down when a quorum of regions failed it. Maintenance is not taken out. The month defaults to the current one (UTC); each hour counts once rolled up, at five past the next.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    month?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The month's minutes and incidents */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            month: string;
+                            minutes: number;
+                            minutesDown: number;
+                            incidents: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/monitors/{id}": {
         parameters: {
             query?: never;

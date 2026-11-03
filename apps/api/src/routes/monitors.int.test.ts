@@ -1,11 +1,12 @@
-import { type MonitorId, monitorChanged, type OutboxId } from "@galena/contracts";
+import { type IncidentId, type MonitorId, monitorChanged, type OutboxId } from "@galena/contracts";
+import type { MinuteCounts } from "@galena/core";
 import { schema } from "@galena/db";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createApp, type Deps } from "../app.ts";
-import type { MonitorReading } from "../telemetry.ts";
+import type { MonitorReading, PointAt } from "../telemetry.ts";
 import { type Triggered, testDeps } from "../test-deps.ts";
 import { expectProblem, Session } from "../test-session.ts";
 
@@ -24,6 +25,8 @@ let close: (() => Promise<void>) | undefined;
 let deps: Deps;
 let triggered: Triggered[];
 let readings: Map<MonitorId, MonitorReading>;
+let points: Map<MonitorId, PointAt[]>;
+let months: Map<string, MinuteCounts>;
 let owner: Session;
 
 beforeAll(async () => {
@@ -33,6 +36,8 @@ beforeAll(async () => {
   deps = built.deps;
   triggered = built.triggered;
   readings = built.readings;
+  points = built.points;
+  months = built.months;
   close = built.close;
   owner = new Session(createApp(deps));
   const setup = await owner.call("/v1/setup", {
@@ -253,6 +258,75 @@ test("telemetry maps each monitor's state to a status and passes its recent resu
     since: null,
     results: [],
   });
+});
+
+const point = (at: string, region: string): PointAt => ({
+  at,
+  region,
+  checks: 60,
+  down: 0,
+  medianMs: 120,
+  p95Ms: 180,
+  maxMs: 240,
+  phases: { dns: 5, connect: 10, tls: 20, ttfb: 100 },
+});
+
+test("a monitor's chart comes oldest first, then by region; an unknown monitor is a 404", async () => {
+  const charted = await create({ name: "Charted", http: { url: "https://chart.example.com/" } });
+  points.set(charted.id as MonitorId, [
+    point("2026-11-02T12", "eu-west-3"),
+    point("2026-11-02T11", "eu-west-1"),
+    point("2026-11-02T12", "eu-west-1"),
+  ]);
+  const response = await owner.call(`/v1/monitors/${charted.id}/series?range=7d`);
+  expect(response.status).toBe(200);
+  const body = (await response.json()) as { range: string; step: string; points: PointAt[] };
+  expect(body).toMatchObject({ range: "7d", step: "hour" });
+  expect(body.points.map((p) => `${p.at} ${p.region}`)).toEqual([
+    "2026-11-02T11 eu-west-1",
+    "2026-11-02T12 eu-west-1",
+    "2026-11-02T12 eu-west-3",
+  ]);
+  await expectProblem(await owner.call(`/v1/monitors/${v7()}/series?range=24h`), 404, "not_found");
+  expect((await owner.call(`/v1/monitors/${charted.id}/series?range=1y`)).status).toBe(400);
+});
+
+test("a monitor's month says its minutes down and the incidents it opened, nobody else's", async () => {
+  const watched = await create({ name: "Watched", http: { url: "https://month.example.com/" } });
+  const other = await create({ name: "Other", http: { url: "https://other.example.com/" } });
+  months.set(`${watched.id} 2026-10`, { minutes: 44_640, down: 12 });
+  const [ws] = await deps.db.select().from(schema.workspace);
+  const incident = (monitor: string, startedAt: string, extra: Record<string, unknown> = {}) => ({
+    id: v7() as IncidentId,
+    workspaceId: ws?.id ?? expect.fail("no workspace"),
+    title: "Down",
+    status: "resolved" as const,
+    impact: "major" as const,
+    source: "monitor" as const,
+    dedupKey: `mon:${monitor}`,
+    startedAt: new Date(startedAt),
+    // Resolved: only one open incident per monitor may exist at a time.
+    resolvedAt: new Date(Date.parse(startedAt) + 3_600_000),
+    ...extra,
+  });
+  await deps.db.insert(schema.incident).values([
+    incident(watched.id, "2026-10-03T10:00:00.000Z"),
+    incident(watched.id, "2026-10-31T23:59:00.000Z"),
+    // Not counted: a dismissed draft, a deleted incident, November, another monitor.
+    incident(watched.id, "2026-10-10T10:00:00.000Z", { visibility: "dismissed" }),
+    incident(watched.id, "2026-10-11T10:00:00.000Z", { deletedAt: new Date() }),
+    incident(watched.id, "2026-11-01T00:00:00.000Z"),
+    incident(other.id, "2026-10-05T10:00:00.000Z"),
+  ]);
+  const response = await owner.call(`/v1/monitors/${watched.id}/uptime?month=2026-10`);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    month: "2026-10",
+    minutes: 44_640,
+    minutesDown: 12,
+    incidents: 2,
+  });
+  expect((await owner.call(`/v1/monitors/${watched.id}/uptime?month=2026-13`)).status).toBe(400);
 });
 
 test("a viewer may list but not change monitors", async () => {

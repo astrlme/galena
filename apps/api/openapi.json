@@ -1397,6 +1397,234 @@
         }
       }
     },
+    "/v1/monitors/{id}/series": {
+      "get": {
+        "tags": [
+          "Monitors"
+        ],
+        "summary": "A monitor's response times per region, for its chart",
+        "description": "`24h` and `7d` give hourly rollups, up to the last whole hour; `30d` and `90d` daily ones, up to yesterday. Each hour is rolled up at five past the next. Median and p95 count answers (up and degraded) only; phases are means, so they add up.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "24h",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "default": "24h"
+            },
+            "required": false,
+            "name": "range",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Points oldest first, then by region",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "range": {
+                      "type": "string",
+                      "enum": [
+                        "24h",
+                        "7d",
+                        "30d",
+                        "90d"
+                      ]
+                    },
+                    "step": {
+                      "type": "string",
+                      "enum": [
+                        "hour",
+                        "day"
+                      ]
+                    },
+                    "points": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "at": {
+                            "type": "string"
+                          },
+                          "region": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2}(?:-gov)?-[a-z]+-\\d$"
+                          },
+                          "checks": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "down": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "medianMs": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "minimum": 0
+                          },
+                          "p95Ms": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "minimum": 0
+                          },
+                          "maxMs": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "minimum": 0
+                          },
+                          "phases": {
+                            "type": "object",
+                            "properties": {
+                              "dns": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "minimum": 0
+                              },
+                              "connect": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "minimum": 0
+                              },
+                              "tls": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "minimum": 0
+                              },
+                              "ttfb": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "dns",
+                              "connect",
+                              "tls",
+                              "ttfb"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "at",
+                          "region",
+                          "checks",
+                          "down",
+                          "medianMs",
+                          "p95Ms",
+                          "maxMs",
+                          "phases"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "range",
+                    "step",
+                    "points"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/monitors/{id}/uptime": {
+      "get": {
+        "tags": [
+          "Monitors"
+        ],
+        "summary": "A monitor's month: minutes checked, minutes down, incidents it opened",
+        "description": "A minute is down when a quorum of regions failed it. Maintenance is not taken out. The month defaults to the current one (UTC); each hour counts once rolled up, at five past the next.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])$"
+            },
+            "required": false,
+            "name": "month",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The month's minutes and incidents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "month": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])$"
+                    },
+                    "minutes": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "minutesDown": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "incidents": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "month",
+                    "minutes",
+                    "minutesDown",
+                    "incidents"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/monitors/{id}": {
       "put": {
         "tags": [
