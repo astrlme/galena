@@ -171,7 +171,7 @@ export const monitorSummary = z.object({
 });
 export type MonitorSummary = z.infer<typeof monitorSummary>;
 
-/** A monitor's detection state and its newest results, read from telemetry. */
+/** A monitor's detection state, its newest results and its summary, read from telemetry. */
 export const monitorTelemetry = z.object({
   id: monitorId,
   state: z.enum(monitorStates),
@@ -179,8 +179,10 @@ export const monitorTelemetry = z.object({
   status: z.enum(componentStatuses).nullable(),
   /** When the monitor entered its state; null before its first check. */
   since: z.iso.datetime().nullable(),
-  /** Newest first: the last 60 scheduled minutes, one entry per region that reported. */
+  /** Newest first: the last scheduled minutes asked for (60 by default), one entry per region that reported. */
   results: z.array(recentResult),
+  /** Null until the hourly rollup has seen its checks. */
+  summary: monitorSummary.nullable(),
 });
 
 export type MonitorTelemetry = z.infer<typeof monitorTelemetry>;

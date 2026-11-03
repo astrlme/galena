@@ -1,6 +1,6 @@
 import { ResourceNotFoundException } from "@aws-sdk/client-dynamodb";
 import { BatchGetCommand, type DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
-import type { MonitorId, MonitorState, RecentResult } from "@galena/contracts";
+import type { MonitorId, MonitorState, MonitorSummary, RecentResult } from "@galena/contracts";
 import {
   type MinuteCounts,
   mergeMinutes,
@@ -9,9 +9,16 @@ import {
   type SeriesPoint,
   type SeriesWindow,
 } from "@galena/core";
-import { minutesOf, monitorKey, regionRollupOf, spanKeys } from "@galena/integrations/telemetry";
+import {
+  minutesOf,
+  monitorKey,
+  regionRollupOf,
+  SUMMARY_KEY,
+  spanKeys,
+  summaryOf,
+} from "@galena/integrations/telemetry";
 
-/** Scheduled minutes of results the dashboard shows per monitor. */
+/** Scheduled minutes of results a reading has unless fewer are asked for. */
 export const RECENT_MINUTES = 60;
 
 export type MonitorReading = {
@@ -20,6 +27,8 @@ export type MonitorReading = {
   enteredAt: number;
   /** Newest first. */
   results: RecentResult[];
+  /** Written by the hourly rollup; null before it has seen a check. */
+  summary: MonitorSummary | null;
 };
 
 /** A chart point with the span it covers and its region. */
@@ -28,7 +37,8 @@ export type PointAt = SeriesPoint & { at: string; region: string };
 /** Reads what the evaluator and the rollup write; the API never writes telemetry. */
 export type Telemetry = {
   regions: readonly string[];
-  read(ids: readonly MonitorId[]): Promise<Map<MonitorId, MonitorReading>>;
+  /** Each monitor's state, summary and newest `minutes` of results. */
+  read(ids: readonly MonitorId[], minutes: number): Promise<Map<MonitorId, MonitorReading>>;
   /** A chart's points: hour or day rollups, as the window says. */
   series(id: MonitorId, window: SeriesWindow): Promise<PointAt[]>;
   /** A month's minutes (`YYYY-MM`): its rolled-up days, and today's hours while it is today's. */
@@ -36,18 +46,25 @@ export type Telemetry = {
 };
 
 /**
- * `MON#<id>` / `STATE` for the detection state and `MON#<id>` / `R#<minute>#<region>` for
- * results. A missing table reads as no data: locally it appears when the hot path first runs.
+ * `MON#<id>` / `STATE` for the detection state, `SUMMARY` for the hourly summary and
+ * `R#<minute>#<region>` for results. A missing table reads as no data: locally it appears when
+ * the hot path first runs.
  */
 export function dynamoTelemetry(
   doc: DynamoDBDocumentClient,
   table: string,
   regions: readonly string[],
 ): Telemetry {
-  async function states(ids: readonly MonitorId[]) {
-    const found = new Map<string, { state: MonitorState; enteredAt: number }>();
-    for (let i = 0; i < ids.length; i += 100) {
-      const keys = ids.slice(i, i + 100).map((id) => ({ pk: monitorKey(id), sk: "STATE" }));
+  /** Each monitor's `STATE` and `SUMMARY` items, keyed by partition key. */
+  async function statesAndSummaries(ids: readonly MonitorId[]) {
+    const states = new Map<string, { state: MonitorState; enteredAt: number }>();
+    const summaries = new Map<string, MonitorSummary>();
+    // Two keys a monitor, and BatchGetItem takes 100 keys.
+    for (let i = 0; i < ids.length; i += 50) {
+      const keys = ids.slice(i, i + 50).flatMap((id) => [
+        { pk: monitorKey(id), sk: "STATE" },
+        { pk: monitorKey(id), sk: SUMMARY_KEY },
+      ]);
       const { Responses, UnprocessedKeys } = await doc.send(
         new BatchGetCommand({ RequestItems: { [table]: { Keys: keys } } }),
       );
@@ -55,20 +72,21 @@ export function dynamoTelemetry(
         throw new Error("DynamoDB left monitor states unread; reload to try again.");
       }
       for (const item of Responses?.[table] ?? []) {
-        found.set(String(item.pk), item.detection);
+        if (item.sk === SUMMARY_KEY) summaries.set(String(item.pk), summaryOf(item));
+        else states.set(String(item.pk), item.detection);
       }
     }
-    return found;
+    return { states, summaries };
   }
 
-  async function results(id: MonitorId): Promise<RecentResult[]> {
+  async function results(id: MonitorId, count: number): Promise<RecentResult[]> {
     const { Items = [] } = await doc.send(
       new QueryCommand({
         TableName: table,
         KeyConditionExpression: "pk = :pk AND begins_with(sk, :results)",
         ExpressionAttributeValues: { ":pk": monitorKey(id), ":results": "R#" },
         ScanIndexForward: false,
-        Limit: RECENT_MINUTES * regions.length,
+        Limit: count * regions.length,
       }),
     );
     // A region that missed minutes leaves room for older ones; keep the newest minutes only.
@@ -77,7 +95,7 @@ export function dynamoTelemetry(
     for (const item of Items) {
       const [, scheduledAt = "", region = ""] = String(item.sk).split("#");
       minutes.add(scheduledAt);
-      if (minutes.size > RECENT_MINUTES) break;
+      if (minutes.size > count) break;
       recent.push({ region, scheduledAt, status: item.status, latencyMs: item.latencyMs ?? null });
     }
     return recent;
@@ -128,20 +146,21 @@ export function dynamoTelemetry(
       }
       return items.map(minutesOf).reduce<MinuteCounts>(mergeMinutes, { minutes: 0, down: 0 });
     },
-    async read(ids) {
+    async read(ids, minutes) {
       const readings = new Map<MonitorId, MonitorReading>();
       try {
-        const detection = await states(ids);
+        const { states, summaries } = await statesAndSummaries(ids);
         // A few monitors at a time: each query reads up to an hour of results.
         for (let i = 0; i < ids.length; i += 10) {
           const batch = ids.slice(i, i + 10);
-          const recent = await Promise.all(batch.map(results));
+          const recent = await Promise.all(batch.map((id) => results(id, minutes)));
           batch.forEach((id, j) => {
-            const state = detection.get(monitorKey(id));
+            const state = states.get(monitorKey(id));
             readings.set(id, {
               state: state?.state ?? "unknown",
               enteredAt: state?.enteredAt ?? 0,
               results: recent[j] ?? [],
+              summary: summaries.get(monitorKey(id)) ?? null,
             });
           });
         }

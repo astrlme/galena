@@ -11,6 +11,14 @@ const MONITOR = monitorId.parse("01920000-0000-7000-8000-0000000000b1");
 const SILENT = monitorId.parse("01920000-0000-7000-8000-0000000000b2");
 const START = Date.parse("2026-09-28T16:00:00.000Z");
 const minute = (n: number) => new Date(START + n * 60_000).toISOString();
+// The summary the hourly rollup would have written.
+const SUMMARY = {
+  through: "2026-09-28T16",
+  hourlyMedianMs: [...Array.from({ length: 23 }, () => null), 120],
+  p95Ms: 180,
+  minutes: 1440,
+  minutesDown: 2,
+};
 
 let container: StartedTestContainer | undefined;
 let client: DynamoDBClient;
@@ -50,6 +58,7 @@ beforeAll(async () => {
       detection: { state: "up", enteredAt: START + 5 * 60_000, transitionSeq: 1 },
       version: 70,
     },
+    { pk: `MON#${MONITOR}`, sk: "SUMMARY", ...SUMMARY },
   ];
   for (let n = 0; n < 70; n++) {
     for (const region of REGIONS) {
@@ -76,11 +85,14 @@ afterAll(async () => {
   await container?.stop();
 });
 
-test("reads the state and the newest 60 minutes of results, newest first", async () => {
-  const readings = await dynamoTelemetry(doc, "telemetry", REGIONS).read([MONITOR, SILENT]);
+test("reads the state, the summary and the newest 60 minutes of results, newest first", async () => {
+  const readings = await dynamoTelemetry(doc, "telemetry", REGIONS).read(
+    [MONITOR, SILENT],
+    RECENT_MINUTES,
+  );
 
   const reading = readings.get(MONITOR);
-  expect(reading).toMatchObject({ state: "up", enteredAt: START + 5 * 60_000 });
+  expect(reading).toMatchObject({ state: "up", enteredAt: START + 5 * 60_000, summary: SUMMARY });
   const results = reading?.results ?? [];
   const minutes = [...new Set(results.map((r) => r.scheduledAt))];
   expect(minutes).toHaveLength(RECENT_MINUTES);
@@ -100,11 +112,26 @@ test("reads the state and the newest 60 minutes of results, newest first", async
   });
 
   // No state item and no results: detection hasn't seen it yet.
-  expect(readings.get(SILENT)).toEqual({ state: "unknown", enteredAt: 0, results: [] });
+  expect(readings.get(SILENT)).toEqual({
+    state: "unknown",
+    enteredAt: 0,
+    results: [],
+    summary: null,
+  });
+});
+
+test("a reading asked for fewer minutes reads only the newest ones", async () => {
+  const readings = await dynamoTelemetry(doc, "telemetry", REGIONS).read([MONITOR], 2);
+  const results = readings.get(MONITOR)?.results ?? [];
+  expect(new Set(results.map((r) => r.scheduledAt))).toEqual(new Set([minute(69), minute(68)]));
+  expect(results).toHaveLength(6);
 });
 
 test("a table that doesn't exist yet reads as no data", async () => {
-  const readings = await dynamoTelemetry(doc, "not-created", REGIONS).read([MONITOR]);
+  const readings = await dynamoTelemetry(doc, "not-created", REGIONS).read(
+    [MONITOR],
+    RECENT_MINUTES,
+  );
   expect(readings.size).toBe(0);
 });
 

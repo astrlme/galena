@@ -1279,8 +1279,21 @@
         "tags": [
           "Monitors"
         ],
-        "summary": "Each monitor's state and its results from the last 60 minutes",
-        "description": "Reads telemetry only; poll it while the monitors page is open.",
+        "summary": "Each monitor's state, its newest results and its last day and month",
+        "description": "Reads telemetry only; poll it while the monitors page is open. `minutes` limits the results to that many of the newest scheduled minutes (60 by default). The summary is rolled up hourly, at five past.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60,
+              "default": 60
+            },
+            "required": false,
+            "name": "minutes",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "One entry per monitor, oldest monitor first",
@@ -1374,6 +1387,50 @@
                                 "latencyMs"
                               ]
                             }
+                          },
+                          "summary": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "through": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}$"
+                              },
+                              "hourlyMedianMs": {
+                                "type": "array",
+                                "items": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ],
+                                  "minimum": 0
+                                }
+                              },
+                              "p95Ms": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "minimum": 0
+                              },
+                              "minutes": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "minutesDown": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "through",
+                              "hourlyMedianMs",
+                              "p95Ms",
+                              "minutes",
+                              "minutesDown"
+                            ]
                           }
                         },
                         "required": [
@@ -1381,7 +1438,8 @@
                           "state",
                           "status",
                           "since",
-                          "results"
+                          "results",
+                          "summary"
                         ]
                       }
                     }

@@ -214,7 +214,7 @@ test("a change still succeeds when the job queue is unreachable", async () => {
   expect(pending.at(-1)?.dispatchedAt).toBeNull();
 });
 
-test("telemetry maps each monitor's state to a status and passes its recent results on", async () => {
+test("telemetry maps each monitor's state to a status and passes its results and summary on", async () => {
   const down = await create({
     name: "Checkout",
     downStatus: "partial_outage",
@@ -230,13 +230,21 @@ test("telemetry maps each monitor's state to a status and passes its recent resu
     },
     { region: "eu-west-3", scheduledAt: "2026-09-28T17:33:00.000Z", status: "up", latencyMs: 85 },
   ] as const;
+  const summary = {
+    through: "2026-09-28T16",
+    hourlyMedianMs: [...Array.from({ length: 23 }, () => null), 120],
+    p95Ms: 180,
+    minutes: 1440,
+    minutesDown: 2,
+  };
   readings.set(down.id as MonitorId, {
     state: "down",
     enteredAt: Date.parse("2026-09-28T17:30:00.000Z"),
     results: [...results],
+    summary,
   });
 
-  const response = await owner.call("/v1/monitors/telemetry");
+  const response = await owner.call("/v1/monitors/telemetry?minutes=5");
   expect(response.status).toBe(200);
   const body = (await response.json()) as {
     regions: string[];
@@ -249,6 +257,7 @@ test("telemetry maps each monitor's state to a status and passes its recent resu
     status: "partial_outage",
     since: "2026-09-28T17:30:00.000Z",
     results,
+    summary,
   });
   // No state item yet: detection has no opinion, so there is no status either.
   expect(body.monitors.find((m) => m.id === quiet.id)).toEqual({
@@ -257,7 +266,9 @@ test("telemetry maps each monitor's state to a status and passes its recent resu
     status: null,
     since: null,
     results: [],
+    summary: null,
   });
+  expect((await owner.call("/v1/monitors/telemetry?minutes=0")).status).toBe(400);
 });
 
 const point = (at: string, region: string): PointAt => ({

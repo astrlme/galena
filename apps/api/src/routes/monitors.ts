@@ -16,6 +16,7 @@ import { componentRepository, countMonitorIncidents, monitorRepository } from "@
 import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { type App, type Deps, fail, type Member, notFound, requireRole } from "../http.ts";
+import { RECENT_MINUTES } from "../telemetry.ts";
 import { assertUnderCap, CAPS, changeOf, commit, json, jsonBody, noContent } from "./shared.ts";
 
 const toView = ({ workspaceId: _, ...view }: MonitorConfig) => view;
@@ -72,9 +73,15 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
       method: "get",
       path: "/v1/monitors/telemetry",
       tags: ["Monitors"],
-      summary: "Each monitor's state and its results from the last 60 minutes",
-      description: "Reads telemetry only; poll it while the monitors page is open.",
+      summary: "Each monitor's state, its newest results and its last day and month",
+      description:
+        "Reads telemetry only; poll it while the monitors page is open. `minutes` limits the results to that many of the newest scheduled minutes (60 by default). The summary is rolled up hourly, at five past.",
       middleware: [viewer],
+      request: {
+        query: z.object({
+          minutes: z.coerce.number().int().min(1).max(RECENT_MINUTES).default(RECENT_MINUTES),
+        }),
+      },
       responses: {
         200: json(
           z.object({ regions: z.array(awsRegion), monitors: z.array(monitorTelemetry) }),
@@ -84,7 +91,11 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
     }),
     async (c) => {
       const list = await monitors.listByWorkspace(c.get("member").workspaceId);
-      const readings = await deps.telemetry.read(list.map((m) => m.id));
+      const { minutes } = c.req.valid("query");
+      const readings = await deps.telemetry.read(
+        list.map((m) => m.id),
+        minutes,
+      );
       const telemetry = list.map((monitor) => {
         const reading = readings.get(monitor.id);
         const state = reading?.state ?? "unknown";
@@ -94,6 +105,7 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
           status: monitorStatus(state, monitor.downStatus) ?? null,
           since: reading?.enteredAt ? new Date(reading.enteredAt).toISOString() : null,
           results: reading?.results ?? [],
+          summary: reading?.summary ?? null,
         };
       });
       return c.json({ regions: [...deps.telemetry.regions], monitors: telemetry }, 200);

@@ -748,12 +748,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Each monitor's state and its results from the last 60 minutes
-         * @description Reads telemetry only; poll it while the monitors page is open.
+         * Each monitor's state, its newest results and its last day and month
+         * @description Reads telemetry only; poll it while the monitors page is open. `minutes` limits the results to that many of the newest scheduled minutes (60 by default). The summary is rolled up hourly, at five past.
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    minutes?: number;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -785,6 +787,13 @@ export interface paths {
                                     status: "up" | "degraded" | "down" | "error";
                                     latencyMs: number | null;
                                 }[];
+                                summary: {
+                                    through: string;
+                                    hourlyMedianMs: (number | null)[];
+                                    p95Ms: number | null;
+                                    minutes: number;
+                                    minutesDown: number;
+                                } | null;
                             }[];
                         };
                     };

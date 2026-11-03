@@ -13,6 +13,8 @@ type Subscriber = Answer<"/v1/subscribers">[number];
 type Delivery = Answer<"/v1/webhook-endpoints/{id}/deliveries">[number];
 
 const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 const REGIONS = ["eu-west-1", "eu-west-3", "eu-north-1"];
 const id = (n: number) => `01920000-0000-7000-8000-${n.toString(16).padStart(12, "0")}`;
 
@@ -87,6 +89,7 @@ export function demoData(now: Date) {
   const minute = Math.floor(now.getTime() / MINUTE) * MINUTE;
   const at = (minutesAgo: number) => new Date(minute - minutesAgo * MINUTE).toISOString();
   const utc = (minutesAgo: number) => `${at(minutesAgo).slice(11, 16)} UTC`;
+  const lastHour = Math.floor(now.getTime() / HOUR) * HOUR - HOUR;
 
   const monitors: Monitor[] = scenes.map((s) => ({
     id: id(s.n),
@@ -123,6 +126,16 @@ export function demoData(now: Date) {
       status: state === "down" ? (s.downStatus ?? "major_outage") : "operational",
       since: at(s.down ? s.down.to || s.down.from : 60 * 24 * 9),
       results,
+      summary: {
+        through: new Date(lastHour).toISOString().slice(0, 13),
+        // The same gentle daily curve on every load, each monitor's a little out of step.
+        hourlyMedianMs: Array.from({ length: 24 }, (_, h) =>
+          Math.round(s.ms * (1 + 0.15 * Math.sin(((h + s.n) / 24) * 2 * Math.PI))),
+        ),
+        p95Ms: Math.round(s.ms * 1.7),
+        minutes: 29 * 1440 + ((lastHour % DAY) / MINUTE + 60),
+        minutesDown: s.down ? s.down.from - s.down.to + 1 : 0,
+      },
     };
   });
 
