@@ -8,7 +8,7 @@ import { EmptyState } from "../../components/ui/empty-state.tsx";
 import { Loading } from "../../components/ui/loading.tsx";
 import { api, unwrap } from "../../lib/api.ts";
 import { Time } from "./incidents/incident-ui.tsx";
-import { PausedNotice, useTelemetry } from "./monitors/monitor-health.tsx";
+import { PausedNotice, useTelemetry } from "./monitors/telemetry.tsx";
 
 const link = "text-[14px] underline-offset-2 hover:underline";
 

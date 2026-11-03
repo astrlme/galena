@@ -31,14 +31,11 @@ test("a monitor turns down when the endpoint it checks stops answering", async (
     .filter({ hasText: name });
   // Three regions agree it answers; the page polls every 30 s.
   await expect(row).toContainText("Operational", { timeout: 90_000 });
-  await expect(row.getByRole("definition").first()).toHaveText(/^\d+ ms$/);
   await expectAccessible(page);
 
   endpoint.closeAllConnections();
   await new Promise<void>((resolve) => endpoint.close(() => resolve()));
   await expect(row).toContainText("Major outage", { timeout: 90_000 });
-  await expect(row.getByRole("definition")).toHaveText(["Down", "Down", "Down"]);
-  await expect(row.getByRole("img", { name: /down everywhere/ })).toBeVisible();
   await expectAccessible(page);
 
   await rowAction(row, name, "Delete");

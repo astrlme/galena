@@ -20,7 +20,7 @@ import {
   policyLabel,
   toInput,
 } from "./monitor-form.tsx";
-import { MonitorHealth, PausedNotice, useTelemetry } from "./monitor-health.tsx";
+import { PausedNotice, useTelemetry } from "./telemetry.tsx";
 
 export function MonitorsEditor() {
   const queryClient = useQueryClient();
@@ -177,12 +177,6 @@ export function MonitorsEditor() {
                     ]}
                   />
                 </div>
-                {telemetry.data && (
-                  <MonitorHealth
-                    reading={telemetry.data.monitors.find((m) => m.id === monitor.id)}
-                    regions={telemetry.data.regions}
-                  />
-                )}
               </li>
             ))}
           </ul>
