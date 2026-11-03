@@ -103,3 +103,26 @@ export function StateGlyph({ status }: { status: ComponentStatus }) {
     </span>
   );
 }
+
+/** A state's label: "Partial outage", or "No data" for null. */
+export const labelOf = (status: ComponentStatus | null) =>
+  status === null ? "No data" : LABELS[status];
+
+/**
+ * A glyph without its visible label, allowed only in a dashboard column, rail or tile whose
+ * heading names what it shows: the label is in the tooltip and read out.
+ */
+export function GlyphOnly({
+  status,
+  label = labelOf(status),
+}: {
+  status: ComponentStatus | null;
+  label?: string;
+}) {
+  return (
+    <span title={label} className={`inline-flex ${status ? GLYPH_TONE[status] : "text-slate"}`}>
+      <Glyph status={status} />
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
