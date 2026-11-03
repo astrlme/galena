@@ -33,7 +33,7 @@ test("Ctrl+K finds a monitor by part of its name and opens it", async ({ page },
   await expect(edit.getByLabel("Monitor name")).toHaveValue(name);
   await page.keyboard.press("Escape");
 
-  const row = page.getByRole("listitem").filter({ hasText: name });
+  const row = page.getByRole("row").filter({ hasText: name });
   await rowAction(row, name, "Delete");
   const dialog = page.getByRole("dialog", { name: `Delete ${name}?` });
   await dialog.getByLabel("Type the monitor name").fill(name);

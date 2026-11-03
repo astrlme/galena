@@ -32,9 +32,8 @@ test("add a monitor, edit it, pause it and delete it after confirming its name",
   await form.getByRole("button", { name: "Add monitor" }).click();
   await expect(form).toBeHidden();
   await expect(page.getByText("Monitor added")).toBeVisible();
-  const row = () => list.getByRole("listitem").filter({ hasText: "api.example.com" }).last();
-  await expect(row()).toContainText(name);
-  await expect(row()).toContainText("Ask a person first.");
+  const row = () => list.getByRole("row").filter({ hasText: name });
+  await expect(row().getByTitle("https://api.example.com/health")).toHaveText(name);
   await expectAccessible(page);
 
   await rowAction(row(), name, "Edit");
@@ -44,19 +43,26 @@ test("add a monitor, edit it, pause it and delete it after confirming its name",
   await edit.getByRole("radio", { name: /Internal only/ }).check();
   await edit.getByRole("button", { name: "Save monitor" }).click();
   await expect(edit).toBeHidden();
-  await expect(row()).toContainText(renamed);
-  await expect(row()).toContainText("Internal only.");
+  const renamedRow = () => list.getByRole("row").filter({ hasText: renamed });
+  await expect(renamedRow()).toBeVisible();
+  // The list doesn't say the policy; the form keeps it.
+  await rowAction(renamedRow(), renamed, "Edit");
+  const again = page.getByRole("form", { name: `Edit ${renamed}` });
+  await expect(again.getByRole("radio", { name: /Internal only/ })).toBeChecked();
+  await again.getByRole("button", { name: "Cancel" }).click();
+  await expect(again).toBeHidden();
 
-  await rowAction(row(), renamed, "Pause");
-  await expect(row()).toContainText("Paused.");
-  await rowAction(row(), renamed, "Resume");
-  await expect(row()).not.toContainText("Paused.");
+  await rowAction(renamedRow(), renamed, "Pause");
+  await expect(page.getByText("Monitor paused")).toBeVisible();
+  await expect(renamedRow()).toContainText("Paused");
+  await rowAction(renamedRow(), renamed, "Resume");
+  await expect(renamedRow()).not.toContainText("Paused");
 
-  await rowAction(row(), renamed, "Delete");
+  await rowAction(renamedRow(), renamed, "Delete");
   const dialog = page.getByRole("dialog", { name: `Delete ${renamed}?` });
   await dialog.getByLabel("Type the monitor name").fill(renamed);
   await expectAccessible(page);
   await dialog.getByRole("button", { name: "Delete monitor" }).click();
   await expect(dialog).toBeHidden();
-  await expect(list.getByRole("listitem").filter({ hasText: renamed })).toHaveCount(0);
+  await expect(renamedRow()).toHaveCount(0);
 });

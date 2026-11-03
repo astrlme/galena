@@ -41,8 +41,6 @@ const POLICIES: { value: PublishPolicy; label: string; help: string }[] = [
   },
 ];
 
-export const policyLabel = (value: PublishPolicy) => POLICIES.find((p) => p.value === value)?.label;
-
 const EMPTY: FormIn = {
   name: "",
   componentId: null,
@@ -53,7 +51,7 @@ const EMPTY: FormIn = {
 };
 
 /** A full PUT body from a listed monitor: PUT replaces every setting. */
-export const toInput = ({ id: _, ...input }: Monitor): FormIn => input;
+const toInput = ({ id: _, ...input }: Monitor): FormIn => input;
 
 export function MonitorForm({
   title,

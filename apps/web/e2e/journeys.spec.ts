@@ -33,13 +33,13 @@ test("a monitor is paused from the monitors list in 2 clicks", async ({ page }, 
   await form.getByLabel("URL").fill("https://journey.example.com/health");
   await form.getByRole("button", { name: "Add monitor" }).click();
   await expect(form).toBeHidden();
-  const row = page.getByRole("listitem").filter({ hasText: name });
+  const row = page.getByRole("row").filter({ hasText: name });
 
   const j = journey();
   await j.click(row.getByRole("button", { name: `Actions for ${name}` }));
   await j.click(page.getByRole("menuitem", { name: "Pause", exact: true }));
   await expect(page.getByText("Monitor paused")).toBeVisible();
-  await expect(row).toContainText("Paused.");
+  await expect(row).toContainText("Paused");
   expect(j.clicks).toBeLessThanOrEqual(2);
 
   await rowAction(row, name, "Delete");

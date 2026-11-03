@@ -7,19 +7,11 @@ import { ConfirmDelete } from "../../../components/confirm-delete.tsx";
 import { useReopenDraft } from "../../../components/drafts.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { runWith } from "../../../components/run.ts";
-import { StatusLabel } from "../../../components/status.tsx";
 import { EmptyState } from "../../../components/ui/empty-state.tsx";
 import { Loading } from "../../../components/ui/loading.tsx";
-import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
-import {
-  asBody,
-  type FormOut,
-  type Monitor,
-  MonitorForm,
-  policyLabel,
-  toInput,
-} from "./monitor-form.tsx";
+import { asBody, type FormOut, type Monitor, MonitorForm } from "./monitor-form.tsx";
+import { MonitorsTable } from "./monitors-table.tsx";
 import { PausedNotice, useTelemetry } from "./telemetry.tsx";
 
 export function MonitorsEditor() {
@@ -60,13 +52,10 @@ export function MonitorsEditor() {
   const run = runWith(change);
 
   if (monitors.isPending || components.isPending) {
-    return <Loading label="Loading monitors" />;
+    return <Loading label="Loading monitors" table />;
   }
   if (monitors.isError) return <p className="mt-8 font-semibold">{monitors.error.message}</p>;
   if (components.isError) return <p className="mt-8 font-semibold">{components.error.message}</p>;
-  const componentList = components.data.components;
-  const componentName = (id: string | null) =>
-    componentList.find((c) => c.id === id)?.name ?? "No component";
 
   const save = async (body: FormOut) => {
     const saved = await run(
@@ -84,16 +73,11 @@ export function MonitorsEditor() {
     if (saved) closeForm();
     return saved;
   };
-  const toggle = (monitor: Monitor) =>
+  // One monitor from its row menu, or the selected ones: the toast names how many.
+  const setEnabled = (ids: string[], enabled: boolean) =>
     run(
-      () =>
-        unwrap(
-          api.PUT("/v1/monitors/{id}", {
-            params: { path: { id: monitor.id } },
-            body: asBody({ ...toInput(monitor), enabled: !monitor.enabled }),
-          }),
-        ),
-      monitor.enabled ? "Monitor paused" : "Monitor resumed",
+      () => unwrap(api.PATCH("/v1/monitors", { body: { ids, enabled } })),
+      `${ids.length === 1 ? "Monitor" : `${ids.length} monitors`} ${enabled ? "resumed" : "paused"}`,
     );
 
   const formOpen = adding || editing !== undefined;
@@ -107,7 +91,7 @@ export function MonitorsEditor() {
           key={editing?.id ?? "new"}
           title={title}
           editing={editing}
-          components={componentList}
+          components={components.data.components}
           problem={formOpen ? problem : undefined}
           onSave={save}
           onCancel={closeForm}
@@ -141,45 +125,16 @@ export function MonitorsEditor() {
         {monitors.data.monitors.length === 0 ? (
           <EmptyState>No monitors yet. Add one to start checking every minute.</EmptyState>
         ) : (
-          <ul className="mt-4 rounded-xl border border-mist bg-surface">
-            {monitors.data.monitors.map((monitor) => (
-              <li
-                key={monitor.id}
-                className="flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist px-4 py-3 last:border-b-0"
-              >
-                <div className="flex min-w-0 flex-col">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span className="font-semibold">{monitor.name}</span>
-                    {monitor.enabled && telemetry.data && (
-                      <StatusLabel
-                        status={
-                          telemetry.data.monitors.find((m) => m.id === monitor.id)?.status ?? null
-                        }
-                      />
-                    )}
-                  </div>
-                  <span className="break-all text-[14px] text-slate">{monitor.http.url}</span>
-                  <span className="text-[14px] text-slate">
-                    {componentName(monitor.componentId)}. {policyLabel(monitor.publishPolicy)}.
-                    {monitor.enabled ? "" : " Paused."}
-                  </span>
-                </div>
-                <div className="ml-auto">
-                  <RowMenu
-                    name={monitor.name}
-                    actions={[
-                      { label: "Edit", isEdit: true, onSelect: () => setEditing(monitor) },
-                      {
-                        label: monitor.enabled ? "Pause" : "Resume",
-                        onSelect: () => void toggle(monitor),
-                      },
-                      { label: "Delete", destructive: true, onSelect: () => setDeleting(monitor) },
-                    ]}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <MonitorsTable
+            monitors={monitors.data.monitors}
+            telemetry={telemetry.data}
+            onEdit={(monitor) => {
+              setProblem(undefined);
+              setEditing(monitor);
+            }}
+            onDelete={setDeleting}
+            onSetEnabled={setEnabled}
+          />
         )}
       </section>
 
