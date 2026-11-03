@@ -154,6 +154,23 @@ export const recentResult = z.object({
 });
 export type RecentResult = z.infer<typeof recentResult>;
 
+/**
+ * A monitor's last day and month at a glance, written by the hourly rollup (`MON#<id>` /
+ * `SUMMARY`) so a list reads one small item per monitor.
+ */
+export const monitorSummary = z.object({
+  /** The last whole hour it covers, UTC: `YYYY-MM-DDTHH`. */
+  through: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}$/),
+  /** The 24 hours to `through`, oldest first: the median answer over all regions, null for an hour without one. */
+  hourlyMedianMs: z.array(ms.nullable()).length(24),
+  /** Those 24 hours' p95 over all regions' answers. */
+  p95Ms: ms.nullable(),
+  /** The 29 days before `through`'s day and that day to `through`: minutes checked and minutes a quorum saw down. */
+  minutes: z.int().nonnegative(),
+  minutesDown: z.int().nonnegative(),
+});
+export type MonitorSummary = z.infer<typeof monitorSummary>;
+
 /** A monitor's detection state and its newest results, read from telemetry. */
 export const monitorTelemetry = z.object({
   id: monitorId,
@@ -165,7 +182,14 @@ export const monitorTelemetry = z.object({
   /** Newest first: the last 60 scheduled minutes, one entry per region that reported. */
   results: z.array(recentResult),
 });
+
 export type MonitorTelemetry = z.infer<typeof monitorTelemetry>;
+
+/** Pause or resume several monitors at once: up to 50, a workspace's cap, so a whole list fits. */
+export const monitorsEnabledInput = z.object({
+  ids: z.array(monitorId).min(1).max(50),
+  enabled: z.boolean(),
+});
 
 /** One region's point on a response-time chart: a minute, an hour or a day of its checks. */
 export const seriesPoint = z.object({
