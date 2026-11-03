@@ -55,6 +55,7 @@ recovery: everything in it can be rebuilt by checking again.
 | Hour of one region | `MON#<monitorId>` | `H#<YYYY-MM-DDTHH>#<region>` | Checks by status, the slowest answer, a latency histogram, the mean of each phase; expires after 30 days |
 | Day of one region | `MON#<monitorId>` | `D#<YYYY-MM-DD>#<region>` | The same, summed from the day's hours; expires after 400 days |
 | Minutes of an hour, of a day | `MON#<monitorId>` | `UH#<YYYY-MM-DDTHH>`, `UD#<YYYY-MM-DD>` | Minutes checked, and minutes a quorum of regions saw the monitor down; expire with their hours and days |
+| Summary | `MON#<monitorId>` | `SUMMARY` | The last 24 hours' median per hour and p95, and the last 30 days' minutes checked and down: what the monitors list shows, replaced each hour |
 | Monitor state | `MON#<monitorId>` | `STATE` | The detection state, a `version` every write is conditional on, the last minute applied per region, and transitions not yet confirmed as triggered |
 | Region health | `REGION#<region>` | `HEALTH` | Whether the region is excluded, and its run of canary passes |
 

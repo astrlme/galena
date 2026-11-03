@@ -38,16 +38,33 @@ In **Monitors**, choose **Add monitor** and fill in:
 
 ### Watch the first results
 
-Within a minute or two, the monitor's row shows the latest check from each region and a strip of
-the last hour. Its state starts as **Unknown** and settles once enough regions agree.
+Within a minute or two, the monitor's row shows the latest check from each region (hover a
+region's mark for its answer time) and when it was last checked. Its state starts as **No data**
+and settles once enough regions agree. The 24-hour median line, the 24-hour p95 and the 30-day
+uptime fill in from the hourly rollup, at five past each hour.
 
 </Step>
 </Steps>
 
+## Finding a monitor
+
+**Down**, **Degraded performance** and **Paused** above the list show only the monitors in that
+state, each with its count; **All** shows them all again. **Search** matches names and URLs (a
+name's URL shows when you hover it), and every column with a number sorts when you press its
+heading. On a narrow screen the list keeps the state and name, and the other columns appear as
+there is room.
+
 ## Pausing
 
 **Pause** stops the checks without deleting the monitor or its history. While paused, the
-monitor has no say in its component's status. **Resume** starts the checks again.
+monitor has no say in its component's status. **Resume** starts the checks again. To pause or
+resume several at once, tick their rows and press **Pause** or **Resume** above the list; through
+the API, send their ids to `PATCH /v1/monitors`:
+
+```bash
+curl -X PATCH "$URL/v1/monitors" -b cookies.txt \
+  -H 'content-type: application/json' -d '{"ids": ["<id>", "<id>"], "enabled": false}'
+```
 
 ## Tuning
 
