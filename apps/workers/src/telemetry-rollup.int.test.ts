@@ -135,6 +135,18 @@ test("the run after midnight rolls up the last hour, then the day from its hours
   expect(days.get("D#2026-11-01#eu-west-3")).toMatchObject({ checks: 60, down: 3 });
   expect((await items("UD#")).get("UD#2026-11-01")).toMatchObject({ minutes: 120, down: 3 });
 
+  // The summary to 23:00: the day's 22:00 and 23:00 hours, and their minutes.
+  const summary = (await items("SUMMARY")).get("SUMMARY");
+  expect(summary).toMatchObject({ through: "2026-11-01T23", minutes: 120, minutesDown: 3 });
+  const medians = summary?.hourlyMedianMs as (number | null)[];
+  expect(medians).toHaveLength(24);
+  expect(medians[21]).toBeNull();
+  expect(medians[22]).toBeGreaterThan(200 * 0.88);
+  expect(medians[22]).toBeLessThan(200 * 1.12);
+  // 23:00's answers in all three regions: 100 + the minute ms, the median about 131.
+  expect(medians[23]).toBeGreaterThan(131 * 0.88);
+  expect(medians[23]).toBeLessThan(131 * 1.12);
+
   // A repeated run writes the same items.
   const before = await items();
   await run();

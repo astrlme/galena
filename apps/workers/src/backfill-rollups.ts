@@ -26,6 +26,7 @@ import {
   rollUpDay,
   rollUpHour,
   toRoll,
+  writeSummary,
 } from "./telemetry-rollup.ts";
 
 const { values } = parseArgs({
@@ -119,6 +120,11 @@ try {
   // Today's whole hours, so the day and week charts are complete until the next run at :05.
   for (let start = today; start + HOUR <= now; start += HOUR) {
     for (const monitor of monitors) await rollUpHour(store, monitor, start, now);
+  }
+  // Each monitor's summary to the last whole hour, as the next run would write it.
+  const last = Math.floor(now / HOUR) * HOUR - HOUR;
+  for (const monitor of monitors) {
+    await writeSummary(store, monitor, last, await rollUpHour(store, monitor, last, now));
   }
 } catch (error) {
   if (error instanceof ResourceNotFoundException) {

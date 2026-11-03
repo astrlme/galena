@@ -5,7 +5,16 @@ import {
   QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 import type { MonitorId, MonitorsFile } from "@galena/contracts";
-import { type Clock, dayKey, hourKey, mergeRollups, type Rollup, rollUp } from "@galena/core";
+import {
+  type Clock,
+  dayKey,
+  hourKey,
+  mergeRollups,
+  type Rollup,
+  rollUp,
+  summarize,
+  summaryWindow,
+} from "@galena/core";
 import {
   DAY_TTL_SECONDS,
   HOUR_TTL_SECONDS,
@@ -17,6 +26,7 @@ import {
   regionDayKey,
   regionHourKey,
   regionRollupOf,
+  SUMMARY_KEY,
   spanKeys,
 } from "@galena/integrations/telemetry";
 
@@ -39,9 +49,9 @@ const HOUR = 60 * 60 * 1000;
 const empty = (): Rollup => ({ regions: new Map(), minutes: { minutes: 0, down: 0 } });
 
 /**
- * Rolls the hour before `clock` up for every monitor; the run after midnight also rolls up the
- * day that just ended. Every item is written whole under a key fixed by its hour or day, so a
- * retried or repeated run writes the same items again.
+ * Rolls the hour before `clock` up for every monitor, then its summary; the run after midnight
+ * also rolls up the day that just ended. Every item is written whole under a key fixed by its
+ * hour or day, so a retried or repeated run writes the same items again.
  */
 export async function rollUpTelemetry(deps: {
   clock: Clock;
@@ -56,12 +66,14 @@ export async function rollUpTelemetry(deps: {
     const last = await rollUpHour(deps.store, monitor, start, now);
     // Known limit: a monitor paused or removed before midnight keeps its hours but gets no day;
     // that needs the list of every monitor that ran that day, not today's.
-    if (!day) continue;
-    // The earlier hours were written an hour or more ago. The last, milliseconds ago, is merged
-    // as rolled up rather than read back from an eventually consistent query.
-    const pk = monitorKey(monitor.id);
-    const earlier = await storedHours(deps.store, pk, `${day}T00`, `${day}T22`);
-    await writeDay(deps.store, pk, day, mergeRollups(earlier, last));
+    if (day) {
+      // The earlier hours were written an hour or more ago. The last, milliseconds ago, is
+      // merged as rolled up rather than read back from an eventually consistent query.
+      const pk = monitorKey(monitor.id);
+      const earlier = await storedHours(deps.store, pk, `${day}T00`, `${day}T22`);
+      await writeDay(deps.store, pk, day, mergeRollups(earlier, last));
+    }
+    await writeSummary(deps.store, monitor, start, last);
   }
   return { hour: hourKey(start), monitors: monitors.length, day };
 }
@@ -109,6 +121,38 @@ export async function rollUpHour(
     ]);
   }
   return rollup;
+}
+
+/**
+ * Writes the monitor's summary to the hour from `start`, whose rollup `last` is passed in as just
+ * rolled up; the rest is read back. Nothing is written while it has no checks in the 30 days.
+ * Known limit: one `SUMMARY` key, replaced whole, so a retry of an older hour that runs after a
+ * newer one puts the older summary back until the next run; a conditional put on `through` would
+ * stop it.
+ */
+export async function writeSummary(
+  store: TelemetryStore,
+  monitor: MonitorToRoll,
+  start: number,
+  last: Rollup,
+): Promise<void> {
+  const pk = monitorKey(monitor.id);
+  const window = summaryWindow(start);
+  const hours = [
+    ...(await store.query(pk, spanKeys("H", window.hours.from, window.hours.to))).map(
+      regionRollupOf,
+    ),
+    ...[...last.regions].map(([region, rollup]) => ({ at: hourKey(start), region, rollup })),
+  ];
+  const minutes = [
+    ...(await store.query(pk, spanKeys("UD", window.days.from, window.days.to))).map(minutesOf),
+    ...(window.today
+      ? (await store.query(pk, spanKeys("UH", window.today.from, window.today.to))).map(minutesOf)
+      : []),
+    last.minutes,
+  ];
+  if (hours.length === 0 && minutes.every((m) => m.minutes === 0)) return;
+  await store.write([{ pk, sk: SUMMARY_KEY, ...summarize(start, hours, minutes) }]);
 }
 
 async function storedHours(store: TelemetryStore, pk: string, from: string, to: string) {
