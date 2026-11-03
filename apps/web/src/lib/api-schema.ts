@@ -737,7 +737,93 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Pause or resume several monitors at once
+         * @description Every id must be one of this workspace's monitors, or nothing changes. Probes pick the change up with the next config publish.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        ids: string[];
+                        enabled: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Those monitors as they are now */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            monitors: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                componentId: string | null;
+                                name: string;
+                                /** @enum {string} */
+                                type: "http";
+                                http: {
+                                    /** Format: uri */
+                                    url: string;
+                                    /**
+                                     * @default GET
+                                     * @enum {string}
+                                     */
+                                    method: "GET" | "HEAD";
+                                    expectedStatus?: number[];
+                                    keyword?: string;
+                                    /** @default 10000 */
+                                    timeoutMs: number;
+                                    /** @default true */
+                                    followRedirects: boolean;
+                                };
+                                /**
+                                 * @default approve
+                                 * @enum {string}
+                                 */
+                                publishPolicy: "auto" | "approve" | "internal_only";
+                                /**
+                                 * @default major_outage
+                                 * @enum {string}
+                                 */
+                                downStatus: "partial_outage" | "major_outage";
+                                /** @default {} */
+                                detection: {
+                                    /** @default 2 */
+                                    failThreshold: number;
+                                    /** @default 3 */
+                                    recoverThreshold: number;
+                                    /** @default 2 */
+                                    quorum: number;
+                                    /** @default null */
+                                    degradedLatencyMs: number | null;
+                                    /** @default 3 */
+                                    staleAfterIntervals: number;
+                                    /** @default 30 */
+                                    flapWindowMinutes: number;
+                                    /** @default 4 */
+                                    flapMaxTransitions: number;
+                                    /** @default 15 */
+                                    stableMinutes: number;
+                                };
+                                /** @default true */
+                                enabled: boolean;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/v1/monitors/telemetry": {

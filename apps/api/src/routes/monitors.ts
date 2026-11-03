@@ -5,6 +5,7 @@ import {
   monitorId,
   monitorInput,
   monitorSeries,
+  monitorsEnabledInput,
   monitorTelemetry,
   monitorUptime,
   monitorView,
@@ -223,6 +224,43 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
         monitorRepository(tx).save(updated),
       );
       return c.json(toView(updated), 200);
+    },
+  );
+
+  app.openapi(
+    createRoute({
+      method: "patch",
+      path: "/v1/monitors",
+      tags: ["Monitors"],
+      summary: "Pause or resume several monitors at once",
+      description:
+        "Every id must be one of this workspace's monitors, or nothing changes. Probes pick the change up with the next config publish.",
+      middleware: [editor],
+      request: jsonBody(monitorsEnabledInput),
+      responses: {
+        200: json(z.object({ monitors: z.array(monitorView) }), "Those monitors as they are now"),
+      },
+    }),
+    async (c) => {
+      const member = c.get("member");
+      const { ids, enabled } = c.req.valid("json");
+      const wanted = new Set(ids);
+      const found = (await monitors.listByWorkspace(member.workspaceId)).filter((m) =>
+        wanted.has(m.id),
+      );
+      if (found.length < wanted.size) notFound("Monitor");
+      const changed = found.filter((m) => m.enabled !== enabled).map((m) => ({ ...m, enabled }));
+      if (changed.length > 0) {
+        const changedIds = changed.map((m) => m.id);
+        await commit(
+          deps,
+          changeOf(member, "monitor", "updated", changedIds, { enabled, ids: changedIds }),
+          async (tx) => {
+            for (const monitor of changed) await monitorRepository(tx).save(monitor);
+          },
+        );
+      }
+      return c.json({ monitors: found.map((m) => toView({ ...m, enabled })) }, 200);
     },
   );
 

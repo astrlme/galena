@@ -340,6 +340,43 @@ test("a monitor's month says its minutes down and the incidents it opened, nobod
   expect((await owner.call(`/v1/monitors/${watched.id}/uptime?month=2026-13`)).status).toBe(400);
 });
 
+test("pauses two monitors in one change, and refuses a list with someone else's monitor", async () => {
+  const first = await create({ name: "Bulk one", http: { url: "https://one.example.com/" } });
+  const second = await create({ name: "Bulk two", http: { url: "https://two.example.com/" } });
+  const kept = await create({ name: "Bulk kept", http: { url: "https://kept.example.com/" } });
+  const before = (await deps.db.select().from(schema.auditLog)).length;
+
+  const response = await owner.call(
+    "/v1/monitors",
+    { ids: [first.id, second.id], enabled: false },
+    "PATCH",
+  );
+  expect(response.status).toBe(200);
+  const body = (await response.json()) as { monitors: { id: string; enabled: boolean }[] };
+  expect(body.monitors.map((m) => [m.id, m.enabled])).toEqual([
+    [first.id, false],
+    [second.id, false],
+  ]);
+  const enabled = new Map((await list()).map((m) => [m.id, m.enabled]));
+  expect([enabled.get(first.id), enabled.get(second.id), enabled.get(kept.id)]).toEqual([
+    false,
+    false,
+    true,
+  ]);
+  // One audit entry and one outbox event name both monitors.
+  const audit = await deps.db.select().from(schema.auditLog);
+  expect(audit).toHaveLength(before + 1);
+  expect(audit.at(-1)).toMatchObject({ action: "monitor.updated", targetId: null });
+
+  await expectProblem(
+    await owner.call("/v1/monitors", { ids: [kept.id, v7()], enabled: false }, "PATCH"),
+    404,
+    "not_found",
+  );
+  expect((await list()).find((m) => m.id === kept.id)?.enabled).toBe(true);
+  expect((await owner.call("/v1/monitors", { ids: [], enabled: false }, "PATCH")).status).toBe(400);
+});
+
 test("a viewer may list but not change monitors", async () => {
   await deps.db
     .update(schema.member)
@@ -349,6 +386,11 @@ test("a viewer may list but not change monitors", async () => {
   expect((await owner.call("/v1/monitors/telemetry")).status).toBe(200);
   await expectProblem(
     await owner.call("/v1/monitors", { name: "Nope", http: { url: "https://example.com/" } }),
+    403,
+    "forbidden",
+  );
+  await expectProblem(
+    await owner.call("/v1/monitors", { ids: [v7()], enabled: false }, "PATCH"),
     403,
     "forbidden",
   );
