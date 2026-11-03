@@ -1,4 +1,11 @@
-import { type MonitorId, storedCheck, storedMinutes, storedRegionRollup } from "@galena/contracts";
+import {
+  type MonitorId,
+  type MonitorSummary,
+  monitorSummary,
+  storedCheck,
+  storedMinutes,
+  storedRegionRollup,
+} from "@galena/contracts";
 import type { MinuteCounts, RawCheck, RegionRollup } from "@galena/core";
 
 // Rollups in the telemetry table, next to the raw checks under the monitor's `MON#<id>`:
@@ -6,6 +13,7 @@ import type { MinuteCounts, RawCheck, RegionRollup } from "@galena/core";
 //   D#<YYYY-MM-DD>#<region>     one region's day         (kept 400 days)
 //   UH#<YYYY-MM-DDTHH>          the monitor's minutes, an hour (kept 30 days)
 //   UD#<YYYY-MM-DD>             the monitor's minutes, a day   (kept 400 days)
+//   SUMMARY                     its last 24 hours and 30 days, for the monitors list (replaced hourly)
 // Minutes live under their own prefixes, so a chart's range reads regions only: 90 days of three
 // regions is 270 items.
 
@@ -18,6 +26,7 @@ export const regionHourKey = (hour: string, region: string) => `H#${hour}#${regi
 export const regionDayKey = (day: string, region: string) => `D#${day}#${region}`;
 export const minutesHourKey = (hour: string) => `UH#${hour}`;
 export const minutesDayKey = (day: string) => `UD#${day}`;
+export const SUMMARY_KEY = "SUMMARY";
 
 /** The first and last sort key of a span of one kind, for a `BETWEEN` query. */
 export const spanKeys = (prefix: "R" | "H" | "D" | "UH" | "UD", from: string, to: string) => ({
@@ -35,6 +44,8 @@ export function regionRollupOf(item: Item): { at: string; region: string; rollup
 }
 
 export const minutesOf = (item: Item): MinuteCounts => storedMinutes.parse(item);
+
+export const summaryOf = (item: Item): MonitorSummary => monitorSummary.parse(item);
 
 /** A raw check item (`R#<scheduledAt>#<region>`, written by the evaluator) as a rollup reads it. */
 export function rawCheckOf(item: Item): RawCheck {
