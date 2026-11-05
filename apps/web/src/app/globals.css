@@ -2,6 +2,8 @@
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 @import "fumadocs-openapi/css/preset.css";
+/* uPlot's positioning, layered under the utilities so the tokens can restyle its cursor. */
+@import "uplot/dist/uPlot.min.css" layer(base);
 
 /* The fonts come from next/font in the root layout, under generated family names. */
 @theme inline {
