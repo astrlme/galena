@@ -1,7 +1,7 @@
 import type { SeriesRange, SeriesStep } from "@galena/contracts";
 import { assertNever } from "../assert-never.ts";
 import { quantileOf } from "./histogram.ts";
-import type { Mean, RegionRollup } from "./rollup.ts";
+import { type Mean, type MinuteCounts, mergeRegions, type RegionRollup } from "./rollup.ts";
 
 /** One chart point for one region: an hour or a day of its checks. */
 export type SeriesPoint = {
@@ -31,6 +31,15 @@ export function pointOf(rollup: RegionRollup): SeriesPoint {
       ttfb: meanOf(rollup.phases.ttfb),
     },
   };
+}
+
+/**
+ * A whole range of rollups as one point, merged before any quantile: the range's own p95, which
+ * no average of its points' p95s gives. Null without any.
+ */
+export function totalOf(rollups: readonly RegionRollup[]): SeriesPoint | null {
+  const [first, ...rest] = rollups;
+  return first ? pointOf(rest.reduce(mergeRegions, first)) : null;
 }
 
 /** Which items a range reads, and their first and last keys (UTC, inclusive). */
@@ -68,6 +77,60 @@ export function seriesWindow(range: SeriesRange, now: Date): SeriesWindow {
     default:
       return assertNever(range);
   }
+}
+
+/** A window's first span's start and its last span's end, as instants. */
+export function windowSpan({ source, from, to }: SeriesWindow): { from: Date; to: Date } {
+  const start = (key: string) =>
+    Date.parse(source === "hour" ? `${key}:00:00.000Z` : `${key}T00:00:00.000Z`);
+  return {
+    from: new Date(start(from)),
+    to: new Date(start(to) + (source === "hour" ? HOUR : DAY)),
+  };
+}
+
+/** A chart point with the span it covers and its region. */
+export type PointAt = SeriesPoint & { at: string; region: string };
+/** A whole range as one point: for one region, or for all of them together (`null`). */
+export type Total = SeriesPoint & { region: string | null };
+
+/**
+ * A chart's rollups as its points, oldest first then by region, and its totals: each region's
+ * whole range, then all regions together.
+ */
+export function seriesOf(
+  rollups: readonly { at: string; region: string; rollup: RegionRollup }[],
+): {
+  points: PointAt[];
+  totals: Total[];
+} {
+  const points = rollups
+    .map(({ at, region, rollup }) => ({ at, region, ...pointOf(rollup) }))
+    .toSorted((a, b) => a.at.localeCompare(b.at) || a.region.localeCompare(b.region));
+  const byRegion = Map.groupBy(rollups, (r) => r.region);
+  const totals: Total[] = [...byRegion.keys()].toSorted().flatMap((region) => {
+    const total = totalOf((byRegion.get(region) ?? []).map((r) => r.rollup));
+    return total ? [{ region, ...total }] : [];
+  });
+  const all = totalOf(rollups.map((r) => r.rollup));
+  return { points, totals: all ? [...totals, { region: null, ...all }] : totals };
+}
+
+/**
+ * The 90 days ending `today` (`YYYY-MM-DD`), oldest first: each from its day rollup, or, until
+ * that is written after midnight, from its hours; a day with neither has no data.
+ */
+export function ninetyDays(
+  today: string,
+  days: ReadonlyMap<string, MinuteCounts>,
+  hours: ReadonlyMap<string, MinuteCounts>,
+): { date: string; minutes: number; minutesDown: number }[] {
+  const end = Date.parse(`${today}T00:00:00.000Z`);
+  return Array.from({ length: 90 }, (_, i) => {
+    const date = dayKey(end - (89 - i) * DAY);
+    const counted = days.get(date) ?? hours.get(date) ?? { minutes: 0, down: 0 };
+    return { date, minutes: counted.minutes, minutesDown: counted.down };
+  });
 }
 
 /**
