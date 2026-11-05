@@ -1,3 +1,4 @@
+import { monitorAnswer } from "./charts.ts";
 import { demoData } from "./data.ts";
 
 // The demo build's stand-in for the network: the dashboard's requests are answered here, in the
@@ -44,7 +45,18 @@ export async function demoFetch(request: Request): Promise<Response> {
     ...Object.fromEntries(data.incidents.map((i) => [`/v1/incidents/${i.id}`, i])),
   };
   const log = /^\/v1\/webhook-endpoints\/([^/]+)\/deliveries$/.exec(url.pathname);
-  const body = log ? (data.deliveries[log[1] ?? ""] ?? []) : routes[url.pathname];
+  const chart = /^\/v1\/monitors\/([^/]+)\/(series|days|checks)$/.exec(url.pathname);
+  const body = log
+    ? (data.deliveries[log[1] ?? ""] ?? [])
+    : chart
+      ? monitorAnswer(
+          data,
+          chart[1] ?? "",
+          chart[2] ?? "",
+          url.searchParams.get("range"),
+          new Date(),
+        )
+      : routes[url.pathname];
   return body === undefined
     ? problem(404, "not_found", `The demo has nothing at ${url.pathname}.`)
     : json(body);
