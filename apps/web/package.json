@@ -37,6 +37,8 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1141.0",
+    "@aws-sdk/lib-dynamodb": "^3.1141.0",
     "@axe-core/playwright": "^4.13.0",
     "@galena/config": "workspace:*",
     "@playwright/test": "^1.63.0",

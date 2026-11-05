@@ -335,6 +335,12 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
+      '@aws-sdk/client-dynamodb':
+        specifier: ^3.1141.0
+        version: 3.1141.0
+      '@aws-sdk/lib-dynamodb':
+        specifier: ^3.1141.0
+        version: 3.1141.0(@aws-sdk/client-dynamodb@3.1141.0)
       '@axe-core/playwright':
         specifier: ^4.13.0
         version: 4.13.0(playwright-core@1.63.0)
