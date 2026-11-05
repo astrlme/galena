@@ -20,7 +20,8 @@ const SETTINGS_PARTS = [
 
 /**
  * Ctrl/Cmd+K: find a monitor, incident or component by typing part of its name, or start a page's
- * main action. Each command goes where a person would; a monitor or an action also opens its form.
+ * main action. Each command goes where a person would: a monitor to its page, and an action also
+ * opens its form.
  */
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
@@ -60,7 +61,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         id: `m:${m.id}`,
         label: m.name,
         hint: m.http.url,
-        run: go("/dashboard/monitors/", `monitor:${m.id}`),
+        run: go(`/dashboard/monitors/view/?id=${m.id}`),
       })),
     },
     {

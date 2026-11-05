@@ -1,6 +1,7 @@
 "use client";
 
 import { SEVERITY_RANK } from "@galena/core";
+import Link from "next/link";
 import { useState } from "react";
 import { Button, buttonClass } from "../../../components/button.tsx";
 import { control } from "../../../components/field.tsx";
@@ -57,12 +58,17 @@ const columns = col.columns([
     id: "name",
     header: "Name",
     sortFn: "text",
-    // The URL is in the tooltip, so a row stays one line; search matches it too. A long word
-    // (a URL as a name, say) breaks anywhere rather than widening the table.
+    // The name opens the monitor's page. The URL is in the tooltip, so a row stays one line;
+    // search matches it too. A long word (a URL as a name, say) breaks anywhere rather than
+    // widening the table.
     cell: ({ row: { original: r } }) => (
-      <span className="font-semibold [overflow-wrap:anywhere]" title={r.monitor.http.url}>
+      <Link
+        href={`/dashboard/monitors/view/?id=${r.id}`}
+        title={r.monitor.http.url}
+        className="font-semibold [overflow-wrap:anywhere] hover:underline"
+      >
         {r.monitor.name}
-      </span>
+      </Link>
     ),
   }),
   col.display({

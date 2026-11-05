@@ -41,6 +41,9 @@ const POLICIES: { value: PublishPolicy; label: string; help: string }[] = [
   },
 ];
 
+/** How a monitor's incidents publish, in the form's words. */
+export const policyLabel = (value: PublishPolicy) => POLICIES.find((p) => p.value === value)?.label;
+
 const EMPTY: FormIn = {
   name: "",
   componentId: null,

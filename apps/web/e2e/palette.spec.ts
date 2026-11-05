@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { expectAccessible, rowAction, signIn } from "./helpers.ts";
+import { expectAccessible, signIn } from "./helpers.ts";
 
 /** A monitor of this run's own, added through the form. */
 async function addMonitor(page: Page, name: string) {
@@ -12,7 +12,9 @@ async function addMonitor(page: Page, name: string) {
   await expect(form).toBeHidden();
 }
 
-test("Ctrl+K finds a monitor by part of its name and opens it", async ({ page }, testInfo) => {
+test("Ctrl+K finds a monitor by part of its name and opens its page", async ({
+  page,
+}, testInfo) => {
   const stamp = `${testInfo.project.name.replace(/\W/g, "")}${Date.now()}`;
   const name = `Palette check ${stamp}`;
   await signIn(page);
@@ -28,17 +30,15 @@ test("Ctrl+K finds a monitor by part of its name and opens it", async ({ page },
   await expectAccessible(page);
   await page.keyboard.press("Enter");
 
-  const edit = page.getByRole("form", { name: `Edit ${name}` });
-  await expect(edit).toBeVisible();
-  await expect(edit.getByLabel("Monitor name")).toHaveValue(name);
-  await page.keyboard.press("Escape");
+  // A monitor opens its own page.
+  await expect(page).toHaveURL(/\/dashboard\/monitors\/view\/\?id=/);
+  await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
 
-  const row = page.getByRole("row").filter({ hasText: name });
-  await rowAction(row, name, "Delete");
+  await page.getByRole("button", { name: "Delete monitor" }).click();
   const dialog = page.getByRole("dialog", { name: `Delete ${name}?` });
   await dialog.getByLabel("Type the monitor name").fill(name);
   await dialog.getByRole("button", { name: "Delete monitor" }).click();
-  await expect(row).toHaveCount(0);
+  await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(0);
 });
 
 test("the Search button opens the same palette, and an action starts its form", async ({
