@@ -1,7 +1,7 @@
 ---
 import type { SnapshotDay, SnapshotIncident } from "@galena/contracts";
+import { dayDetail, describeDay, STRIP_ROW, stripPaths, stripWidth } from "@galena/contracts/strip";
 import { utcDay } from "../lib/format.ts";
-import { dayDetail, describeDay, ROW, stripPaths, stripWidth } from "../lib/strip.ts";
 
 interface Props {
   name: string;
@@ -39,10 +39,10 @@ const listed = days.filter((d) => d.worst !== null && d.worst !== "operational")
     data-empty={empty}
     data-days={JSON.stringify(details)}
   >
-    <svg width={width} height={ROW} viewBox={`0 0 ${width} ${ROW}`} aria-hidden="true">
-      <rect class="baseline" x="0" y={ROW - 1} width={width} height="1"></rect>
+    <svg width={width} height={STRIP_ROW} viewBox={`0 0 ${width} ${STRIP_ROW}`} aria-hidden="true">
+      <rect class="baseline" x="0" y={STRIP_ROW - 1} width={width} height="1"></rect>
       {stripPaths(days).map((p) => <path class={p.className} d={p.d}></path>)}
-      <rect class="strip-cursor" data-strip-cursor x="0" y="0" width="6" height={ROW} hidden></rect>
+      <rect class="strip-cursor" data-strip-cursor x="0" y="0" width="6" height={STRIP_ROW} hidden></rect>
     </svg>
   </div>
   <div class="strip-tip" data-strip-tip hidden></div>

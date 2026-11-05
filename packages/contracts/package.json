@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./copy": "./src/copy.ts"
+    "./copy": "./src/copy.ts",
+    "./strip": "./src/strip.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

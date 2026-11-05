@@ -1,22 +1,27 @@
-import {
-  type ComponentStatus,
-  componentStatuses,
-  componentStatusLabels,
-  type SnapshotDay,
-  type SnapshotIncident,
-} from "@galena/contracts";
-import { unit } from "./format.ts";
+import { componentStatusLabels } from "./copy.ts";
+import { type ComponentStatus, componentStatuses } from "./enums.ts";
+import type { SnapshotDay } from "./snapshot.ts";
 
+/** What a day's popover reads of an incident: a snapshot's, or a monitor's own. */
+export type DayIncident = {
+  title: string;
+  startedAt: string;
+  resolvedAt: string | null;
+  components: readonly { componentId: string; status: ComponentStatus }[];
+};
+
+// Shared by the status page, which draws it at build time, and the dashboard.
+//
 // The signal strip: one column per day, 4 px wide with 2 px gaps, in a 28 px row on a 1 px
 // baseline. A day with data is a green column. Each worse state it reached takes a foot in its
 // own colour, as tall as its share of the day (at least 8 px for an outage, 3 px otherwise; worst
 // at the bottom), and the green resumes 1 px above, so a foot's outline reads without colour
 // too. One path per kind of mark keeps 90 days to a few hundred bytes.
 
-export const MARK = 4;
-export const GAP = 2;
-export const ROW = 28;
-const BASELINE = ROW - 1;
+export const STRIP_MARK = 4;
+export const STRIP_GAP = 2;
+export const STRIP_ROW = 28;
+const BASELINE = STRIP_ROW - 1;
 /** A full column, the whole row above the baseline. */
 const FULL = BASELINE;
 /** The shortest foot, so a few minutes still show; an outage is never easy to miss. */
@@ -53,9 +58,11 @@ const SEVERITY_HEIGHT: Record<(typeof FEET)[number], number> = {
   under_maintenance: 1,
 };
 
-export const stripWidth = (days: number) => days * (MARK + GAP) - GAP;
+const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-const rect = (x: number, y: number, h: number) => `M${x} ${y}h${MARK}v${h}h-${MARK}z`;
+export const stripWidth = (days: number) => days * (STRIP_MARK + STRIP_GAP) - STRIP_GAP;
+
+const rect = (x: number, y: number, h: number) => `M${x} ${y}h${STRIP_MARK}v${h}h-${STRIP_MARK}z`;
 
 /** The feet of one day, bottom up: each state and its height in px. */
 function feet(day: SnapshotDay): Array<[ComponentStatus, number]> {
@@ -77,7 +84,7 @@ export function stripPaths(days: readonly SnapshotDay[]): { className: string; d
   const add = (mark: Mark, segment: string) =>
     byMark.set(mark, [...(byMark.get(mark) ?? []), segment]);
   for (const [i, day] of days.entries()) {
-    const x = i * (MARK + GAP);
+    const x = i * (STRIP_MARK + STRIP_GAP);
     if (day.worst === null) {
       add("none", `M${x + 1.5} ${BASELINE - 1}h1v1h-1z`); // a 1 px dot on the baseline
       continue;
@@ -95,6 +102,27 @@ export function stripPaths(days: readonly SnapshotDay[]): { className: string; d
     className: CLASSES[mark],
     d: segments.join(""),
   }));
+}
+
+/**
+ * A monitor's day as the strip draws a component's: the minutes a quorum of regions saw it down
+ * are spent in the state it marks while down. A day without checks is no data.
+ */
+export function monitorStripDay(
+  day: { date: string; minutes: number; minutesDown: number },
+  downStatus: ComponentStatus,
+): SnapshotDay {
+  if (day.minutes === 0) return { date: day.date, worst: null, downMinutes: 0 };
+  const up = day.minutes - day.minutesDown;
+  return {
+    date: day.date,
+    worst: day.minutesDown > 0 ? downStatus : "operational",
+    downMinutes: day.minutesDown,
+    minutes: {
+      ...(up > 0 ? { operational: up } : {}),
+      ...(day.minutesDown > 0 ? { [downStatus]: day.minutesDown } : {}),
+    },
+  };
 }
 
 /** What a day says in words, for the hidden table and the keyboard label. */
@@ -122,7 +150,7 @@ const DAY_MS = 86_400_000;
  */
 export function dayDetail(
   day: SnapshotDay,
-  incidents: readonly SnapshotIncident[],
+  incidents: readonly DayIncident[],
   componentId: string,
   now: string,
 ): DayDetail | undefined {

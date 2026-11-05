@@ -1,6 +1,6 @@
 import type { ComponentStatus } from "@galena/contracts";
 import { componentStatusLabels } from "@galena/contracts/copy";
-import type { DayDetail } from "../lib/strip.ts";
+import type { DayDetail } from "@galena/contracts/strip";
 
 // The signal strip for keyboards and pointers: one focusable element per strip; arrow keys (and
 // Home, End) move between days, the day is read out through a polite live region, and hover or
