@@ -54,6 +54,22 @@ name's URL shows when you hover it), and every column with a number sorts when y
 heading. On a narrow screen the list keeps the state and name, and the other columns appear as
 there is room.
 
+## A monitor's page
+
+A monitor's name, in the list or in search (Ctrl K), opens its page:
+
+- **Response times** for the last 24 hours, 7, 30 or 90 days: one chart per region on a shared
+  scale, the median as a solid line and the p95 dashed, with incidents the monitor opened hatched
+  behind them. Hover a chart for that hour's or day's numbers and where its time went (DNS,
+  connect, TLS, first byte). Under each chart a sentence gives the range in numbers, and **Show as
+  table** lists every point. The median and p95 above the charts count every region's answers
+  together.
+- **Uptime**: the last 90 days, one mark per day, as the status page draws them. Use the arrow
+  keys on it to hear each day.
+- **Last hour**: one mark per minute, and every check that failed in it with the probe's reason.
+
+Charts come from hourly and daily rollups, so the newest hour appears at five past the next.
+
 ## Pausing
 
 **Pause** stops the checks without deleting the monitor or its history. While paused, the
