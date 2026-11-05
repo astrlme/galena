@@ -25,6 +25,7 @@ import { registerIncidentRoutes } from "./routes/incidents.ts";
 import { registerIntegrationRoutes } from "./routes/integrations.ts";
 import { registerInternalPageRoutes } from "./routes/internal-page.ts";
 import { registerMaintenanceRoutes } from "./routes/maintenance.ts";
+import { registerMonitorChartRoutes } from "./routes/monitor-charts.ts";
 import { registerMonitorRoutes } from "./routes/monitors.ts";
 import { registerNotificationRoutes } from "./routes/notifications.ts";
 import { registerPublicRoutes } from "./routes/public.ts";
@@ -323,6 +324,7 @@ export function createApp(deps: Deps) {
 
   registerComponentRoutes(app, deps);
   registerMonitorRoutes(app, deps);
+  registerMonitorChartRoutes(app, deps);
   registerIncidentRoutes(app, deps);
   registerMaintenanceRoutes(app, deps);
   registerApiKeyRoutes(app, deps);
