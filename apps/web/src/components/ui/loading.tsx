@@ -14,6 +14,7 @@ export function Loading({
   className = "mt-8",
   table = false,
   framed = true,
+  blocks,
 }: {
   label: string;
   rows?: number;
@@ -22,6 +23,8 @@ export function Loading({
   table?: boolean;
   /** Off inside a card that already draws the frame. */
   framed?: boolean;
+  /** Still blocks of these heights in px instead of rows: a chart, a strip. */
+  blocks?: number[];
 }) {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
@@ -35,22 +38,31 @@ export function Loading({
       ) : (
         <>
           <span className="sr-only">{label}</span>
-          <div
-            aria-hidden="true"
-            className={framed ? "rounded-xl border border-mist bg-surface" : undefined}
-          >
-            {table && <div className="h-9 border-b border-mist" />}
-            {Array.from({ length: rows }, (_, i) => (
-              <div
-                // biome-ignore lint/suspicious/noArrayIndexKey: identical placeholder rows
-                key={i}
-                className={`flex ${table ? "h-9" : "h-14"} items-center gap-4 border-b border-mist px-4 last:border-b-0`}
-              >
-                <span className="h-3 w-40 rounded-[6px] bg-mist" />
-                <span className="h-3 w-24 rounded-[6px] bg-mist" />
-              </div>
-            ))}
-          </div>
+          {blocks ? (
+            <div aria-hidden="true" className="flex flex-col gap-8">
+              {blocks.map((height, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: identical placeholder blocks
+                <div key={i} style={{ height }} className="rounded-xl bg-mist" />
+              ))}
+            </div>
+          ) : (
+            <div
+              aria-hidden="true"
+              className={framed ? "rounded-xl border border-mist bg-surface" : undefined}
+            >
+              {table && <div className="h-9 border-b border-mist" />}
+              {Array.from({ length: rows }, (_, i) => (
+                <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: identical placeholder rows
+                  key={i}
+                  className={`flex ${table ? "h-9" : "h-14"} items-center gap-4 border-b border-mist px-4 last:border-b-0`}
+                >
+                  <span className="h-3 w-40 rounded-[6px] bg-mist" />
+                  <span className="h-3 w-24 rounded-[6px] bg-mist" />
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
