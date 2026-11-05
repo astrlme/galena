@@ -178,7 +178,7 @@ test("a 90-day chart reads one item per region per day, and a month adds its day
   } as unknown as typeof doc;
   const telemetry = dynamoTelemetry(counted, "telemetry", REGIONS);
 
-  const points = await telemetry.series(CHARTED, seriesWindow("90d", now));
+  const { points, totals } = await telemetry.series(CHARTED, seriesWindow("90d", now));
   expect(points).toHaveLength(270);
   expect(read).toBeLessThanOrEqual(300);
   expect(points.find((p) => p.at === "2026-11-01" && p.region === "eu-west-1")).toMatchObject({
@@ -186,6 +186,18 @@ test("a 90-day chart reads one item per region per day, and a month adds its day
     down: 1,
     maxMs: 100,
   });
+  // Its uptime, read on its own: 90 days of 1440 minutes, two of each down.
+  expect(await telemetry.uptime(CHARTED, seriesWindow("90d", now))).toEqual({
+    minutes: 90 * 1440,
+    down: 180,
+  });
+  // Each region's 90 days, then all three together.
+  expect(totals.map((t) => [t.region, t.checks, t.down])).toEqual([
+    ["eu-north-1", 180, 90],
+    ["eu-west-1", 180, 90],
+    ["eu-west-3", 180, 90],
+    [null, 540, 270],
+  ]);
 
   // October: 31 days of 1440 minutes, two of each down.
   expect(await telemetry.minutes(CHARTED, "2026-10", "2026-11-02")).toEqual({

@@ -11,6 +11,7 @@ import {
   count,
   desc,
   eq,
+  gt,
   gte,
   inArray,
   isNotNull,
@@ -298,7 +299,15 @@ export function listDrafts(db: Db) {
     .limit(MAX_INCIDENTS);
 }
 
-/** How many incidents a monitor opened from `from` up to `to`, dismissed drafts and deleted ones aside. */
+/** A monitor's own incidents, dismissed drafts and deleted ones aside. */
+const monitorsOwn = (workspaceId: WorkspaceId, monitorId: MonitorId) => [
+  eq(incident.workspaceId, workspaceId),
+  eq(incident.dedupKey, monitorDedupKey(monitorId)),
+  isNull(incident.deletedAt),
+  sql`${incident.visibility}::text <> 'dismissed'`,
+];
+
+/** How many incidents a monitor opened from `from` up to `to`. */
 export async function countMonitorIncidents(
   db: Db,
   workspaceId: WorkspaceId,
@@ -310,13 +319,36 @@ export async function countMonitorIncidents(
     .from(incident)
     .where(
       and(
-        eq(incident.workspaceId, workspaceId),
-        eq(incident.dedupKey, monitorDedupKey(monitorId)),
+        ...monitorsOwn(workspaceId, monitorId),
         gte(incident.startedAt, span.from),
         lt(incident.startedAt, span.to),
-        isNull(incident.deletedAt),
-        sql`${incident.visibility}::text <> 'dismissed'`,
       ),
     );
   return row?.n ?? 0;
+}
+
+/** The incidents a monitor opened that overlap `from` to `to`, oldest first: open ones count to now. */
+export async function monitorIncidentsOverlapping(
+  db: Db,
+  workspaceId: WorkspaceId,
+  monitorId: MonitorId,
+  span: { from: Date; to: Date },
+): Promise<{ id: IncidentId; title: string; startedAt: Date; resolvedAt: Date | null }[]> {
+  return db
+    .select({
+      id: incident.id,
+      title: incident.title,
+      startedAt: incident.startedAt,
+      resolvedAt: incident.resolvedAt,
+    })
+    .from(incident)
+    .where(
+      and(
+        ...monitorsOwn(workspaceId, monitorId),
+        lt(incident.startedAt, span.to),
+        or(isNull(incident.resolvedAt), gt(incident.resolvedAt, span.from)),
+      ),
+    )
+    .orderBy(asc(incident.startedAt), asc(incident.id))
+    .limit(MAX_INCIDENTS);
 }

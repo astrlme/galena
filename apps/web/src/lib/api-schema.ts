@@ -1080,7 +1080,7 @@ export interface paths {
         };
         /**
          * A monitor's response times per region, for its chart
-         * @description `24h` and `7d` give hourly rollups, up to the last whole hour; `30d` and `90d` daily ones, up to yesterday. Each hour is rolled up at five past the next. Median and p95 count answers (up and degraded) only; phases are means, so they add up.
+         * @description `24h` and `7d` give hourly rollups, up to the last whole hour; `30d` and `90d` daily ones, up to yesterday. Each hour is rolled up at five past the next. Median and p95 count answers (up and degraded) only; phases are means, so they add up. `totals` are the whole range per region and then for all regions (`region: null`), from merged histograms; `uptime` is its minutes checked and down; `incidents` are the ones the monitor opened that overlap the range.
          */
         get: {
             parameters: {
@@ -1095,7 +1095,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Points oldest first, then by region */
+                /** @description Points oldest first, then by region; totals; incidents */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1106,6 +1106,8 @@ export interface paths {
                             range: "24h" | "7d" | "30d" | "90d";
                             /** @enum {string} */
                             step: "hour" | "day";
+                            from: string;
+                            to: string;
                             points: {
                                 at: string;
                                 region: string;
@@ -1120,6 +1122,33 @@ export interface paths {
                                     tls: number | null;
                                     ttfb: number | null;
                                 };
+                            }[];
+                            totals: {
+                                region: string | null;
+                                checks: number;
+                                down: number;
+                                medianMs: number | null;
+                                p95Ms: number | null;
+                                maxMs: number | null;
+                                phases: {
+                                    dns: number | null;
+                                    connect: number | null;
+                                    tls: number | null;
+                                    ttfb: number | null;
+                                };
+                            }[];
+                            uptime: {
+                                minutes: number;
+                                minutesDown: number;
+                            };
+                            incidents: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                                /** Format: date-time */
+                                startedAt: string;
+                                /** Format: date-time */
+                                resolvedAt: string | null;
                             }[];
                         };
                     };

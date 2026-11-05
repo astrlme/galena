@@ -2040,7 +2040,7 @@
           "Monitors"
         ],
         "summary": "A monitor's response times per region, for its chart",
-        "description": "`24h` and `7d` give hourly rollups, up to the last whole hour; `30d` and `90d` daily ones, up to yesterday. Each hour is rolled up at five past the next. Median and p95 count answers (up and degraded) only; phases are means, so they add up.",
+        "description": "`24h` and `7d` give hourly rollups, up to the last whole hour; `30d` and `90d` daily ones, up to yesterday. Each hour is rolled up at five past the next. Median and p95 count answers (up and degraded) only; phases are means, so they add up. `totals` are the whole range per region and then for all regions (`region: null`), from merged histograms; `uptime` is its minutes checked and down; `incidents` are the ones the monitor opened that overlap the range.",
         "parameters": [
           {
             "schema": {
@@ -2069,7 +2069,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Points oldest first, then by region",
+            "description": "Points oldest first, then by region; totals; incidents",
             "content": {
               "application/json": {
                 "schema": {
@@ -2090,6 +2090,12 @@
                         "hour",
                         "day"
                       ]
+                    },
+                    "from": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "string"
                     },
                     "points": {
                       "type": "array",
@@ -2183,12 +2189,158 @@
                           "phases"
                         ]
                       }
+                    },
+                    "totals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "region": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^[a-z]{2}(?:-gov)?-[a-z]+-\\d$"
+                          },
+                          "checks": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "down": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "medianMs": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "minimum": 0
+                          },
+                          "p95Ms": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "minimum": 0
+                          },
+                          "maxMs": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "minimum": 0
+                          },
+                          "phases": {
+                            "type": "object",
+                            "properties": {
+                              "dns": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "minimum": 0
+                              },
+                              "connect": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "minimum": 0
+                              },
+                              "tls": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "minimum": 0
+                              },
+                              "ttfb": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "dns",
+                              "connect",
+                              "tls",
+                              "ttfb"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "region",
+                          "checks",
+                          "down",
+                          "medianMs",
+                          "p95Ms",
+                          "maxMs",
+                          "phases"
+                        ]
+                      }
+                    },
+                    "uptime": {
+                      "type": "object",
+                      "properties": {
+                        "minutes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "minutesDown": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "minutes",
+                        "minutesDown"
+                      ]
+                    },
+                    "incidents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "startedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "resolvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "startedAt",
+                          "resolvedAt"
+                        ]
+                      }
                     }
                   },
                   "required": [
                     "range",
                     "step",
-                    "points"
+                    "from",
+                    "to",
+                    "points",
+                    "totals",
+                    "uptime",
+                    "incidents"
                   ]
                 }
               }

@@ -5,9 +5,10 @@ import {
   type MinuteCounts,
   mergeMinutes,
   monthSpan,
-  pointOf,
-  type SeriesPoint,
+  type PointAt,
   type SeriesWindow,
+  seriesOf,
+  type Total,
 } from "@galena/core";
 import {
   minutesOf,
@@ -31,16 +32,15 @@ export type MonitorReading = {
   summary: MonitorSummary | null;
 };
 
-/** A chart point with the span it covers and its region. */
-export type PointAt = SeriesPoint & { at: string; region: string };
-
 /** Reads what the evaluator and the rollup write; the API never writes telemetry. */
 export type Telemetry = {
   regions: readonly string[];
   /** Each monitor's state, summary and newest `minutes` of results. */
   read(ids: readonly MonitorId[], minutes: number): Promise<Map<MonitorId, MonitorReading>>;
-  /** A chart's points: hour or day rollups, as the window says. */
-  series(id: MonitorId, window: SeriesWindow): Promise<PointAt[]>;
+  /** A chart's points and totals, from hour or day rollups as the window says. */
+  series(id: MonitorId, window: SeriesWindow): Promise<{ points: PointAt[]; totals: Total[] }>;
+  /** A chart window's minutes checked and down: a small item an hour or a day. */
+  uptime(id: MonitorId, window: SeriesWindow): Promise<MinuteCounts>;
   /** A month's minutes (`YYYY-MM`): its rolled-up days, and today's hours while it is today's. */
   minutes(id: MonitorId, month: string, today: string): Promise<MinuteCounts>;
 };
@@ -132,10 +132,12 @@ export function dynamoTelemetry(
     regions,
     async series(id, { source, from, to }) {
       const prefix = source === "hour" ? "H" : "D";
-      return (await span(id, spanKeys(prefix, from, to))).map((item) => {
-        const { at, region, rollup } = regionRollupOf(item);
-        return { at, region, ...pointOf(rollup) };
-      });
+      return seriesOf((await span(id, spanKeys(prefix, from, to))).map(regionRollupOf));
+    },
+    async uptime(id, { source, from, to }) {
+      return (await span(id, spanKeys(source === "hour" ? "UH" : "UD", from, to)))
+        .map(minutesOf)
+        .reduce<MinuteCounts>(mergeMinutes, { minutes: 0, down: 0 });
     },
     async minutes(id, month, today) {
       const { days } = monthSpan(month);

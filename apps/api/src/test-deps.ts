@@ -6,7 +6,7 @@ import { guard } from "@galena/integrations/net";
 import { appKeys, LOCAL_APP_KEY } from "@galena/integrations/secrets";
 import type { Deps } from "./app.ts";
 import { createAuth } from "./auth.ts";
-import type { MonitorReading, PointAt, Telemetry } from "./telemetry.ts";
+import type { MonitorReading, Telemetry } from "./telemetry.ts";
 
 export const TEST_BASE_URL = "http://localhost:8787";
 
@@ -28,8 +28,9 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
   };
   // Telemetry the test sets directly instead of DynamoDB.
   const readings = new Map<MonitorId, MonitorReading>();
-  // A chart's points by monitor, and a month's minutes by `<monitorId> <YYYY-MM>`.
-  const points = new Map<MonitorId, PointAt[]>();
+  // Each monitor's chart and its uptime, and a month's minutes by `<monitorId> <YYYY-MM>`.
+  const charts = new Map<MonitorId, Awaited<ReturnType<Telemetry["series"]>>>();
+  const uptimes = new Map<MonitorId, MinuteCounts>();
   const months = new Map<string, MinuteCounts>();
   const telemetry: Telemetry = {
     regions: ["eu-west-1", "eu-west-3", "eu-north-1"],
@@ -42,7 +43,10 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
       );
     },
     async series(id) {
-      return points.get(id) ?? [];
+      return charts.get(id) ?? { points: [], totals: [] };
+    },
+    async uptime(id) {
+      return uptimes.get(id) ?? { minutes: 0, down: 0 };
     },
     async minutes(id, month, _today) {
       return months.get(`${id} ${month}`) ?? { minutes: 0, down: 0 };
@@ -62,7 +66,8 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
     } satisfies Deps,
     triggered,
     readings,
-    points,
+    charts,
+    uptimes,
     months,
     migrate,
     close,

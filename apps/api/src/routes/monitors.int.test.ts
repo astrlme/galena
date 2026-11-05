@@ -1,12 +1,12 @@
 import { type IncidentId, type MonitorId, monitorChanged, type OutboxId } from "@galena/contracts";
-import type { MinuteCounts } from "@galena/core";
+import type { MinuteCounts, PointAt } from "@galena/core";
 import { schema } from "@galena/db";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createApp, type Deps } from "../app.ts";
-import type { MonitorReading, PointAt } from "../telemetry.ts";
+import type { MonitorReading, Telemetry } from "../telemetry.ts";
 import { type Triggered, testDeps } from "../test-deps.ts";
 import { expectProblem, Session } from "../test-session.ts";
 
@@ -25,7 +25,8 @@ let close: (() => Promise<void>) | undefined;
 let deps: Deps;
 let triggered: Triggered[];
 let readings: Map<MonitorId, MonitorReading>;
-let points: Map<MonitorId, PointAt[]>;
+let charts: Map<MonitorId, Awaited<ReturnType<Telemetry["series"]>>>;
+let uptimes: Map<MonitorId, MinuteCounts>;
 let months: Map<string, MinuteCounts>;
 let owner: Session;
 
@@ -36,7 +37,8 @@ beforeAll(async () => {
   deps = built.deps;
   triggered = built.triggered;
   readings = built.readings;
-  points = built.points;
+  charts = built.charts;
+  uptimes = built.uptimes;
   months = built.months;
   close = built.close;
   owner = new Session(createApp(deps));
@@ -282,22 +284,59 @@ const point = (at: string, region: string): PointAt => ({
   phases: { dns: 5, connect: 10, tls: 20, ttfb: 100 },
 });
 
-test("a monitor's chart comes oldest first, then by region; an unknown monitor is a 404", async () => {
+/** A resolved incident the monitor opened; only one may be open at a time. */
+async function monitorIncident(
+  monitor: string,
+  title: string,
+  startedAt: Date,
+  resolvedAt: Date,
+  extra: Record<string, unknown> = {},
+) {
+  const [ws] = await deps.db.select().from(schema.workspace);
+  await deps.db.insert(schema.incident).values({
+    id: v7() as IncidentId,
+    workspaceId: ws?.id ?? expect.fail("no workspace"),
+    title,
+    status: "resolved" as const,
+    impact: "major" as const,
+    source: "monitor" as const,
+    dedupKey: `mon:${monitor}`,
+    startedAt,
+    resolvedAt,
+    ...extra,
+  });
+}
+
+test("a monitor's chart passes its points and totals on, with the incidents in its range", async () => {
   const charted = await create({ name: "Charted", http: { url: "https://chart.example.com/" } });
-  points.set(charted.id as MonitorId, [
-    point("2026-11-02T12", "eu-west-3"),
-    point("2026-11-02T11", "eu-west-1"),
-    point("2026-11-02T12", "eu-west-1"),
-  ]);
+  const points = [point("2026-11-02T11", "eu-west-1"), point("2026-11-02T12", "eu-west-1")];
+  const totals = [{ ...point("", "eu-west-1"), region: null }].map(({ at: _, ...t }) => t);
+  charts.set(charted.id as MonitorId, { points, totals });
+  uptimes.set(charted.id as MonitorId, { minutes: 600, down: 6 });
+  const ago = (hours: number) => new Date(Date.now() - hours * 3_600_000);
+  await monitorIncident(charted.id, "Inside", ago(30), ago(29));
+  await monitorIncident(charted.id, "Across the start", ago(8 * 24), ago(6 * 24));
+  // Outside the week, or never shown: not in the chart.
+  await monitorIncident(charted.id, "Before", ago(10 * 24), ago(9 * 24));
+  await monitorIncident(charted.id, "Dismissed", ago(20), ago(19), { visibility: "dismissed" });
+
   const response = await owner.call(`/v1/monitors/${charted.id}/series?range=7d`);
   expect(response.status).toBe(200);
-  const body = (await response.json()) as { range: string; step: string; points: PointAt[] };
-  expect(body).toMatchObject({ range: "7d", step: "hour" });
-  expect(body.points.map((p) => `${p.at} ${p.region}`)).toEqual([
-    "2026-11-02T11 eu-west-1",
-    "2026-11-02T12 eu-west-1",
-    "2026-11-02T12 eu-west-3",
-  ]);
+  const body = (await response.json()) as {
+    range: string;
+    step: string;
+    points: PointAt[];
+    totals: unknown[];
+    incidents: { title: string; resolvedAt: string | null }[];
+  };
+  expect(body).toMatchObject({
+    range: "7d",
+    step: "hour",
+    points,
+    totals,
+    uptime: { minutes: 600, minutesDown: 6 },
+  });
+  expect(body.incidents.map((i) => i.title)).toEqual(["Across the start", "Inside"]);
   await expectProblem(await owner.call(`/v1/monitors/${v7()}/series?range=24h`), 404, "not_found");
   expect((await owner.call(`/v1/monitors/${charted.id}/series?range=1y`)).status).toBe(400);
 });

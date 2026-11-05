@@ -24,6 +24,7 @@ export {
   countMonitorIncidents,
   incidentRepository,
   listDrafts,
+  monitorIncidentsOverlapping,
 } from "./repositories/incidents.ts";
 export {
   createIntegration,
