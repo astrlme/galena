@@ -31,6 +31,10 @@ overrides:
   "http-cache-semantics@>=4.0.0 <4.2.1": ^4.2.1
   "fast-uri@>=3.0.0 <3.1.9": ^3.1.9
   "zod@>=4.0.0 <4.6.6": ^4.6.7
+  # archiver-utils (testcontainers' archiver, tests only) asks for glob ^10, which has no release
+  # with the AbortSignal fix and brings minimatch 9 (a pattern-amplification DoS). glob 14 still
+  # exports the `sync` it calls, and brings a fixed minimatch 11.
+  "archiver-utils>glob": ^14.0.2
 auditConfig:
   # Advisories that would fail the audit (high or critical) and have no fixed release. Zod's memory
   # advisory, for the zod 3 that Lighthouse's chromium-bidi pins (`check:page` only):
