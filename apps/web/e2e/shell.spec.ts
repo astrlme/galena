@@ -30,6 +30,8 @@ test("signing in lands on Home, which lists what exists", async ({ page }) => {
       monitors.length,
     );
   }
+  // With or without monitors: a draft can come from an alert source.
+  await expect(page.getByRole("heading", { name: "Open incidents", level: 2 })).toBeVisible();
   const nav = await dashboardNav(page);
   await expect(nav.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
   await expectAccessible(page);

@@ -54,20 +54,6 @@ export function OverviewSummary() {
   if (failed) return <p className="mt-8 font-semibold">{failed.message}</p>;
 
   const list = monitors.data?.monitors ?? [];
-  if (list.length === 0) {
-    return (
-      <EmptyState
-        action={
-          <ButtonLink href="/dashboard/monitors/" variant="primary">
-            Add monitor
-          </ButtonLink>
-        }
-      >
-        No monitors yet. Add a URL and Galena checks it every minute from 3 regions.
-      </EmptyState>
-    );
-  }
-
   const statusOf = (id: string) =>
     telemetry.data?.monitors.find((m) => m.id === id)?.status ?? null;
   const open = incidents.data?.incidents ?? [];
@@ -75,31 +61,50 @@ export function OverviewSummary() {
     .filter((w) => w.status !== "completed")
     .toSorted((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
 
+  // Incidents and maintenance show without any monitor too: a draft can come from an alert source.
   return (
     <>
       <Section
         id="overview-monitors"
-        title={`${list.length} ${list.length === 1 ? "monitor" : "monitors"}`}
+        title={
+          list.length === 0
+            ? "Monitors"
+            : `${list.length} ${list.length === 1 ? "monitor" : "monitors"}`
+        }
       >
-        <PausedNotice paused={telemetry.paused} />
-        <ul>
-          {list.map((m) => (
-            <li
-              key={m.id}
-              className="flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist py-2"
-            >
-              <span className="font-semibold">{m.name}</span>
-              {m.enabled ? (
-                <StatusLabel status={statusOf(m.id)} />
-              ) : (
-                <span className="text-[14px] text-slate">Paused</span>
-              )}
-            </li>
-          ))}
-        </ul>
-        <Link href="/dashboard/monitors/" className={`mt-3 inline-block ${link}`}>
-          All monitors
-        </Link>
+        {list.length === 0 ? (
+          <EmptyState
+            action={
+              <ButtonLink href="/dashboard/monitors/" variant="primary">
+                Add monitor
+              </ButtonLink>
+            }
+          >
+            No monitors yet. Add a URL and Galena checks it every minute from 3 regions.
+          </EmptyState>
+        ) : (
+          <>
+            <PausedNotice paused={telemetry.paused} />
+            <ul>
+              {list.map((m) => (
+                <li
+                  key={m.id}
+                  className="flex min-h-[44px] flex-wrap items-center gap-4 border-b border-mist py-2"
+                >
+                  <span className="font-semibold">{m.name}</span>
+                  {m.enabled ? (
+                    <StatusLabel status={statusOf(m.id)} />
+                  ) : (
+                    <span className="text-[14px] text-slate">Paused</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <Link href="/dashboard/monitors/" className={`mt-3 inline-block ${link}`}>
+              All monitors
+            </Link>
+          </>
+        )}
       </Section>
 
       <Section id="overview-incidents" title="Open incidents">
