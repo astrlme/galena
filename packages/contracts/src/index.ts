@@ -6,6 +6,7 @@ export * from "./events.ts";
 export * from "./ids.ts";
 export * from "./incidents.ts";
 export * from "./maintenance.ts";
+export * from "./monitor-charts.ts";
 export * from "./monitors.ts";
 export * from "./notice-copy.ts";
 export * from "./notifications.ts";

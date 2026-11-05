@@ -8,7 +8,6 @@ import {
   monitorStates,
   monitorTypes,
   publishPolicies,
-  seriesSteps,
 } from "./enums.ts";
 import { eventEnvelope } from "./events.ts";
 import { componentId, eventId, monitorId, workspaceId } from "./ids.ts";
@@ -123,6 +122,9 @@ const checkPhases = z.object({ dns: ms, connect: ms, tls: ms.nullable(), ttfb: m
 export const seriesRanges = ["24h", "7d", "30d", "90d"] as const;
 export type SeriesRange = (typeof seriesRanges)[number];
 
+/** Why a check failed, in the probe's words: never a response body or a secret. */
+export const checkError = z.object({ code: z.enum(checkErrorCodes), message: z.string().max(500) });
+
 /** One probe's outcome for one monitor at one scheduled minute, sent through SQS FIFO. */
 export const checkResult = z
   .object({
@@ -135,7 +137,7 @@ export const checkResult = z
     httpStatus: z.int().min(100).max(599).nullable(),
     latencyMs: ms.nullable(),
     phases: checkPhases.nullable(),
-    error: z.object({ code: z.enum(checkErrorCodes), message: z.string().max(500) }).nullable(),
+    error: checkError.nullable(),
     /** Correlation id from probe to delivery. */
     eventId,
   })
@@ -191,43 +193,6 @@ export type MonitorTelemetry = z.infer<typeof monitorTelemetry>;
 export const monitorsEnabledInput = z.object({
   ids: z.array(monitorId).min(1).max(50),
   enabled: z.boolean(),
-});
-
-/** One region's point on a response-time chart: a minute, an hour or a day of its checks. */
-export const seriesPoint = z.object({
-  /** The span's start, UTC: `YYYY-MM-DDTHH:MM`, `YYYY-MM-DDTHH` or `YYYY-MM-DD`. */
-  at: z.string(),
-  region: awsRegion,
-  checks: z.int().nonnegative(),
-  down: z.int().nonnegative(),
-  /** Over answers only (up or degraded); null when the span had none. */
-  medianMs: ms.nullable(),
-  p95Ms: ms.nullable(),
-  maxMs: ms.nullable(),
-  /** Where a typical answer spent its time. */
-  phases: z.object({
-    dns: ms.nullable(),
-    connect: ms.nullable(),
-    tls: ms.nullable(),
-    ttfb: ms.nullable(),
-  }),
-});
-
-export const monitorSeries = z.object({
-  range: z.enum(seriesRanges),
-  step: z.enum(seriesSteps),
-  points: z.array(seriesPoint),
-});
-
-/** A calendar month, UTC: `2026-11`. */
-export const month = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/, "Use a month such as 2026-11.");
-
-/** A month of one monitor: minutes checked, minutes a quorum of regions saw it down, incidents it opened. */
-export const monitorUptime = z.object({
-  month,
-  minutes: z.int().nonnegative(),
-  minutesDown: z.int().nonnegative(),
-  incidents: z.int().nonnegative(),
 });
 
 const epochMinute = (scheduledAt: string) => Math.floor(Date.parse(scheduledAt) / 60_000);
