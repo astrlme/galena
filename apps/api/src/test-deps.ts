@@ -1,5 +1,5 @@
 // Dependencies for tests. Nothing connects until a query runs, so unit tests need no database.
-import type { MonitorId } from "@galena/contracts";
+import type { MonitorDay, MonitorId, RecentCheck } from "@galena/contracts";
 import type { MinuteCounts, WorkflowEngine } from "@galena/core";
 import { createDb } from "@galena/db";
 import { guard } from "@galena/integrations/net";
@@ -28,9 +28,11 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
   };
   // Telemetry the test sets directly instead of DynamoDB.
   const readings = new Map<MonitorId, MonitorReading>();
-  // Each monitor's chart and its uptime, and a month's minutes by `<monitorId> <YYYY-MM>`.
+  // Each monitor's chart, days and last hour, and a month's minutes by `<monitorId> <YYYY-MM>`.
   const charts = new Map<MonitorId, Awaited<ReturnType<Telemetry["series"]>>>();
   const uptimes = new Map<MonitorId, MinuteCounts>();
+  const days = new Map<MonitorId, MonitorDay[]>();
+  const checks = new Map<MonitorId, RecentCheck[]>();
   const months = new Map<string, MinuteCounts>();
   const telemetry: Telemetry = {
     regions: ["eu-west-1", "eu-west-3", "eu-north-1"],
@@ -47,6 +49,12 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
     },
     async uptime(id) {
       return uptimes.get(id) ?? { minutes: 0, down: 0 };
+    },
+    async days(id) {
+      return days.get(id) ?? [];
+    },
+    async checks(id, since) {
+      return (checks.get(id) ?? []).filter((r) => r.scheduledAt >= since);
     },
     async minutes(id, month, _today) {
       return months.get(`${id} ${month}`) ?? { minutes: 0, down: 0 };
@@ -68,6 +76,8 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
     readings,
     charts,
     uptimes,
+    days,
+    checks,
     months,
     migrate,
     close,

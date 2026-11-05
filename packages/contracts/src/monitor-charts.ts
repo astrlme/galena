@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { seriesSteps } from "./enums.ts";
 import { incidentId } from "./ids.ts";
-import { awsRegion, seriesRanges } from "./monitors.ts";
+import { awsRegion, checkError, recentResult, seriesRanges } from "./monitors.ts";
 
-// What a monitor's charts read: its response times and its month.
+// What a monitor's own page reads: its chart, its days, its last hour and its month.
 
 const ms = z.number().nonnegative();
 
@@ -53,6 +53,33 @@ export const monitorSeries = z.object({
   /** The range's minutes checked and minutes a quorum of regions saw it down. */
   uptime: z.object({ minutes: z.int().nonnegative(), minutesDown: z.int().nonnegative() }),
   incidents: z.array(chartIncident),
+});
+
+/** One day of a monitor: minutes checked and minutes a quorum of regions saw it down. */
+export const monitorDay = z.object({
+  date: z.iso.date(),
+  minutes: z.int().nonnegative(),
+  minutesDown: z.int().nonnegative(),
+});
+export type MonitorDay = z.infer<typeof monitorDay>;
+
+/**
+ * The last 90 days, oldest first (today counts its hours rolled up so far), and the incidents
+ * the monitor opened in them.
+ */
+export const monitorDays = z.object({
+  days: z.array(monitorDay),
+  incidents: z.array(chartIncident),
+});
+
+/** A recent result with its error, for a monitor's own page. */
+export const recentCheck = recentResult.extend({ error: checkError.nullable() });
+export type RecentCheck = z.infer<typeof recentCheck>;
+
+/** The last 60 scheduled minutes of one monitor, newest first. */
+export const monitorChecks = z.object({
+  regions: z.array(awsRegion),
+  results: z.array(recentCheck),
 });
 
 /** A calendar month, UTC: `2026-11`. */

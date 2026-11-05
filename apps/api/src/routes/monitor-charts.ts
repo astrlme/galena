@@ -1,5 +1,7 @@
 import {
   type IncidentId,
+  monitorChecks,
+  monitorDays,
   monitorId,
   monitorSeries,
   monitorUptime,
@@ -10,6 +12,7 @@ import { monthSpan, seriesWindow, windowSpan } from "@galena/core";
 import { countMonitorIncidents, monitorIncidentsOverlapping, monitorRepository } from "@galena/db";
 import { createRoute, z } from "@hono/zod-openapi";
 import { type App, type Deps, notFound, requireRole } from "../http.ts";
+import { RECENT_MINUTES } from "../telemetry.ts";
 import { json } from "./shared.ts";
 
 /** An incident as a chart marks it. */
@@ -25,7 +28,7 @@ const chartIncidentOf = (i: {
   resolvedAt: i.resolvedAt?.toISOString() ?? null,
 });
 
-/** What a monitor's charts read: its response times and its month. */
+/** What a monitor's own page reads: its chart, its month, its 90 days and its last hour. */
 export function registerMonitorChartRoutes(app: App, deps: Deps) {
   const { db } = deps;
   const viewer = requireRole(deps, "viewer");
@@ -79,6 +82,56 @@ export function registerMonitorChartRoutes(app: App, deps: Deps) {
         },
         200,
       );
+    },
+  );
+
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/v1/monitors/{id}/days",
+      tags: ["Monitors"],
+      summary: "A monitor's last 90 days: minutes checked and minutes down, for its uptime bar",
+      description:
+        "Oldest first, ending today (UTC). A day counts once rolled up after midnight; today counts its hours so far. A minute is down when a quorum of regions failed it.",
+      middleware: [viewer],
+      request: { params: z.object({ id: monitorId }) },
+      responses: { 200: json(monitorDays, "90 days, oldest first, and their incidents") },
+    }),
+    async (c) => {
+      const member = c.get("member");
+      const { id } = c.req.valid("param");
+      if (!(await monitors.findById(member.workspaceId, id))) notFound("Monitor");
+      const today = new Date().toISOString().slice(0, 10);
+      const days = await deps.telemetry.days(id, today);
+      // The first of the 90 days, whatever the rollups hold.
+      const from = new Date(Date.parse(`${today}T00:00:00.000Z`) - 89 * 86_400_000);
+      const overlapping = await monitorIncidentsOverlapping(db, member.workspaceId, id, {
+        from,
+        to: new Date(),
+      });
+      return c.json({ days, incidents: overlapping.map(chartIncidentOf) }, 200);
+    },
+  );
+
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/v1/monitors/{id}/checks",
+      tags: ["Monitors"],
+      summary: "A monitor's last 60 minutes of results, with each failure's error",
+      description:
+        "Newest first, one entry per region that reported each scheduled minute; none when it hasn't been checked in the last hour.",
+      middleware: [viewer],
+      request: { params: z.object({ id: monitorId }) },
+      responses: { 200: json(monitorChecks, "Results, newest first") },
+    }),
+    async (c) => {
+      const member = c.get("member");
+      const { id } = c.req.valid("param");
+      if (!(await monitors.findById(member.workspaceId, id))) notFound("Monitor");
+      const since = new Date(Date.now() - RECENT_MINUTES * 60_000).toISOString();
+      const results = await deps.telemetry.checks(id, since);
+      return c.json({ regions: [...deps.telemetry.regions], results }, 200);
     },
   );
 

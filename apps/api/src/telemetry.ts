@@ -1,10 +1,19 @@
 import { ResourceNotFoundException } from "@aws-sdk/client-dynamodb";
 import { BatchGetCommand, type DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
-import type { MonitorId, MonitorState, MonitorSummary, RecentResult } from "@galena/contracts";
+import type {
+  MonitorDay,
+  MonitorId,
+  MonitorState,
+  MonitorSummary,
+  RecentCheck,
+  RecentResult,
+} from "@galena/contracts";
 import {
+  dayKey,
   type MinuteCounts,
   mergeMinutes,
   monthSpan,
+  ninetyDays,
   type PointAt,
   type SeriesWindow,
   seriesOf,
@@ -43,7 +52,13 @@ export type Telemetry = {
   uptime(id: MonitorId, window: SeriesWindow): Promise<MinuteCounts>;
   /** A month's minutes (`YYYY-MM`): its rolled-up days, and today's hours while it is today's. */
   minutes(id: MonitorId, month: string, today: string): Promise<MinuteCounts>;
+  /** The 90 days to `today` (`YYYY-MM-DD`), oldest first; see `ninetyDays`. */
+  days(id: MonitorId, today: string): Promise<MonitorDay[]>;
+  /** One monitor's results scheduled since `since` (60 minutes at most), newest first, with errors. */
+  checks(id: MonitorId, since: string): Promise<RecentCheck[]>;
 };
+
+const DAY = 86_400_000;
 
 /**
  * `MON#<id>` / `STATE` for the detection state, `SUMMARY` for the hourly summary and
@@ -79,7 +94,7 @@ export function dynamoTelemetry(
     return { states, summaries };
   }
 
-  async function results(id: MonitorId, count: number): Promise<RecentResult[]> {
+  async function results(id: MonitorId, count: number): Promise<RecentCheck[]> {
     const { Items = [] } = await doc.send(
       new QueryCommand({
         TableName: table,
@@ -91,12 +106,18 @@ export function dynamoTelemetry(
     );
     // A region that missed minutes leaves room for older ones; keep the newest minutes only.
     const minutes = new Set<string>();
-    const recent: RecentResult[] = [];
+    const recent: RecentCheck[] = [];
     for (const item of Items) {
       const [, scheduledAt = "", region = ""] = String(item.sk).split("#");
       minutes.add(scheduledAt);
       if (minutes.size > count) break;
-      recent.push({ region, scheduledAt, status: item.status, latencyMs: item.latencyMs ?? null });
+      recent.push({
+        region,
+        scheduledAt,
+        status: item.status,
+        latencyMs: item.latencyMs ?? null,
+        error: item.error ?? null,
+      });
     }
     return recent;
   }
@@ -139,6 +160,32 @@ export function dynamoTelemetry(
         .map(minutesOf)
         .reduce<MinuteCounts>(mergeMinutes, { minutes: 0, down: 0 });
     },
+    async days(id, today) {
+      const end = Date.parse(`${today}T00:00:00.000Z`);
+      const first = dayKey(end - 89 * DAY);
+      const yesterday = dayKey(end - DAY);
+      const [dayItems, hourItems] = await Promise.all([
+        span(id, spanKeys("UD", first, yesterday)),
+        // Today's hours, and yesterday's until its day rollup lands after midnight.
+        span(id, spanKeys("UH", `${yesterday}T00`, `${today}T23`)),
+      ]);
+      const stored = new Map(dayItems.map((item) => [String(item.sk).slice(3), minutesOf(item)]));
+      const hours = new Map<string, MinuteCounts>();
+      for (const item of hourItems) {
+        const date = String(item.sk).slice(3, 13);
+        hours.set(date, mergeMinutes(hours.get(date) ?? { minutes: 0, down: 0 }, minutesOf(item)));
+      }
+      return ninetyDays(today, stored, hours);
+    },
+    async checks(id, since) {
+      try {
+        // The newest results, however old: only the ones in the last hour count as its own.
+        return (await results(id, RECENT_MINUTES)).filter((r) => r.scheduledAt >= since);
+      } catch (error) {
+        if (!(error instanceof ResourceNotFoundException)) throw error;
+        return [];
+      }
+    },
     async minutes(id, month, today) {
       const { days } = monthSpan(month);
       const items = await span(id, spanKeys("UD", days.from, days.to));
@@ -161,7 +208,8 @@ export function dynamoTelemetry(
             readings.set(id, {
               state: state?.state ?? "unknown",
               enteredAt: state?.enteredAt ?? 0,
-              results: recent[j] ?? [],
+              // The list shows states, not errors.
+              results: (recent[j] ?? []).map(({ error: _, ...result }): RecentResult => result),
               summary: summaries.get(monitorKey(id)) ?? null,
             });
           });

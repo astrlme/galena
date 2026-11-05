@@ -2349,6 +2349,214 @@
         }
       }
     },
+    "/v1/monitors/{id}/days": {
+      "get": {
+        "tags": [
+          "Monitors"
+        ],
+        "summary": "A monitor's last 90 days: minutes checked and minutes down, for its uptime bar",
+        "description": "Oldest first, ending today (UTC). A day counts once rolled up after midnight; today counts its hours so far. A minute is down when a quorum of regions failed it.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "90 days, oldest first, and their incidents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "days": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "date": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "minutes": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "minutesDown": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "date",
+                          "minutes",
+                          "minutesDown"
+                        ]
+                      }
+                    },
+                    "incidents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "startedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "resolvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "startedAt",
+                          "resolvedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "days",
+                    "incidents"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/monitors/{id}/checks": {
+      "get": {
+        "tags": [
+          "Monitors"
+        ],
+        "summary": "A monitor's last 60 minutes of results, with each failure's error",
+        "description": "Newest first, one entry per region that reported each scheduled minute; none when it hasn't been checked in the last hour.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Results, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "regions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z]{2}(?:-gov)?-[a-z]+-\\d$"
+                      }
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "region": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2}(?:-gov)?-[a-z]+-\\d$"
+                          },
+                          "scheduledAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "up",
+                              "degraded",
+                              "down",
+                              "error"
+                            ]
+                          },
+                          "latencyMs": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "minimum": 0
+                          },
+                          "error": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "code": {
+                                "type": "string",
+                                "enum": [
+                                  "timeout",
+                                  "dns_failed",
+                                  "connection_failed",
+                                  "tls_failed",
+                                  "http_status",
+                                  "keyword_missing",
+                                  "blocked_by_guard",
+                                  "probe_failed"
+                                ]
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "code",
+                              "message"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "region",
+                          "scheduledAt",
+                          "status",
+                          "latencyMs",
+                          "error"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "regions",
+                    "results"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/monitors/{id}/uptime": {
       "get": {
         "tags": [

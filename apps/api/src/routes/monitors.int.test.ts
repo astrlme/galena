@@ -1,4 +1,11 @@
-import { type IncidentId, type MonitorId, monitorChanged, type OutboxId } from "@galena/contracts";
+import {
+  type IncidentId,
+  type MonitorDay,
+  type MonitorId,
+  monitorChanged,
+  type OutboxId,
+  type RecentCheck,
+} from "@galena/contracts";
 import type { MinuteCounts, PointAt } from "@galena/core";
 import { schema } from "@galena/db";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
@@ -27,6 +34,8 @@ let triggered: Triggered[];
 let readings: Map<MonitorId, MonitorReading>;
 let charts: Map<MonitorId, Awaited<ReturnType<Telemetry["series"]>>>;
 let uptimes: Map<MonitorId, MinuteCounts>;
+let days: Map<MonitorId, MonitorDay[]>;
+let checks: Map<MonitorId, RecentCheck[]>;
 let months: Map<string, MinuteCounts>;
 let owner: Session;
 
@@ -39,6 +48,8 @@ beforeAll(async () => {
   readings = built.readings;
   charts = built.charts;
   uptimes = built.uptimes;
+  days = built.days;
+  checks = built.checks;
   months = built.months;
   close = built.close;
   owner = new Session(createApp(deps));
@@ -339,6 +350,35 @@ test("a monitor's chart passes its points and totals on, with the incidents in i
   expect(body.incidents.map((i) => i.title)).toEqual(["Across the start", "Inside"]);
   await expectProblem(await owner.call(`/v1/monitors/${v7()}/series?range=24h`), 404, "not_found");
   expect((await owner.call(`/v1/monitors/${charted.id}/series?range=1y`)).status).toBe(400);
+});
+
+test("a monitor's days and its last hour of checks pass through; an unknown one is a 404", async () => {
+  const watched = await create({ name: "Days", http: { url: "https://days.example.com/" } });
+  const day = { date: "2026-11-02", minutes: 1440, minutesDown: 3 };
+  days.set(watched.id as MonitorId, [day]);
+  const failed = {
+    region: "eu-west-1",
+    scheduledAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+    status: "down",
+    latencyMs: null,
+    error: { code: "timeout", message: "No complete response within 10000 ms." },
+  } as const;
+  // Older than an hour: the newest a silent monitor has, but not its last hour.
+  const stale = { ...failed, scheduledAt: new Date(Date.now() - 3 * 3_600_000).toISOString() };
+  checks.set(watched.id as MonitorId, [failed, stale]);
+  const ago = (hours: number) => new Date(Date.now() - hours * 3_600_000);
+  await monitorIncident(watched.id, "Within the 90 days", ago(48), ago(47));
+
+  expect(await (await owner.call(`/v1/monitors/${watched.id}/days`)).json()).toEqual({
+    days: [day],
+    incidents: [expect.objectContaining({ title: "Within the 90 days" })],
+  });
+  expect(await (await owner.call(`/v1/monitors/${watched.id}/checks`)).json()).toEqual({
+    regions: ["eu-west-1", "eu-west-3", "eu-north-1"],
+    results: [failed],
+  });
+  await expectProblem(await owner.call(`/v1/monitors/${v7()}/days`), 404, "not_found");
+  await expectProblem(await owner.call(`/v1/monitors/${v7()}/checks`), 404, "not_found");
 });
 
 test("a monitor's month says its minutes down and the incidents it opened, nobody else's", async () => {

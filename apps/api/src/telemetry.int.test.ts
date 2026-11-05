@@ -133,6 +133,27 @@ test("a table that doesn't exist yet reads as no data", async () => {
     RECENT_MINUTES,
   );
   expect(readings.size).toBe(0);
+  expect(await dynamoTelemetry(doc, "not-created", REGIONS).checks(MONITOR, minute(10))).toEqual(
+    [],
+  );
+});
+
+test("a monitor's last hour of checks carries each failure's error", async () => {
+  const telemetry = dynamoTelemetry(doc, "telemetry", REGIONS);
+  const results = await telemetry.checks(MONITOR, minute(10));
+  expect(new Set(results.map((r) => r.scheduledAt)).size).toBe(RECENT_MINUTES);
+  expect(results[0]?.scheduledAt).toBe(minute(69));
+  expect(results.find((r) => r.region === "eu-west-1")).toEqual({
+    region: "eu-west-1",
+    scheduledAt: minute(69),
+    status: "down",
+    latencyMs: null,
+    error: { code: "timeout", message: "No complete response within 10000 ms." },
+  });
+  expect(results.find((r) => r.region === "eu-west-3")?.error).toBeNull();
+  // Seen at 17:10 with nothing since 17:05: only those five minutes are its last hour.
+  const late = await telemetry.checks(MONITOR, minute(65));
+  expect(new Set(late.map((r) => r.scheduledAt)).size).toBe(5);
 });
 
 const CHARTED = monitorId.parse("01920000-0000-7000-8000-0000000000b3");
@@ -217,4 +238,15 @@ test("a 90-day chart reads one item per region per day, and a month adds its day
     minutes: 1440 + 13 * 60,
     down: 2 + 13,
   });
+  // The uptime bar's 90 days end today, from its hours so far.
+  const days = await telemetry.days(CHARTED, "2026-11-02");
+  // Just after midnight on the 3rd, the 2nd has no day rollup yet: its hours stand in.
+  const after = await telemetry.days(CHARTED, "2026-11-03");
+  expect(after.slice(-2)).toEqual([
+    { date: "2026-11-02", minutes: 13 * 60, minutesDown: 13 },
+    { date: "2026-11-03", minutes: 0, minutesDown: 0 },
+  ]);
+  expect(days).toHaveLength(90);
+  expect(days[0]).toEqual({ date: "2026-08-05", minutes: 1440, minutesDown: 2 });
+  expect(days.at(-1)).toEqual({ date: "2026-11-02", minutes: 13 * 60, minutesDown: 13 });
 });

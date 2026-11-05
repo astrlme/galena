@@ -1163,6 +1163,119 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/monitors/{id}/days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A monitor's last 90 days: minutes checked and minutes down, for its uptime bar
+         * @description Oldest first, ending today (UTC). A day counts once rolled up after midnight; today counts its hours so far. A minute is down when a quorum of regions failed it.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 90 days, oldest first, and their incidents */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            days: {
+                                /** Format: date */
+                                date: string;
+                                minutes: number;
+                                minutesDown: number;
+                            }[];
+                            incidents: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                                /** Format: date-time */
+                                startedAt: string;
+                                /** Format: date-time */
+                                resolvedAt: string | null;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/monitors/{id}/checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A monitor's last 60 minutes of results, with each failure's error
+         * @description Newest first, one entry per region that reported each scheduled minute; none when it hasn't been checked in the last hour.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Results, newest first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            regions: string[];
+                            results: {
+                                region: string;
+                                /** Format: date-time */
+                                scheduledAt: string;
+                                /** @enum {string} */
+                                status: "up" | "degraded" | "down" | "error";
+                                latencyMs: number | null;
+                                error: {
+                                    /** @enum {string} */
+                                    code: "timeout" | "dns_failed" | "connection_failed" | "tls_failed" | "http_status" | "keyword_missing" | "blocked_by_guard" | "probe_failed";
+                                    message: string;
+                                } | null;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/monitors/{id}/uptime": {
         parameters: {
             query?: never;
