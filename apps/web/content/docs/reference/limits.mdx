@@ -43,6 +43,7 @@ wide outage. Splitting a region's monitors across several runs is not built yet.
 | Sign-in and the rest of `/auth/*` | 5 requests a second, bursts of 10; attempts are also limited per visitor address |
 | Subscribe form (`/public/*`) | 2 requests a second, bursts of 5; 10 sign-ups per visitor address an hour; one confirmation email per address every 10 minutes; 50 confirmation emails an hour in total |
 | Alert hooks (`/hooks/*`) | 10 requests a second, bursts of 20; 120 alerts per integration a minute, then `429` with `Retry-After: 60`; a replaced or deleted hook URL is refused within a minute |
+| Heartbeat check-ins (`/hb/*`) | 10 requests a second, bursts of 50; one recorded check-in per URL every 30 seconds per API instance, later ones answered `200` |
 | Notices to subscribers and destinations | 30 an hour per workspace; past that, changes still reach the page but nobody is notified |
 | Test messages, turning a destination on, and resends | 20 a minute per workspace |
 | Slack (`/slack/*`) | 5 requests a second, bursts of 10 |

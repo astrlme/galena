@@ -6,7 +6,7 @@ description: What lives in Aurora, DynamoDB, S3 and SSM, and why each is where i
 | Store | Holds | Written by | Read by |
 | --- | --- | --- | --- |
 | Aurora Serverless v2 (Postgres 16) | The domain: everything people create, and every confirmed state change | The API, the background jobs | The API, the background jobs |
-| DynamoDB `telemetry` | Check results and detection state | The evaluator | The evaluator, the API (for the dashboard) |
+| DynamoDB `telemetry` | Check results, detection state, heartbeat check-ins | The evaluator and the heartbeat sweeper; the API writes check-ins | The evaluator, the sweeper, the API (for the dashboard) |
 | S3 config bucket | `monitors.json` | The background jobs | The probes |
 | S3 page buckets | The published status page | The background jobs (primary); S3 replication (replica) | CloudFront |
 | SSM Parameter Store | Secrets and resource identifiers | You, and CDK | The API, CDK, you |
@@ -57,6 +57,8 @@ recovery: everything in it can be rebuilt by checking again.
 | Minutes of an hour, of a day | `MON#<monitorId>` | `UH#<YYYY-MM-DDTHH>`, `UD#<YYYY-MM-DD>` | Minutes checked, and minutes a quorum of regions saw the monitor down; expire with their hours and days |
 | Summary | `MON#<monitorId>` | `SUMMARY` | The last 24 hours' median per hour and p95, and the last 30 days' minutes checked and down: what the monitors list shows, replaced each hour |
 | Monitor state | `MON#<monitorId>` | `STATE` | The detection state, a `version` every write is conditional on, the last minute applied per region, and transitions not yet confirmed as triggered |
+| Heartbeat check-in | `MON#<monitorId>` | `PING` | The newest check-in and when the URL it came through was made; an older URL never overwrites a newer one's; expires 400 days after the check-in |
+| Check-in for the list | `MON#<monitorId>` | `P#<ISO time>` | One per recorded check-in, for the monitor page's list; expires after 30 days |
 | Region health | `REGION#<region>` | `HEALTH` | Whether the region is excluded, and its run of canary passes |
 
 The hour and day items are rollups, written by the hourly `rollup.telemetry` job so a chart never

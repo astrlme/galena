@@ -66,6 +66,20 @@ monitor's vote until it passes three times in a row.
 
 Messages that fail five times go to a dead-letter queue.
 
+## Heartbeat monitors
+
+Heartbeat monitors have no probe. A job calls the monitor's ping URL (`/hb/<token>`); the API
+checks the token's signature, with no database read, and writes the time to the monitor's `PING`
+item in DynamoDB. Every minute the Scheduler runs the heartbeat sweeper, a second function built
+from the evaluator's code. It reads `monitors.json`, then one `BatchGetItem` of every heartbeat
+monitor's `PING` item, and makes each a result for that minute: up until the period and its grace
+have passed since the newest check-in, then down. The results run through the steps above, with
+fixed detection settings (one failure is down, one success is up again with no RECOVERING wait;
+a flapping heartbeat still has to stay late for 15 minutes before it goes down), so transitions,
+drafts and notifications work as they do for HTTP monitors. A monitor that never checked in gets
+no result. Each monitor is evaluated on its own, and nothing retries a minute: the next one judges
+every heartbeat again. The sweeper never starts a job except on a transition.
+
 ## Capacity
 
 DynamoDB is provisioned to stay inside the always-free tier of 25 write units per account and

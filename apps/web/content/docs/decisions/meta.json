@@ -8,6 +8,7 @@
     "data-api",
     "sqs-fifo",
     "detection",
+    "heartbeat-monitors",
     "outbox",
     "two-speed-publishing",
     "static-dashboard",

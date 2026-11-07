@@ -16,7 +16,7 @@ capacity. It adds no custom metrics, and it is one of the three dashboards the f
 
 ## Alarms
 
-Thirteen CloudWatch alarms in the home region publish to the SNS topic `galena-<stage>-alarms`:
+Fourteen CloudWatch alarms in the home region publish to the SNS topic `galena-<stage>-alarms`:
 
 | Alarm | Fires when |
 | --- | --- |
@@ -24,6 +24,7 @@ Thirteen CloudWatch alarms in the home region publish to the SNS topic `galena-<
 | No check results | No probe region sent a result for 10 minutes |
 | Evaluator errors | The evaluator failed in two 5-minute periods in a row |
 | Evaluator throttles | Lambda throttled the evaluator, so the account ran out of concurrency |
+| Heartbeat sweeper | The heartbeat sweeper failed, or wasn't invoked, in two 5-minute periods in a row: heartbeat monitors keep their last state until it runs again |
 | Job or build dead letters | A job or an HTML build failed its last attempt and waits in its dead-letter queue |
 | Jobs or builds waiting | A job or an HTML build has waited over 15 minutes: a lane is stuck or its function can't start |
 | Undelivered schedules | Scheduler couldn't deliver a job for later or a recurring job within an hour |

@@ -1,0 +1,48 @@
+---
+title: Heartbeat monitors through the same detection
+description: Why a scheduled job's check-ins are judged by a sweeper every minute, with no regions to vote.
+---
+
+## Problem
+
+A heartbeat monitor watches a job that runs on a schedule, such as a cron job, a backup or a
+queue worker. The job calls Galena, not the other way round, so there is no endpoint to check and
+no regions to agree: the only evidence is whether a check-in arrived in time. Incidents, drafts
+and notifications should still work as they do for any monitor. Anyone can call a ping URL, so a
+check-in must never wake the database.
+
+## Decision
+
+- A check-in is a GET or POST to the monitor's signed ping URL. The API checks the signature
+  without the database and writes the time to DynamoDB.
+- Every minute a sweeper, built from the evaluator's code, turns each heartbeat's newest check-in
+  into a result for that minute: up until the period and its grace have passed, then down. The
+  results go straight through the same detection, without the check-results queue: nothing else
+  reports on a heartbeat, so there is no order to keep.
+- Heartbeats use fixed detection settings: one late minute is down, and the next check-in is up
+  again at once, resolving the incident. Flapping still holds a heartbeat for 15 minutes before it
+  goes down, so a schedule set too short settles instead of changing state every minute.
+- A heartbeat that has never checked in raises nothing. The ping URL is shown once; a new one
+  makes check-ins through the old URL stop counting.
+
+## Alternatives
+
+| Option | Why not |
+| --- | --- |
+| Write check-ins to Postgres | Every call from anywhere would wake the database |
+| Send the sweeper's results through the check-results queue | An extra hop and cost, with nothing to put in order |
+| The region rules (2 failures, 3 successes, 2 regions) | Each failure is a whole missed window; waiting for a second doubles the outage |
+| Alert from the moment a heartbeat is added | Every monitor added before its job is set up would open an incident |
+
+## Consequences
+
+- A heartbeat costs about two DynamoDB writes a minute, plus its check-ins.
+- A check-in lost on Galena's side looks like a late job: a `429` when the `/hb` limit is flooded,
+  or an API or DynamoDB error. Jobs should retry (`curl --retry 3`), and the default publish
+  policy waits 10 minutes for a person before a draft goes out.
+- A job that never starts stays silent.
+
+## Revisit when
+
+A false heartbeat incident turns out to be a check-in Galena lost, or people want an alert when a
+new heartbeat never starts.

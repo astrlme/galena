@@ -8,8 +8,13 @@ it once. A monitor may be attached to a component; detection then drives that co
 status. A monitor without a component is still checked and shown in the dashboard, but never
 changes the page.
 
-Galena has HTTP monitors today. TCP, DNS, certificate expiry and heartbeat monitors are on the
-[roadmap](/docs/roadmap/).
+A **heartbeat monitor** turns this around: a scheduled job calls its ping URL each time it runs,
+and once a minute Galena judges each heartbeat from its newest check-in, up until the period and
+its grace have passed, then down. The verdicts go through the same detection, so a heartbeat
+opens, drafts and resolves incidents like any monitor. See
+[heartbeat monitors](/docs/guides/monitors/#heartbeat-monitors).
+
+TCP, DNS and certificate expiry monitors are on the [roadmap](/docs/roadmap/).
 
 ## What an HTTP check does
 

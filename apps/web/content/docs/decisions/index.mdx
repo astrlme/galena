@@ -16,6 +16,7 @@ so.
 | [The Data API, no NAT](/docs/decisions/data-api/) | No VPC Lambdas, no NAT gateway, a database that pauses |
 | [SQS FIFO grouped by monitor](/docs/decisions/sqs-fifo/) | Ordered, de-duplicated results per monitor |
 | [Quorum, hysteresis and an approval gate](/docs/decisions/detection/) | A false public incident costs more than a slightly late one |
+| [Heartbeat monitors through the same detection](/docs/decisions/heartbeat-monitors/) | A scheduled job's check-ins, judged every minute, with no regions to vote |
 | [A transactional outbox](/docs/decisions/outbox/) | No committed change loses its event, and nothing polls the database |
 | [Data first, HTML second](/docs/decisions/two-speed-publishing/) | Changes visible in seconds without a build per keystroke |
 | [A static dashboard](/docs/decisions/static-dashboard/) | No web compute to run or keep warm |

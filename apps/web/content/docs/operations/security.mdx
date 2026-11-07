@@ -44,6 +44,7 @@ is no WAF; see [Limits](/docs/reference/limits/)), and the security of the servi
 | Dashboard and `/v1/*` | Members and their API keys | Session cookies from Better Auth or scoped API keys, role checks on every route, a content security policy, CloudFront in front |
 | `/auth/*` | Anyone | Better Auth: password hashing, TOTP two-factor, rate limits |
 | `/hooks/*` | Alert sources | A signed token in the URL, checked without the database; at most 120 alerts per integration a minute |
+| `/hb/*` | Scheduled jobs | A signed token in the URL, checked without the database; a check-in writes one DynamoDB item, never Aurora; a replaced URL is refused once the new one checks in |
 | API Gateway directly | Nobody | Refused unless a secret header that only CloudFront adds is present |
 | AWS | The deploy role, the Lambdas and their roles | IAM, each scoped to exactly what it needs |
 
@@ -65,7 +66,7 @@ third-party scripts.
 
 ### Rate limits
 
-API Gateway limits each path open to anyone (`/auth/*`, `/public/*`, `/hooks/*`, `/slack/*`)
+API Gateway limits each path open to anyone (`/auth/*`, `/public/*`, `/hooks/*`, `/slack/*`, `/hb/*`)
 below the API's overall rate. Behind that, Better Auth limits sign-in and other auth requests per
 visitor address. Its counters are kept in each API instance's memory, not the database, so a
 flood of sign-in attempts can't keep Aurora awake. The address comes from CloudFront's

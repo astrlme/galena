@@ -1,6 +1,6 @@
 ---
 title: Add a monitor
-description: Watch an endpoint from three regions and let it drive a component's status.
+description: Watch an endpoint from three regions, or a scheduled job through its check-ins, and let it drive a component's status.
 ---
 
 <Steps>
@@ -69,6 +69,43 @@ A monitor's name, in the list or in search (Ctrl K), opens its page:
 - **Last hour**: one mark per minute, and every check that failed in it with the probe's reason.
 
 Charts come from hourly and daily rollups, so the newest hour appears at five past the next.
+
+## Heartbeat monitors
+
+A heartbeat monitor watches a job that runs on a schedule, such as a cron job, a backup or a queue
+worker. Instead of Galena calling it, the job calls Galena each time it finishes. When a check-in
+is late, the monitor goes down, and the incident, draft and notifications follow as they do for
+any monitor. The next check-in brings it back up and resolves the incident it opened.
+
+In **Monitors**, choose **Add monitor**, pick **A scheduled job**, and set:
+
+- **Expect a check-in**: how often the job runs, from every minute to every 7 days. The API takes
+  any number of minutes up to 30 days (`heartbeat.periodMinutes`).
+- **Grace**: how late a check-in may be before the monitor goes down (`heartbeat.graceMinutes`).
+
+After you add it, Galena shows the monitor's ping URL once. Call it at the end of the job with
+`GET` or `POST`; nothing needs to sign in, and the body is ignored:
+
+```bash
+# At the end of a nightly backup, after it succeeds
+pg_dump mydb > backup.sql && curl -fsS --retry 3 "https://dashboard.example.com/hb/heartbeat.0199…"
+```
+
+The monitor's page shows the last check-in, when the next one is due and when it counts as late,
+the recent check-ins (the last 20 within 30 days), the uptime bar and the last hour. Until the first check-in, the monitor shows **No data** and
+raises nothing, so adding it before the job is set up is safe. If the URL is lost or leaks, press
+**Make new ping URL** on the monitor's page: check-ins through the old URL stop counting within
+about a minute, and the old URL is refused once the new one checks in.
+
+Limits:
+
+- Galena looks at each heartbeat once a minute, so a late check-in shows within a minute after the
+  grace ends.
+- Heartbeat monitors have no regions or response times, and their detection settings are fixed:
+  one late check-in is down, the next is up.
+- One URL takes a check-in at most every 30 seconds per API instance; more frequent calls answer
+  `200` without being recorded again. Calls above 10 a second across all ping URLs get `429`, so
+  keep `--retry`.
 
 ## Pausing
 
