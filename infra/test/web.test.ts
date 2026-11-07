@@ -55,7 +55,7 @@ test("serves the export over HTTPS with a CSP, HSTS and no framing, and the inde
   expect(security.FrameOptions.FrameOption).toBe("DENY");
 });
 
-test("forwards /auth/*, /v1/*, /slack/* and /hooks/* to the API uncached, with every method", () => {
+test("forwards /auth/*, /v1/*, /slack/*, /hooks/* and /hb/* to the API uncached, with every method", () => {
   const behaviors = (
     distribution().CacheBehaviors as {
       PathPattern: string;
@@ -65,6 +65,7 @@ test("forwards /auth/*, /v1/*, /slack/* and /hooks/* to the API uncached, with e
   ).filter((b) => b.PathPattern !== "/internal*");
   expect(behaviors.map((b) => b.PathPattern).sort()).toEqual([
     "/auth/*",
+    "/hb/*",
     "/hooks/*",
     "/slack/*",
     "/v1/*",

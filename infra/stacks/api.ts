@@ -56,17 +56,35 @@ export class ApiStack extends Stack {
 
     const logGroup = new LogGroup(this, "HandlerLogs", { retention: RetentionDays.ONE_MONTH });
     const role = lambdaRole("HandlerRole", logGroup);
-    // The dashboard reads monitor state and recent results; only the evaluator writes them.
+    // The dashboard reads monitor state and recent results, which only detection writes.
     const telemetryTable = StringParameter.valueForStringParameter(
       this,
       `/galena/${stage}/telemetry-table`,
     );
+    const telemetryArn = this.formatArn({
+      service: "dynamodb",
+      resource: "table",
+      resourceName: telemetryTable,
+    });
     role.addToPolicy(
       new PolicyStatement({
         actions: ["dynamodb:BatchGetItem", "dynamodb:Query"],
-        resources: [
-          this.formatArn({ service: "dynamodb", resource: "table", resourceName: telemetryTable }),
-        ],
+        resources: [telemetryArn],
+      }),
+    );
+    // Heartbeat check-ins (`MON#<id>` / `PING`, and `P#<time>` for the list) are the API's only
+    // writes there: these attributes only, so it can't change detection's state or results.
+    role.addToPolicy(
+      new PolicyStatement({
+        actions: ["dynamodb:UpdateItem", "dynamodb:PutItem"],
+        resources: [telemetryArn],
+        conditions: {
+          "ForAllValues:StringLike": { "dynamodb:LeadingKeys": ["MON#*"] },
+          "ForAllValues:StringEquals": {
+            "dynamodb:Attributes": ["pk", "sk", "at", "issuedAt", "ttl"],
+          },
+          StringEqualsIfExists: { "dynamodb:ReturnValues": "NONE" },
+        },
       }),
     );
     // The auth secret, the app key and the setup token are SecureStrings made once outside
@@ -221,6 +239,8 @@ export class ApiStack extends Stack {
       "/public/{proxy+}": { rateLimit: 2, burstLimit: 5 },
       "/hooks/{proxy+}": { rateLimit: 10, burstLimit: 20 },
       "/slack/{proxy+}": { rateLimit: 5, burstLimit: 10 },
+      // Cron jobs check in on the minute, all at once: room for a monitor cap's worth together.
+      "/hb/{proxy+}": { rateLimit: 10, burstLimit: 50 },
     } satisfies Record<string, ThrottleSettings>;
     const routes = Object.keys(openPaths).flatMap((path) =>
       this.api.addRoutes({ path, methods: [HttpMethod.ANY], integration }),

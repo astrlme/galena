@@ -52,7 +52,9 @@ test("the API and migration roles get logs, the Data API, their secrets and tele
   );
   expect([...actions].sort()).toEqual([
     "dynamodb:BatchGetItem",
+    "dynamodb:PutItem",
     "dynamodb:Query",
+    "dynamodb:UpdateItem",
     "iam:PassRole",
     "logs:CreateLogStream",
     "logs:PutLogEvents",
@@ -155,10 +157,11 @@ test("throttles the stage at 20 requests a second, and the paths open to anyone 
       "ANY /public/{proxy+}": { ThrottlingRateLimit: 2, ThrottlingBurstLimit: 5 },
       "ANY /hooks/{proxy+}": { ThrottlingRateLimit: 10, ThrottlingBurstLimit: 20 },
       "ANY /slack/{proxy+}": { ThrottlingRateLimit: 5, ThrottlingBurstLimit: 10 },
+      "ANY /hb/{proxy+}": { ThrottlingRateLimit: 10, ThrottlingBurstLimit: 50 },
     },
     AccessLogSettings: {},
   });
-  for (const key of ["/auth", "/public", "/hooks", "/slack"]) {
+  for (const key of ["/auth", "/public", "/hooks", "/slack", "/hb"]) {
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: `ANY ${key}/{proxy+}`,
     });
@@ -234,7 +237,7 @@ test("passes cdk-nag AwsSolutions", () => {
   expect(() => app.synth()).not.toThrow();
 });
 
-test("only the API's own role reads telemetry, and it never writes it", () => {
+test("only the API's own role reads telemetry, and it writes only check-in attributes", () => {
   const statements: { roles: string[]; actions: string[] }[] = Object.values(
     template.findResources("AWS::IAM::Policy"),
   ).flatMap((p) =>
@@ -244,9 +247,20 @@ test("only the API's own role reads telemetry, and it never writes it", () => {
     })),
   );
   const dynamo = statements.filter((s) => s.actions.some((a) => a.startsWith("dynamodb:")));
-  expect(dynamo).toHaveLength(1);
-  expect(dynamo[0]?.roles).toEqual([expect.stringMatching(/^HandlerRole/)]);
-  expect(dynamo[0]?.actions.sort()).toEqual(["dynamodb:BatchGetItem", "dynamodb:Query"]);
+  expect(dynamo).toHaveLength(2);
+  for (const s of dynamo) expect(s.roles).toEqual([expect.stringMatching(/^HandlerRole/)]);
+  expect(dynamo.map((s) => s.actions.sort())).toEqual([
+    ["dynamodb:BatchGetItem", "dynamodb:Query"],
+    ["dynamodb:PutItem", "dynamodb:UpdateItem"],
+  ]);
+  const writes = Object.values(template.findResources("AWS::IAM::Policy"))
+    .flatMap((p) => p.Properties.PolicyDocument.Statement)
+    .find((s: { Action: unknown }) => JSON.stringify(s.Action).includes("dynamodb:PutItem"));
+  expect(writes.Condition).toEqual({
+    "ForAllValues:StringLike": { "dynamodb:LeadingKeys": ["MON#*"] },
+    "ForAllValues:StringEquals": { "dynamodb:Attributes": ["pk", "sk", "at", "issuedAt", "ttl"] },
+    StringEqualsIfExists: { "dynamodb:ReturnValues": "NONE" },
+  });
 });
 
 test("makes the internal page's key once, trusts its public half, and the API signs with it", () => {
