@@ -15,6 +15,7 @@ const columns = {
   name: monitor.name,
   type: monitor.type,
   http: monitor.http,
+  heartbeat: monitor.heartbeat,
   publishPolicy: monitor.publishPolicy,
   downStatus: monitor.downStatus,
   detection: monitor.detection,

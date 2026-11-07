@@ -2,6 +2,7 @@ import {
   type ComponentId,
   type DetectionSettings,
   downStatuses,
+  type HeartbeatSettings,
   type HttpCheck,
   type MonitorId,
   monitorStates,
@@ -39,8 +40,9 @@ export const monitor = pgTable(
       .references(() => component.id, { onDelete: "set null" }),
     name: text().notNull(),
     type: monitorType().notNull(),
-    // Per-type settings as validated by contracts; other check types bring their own shape.
-    http: jsonb().$type<HttpCheck>().notNull(),
+    // Per-type settings as validated by contracts: each type fills its own column only.
+    http: jsonb().$type<HttpCheck>(),
+    heartbeat: jsonb().$type<HeartbeatSettings>(),
     publishPolicy: publishPolicy().notNull().default("approve"),
     downStatus: downStatus().notNull().default("major_outage"),
     detection: jsonb().$type<DetectionSettings>().notNull(),

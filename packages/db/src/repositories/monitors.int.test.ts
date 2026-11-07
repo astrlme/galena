@@ -1,5 +1,6 @@
 import {
   componentId,
+  httpCheck,
   type MonitorConfig,
   monitorConfig,
   monitorId,
@@ -54,9 +55,21 @@ test("saves a monitor and reads its check and detection settings back unchanged"
   await repo.save(monitor);
   expect(await repo.findById(acme, monitor.id)).toEqual(monitor);
 
-  const edited = { ...monitor, enabled: false, http: { ...monitor.http, method: "HEAD" as const } };
+  const http = monitor.http ?? httpCheck.parse({ url: "https://api.example.com/health" });
+  const edited = { ...monitor, enabled: false, http: { ...http, method: "HEAD" as const } };
   await repo.save(edited);
   expect(await repo.findById(acme, monitor.id)).toEqual(edited);
+});
+
+test("a heartbeat monitor keeps its schedule and URL time, with no HTTP settings", async () => {
+  const repo = monitorRepository(db);
+  const heartbeat = newMonitor(acme, {
+    type: "heartbeat",
+    http: null,
+    heartbeat: { periodMinutes: 1440, graceMinutes: 30, tokenIssuedAt: "2026-11-07T08:00:00.000Z" },
+  });
+  await repo.save(heartbeat);
+  expect(await repo.findById(acme, heartbeat.id)).toEqual(heartbeat);
 });
 
 test("never lists, reads, overwrites or deletes another workspace's monitor", async () => {

@@ -120,6 +120,13 @@
       "when": 1792698042950,
       "tag": "0016_drop_rate_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794076213833,
+      "tag": "0017_heartbeat_monitors",
+      "breakpoints": true
     }
   ]
 }
