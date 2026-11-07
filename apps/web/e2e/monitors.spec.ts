@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, openSection, rowAction, signIn } from "./helpers.ts";
+import { choose, expectAccessible, openSection, rowAction, signIn } from "./helpers.ts";
 
 test("add a monitor, edit it, pause it and delete it after confirming its name", async ({
   page,
@@ -65,4 +65,59 @@ test("add a monitor, edit it, pause it and delete it after confirming its name",
   await dialog.getByRole("button", { name: "Delete monitor" }).click();
   await expect(dialog).toBeHidden();
   await expect(renamedRow()).toHaveCount(0);
+});
+
+test("add a heartbeat monitor, see its ping URL once, and find its first check-in on its page", async ({
+  page,
+  request,
+}, testInfo) => {
+  const name = `Backups ${testInfo.project.name} ${Date.now()}`;
+  await signIn(page);
+  await openSection(page, "Monitors");
+  const list = page.getByRole("region", { name: "All monitors" });
+  await list.getByRole("button", { name: "Add monitor" }).click();
+  const form = page.getByRole("form", { name: "Add a monitor" });
+  await form.getByRole("radio", { name: /A scheduled job/ }).check();
+  // A heartbeat has nothing to request.
+  await expect(form.getByLabel("URL", { exact: true })).toHaveCount(0);
+  await form.getByLabel("Monitor name").fill(name);
+  await choose(form, "Expect a check-in", "Every day");
+  await choose(form, "Grace", "30 minutes");
+  await form.getByRole("button", { name: "Add monitor" }).click();
+
+  const shown = page.getByRole("dialog", { name: `Ping URL for ${name}` });
+  await expect(shown).toContainText("it isn't shown again");
+  const url = (await shown.getByText(/\/hb\//).textContent()) ?? "";
+  await expectAccessible(page);
+  await shown.getByRole("button", { name: "Done" }).click();
+  await expect(shown).toBeHidden();
+
+  const row = list.getByRole("row").filter({ hasText: name });
+  await expect(row.getByTitle("Checks in every day, with 30 minutes of grace")).toHaveText(name);
+  await row.getByRole("link", { name }).click();
+  await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
+  await expect(page.getByText("Waiting for the first check-in.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Response times" })).toHaveCount(0);
+
+  // The job checks in, without signing in.
+  expect((await request.post(url)).status()).toBe(200);
+  await page.reload();
+  await expect(page.getByText("Last check-in")).toBeVisible();
+  const recent = page.getByRole("region", { name: "Recent check-ins" });
+  await expect(recent.getByRole("listitem")).toHaveCount(1);
+  await expectAccessible(page);
+
+  // A new URL is shown once too; check-ins through the old one stop counting.
+  await page.getByRole("button", { name: "Make new ping URL" }).click();
+  const confirm = page.getByRole("dialog", { name: `Make a new ping URL for ${name}?` });
+  await confirm.getByRole("button", { name: "Make new ping URL" }).click();
+  const renewed = page.getByRole("dialog", { name: `Ping URL for ${name}` });
+  await expect(renewed.getByText(/\/hb\//)).not.toHaveText(url);
+  await renewed.getByRole("button", { name: "Done" }).click();
+
+  await page.getByRole("button", { name: "Delete monitor" }).click();
+  const remove = page.getByRole("dialog", { name: `Delete ${name}?` });
+  await remove.getByLabel("Type the monitor name").fill(name);
+  await remove.getByRole("button", { name: "Delete monitor" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/monitors\/$/);
 });

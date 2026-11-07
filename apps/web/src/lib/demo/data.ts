@@ -36,6 +36,7 @@ const DETECTION = {
   flapWindowMinutes: 30,
   flapMaxTransitions: 4,
   stableMinutes: 15,
+  recoverAtOnce: false,
 };
 
 /** What each monitor did over the last hour: which regions failed, and for how many minutes. */
@@ -97,6 +98,7 @@ export function demoData(now: Date) {
     name: s.name,
     type: "http",
     http: { url: s.url, method: "GET", timeoutMs: 10_000, followRedirects: true },
+    heartbeat: null,
     publishPolicy: "approve",
     downStatus: s.downStatus ?? "major_outage",
     detection: DETECTION,
@@ -136,6 +138,7 @@ export function demoData(now: Date) {
         minutes: 29 * 1440 + ((lastHour % DAY) / MINUTE + 60),
         minutesDown: s.down ? s.down.from - s.down.to + 1 : 0,
       },
+      lastPingAt: null,
     };
   });
 

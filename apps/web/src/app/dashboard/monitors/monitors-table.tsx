@@ -15,17 +15,31 @@ import { RowMenu } from "../../../components/ui/row-menu.tsx";
 import { Sparkline } from "../../../components/ui/sparkline.tsx";
 import { toast } from "../../../components/ui/toast.tsx";
 import type { Monitor } from "./monitor-form.tsx";
-import { ago, latency, percent, type Row, regionState, rowOf, uptimeOf } from "./monitor-row.ts";
+import {
+  ago,
+  latency,
+  percent,
+  type Row,
+  regionState,
+  rowOf,
+  uptimeOf,
+  watches,
+} from "./monitor-row.ts";
 import type { Reading } from "./telemetry.tsx";
 
-/** A cell without a value says why: paused, check results not read yet, or none. */
-function Missing({ row }: { row: Row }) {
+/**
+ * A cell without a value says why: paused, check results not read yet, none, or (`timed`) a
+ * heartbeat, which is never timed from regions.
+ */
+function Missing({ row, timed = false }: { row: Row; timed?: boolean }) {
   const why =
     row.checks === "paused"
       ? "Paused"
       : row.checks === "loading"
         ? "Loading check results"
-        : "No data";
+        : timed && row.monitor.heartbeat
+          ? "Not timed: a heartbeat only checks in"
+          : "No data";
   return (
     <>
       <span aria-hidden="true">—</span>
@@ -58,13 +72,13 @@ const columns = col.columns([
     id: "name",
     header: "Name",
     sortFn: "text",
-    // The name opens the monitor's page. The URL is in the tooltip, so a row stays one line;
-    // search matches it too. A long word (a URL as a name, say) breaks anywhere rather than
+    // The name opens the monitor's page. The URL (a heartbeat's schedule) is in the tooltip, so a
+    // row stays one line; search matches it too. A long word (a URL as a name, say) breaks anywhere rather than
     // widening the table.
     cell: ({ row: { original: r } }) => (
       <Link
         href={`/dashboard/monitors/view/?id=${r.id}`}
-        title={r.monitor.http.url}
+        title={watches(r.monitor)}
         className="font-semibold [overflow-wrap:anywhere] hover:underline"
       >
         {r.monitor.name}
@@ -74,7 +88,7 @@ const columns = col.columns([
   col.display({
     id: "type",
     header: "Type",
-    cell: () => "HTTP",
+    cell: ({ row: { original: r } }) => (r.monitor.type === "heartbeat" ? "Heartbeat" : "HTTP"),
     meta: { className: "hidden @5xl:table-cell" },
   }),
   col.display({
@@ -83,7 +97,7 @@ const columns = col.columns([
     cell: ({ row: { original: r } }) => {
       const medians = r.summary?.hourlyMedianMs ?? [];
       const known = medians.filter((v): v is number => v !== null);
-      if (known.length === 0) return <Missing row={r} />;
+      if (known.length === 0) return <Missing row={r} timed />;
       const label = `Median answer time over the last 24 hours, by hour: ${latency(Math.min(...known))} to ${latency(Math.max(...known))}`;
       return <Sparkline values={medians} label={label} />;
     },
@@ -105,7 +119,7 @@ const columns = col.columns([
     ...last,
     cell: ({ getValue, row: { original: r } }) => {
       const p95 = getValue();
-      return p95 === undefined ? <Missing row={r} /> : latency(p95);
+      return p95 === undefined ? <Missing row={r} timed /> : latency(p95);
     },
     meta: { className: "hidden text-right tabular-nums @4xl:table-cell" },
   }),
@@ -114,7 +128,7 @@ const columns = col.columns([
     header: "Regions",
     cell: ({ row: { original: r } }) =>
       r.regions.length === 0 ? (
-        <Missing row={r} />
+        <Missing row={r} timed />
       ) : (
         <span className="flex gap-1.5">
           {r.regions.map(({ region, result }) => {
@@ -195,7 +209,7 @@ export function MonitorsTable({
       current?.keep(r) !== false &&
       (!words ||
         r.monitor.name.toLowerCase().includes(words) ||
-        r.monitor.http.url.toLowerCase().includes(words)),
+        watches(r.monitor).toLowerCase().includes(words)),
   );
   // A filter or search clears the selection, so nothing acts on rows it hides.
   const chosen = shown.filter((r) => selected[r.id]);

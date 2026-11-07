@@ -46,17 +46,21 @@ export async function demoFetch(request: Request): Promise<Response> {
   };
   const log = /^\/v1\/webhook-endpoints\/([^/]+)\/deliveries$/.exec(url.pathname);
   const chart = /^\/v1\/monitors\/([^/]+)\/(series|days|checks)$/.exec(url.pathname);
+  // The demo has no heartbeat monitors, so none has check-ins.
+  const checkIns = /^\/v1\/monitors\/[^/]+\/check-ins$/.test(url.pathname);
   const body = log
     ? (data.deliveries[log[1] ?? ""] ?? [])
-    : chart
-      ? monitorAnswer(
-          data,
-          chart[1] ?? "",
-          chart[2] ?? "",
-          url.searchParams.get("range"),
-          new Date(),
-        )
-      : routes[url.pathname];
+    : checkIns
+      ? { checkIns: [] }
+      : chart
+        ? monitorAnswer(
+            data,
+            chart[1] ?? "",
+            chart[2] ?? "",
+            url.searchParams.get("range"),
+            new Date(),
+          )
+        : routes[url.pathname];
   return body === undefined
     ? problem(404, "not_found", `The demo has nothing at ${url.pathname}.`)
     : json(body);

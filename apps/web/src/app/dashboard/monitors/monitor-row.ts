@@ -1,6 +1,7 @@
 import type { ComponentStatus, MonitorSummary } from "@galena/contracts";
 import { labelOf } from "../../../components/status.tsx";
 import type { Monitor } from "./monitor-form.tsx";
+import { every, span } from "./schedule.ts";
 import type { Reading, Result } from "./telemetry.tsx";
 
 /** One monitor as the list shows it; a paused one carries no readings. */
@@ -14,9 +15,16 @@ export type Row = {
   summary: MonitorSummary | null;
   /** Each region's latest result, in the regions' order. */
   regions: { region: string; result: Result | undefined }[];
-  /** The newest result's scheduled minute. */
+  /** The newest result's scheduled minute; a heartbeat's newest check-in. */
   lastCheck: string | null;
 };
+
+/** What a monitor watches, in words: its URL, or a heartbeat's schedule. */
+export function watches(monitor: Monitor) {
+  const h = monitor.heartbeat;
+  if (h) return `Checks in ${every(h.periodMinutes)}, with ${span(h.graceMinutes)} of grace`;
+  return monitor.http?.url ?? "";
+}
 
 export function rowOf(
   monitor: Monitor,
@@ -28,6 +36,8 @@ export function rowOf(
   const results = reading?.results ?? [];
   const latest = new Map<string, Result>();
   for (const result of results) if (!latest.has(result.region)) latest.set(result.region, result);
+  // A heartbeat has no probe regions: the sweeper judges it once a minute from its check-ins.
+  const isHeartbeat = monitor.type === "heartbeat";
   return {
     id: monitor.id,
     monitor,
@@ -35,10 +45,10 @@ export function rowOf(
     status: reading?.status ?? null,
     summary: reading?.summary ?? null,
     regions:
-      checks === "read"
+      checks === "read" && !isHeartbeat
         ? (telemetry?.regions ?? []).map((region) => ({ region, result: latest.get(region) }))
         : [],
-    lastCheck: results[0]?.scheduledAt ?? null,
+    lastCheck: isHeartbeat ? (reading?.lastPingAt ?? null) : (results[0]?.scheduledAt ?? null),
   };
 }
 

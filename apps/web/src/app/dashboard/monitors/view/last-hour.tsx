@@ -65,11 +65,14 @@ export function LastHour({
   results,
   quorum,
   downStatus,
+  regions = true,
 }: {
   results: readonly Check[];
   quorum: number;
   /** The state the monitor marks while down. */
   downStatus: ComponentStatus;
+  /** False for a heartbeat, judged in one place: its failures name no region. */
+  regions?: boolean;
 }) {
   const marks = minuteMarks(results, quorum, downStatus);
   const width = MINUTES * 6 - 2;
@@ -130,7 +133,7 @@ export function LastHour({
               >
                 {hhmm(r.scheduledAt)} UTC
               </time>
-              <span>{r.region}</span>
+              {regions && <span>{r.region}</span>}
               <span className="text-slate">
                 {r.status === "error" ? "Probe error" : "Down"}
                 {r.latencyMs !== null ? ` after ${latency(r.latencyMs)}` : ""}

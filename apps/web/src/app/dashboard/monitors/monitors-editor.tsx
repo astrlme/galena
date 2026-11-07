@@ -10,6 +10,7 @@ import { runWith } from "../../../components/run.ts";
 import { EmptyState } from "../../../components/ui/empty-state.tsx";
 import { Loading } from "../../../components/ui/loading.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
+import { PingUrlDialog, type ShownUrl } from "./heartbeat.tsx";
 import { asBody, type FormOut, type Monitor, MonitorForm } from "./monitor-form.tsx";
 import { MonitorsTable } from "./monitors-table.tsx";
 import { PausedNotice, useTelemetry } from "./telemetry.tsx";
@@ -20,6 +21,7 @@ export function MonitorsEditor() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Monitor>();
   const [deleting, setDeleting] = useState<Monitor>();
+  const [pingUrl, setPingUrl] = useState<ShownUrl>();
   const closeForm = () => {
     setAdding(false);
     setEditing(undefined);
@@ -67,7 +69,9 @@ export function MonitorsEditor() {
                 body: asBody(body),
               }),
             )
-          : unwrap(api.POST("/v1/monitors", { body: asBody(body) })),
+          : unwrap(api.POST("/v1/monitors", { body: asBody(body) })).then((created) => {
+              if (created.pingUrl) setPingUrl({ name: created.name, url: created.pingUrl });
+            }),
       editing ? "Monitor saved" : "Monitor added",
     );
     if (saved) closeForm();
@@ -97,6 +101,7 @@ export function MonitorsEditor() {
           onCancel={closeForm}
         />
       </Modal.Root>
+      <PingUrlDialog shown={pingUrl} onDone={() => setPingUrl(undefined)} />
       <p aria-live="polite" className="mt-4 font-semibold text-major empty:hidden">
         {formOpen ? undefined : problem}
       </p>

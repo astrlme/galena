@@ -16,8 +16,9 @@ import { Tabs } from "../../../../components/ui/tabs.tsx";
 import { toast } from "../../../../components/ui/toast.tsx";
 import { UptimeBar } from "../../../../components/ui/uptime-bar.tsx";
 import { api, unwrap } from "../../../../lib/api.ts";
+import { CheckIns, NewPingUrl, RecentCheckIns } from "../heartbeat.tsx";
 import { asBody, type FormOut, MonitorForm, policyLabel } from "../monitor-form.tsx";
-import { latency, percent } from "../monitor-row.ts";
+import { latency, percent, watches } from "../monitor-row.ts";
 import { useTelemetry } from "../telemetry.tsx";
 import { Charts } from "./charts.tsx";
 import { LastHour } from "./last-hour.tsx";
@@ -60,11 +61,13 @@ export function MonitorView() {
   });
   const telemetry = useTelemetry();
   const path = { params: { path: { id } } };
+  // A heartbeat has no response times to chart.
+  const charted = monitors.data?.monitors.find((m) => m.id === id)?.type === "http";
   const series = useQuery({
     queryKey: ["monitors", id, "series", range],
     queryFn: () =>
       unwrap(api.GET("/v1/monitors/{id}/series", { params: { path: { id }, query: { range } } })),
-    enabled: id !== "",
+    enabled: id !== "" && charted,
   });
   const days = useQuery({
     queryKey: ["monitors", id, "days"],
@@ -106,6 +109,7 @@ export function MonitorView() {
   const all = series.data?.totals.find((t) => t.region === null);
   const counted = series.data?.uptime;
   const quorum = monitor.detection.quorum;
+  const heartbeat = monitor.heartbeat;
   const setRange = (next: SeriesRange) =>
     router.replace(`/dashboard/monitors/view/?id=${id}&range=${next}`, { scroll: false });
   const save = async (body: FormOut) => {
@@ -146,11 +150,14 @@ export function MonitorView() {
           <span className="text-slate">Paused</span>
         )}
       </div>
-      <p className="mt-1 break-all text-[14px] text-slate">{monitor.http.url}</p>
+      <p className={`mt-1 text-[14px] text-slate ${heartbeat ? "" : "break-all"}`}>
+        {watches(monitor)}
+      </p>
       <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
         <Stat name="Component" value={component ? component.name : "None"} />
         <Stat name="When it goes down" value={policyLabel(monitor.publishPolicy) ?? ""} />
       </dl>
+      {heartbeat && <CheckIns schedule={heartbeat} lastPingAt={reading?.lastPingAt ?? null} />}
       <div className="mt-4 flex flex-wrap gap-3">
         <Button onClick={() => setEditing(true)}>Edit monitor</Button>
         <Button
@@ -166,56 +173,72 @@ export function MonitorView() {
         >
           {monitor.enabled ? "Pause monitor" : "Resume monitor"}
         </Button>
+        {heartbeat && <NewPingUrl id={id} name={monitor.name} />}
         <Button onClick={() => setDeleting(true)}>Delete monitor</Button>
       </div>
       <p aria-live="polite" className="mt-4 font-semibold text-major empty:hidden">
         {editing ? undefined : problem}
       </p>
 
-      <section aria-labelledby="response-times" className="mt-8">
-        <h2 id="response-times" className="text-[19px] font-semibold leading-[1.35]">
-          Response times
-        </h2>
-        <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-3">
-          <Stat
-            big
-            name={`Median, ${spoken}`}
-            value={all?.medianMs != null ? latency(all.medianMs) : "No data"}
-          />
-          <Stat
-            big
-            name={`p95, ${spoken}`}
-            value={all?.p95Ms != null ? latency(all.p95Ms) : "No data"}
-          />
-          <Stat
-            big
-            name={`Uptime, ${spoken}`}
-            value={
-              counted && counted.minutes > 0
-                ? percent(1 - counted.minutesDown / counted.minutes)
-                : "No data"
-            }
-          />
-        </dl>
-        <div className="mt-4">
-          <Tabs label="Range" value={range} tabs={RANGES} onChange={setRange}>
-            {series.isPending ? (
-              <Loading label="Loading response times" blocks={[160, 160, 160]} className="" />
-            ) : series.isError ? (
-              <p className="font-semibold">{series.error.message}</p>
-            ) : (
-              <Charts series={series.data} spoken={spoken} />
-            )}
-          </Tabs>
-        </div>
-      </section>
+      {!heartbeat && (
+        <section aria-labelledby="response-times" className="mt-8">
+          <h2 id="response-times" className="text-[19px] font-semibold leading-[1.35]">
+            Response times
+          </h2>
+          <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-3">
+            <Stat
+              big
+              name={`Median, ${spoken}`}
+              value={all?.medianMs != null ? latency(all.medianMs) : "No data"}
+            />
+            <Stat
+              big
+              name={`p95, ${spoken}`}
+              value={all?.p95Ms != null ? latency(all.p95Ms) : "No data"}
+            />
+            <Stat
+              big
+              name={`Uptime, ${spoken}`}
+              value={
+                counted && counted.minutes > 0
+                  ? percent(1 - counted.minutesDown / counted.minutes)
+                  : "No data"
+              }
+            />
+          </dl>
+          <div className="mt-4">
+            <Tabs label="Range" value={range} tabs={RANGES} onChange={setRange}>
+              {series.isPending ? (
+                <Loading label="Loading response times" blocks={[160, 160, 160]} className="" />
+              ) : series.isError ? (
+                <p className="font-semibold">{series.error.message}</p>
+              ) : (
+                <Charts series={series.data} spoken={spoken} />
+              )}
+            </Tabs>
+          </div>
+        </section>
+      )}
+
+      {heartbeat && (
+        <section aria-labelledby="check-ins" className="mt-8">
+          <h2 id="check-ins" className="text-[19px] font-semibold leading-[1.35]">
+            Recent check-ins
+          </h2>
+          <div className="mt-4 max-w-[72ch]">
+            <RecentCheckIns id={id} paused={telemetry.paused} />
+          </div>
+        </section>
+      )}
 
       <section aria-labelledby="uptime" className="mt-10">
         <h2 id="uptime" className="text-[19px] font-semibold leading-[1.35]">
           Uptime
         </h2>
         <p className="mt-1 max-w-[72ch] text-[14px] text-slate">
-          A minute is down when at least {quorum} {quorum === 1 ? "region" : "regions"} failed it.
+          {heartbeat
+            ? "A minute is down while the job's check-in is late."
+            : `A minute is down when at least ${quorum} ${quorum === 1 ? "region" : "regions"} failed it.`}{" "}
           Days run midnight to midnight UTC; today counts the hours so far.
         </p>
         <div className="mt-4">
@@ -241,6 +264,7 @@ export function MonitorView() {
               results={checks.data.results}
               quorum={quorum}
               downStatus={monitor.downStatus}
+              regions={!heartbeat}
             />
           ) : (
             <Loading label="Loading recent checks" blocks={[28]} className="" />
@@ -263,7 +287,11 @@ export function MonitorView() {
         <ConfirmDelete
           kind="monitor"
           name={monitor.name}
-          consequence={`Probes stop checking ${monitor.name} within a minute. Its check history goes with it.`}
+          consequence={
+            heartbeat
+              ? `Check-ins to ${monitor.name}'s ping URL stop counting within a minute. Its uptime history goes with it.`
+              : `Probes stop checking ${monitor.name} within a minute. Its check history goes with it.`
+          }
           onConfirm={() => void remove()}
           onClose={() => setDeleting(false)}
         />

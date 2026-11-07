@@ -21,6 +21,8 @@ const config: NextConfig = {
         rewrites: async () => [
           { source: "/auth/:path*", destination: `${api}/auth/:path*` },
           { source: "/v1/:path*", destination: `${api}/v1/:path*` },
+          // Heartbeat ping URLs carry the dashboard's address, as they do through CloudFront.
+          { source: "/hb/:path*", destination: `${api}/hb/:path*` },
         ],
       }
     : {}),

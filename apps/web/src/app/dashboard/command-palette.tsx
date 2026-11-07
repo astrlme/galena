@@ -60,7 +60,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       items: (monitors.data?.monitors ?? []).map((m) => ({
         id: `m:${m.id}`,
         label: m.name,
-        hint: m.http.url,
+        hint: m.http?.url ?? "Heartbeat",
         run: go(`/dashboard/monitors/view/?id=${m.id}`),
       })),
     },
