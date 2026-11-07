@@ -8,6 +8,7 @@ export * from "./incidents/lifecycle.ts";
 export * from "./incidents/signals.ts";
 export * from "./incidents/templates.ts";
 export * from "./maintenance/lifecycle.ts";
+export * from "./monitors/heartbeat.ts";
 export * from "./monitors/monitors-file.ts";
 export * from "./notifications/audience.ts";
 export * from "./notifications/endpoint.ts";

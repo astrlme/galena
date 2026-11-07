@@ -20,11 +20,12 @@ export function buildMonitorsFile(
     monitors: monitors
       .filter((m) => m.enabled)
       .toSorted((a, b) => a.id.localeCompare(b.id))
-      .map(({ id, workspaceId, componentId, type, http, downStatus, detection }) => ({
+      .map(({ id, workspaceId, componentId, type, http, heartbeat, downStatus, detection }) => ({
         id,
         workspaceId,
         type,
         http,
+        heartbeat,
         downStatus,
         detection,
         maintenance: windows

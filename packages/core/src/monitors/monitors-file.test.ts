@@ -28,6 +28,7 @@ test("lists enabled monitors only, sorted by id, with what probes and the evalua
   expect(Object.keys(file.monitors[0] ?? {}).sort()).toEqual([
     "detection",
     "downStatus",
+    "heartbeat",
     "http",
     "id",
     "maintenance",
