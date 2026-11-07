@@ -194,6 +194,9 @@ importers:
       '@galena/integrations':
         specifier: workspace:*
         version: link:../../packages/integrations
+      uuid:
+        specifier: ^14.0.2
+        version: 14.0.2
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -204,9 +207,6 @@ importers:
       testcontainers:
         specifier: ^12.1.0
         version: 12.1.0
-      uuid:
-        specifier: ^14.0.2
-        version: 14.0.2
 
   apps/probe:
     dependencies:

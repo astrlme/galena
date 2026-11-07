@@ -3,12 +3,16 @@ import { Metrics, MetricUnit } from "@aws-lambda-powertools/metrics";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetParameterCommand, ParameterNotFound, SSMClient } from "@aws-sdk/client-ssm";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { eventId, type MonitorTransitioned } from "@galena/contracts";
 import { monitorsFileFromS3 } from "@galena/integrations/config";
 import { awsJobEngine } from "@galena/integrations/jobs/aws";
 import { heartbeat } from "@galena/integrations/net";
+import { v7 } from "uuid";
+import { z } from "zod";
 import { env } from "./env.ts";
 import { processBatch, type SqsRecord } from "./evaluator.ts";
 import { createStore } from "./store.ts";
+import { sweepHeartbeats } from "./sweep.ts";
 
 const logger = new Logger({ serviceName: "evaluator" });
 const metrics = new Metrics({
@@ -62,18 +66,11 @@ const beat = heartbeat({
   onFailure: (reason) => logger.warn("heartbeat ping failed", reason),
 });
 
-/** SQS FIFO event source with `ReportBatchItemFailures`. */
-export async function handler(event: { Records: SqsRecord[] }) {
-  const outcome = await processBatch(event.Records, {
-    store,
-    loadConfig,
-    engine,
-    regions: env.GLN_PROBE_REGIONS,
-    now: () => new Date(),
-    onError: (record, error) =>
-      logger.error("message failed", { messageId: record.messageId, error }),
-  });
-  for (const t of outcome.transitions) {
+const onError = (record: SqsRecord, error: unknown) =>
+  logger.error("message failed", { messageId: record.messageId, error });
+
+function logTransitions(transitions: readonly MonitorTransitioned[]) {
+  for (const t of transitions) {
     logger.info("monitor transitioned", {
       eventId: t.id,
       monitorId: t.data.monitorId,
@@ -82,6 +79,19 @@ export async function handler(event: { Records: SqsRecord[] }) {
       transitionSeq: t.data.transitionSeq,
     });
   }
+}
+
+/** SQS FIFO event source with `ReportBatchItemFailures`. */
+export async function handler(event: { Records: SqsRecord[] }) {
+  const outcome = await processBatch(event.Records, {
+    store,
+    loadConfig,
+    engine,
+    regions: env.GLN_PROBE_REGIONS,
+    now: () => new Date(),
+    onError,
+  });
+  logTransitions(outcome.transitions);
   metrics.addMetric("transitions", MetricUnit.Count, outcome.transitions.length);
   // Fewer eligible regions than the quorum: the monitor held its state.
   metrics.addMetric("probe_degraded", MetricUnit.Count, outcome.insufficientRegions);
@@ -90,4 +100,27 @@ export async function handler(event: { Records: SqsRecord[] }) {
   // (DynamoDB down, say) sends no ping.
   if (outcome.batchItemFailures.length < event.Records.length) await beat();
   return { batchItemFailures: outcome.batchItemFailures };
+}
+
+/** The Scheduler's input template passes `<aws.scheduler.scheduled-time>` through. */
+const schedulerEvent = z.object({ scheduledAt: z.iso.datetime() });
+
+/**
+ * The heartbeat sweeper, every minute from the Scheduler (its own function, same bundle). Nothing
+ * retries a minute (the next one judges every heartbeat again); a failure throws only so the
+ * errors alarm sees it.
+ */
+export async function sweep(event: unknown) {
+  const { scheduledAt } = schedulerEvent.parse(event);
+  const outcome = await sweepHeartbeats(await loadConfig(), scheduledAt, {
+    store,
+    engine,
+    region: env.AWS_REGION,
+    newEventId: () => eventId.parse(v7()),
+    now: () => new Date(),
+    onError,
+  });
+  logTransitions(outcome.transitions);
+  if (outcome.failed > 0)
+    throw new Error(`${outcome.failed} heartbeat monitors weren't evaluated.`);
 }

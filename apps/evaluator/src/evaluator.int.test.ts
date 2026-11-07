@@ -1,14 +1,16 @@
 import { readFileSync } from "node:fs";
 import { CreateTableCommand, DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import {
   checkResult,
   detectionSettings,
   eventId,
+  heartbeatDetection,
   httpCheck,
   type MonitorsFile,
   type MonitorTransitioned,
   monitorId,
+  PING_KEY,
   type ProbeMessage,
   workspaceId,
 } from "@galena/contracts";
@@ -18,6 +20,7 @@ import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { type EvaluatorDeps, processBatch, type SqsRecord } from "./evaluator.ts";
 import { createStore, type Store } from "./store.ts";
+import { sweepHeartbeats } from "./sweep.ts";
 
 // The replay scenarios again, now through SQS records, DynamoDB Local and a job queue stand-in.
 // Every batch is delivered twice at once (a visibility timeout running out mid-run) and every
@@ -31,6 +34,8 @@ const SCENARIOS = [
   "flapping-endpoint",
   "latency-degradation",
   "outage-during-maintenance",
+  "missed-heartbeat",
+  "flapping-heartbeat",
 ];
 const REGIONS = ["us-east-1", "eu-west-1", "ap-southeast-1"];
 const MONITOR = monitorId.parse("01920000-0000-7000-8000-0000000000a1");
@@ -77,7 +82,7 @@ async function createTable(name: string) {
 
 type Line =
   | { type: "settings"; detection: object }
-  | { type: "check"; at: string; region: string; status: "up" | "down"; latencyMs: number }
+  | { type: "check"; at: string; region: string; status: "up" | "down"; latencyMs?: number }
   | { type: "canary"; at: string; region: string; passed: boolean }
   | { type: "maintenance"; at: string; active: boolean };
 
@@ -112,6 +117,7 @@ function load(name: string) {
         workspaceId: WORKSPACE,
         type: "http",
         http: httpCheck.parse({ url: "https://example.com/health" }),
+        heartbeat: null,
         downStatus: "major_outage",
         detection: detectionSettings.parse(settings?.type === "settings" ? settings.detection : {}),
         maintenance: windows(lines),
@@ -129,7 +135,7 @@ function load(name: string) {
         checkedAt: line.at,
         status: line.status,
         httpStatus: down ? 503 : 200,
-        latencyMs: line.latencyMs,
+        latencyMs: line.latencyMs ?? null,
         phases: null,
         error: down ? { code: "http_status", message: "Expected a 2xx status, got 503." } : null,
         eventId: eventId.parse(v7()),
@@ -147,7 +153,8 @@ function load(name: string) {
     return [{ messageId: `m${i}`, body: JSON.stringify(message) }];
   });
   const expected = JSON.parse(readFileSync(new URL(`${name}.expected.json`, FIXTURES), "utf8"));
-  return { file, records, expected, checks: lines.filter((l) => l.type === "check").length };
+  const checks = lines.filter((l) => l.type === "check");
+  return { file, records, expected, checks: checks.length, firstAt: checks[0]?.at ?? "" };
 }
 
 /**
@@ -197,7 +204,7 @@ async function deliver(records: SqsRecord[], deps: EvaluatorDeps) {
 
 test.each(SCENARIOS)("%s: every expected transition triggers exactly once", async (name) => {
   await createTable(name);
-  const { file, records, expected, checks } = load(name);
+  const { file, records, expected, checks, firstAt } = load(name);
   const store = createStore(doc, name);
   const { calls, unpersisted, engine } = flakyEngine(store);
   const conflicts: unknown[] = [];
@@ -245,7 +252,7 @@ test.each(SCENARIOS)("%s: every expected transition triggers exactly once", asyn
   );
   expect(Items).toHaveLength(checks);
   const [first] = Items;
-  expect(first?.ttl).toBe(Date.parse("2026-09-27T10:00:00.000Z") / 1000 + 90 * 86_400);
+  expect(first?.ttl).toBe(Date.parse(firstAt) / 1000 + 90 * 86_400);
 });
 
 test("a failed message fails every message after it, so nothing overtakes it", async () => {
@@ -274,4 +281,91 @@ test("a failed message fails every message after it, so nothing overtakes it", a
   expect(outcome.batchItemFailures.map((f) => f.itemIdentifier)).toEqual(
     records.slice(2, 10).map((r) => r.messageId),
   );
+});
+
+test("a missed window takes a heartbeat monitor down and the next check-in brings it up", async () => {
+  await createTable("heartbeat");
+  const store = createStore(doc, "heartbeat");
+  const backups = monitorId.parse(v7());
+  const silent = monitorId.parse(v7());
+  const issuedAt = Date.parse("2026-11-07T08:00:00.000Z");
+  const heartbeat = {
+    periodMinutes: 60,
+    graceMinutes: 5,
+    tokenIssuedAt: new Date(issuedAt).toISOString(),
+  };
+  const file: MonitorsFile = {
+    version: 1,
+    generatedAt: "2026-11-07T08:00:00.000Z",
+    monitors: [backups, silent].map((id) => ({
+      id,
+      workspaceId: WORKSPACE,
+      type: "heartbeat",
+      http: null,
+      heartbeat,
+      downStatus: "major_outage",
+      detection: heartbeatDetection,
+      maintenance: [],
+    })),
+  };
+  // What the API writes for a check-in through the current URL.
+  const checkIn = (iso: string) =>
+    doc.send(
+      new PutCommand({
+        TableName: "heartbeat",
+        Item: { pk: `MON#${backups}`, sk: PING_KEY, at: Date.parse(iso), issuedAt },
+      }),
+    );
+  const triggered: { key: string; data: MonitorTransitioned["data"] }[] = [];
+  const run = (scheduledAt: string) =>
+    sweepHeartbeats(file, scheduledAt, {
+      store,
+      region: "eu-central-1",
+      newEventId: () => eventId.parse(v7()),
+      engine: {
+        async trigger(_task, payload, { idempotencyKey }) {
+          triggered.push({ key: idempotencyKey, data: (payload as MonitorTransitioned).data });
+        },
+      },
+      now: (result) => new Date(Date.parse(result.scheduledAt) + 5_000),
+      onError: (_, error) => {
+        throw error;
+      },
+    });
+
+  await checkIn("2026-11-07T10:00:12.000Z");
+  await run("2026-11-07T10:01:00.000Z"); // on time
+  await run("2026-11-07T11:05:00.000Z"); // still inside the grace
+  // An hour and five minutes without a check-in, swept twice at once (overlapping runs) and
+  // once more later: each monitor goes through once, and neither run fails.
+  const overlapping = await Promise.all([
+    run("2026-11-07T11:06:00.000Z"),
+    run("2026-11-07T11:06:00.000Z"),
+  ]);
+  expect(overlapping.map((o) => o.failed)).toEqual([0, 0]);
+  await run("2026-11-07T11:06:00.000Z");
+  await checkIn("2026-11-07T11:09:40.000Z");
+  await run("2026-11-07T11:10:00.000Z");
+
+  expect(triggered).toEqual([
+    { key: `mon:${backups}:1`, data: expect.objectContaining({ from: "unknown", to: "up" }) },
+    { key: `mon:${backups}:2`, data: expect.objectContaining({ from: "up", to: "down" }) },
+    { key: `mon:${backups}:3`, data: expect.objectContaining({ from: "down", to: "up" }) },
+  ]);
+  // The monitor that never checked in has no results and no state: it waits for its first.
+  expect(await store.getMonitor(silent)).toBeUndefined();
+  // Its minutes are on record like a probe's, the missed one saying why.
+  const { Items = [] } = await doc.send(
+    new QueryCommand({
+      TableName: "heartbeat",
+      KeyConditionExpression: "pk = :pk AND begins_with(sk, :r)",
+      ExpressionAttributeValues: { ":pk": `MON#${backups}`, ":r": "R#" },
+    }),
+  );
+  expect(Items.map((i) => [i.sk, i.status, i.error?.code ?? null])).toEqual([
+    ["R#2026-11-07T10:01:00.000Z#eu-central-1", "up", null],
+    ["R#2026-11-07T11:05:00.000Z#eu-central-1", "up", null],
+    ["R#2026-11-07T11:06:00.000Z#eu-central-1", "down", "heartbeat_missed"],
+    ["R#2026-11-07T11:10:00.000Z#eu-central-1", "up", null],
+  ]);
 });

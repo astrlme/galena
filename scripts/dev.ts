@@ -1,8 +1,11 @@
 // Local development in one process: the API, the background jobs and the hot path, sharing one
 // in-process job engine in place of SQS and Scheduler. Each tick stands for one scheduled
-// minute: three simulated probe regions check every enabled monitor, an in-memory FIFO carries
-// their messages, and the evaluator writes state and results to DynamoDB Local, where the API
-// reads them, and starts a job on each transition. Monitors come straight from the local
+// minute: three simulated probe regions check every enabled monitor, the heartbeat sweep judges
+// each heartbeat monitor's last check-in, an in-memory FIFO carries their messages, and the
+// evaluator writes state and results to DynamoDB Local, where the API reads them, and starts a
+// job on each transition.
+// Known limit: check-ins are stamped by the clock, so they only line up with ticks of 60 s; with
+// faster ticks (the E2E run) every heartbeat soon looks late. Monitors come straight from the local
 // database. Run it as `pnpm dev:local` (or `pnpm dev`, which starts the database first).
 import { setTimeout as sleep } from "node:timers/promises";
 import {
@@ -21,6 +24,7 @@ import { startApi } from "../apps/api/src/server.ts";
 import { targetGuard } from "../apps/api/src/targets.ts";
 import { processBatch, type SqsRecord } from "../apps/evaluator/src/evaluator.ts";
 import { createStore } from "../apps/evaluator/src/store.ts";
+import { asRecords, heartbeatResults } from "../apps/evaluator/src/sweep.ts";
 import { runProbe } from "../apps/probe/src/probe.ts";
 import { startLocalJobs } from "../apps/workers/src/local.ts";
 
@@ -128,6 +132,15 @@ async function tick() {
       }),
     ),
   );
+
+  const heartbeats = await heartbeatResults(file, scheduledAt, {
+    store,
+    region: "eu-central-1",
+    newEventId: () => eventId.parse(v7()),
+  });
+  for (const record of asRecords(heartbeats)) {
+    queue.push({ messageId: String(sequence++), body: record.body });
+  }
 
   // Batches of 10 as SQS delivers them; a failed batch waits for the next tick.
   while (queue.length > 0) {
