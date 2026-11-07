@@ -102,7 +102,9 @@ function target(
     case "degraded":
       return ongoing;
     case "down":
-      return signal === "failing" ? "down" : "recovering";
+      // A heartbeat's next check-in is all the evidence it gets, so it doesn't wait in RECOVERING.
+      if (signal === "failing") return "down";
+      return s.recoverAtOnce ? "up" : "recovering";
     case "recovering":
       if (signal === "failing") return "down";
       return steadyFor >= s.stableMinutes * MINUTE ? "up" : "recovering";

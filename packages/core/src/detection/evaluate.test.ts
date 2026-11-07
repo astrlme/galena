@@ -152,6 +152,25 @@ describe("evaluate", () => {
     expect(reopened.transitions.slice(-2)).toEqual(["down→recovering", "recovering→down"]);
   });
 
+  test("with recoverAtOnce a monitor goes from down straight to up on its next success", () => {
+    const heartbeat = detectionSettings.parse({
+      failThreshold: 1,
+      recoverThreshold: 1,
+      quorum: 1,
+      recoverAtOnce: true,
+    });
+    const at = (minute: number) => T0 + minute * 60_000;
+    const { transitions } = run(
+      [
+        { region: "eu-central-1", status: "up", at: at(0) },
+        { region: "eu-central-1", status: "down", at: at(1) },
+        { region: "eu-central-1", status: "up", at: at(2) },
+      ],
+      heartbeat,
+    );
+    expect(transitions).toEqual(["unknown→up", "up→down", "down→up"]);
+  });
+
   test("more than four transitions in 30 minutes means flapping, left only by holding steady", () => {
     // Down for 2 minutes, up for 3, over and over.
     const flappy = minutes(3, 20, (_, minute) => ((minute - 3) % 5 < 2 ? "down" : "up"));
@@ -201,6 +220,7 @@ const settingsArb: fc.Arbitrary<DetectionSettings> = fc.record({
   flapWindowMinutes: fc.integer({ min: 5, max: 60 }),
   flapMaxTransitions: fc.integer({ min: 2, max: 8 }),
   stableMinutes: fc.integer({ min: 1, max: 30 }),
+  recoverAtOnce: fc.boolean(),
 });
 
 /** Random results from the three regions with time moving forward 0–150 s between them. */
@@ -234,7 +254,10 @@ describe("detection properties", () => {
         stepsArb(["up", "degraded", "down", "error"]),
         (settings, excluded, steps) => {
           const { transitions, state } = run(steps, settings, excluded);
-          for (const t of transitions) expect(ALLOWED.has(t), t).toBe(true);
+          // With nothing to wait for, a recovered monitor skips RECOVERING.
+          const allowed = (t: string) =>
+            ALLOWED.has(t) || (settings.recoverAtOnce && t === "down→up");
+          for (const t of transitions) expect(allowed(t), t).toBe(true);
           expect(state.transitionSeq).toBe(transitions.length);
         },
       ),
