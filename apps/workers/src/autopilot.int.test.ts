@@ -1,6 +1,7 @@
 import {
   componentId,
   eventId,
+  heartbeatDetection,
   type IncidentId,
   incidentId,
   incidentUpdateId,
@@ -54,7 +55,11 @@ afterAll(async () => {
 });
 
 /** A monitor with the policy, on a component of its own unless `onComponent` is false. */
-async function monitorWith(publishPolicy: PublishPolicy, onComponent = true) {
+async function monitorWith(
+  publishPolicy: PublishPolicy,
+  onComponent = true,
+  type: "http" | "heartbeat" = "http",
+) {
   const component = componentId.parse(v7());
   const name = `Service ${component.slice(-4)}`;
   if (onComponent) {
@@ -69,8 +74,17 @@ async function monitorWith(publishPolicy: PublishPolicy, onComponent = true) {
       workspaceId: acme,
       componentId: onComponent ? component : null,
       name,
-      type: "http",
-      http: { url: "https://service.example.com/health" },
+      ...(type === "heartbeat"
+        ? {
+            type: "heartbeat",
+            heartbeat: {
+              periodMinutes: 60,
+              graceMinutes: 5,
+              tokenIssuedAt: "2026-10-05T08:00:00.000Z",
+            },
+            detection: heartbeatDetection,
+          }
+        : { type: "http", http: { url: "https://service.example.com/health" } }),
       publishPolicy,
     }),
   );
@@ -360,4 +374,28 @@ test("its incident goes Monitoring on recovery, Investigating if it fails again,
     action: "none",
     reason: "no_incident",
   });
+});
+
+test("a missed heartbeat opens a draft in its own words, and the next check-in resolves it", async () => {
+  const monitor = await monitorWith("approve", true, "heartbeat");
+  const { deps, approvals } = recorder();
+
+  // The transitions the sweeper triggers: up → down for the missed window, then down → up.
+  const missed = await actOnTransition(transition(monitor.id, "down", 2), deps);
+  expect(missed).toMatchObject({ action: "open", created: true, visibility: "draft" });
+  const id = (missed as { incidentId: IncidentId }).incidentId;
+  expect(approvals).toHaveLength(1);
+  const draft = await incidentRepository(db).findById(acme, id);
+  expect(draft).toMatchObject({ visibility: "draft", status: "investigating", source: "monitor" });
+  expect(draft?.updates.map((u) => u.body)).toEqual([
+    `${monitor.name} is running behind schedule. We're investigating and will update by 10:30 UTC.`,
+  ]);
+
+  const back = await actOnTransition(transition(monitor.id, "up", 3, false, "down"), deps);
+  expect(back).toMatchObject({ action: "update", status: "resolved" });
+  const resolved = await incidentRepository(db).findById(acme, id);
+  expect(resolved?.status).toBe("resolved");
+  expect(resolved?.updates[0]?.body).toBe(
+    `${monitor.name} has worked normally since 10:00 UTC. It is running on schedule again.`,
+  );
 });

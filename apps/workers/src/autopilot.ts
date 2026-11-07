@@ -109,6 +109,7 @@ export async function actOnTransition(
       id: monitor.id,
       componentId: component?.id ?? null,
       componentName: component?.name ?? null,
+      type: monitor.type,
       publishPolicy: monitor.publishPolicy,
       downStatus: monitor.downStatus,
       stableMinutes: monitor.detection.stableMinutes,

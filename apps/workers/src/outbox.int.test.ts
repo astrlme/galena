@@ -117,7 +117,7 @@ test("a monitor change rewrites monitors.json with the enabled monitors, then ma
     }),
   ).toBe("dispatched");
   expect(files).toHaveLength(1);
-  expect(files[0]?.monitors.map((m) => m.http.url)).toEqual(["https://api.example.com/health"]);
+  expect(files[0]?.monitors.map((m) => m.http?.url)).toEqual(["https://api.example.com/health"]);
   const row = await findOutboxRow(db, id);
   expect(row?.dispatchedAt?.toISOString()).toBe("2026-09-28T10:00:00.000Z");
 
