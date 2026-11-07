@@ -543,7 +543,8 @@ export interface paths {
                                 componentId: string | null;
                                 name: string;
                                 /** @enum {string} */
-                                type: "http";
+                                type: "http" | "heartbeat";
+                                /** @default null */
                                 http: {
                                     /** Format: uri */
                                     url: string;
@@ -558,7 +559,14 @@ export interface paths {
                                     timeoutMs: number;
                                     /** @default true */
                                     followRedirects: boolean;
-                                };
+                                } | null;
+                                /** @default null */
+                                heartbeat: {
+                                    periodMinutes: number;
+                                    graceMinutes: number;
+                                    /** Format: date-time */
+                                    tokenIssuedAt: string;
+                                } | null;
                                 /**
                                  * @default approve
                                  * @enum {string}
@@ -587,6 +595,8 @@ export interface paths {
                                     flapMaxTransitions: number;
                                     /** @default 15 */
                                     stableMinutes: number;
+                                    /** @default false */
+                                    recoverAtOnce: boolean;
                                 };
                                 /** @default true */
                                 enabled: boolean;
@@ -597,7 +607,10 @@ export interface paths {
             };
         };
         put?: never;
-        /** Add a monitor; probes pick it up with the next config publish */
+        /**
+         * Add a monitor; probes pick it up with the next config publish
+         * @description A heartbeat monitor's ping URL is in this answer only; `POST /v1/monitors/{id}/ping-url` makes a new one. Heartbeat monitors always use fixed detection settings: one late check-in is down, the next is up.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -618,8 +631,9 @@ export interface paths {
                          * @default http
                          * @enum {string}
                          */
-                        type?: "http";
-                        http: {
+                        type?: "http" | "heartbeat";
+                        /** @default null */
+                        http?: {
                             /** Format: uri */
                             url: string;
                             /**
@@ -633,7 +647,12 @@ export interface paths {
                             timeoutMs?: number;
                             /** @default true */
                             followRedirects?: boolean;
-                        };
+                        } | null;
+                        /** @default null */
+                        heartbeat?: {
+                            periodMinutes: number;
+                            graceMinutes: number;
+                        } | null;
                         /**
                          * @default approve
                          * @enum {string}
@@ -662,6 +681,8 @@ export interface paths {
                             flapMaxTransitions?: number;
                             /** @default 15 */
                             stableMinutes?: number;
+                            /** @default false */
+                            recoverAtOnce?: boolean;
                         };
                         /** @default true */
                         enabled?: boolean;
@@ -669,7 +690,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description The new monitor */
+                /** @description The new monitor, with a heartbeat's ping URL */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -682,7 +703,8 @@ export interface paths {
                             componentId: string | null;
                             name: string;
                             /** @enum {string} */
-                            type: "http";
+                            type: "http" | "heartbeat";
+                            /** @default null */
                             http: {
                                 /** Format: uri */
                                 url: string;
@@ -697,7 +719,14 @@ export interface paths {
                                 timeoutMs: number;
                                 /** @default true */
                                 followRedirects: boolean;
-                            };
+                            } | null;
+                            /** @default null */
+                            heartbeat: {
+                                periodMinutes: number;
+                                graceMinutes: number;
+                                /** Format: date-time */
+                                tokenIssuedAt: string;
+                            } | null;
                             /**
                              * @default approve
                              * @enum {string}
@@ -726,9 +755,13 @@ export interface paths {
                                 flapMaxTransitions: number;
                                 /** @default 15 */
                                 stableMinutes: number;
+                                /** @default false */
+                                recoverAtOnce: boolean;
                             };
                             /** @default true */
                             enabled: boolean;
+                            /** Format: uri */
+                            pingUrl: string | null;
                         };
                     };
                 };
@@ -771,7 +804,8 @@ export interface paths {
                                 componentId: string | null;
                                 name: string;
                                 /** @enum {string} */
-                                type: "http";
+                                type: "http" | "heartbeat";
+                                /** @default null */
                                 http: {
                                     /** Format: uri */
                                     url: string;
@@ -786,7 +820,14 @@ export interface paths {
                                     timeoutMs: number;
                                     /** @default true */
                                     followRedirects: boolean;
-                                };
+                                } | null;
+                                /** @default null */
+                                heartbeat: {
+                                    periodMinutes: number;
+                                    graceMinutes: number;
+                                    /** Format: date-time */
+                                    tokenIssuedAt: string;
+                                } | null;
                                 /**
                                  * @default approve
                                  * @enum {string}
@@ -815,6 +856,8 @@ export interface paths {
                                     flapMaxTransitions: number;
                                     /** @default 15 */
                                     stableMinutes: number;
+                                    /** @default false */
+                                    recoverAtOnce: boolean;
                                 };
                                 /** @default true */
                                 enabled: boolean;
@@ -880,6 +923,8 @@ export interface paths {
                                     minutes: number;
                                     minutesDown: number;
                                 } | null;
+                                /** Format: date-time */
+                                lastPingAt: string | null;
                             }[];
                         };
                     };
@@ -928,8 +973,9 @@ export interface paths {
                          * @default http
                          * @enum {string}
                          */
-                        type?: "http";
-                        http: {
+                        type?: "http" | "heartbeat";
+                        /** @default null */
+                        http?: {
                             /** Format: uri */
                             url: string;
                             /**
@@ -943,7 +989,12 @@ export interface paths {
                             timeoutMs?: number;
                             /** @default true */
                             followRedirects?: boolean;
-                        };
+                        } | null;
+                        /** @default null */
+                        heartbeat?: {
+                            periodMinutes: number;
+                            graceMinutes: number;
+                        } | null;
                         /**
                          * @default approve
                          * @enum {string}
@@ -972,6 +1023,8 @@ export interface paths {
                             flapMaxTransitions?: number;
                             /** @default 15 */
                             stableMinutes?: number;
+                            /** @default false */
+                            recoverAtOnce?: boolean;
                         };
                         /** @default true */
                         enabled?: boolean;
@@ -992,7 +1045,8 @@ export interface paths {
                             componentId: string | null;
                             name: string;
                             /** @enum {string} */
-                            type: "http";
+                            type: "http" | "heartbeat";
+                            /** @default null */
                             http: {
                                 /** Format: uri */
                                 url: string;
@@ -1007,7 +1061,14 @@ export interface paths {
                                 timeoutMs: number;
                                 /** @default true */
                                 followRedirects: boolean;
-                            };
+                            } | null;
+                            /** @default null */
+                            heartbeat: {
+                                periodMinutes: number;
+                                graceMinutes: number;
+                                /** Format: date-time */
+                                tokenIssuedAt: string;
+                            } | null;
                             /**
                              * @default approve
                              * @enum {string}
@@ -1036,6 +1097,8 @@ export interface paths {
                                 flapMaxTransitions: number;
                                 /** @default 15 */
                                 stableMinutes: number;
+                                /** @default false */
+                                recoverAtOnce: boolean;
                             };
                             /** @default true */
                             enabled: boolean;
@@ -1259,7 +1322,7 @@ export interface paths {
                                 latencyMs: number | null;
                                 error: {
                                     /** @enum {string} */
-                                    code: "timeout" | "dns_failed" | "connection_failed" | "tls_failed" | "http_status" | "keyword_missing" | "blocked_by_guard" | "probe_failed";
+                                    code: "timeout" | "dns_failed" | "connection_failed" | "tls_failed" | "http_status" | "keyword_missing" | "blocked_by_guard" | "probe_failed" | "heartbeat_missed";
                                     message: string;
                                 } | null;
                             }[];
@@ -2898,6 +2961,93 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/monitors/{id}/ping-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a new ping URL for a heartbeat monitor
+         * @description Check-ins through the old URL stop counting within about a minute, and the old URL is refused once the new one checks in. The new URL is in this answer only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The new ping URL */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uri */
+                            url: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/monitors/{id}/check-ins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A heartbeat monitor's recent check-ins
+         * @description Newest first, at most 20, from the last 30 days. Empty for HTTP monitors.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Check-in times */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            checkIns: string[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;

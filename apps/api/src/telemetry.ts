@@ -1,12 +1,25 @@
-import { ResourceNotFoundException } from "@aws-sdk/client-dynamodb";
-import { BatchGetCommand, type DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
-import type {
-  MonitorDay,
-  MonitorId,
-  MonitorState,
-  MonitorSummary,
-  RecentCheck,
-  RecentResult,
+import {
+  ConditionalCheckFailedException,
+  ResourceNotFoundException,
+} from "@aws-sdk/client-dynamodb";
+import {
+  BatchGetCommand,
+  type DynamoDBDocumentClient,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+} from "@aws-sdk/lib-dynamodb";
+import {
+  CHECK_IN_PREFIX,
+  type MonitorDay,
+  type MonitorId,
+  type MonitorState,
+  type MonitorSummary,
+  PING_KEY,
+  type RecentCheck,
+  type RecentResult,
+  type StoredPing,
+  storedPing,
 } from "@galena/contracts";
 import {
   dayKey,
@@ -39,13 +52,32 @@ export type MonitorReading = {
   results: RecentResult[];
   /** Written by the hourly rollup; null before it has seen a check. */
   summary: MonitorSummary | null;
+  /** A heartbeat monitor's newest check-in, when it was asked for and has one. */
+  ping: StoredPing | null;
 };
 
-/** Reads what the evaluator and the rollup write; the API never writes telemetry. */
+/**
+ * Reads what the evaluator and the rollup write. The API writes one thing: heartbeat check-ins,
+ * which the sweeper reads.
+ */
 export type Telemetry = {
   regions: readonly string[];
-  /** Each monitor's state, summary and newest `minutes` of results. */
-  read(ids: readonly MonitorId[], minutes: number): Promise<Map<MonitorId, MonitorReading>>;
+  /**
+   * Each monitor's state, summary and newest `minutes` of results, and for the `heartbeats`
+   * among them their newest check-in.
+   */
+  read(
+    ids: readonly MonitorId[],
+    minutes: number,
+    heartbeats?: readonly MonitorId[],
+  ): Promise<Map<MonitorId, MonitorReading>>;
+  /**
+   * Records a check-in through the URL made at `issuedAt`. False when a newer URL has already
+   * checked in: the old one is refused from then on.
+   */
+  checkIn(id: MonitorId, issuedAt: Date, at: Date): Promise<boolean>;
+  /** A heartbeat's check-ins of the last 30 days, newest first, at most `count`. */
+  checkIns(id: MonitorId, count: number): Promise<string[]>;
   /** A chart's points and totals, from hour or day rollups as the window says. */
   series(id: MonitorId, window: SeriesWindow): Promise<{ points: PointAt[]; totals: Total[] }>;
   /** A chart window's minutes checked and down: a small item an hour or a day. */
@@ -59,6 +91,10 @@ export type Telemetry = {
 };
 
 const DAY = 86_400_000;
+/** A check-in item outlives any period a heartbeat can have; a deleted monitor's goes in time. */
+const PING_TTL_SECONDS = 400 * 86_400;
+/** Each check-in kept for the page's list lasts as long as the hours of a chart. */
+const CHECK_IN_TTL_SECONDS = 30 * 86_400;
 
 /**
  * `MON#<id>` / `STATE` for the detection state, `SUMMARY` for the hourly summary and
@@ -92,6 +128,25 @@ export function dynamoTelemetry(
       }
     }
     return { states, summaries };
+  }
+
+  /** Each heartbeat's newest check-in, keyed by partition key. */
+  async function lastPings(ids: readonly MonitorId[]) {
+    const pings = new Map<string, StoredPing>();
+    for (let i = 0; i < ids.length; i += 100) {
+      const keys = ids.slice(i, i + 100).map((id) => ({ pk: monitorKey(id), sk: PING_KEY }));
+      const { Responses, UnprocessedKeys } = await doc.send(
+        new BatchGetCommand({ RequestItems: { [table]: { Keys: keys } } }),
+      );
+      if (Object.keys(UnprocessedKeys ?? {}).length > 0) {
+        throw new Error("DynamoDB left check-ins unread; reload to try again.");
+      }
+      for (const item of Responses?.[table] ?? []) {
+        const ping = storedPing.safeParse(item);
+        if (ping.success) pings.set(String(item.pk), ping.data);
+      }
+    }
+    return pings;
   }
 
   async function results(id: MonitorId, count: number): Promise<RecentCheck[]> {
@@ -195,10 +250,62 @@ export function dynamoTelemetry(
       }
       return items.map(minutesOf).reduce<MinuteCounts>(mergeMinutes, { minutes: 0, down: 0 });
     },
-    async read(ids, minutes) {
+    async checkIn(id, issuedAt, at) {
+      try {
+        await doc.send(
+          new UpdateCommand({
+            TableName: table,
+            Key: { pk: monitorKey(id), sk: PING_KEY },
+            UpdateExpression: "SET #at = :at, issuedAt = :issued, #ttl = :ttl",
+            // Never let an older URL overwrite a newer one's check-in.
+            ConditionExpression: "attribute_not_exists(issuedAt) OR issuedAt <= :issued",
+            ExpressionAttributeNames: { "#at": "at", "#ttl": "ttl" },
+            ExpressionAttributeValues: {
+              ":at": at.getTime(),
+              ":issued": issuedAt.getTime(),
+              ":ttl": Math.floor(at.getTime() / 1000) + PING_TTL_SECONDS,
+            },
+          }),
+        );
+      } catch (error) {
+        if (error instanceof ConditionalCheckFailedException) return false;
+        throw error;
+      }
+      // The list on the monitor's page; the newest check-in above is what counts.
+      await doc.send(
+        new PutCommand({
+          TableName: table,
+          Item: {
+            pk: monitorKey(id),
+            sk: `${CHECK_IN_PREFIX}${at.toISOString()}`,
+            ttl: Math.floor(at.getTime() / 1000) + CHECK_IN_TTL_SECONDS,
+          },
+        }),
+      );
+      return true;
+    },
+    async checkIns(id, count) {
+      try {
+        const { Items = [] } = await doc.send(
+          new QueryCommand({
+            TableName: table,
+            KeyConditionExpression: "pk = :pk AND begins_with(sk, :prefix)",
+            ExpressionAttributeValues: { ":pk": monitorKey(id), ":prefix": CHECK_IN_PREFIX },
+            ScanIndexForward: false,
+            Limit: count,
+          }),
+        );
+        return Items.map((item) => String(item.sk).slice(CHECK_IN_PREFIX.length));
+      } catch (error) {
+        if (!(error instanceof ResourceNotFoundException)) throw error;
+        return [];
+      }
+    },
+    async read(ids, minutes, heartbeats = []) {
       const readings = new Map<MonitorId, MonitorReading>();
       try {
         const { states, summaries } = await statesAndSummaries(ids);
+        const pings = await lastPings(heartbeats);
         // A few monitors at a time: each query reads up to an hour of results.
         for (let i = 0; i < ids.length; i += 10) {
           const batch = ids.slice(i, i + 10);
@@ -211,6 +318,7 @@ export function dynamoTelemetry(
               // The list shows states, not errors.
               results: (recent[j] ?? []).map(({ error: _, ...result }): RecentResult => result),
               summary: summaries.get(monitorKey(id)) ?? null,
+              ping: pings.get(monitorKey(id)) ?? null,
             });
           });
         }

@@ -20,6 +20,7 @@ import { expiredPageCookies } from "./page-access.ts";
 import { registerApiKeyRoutes } from "./routes/api-keys.ts";
 import { registerComponentRoutes } from "./routes/components.ts";
 import { registerEndpointRoutes } from "./routes/endpoints.ts";
+import { registerHeartbeatRoutes } from "./routes/heartbeats.ts";
 import { registerHookRoutes } from "./routes/hooks.ts";
 import { registerIncidentRoutes } from "./routes/incidents.ts";
 import { registerIntegrationRoutes } from "./routes/integrations.ts";
@@ -335,6 +336,7 @@ export function createApp(deps: Deps) {
   registerPublicRoutes(app, deps);
   registerSlackRoutes(app, deps);
   registerHookRoutes(app, deps);
+  registerHeartbeatRoutes(app, deps);
 
   app.doc31("/openapi.json", openApiConfig);
 
@@ -352,8 +354,10 @@ export function createApp(deps: Deps) {
     // The cause goes to the logs only, and only the statement: a failed query's message ends with
     // its bound parameters (session tokens, email addresses).
     console.error("unhandled error", {
-      // A hook URL's last segment is its credential.
-      path: c.req.path.replace(/^(\/hooks\/[^/]+\/).+$/, "$1<token>"),
+      // A hook or ping URL's last segment is its credential.
+      path: c.req.path
+        .replace(/^(\/hooks\/[^/]+\/).+$/, "$1<token>")
+        .replace(/^\/hb\/.+$/, "/hb/<token>"),
       name: error.name,
       message: error.message.split("\nparams:")[0],
     });

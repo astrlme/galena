@@ -796,11 +796,15 @@
                           "type": {
                             "type": "string",
                             "enum": [
-                              "http"
+                              "http",
+                              "heartbeat"
                             ]
                           },
                           "http": {
-                            "type": "object",
+                            "type": [
+                              "object",
+                              "null"
+                            ],
                             "properties": {
                               "url": {
                                 "type": "string",
@@ -840,8 +844,37 @@
                                 "default": true
                               }
                             },
+                            "default": null,
                             "required": [
                               "url"
+                            ]
+                          },
+                          "heartbeat": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "periodMinutes": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 43200
+                              },
+                              "graceMinutes": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 43200
+                              },
+                              "tokenIssuedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "default": null,
+                            "required": [
+                              "periodMinutes",
+                              "graceMinutes",
+                              "tokenIssuedAt"
                             ]
                           },
                           "publishPolicy": {
@@ -914,6 +947,10 @@
                                 "minimum": 1,
                                 "maximum": 240,
                                 "default": 15
+                              },
+                              "recoverAtOnce": {
+                                "type": "boolean",
+                                "default": false
                               }
                             },
                             "default": {}
@@ -927,8 +964,7 @@
                           "id",
                           "componentId",
                           "name",
-                          "type",
-                          "http"
+                          "type"
                         ]
                       }
                     }
@@ -947,6 +983,7 @@
           "Monitors"
         ],
         "summary": "Add a monitor; probes pick it up with the next config publish",
+        "description": "A heartbeat monitor's ping URL is in this answer only; `POST /v1/monitors/{id}/ping-url` makes a new one. Heartbeat monitors always use fixed detection settings: one late check-in is down, the next is up.",
         "requestBody": {
           "required": true,
           "content": {
@@ -970,12 +1007,16 @@
                   "type": {
                     "type": "string",
                     "enum": [
-                      "http"
+                      "http",
+                      "heartbeat"
                     ],
                     "default": "http"
                   },
                   "http": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "url": {
                         "type": "string",
@@ -1015,8 +1056,32 @@
                         "default": true
                       }
                     },
+                    "default": null,
                     "required": [
                       "url"
+                    ]
+                  },
+                  "heartbeat": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "periodMinutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 43200
+                      },
+                      "graceMinutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 43200
+                      }
+                    },
+                    "default": null,
+                    "required": [
+                      "periodMinutes",
+                      "graceMinutes"
                     ]
                   },
                   "publishPolicy": {
@@ -1089,6 +1154,10 @@
                         "minimum": 1,
                         "maximum": 240,
                         "default": 15
+                      },
+                      "recoverAtOnce": {
+                        "type": "boolean",
+                        "default": false
                       }
                     },
                     "default": {}
@@ -1099,8 +1168,7 @@
                   }
                 },
                 "required": [
-                  "name",
-                  "http"
+                  "name"
                 ]
               }
             }
@@ -1108,7 +1176,7 @@
         },
         "responses": {
           "201": {
-            "description": "The new monitor",
+            "description": "The new monitor, with a heartbeat's ping URL",
             "content": {
               "application/json": {
                 "schema": {
@@ -1133,11 +1201,15 @@
                     "type": {
                       "type": "string",
                       "enum": [
-                        "http"
+                        "http",
+                        "heartbeat"
                       ]
                     },
                     "http": {
-                      "type": "object",
+                      "type": [
+                        "object",
+                        "null"
+                      ],
                       "properties": {
                         "url": {
                           "type": "string",
@@ -1177,8 +1249,37 @@
                           "default": true
                         }
                       },
+                      "default": null,
                       "required": [
                         "url"
+                      ]
+                    },
+                    "heartbeat": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "periodMinutes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 43200
+                        },
+                        "graceMinutes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 43200
+                        },
+                        "tokenIssuedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "default": null,
+                      "required": [
+                        "periodMinutes",
+                        "graceMinutes",
+                        "tokenIssuedAt"
                       ]
                     },
                     "publishPolicy": {
@@ -1251,6 +1352,10 @@
                           "minimum": 1,
                           "maximum": 240,
                           "default": 15
+                        },
+                        "recoverAtOnce": {
+                          "type": "boolean",
+                          "default": false
                         }
                       },
                       "default": {}
@@ -1258,6 +1363,13 @@
                     "enabled": {
                       "type": "boolean",
                       "default": true
+                    },
+                    "pingUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
                     }
                   },
                   "required": [
@@ -1265,7 +1377,7 @@
                     "componentId",
                     "name",
                     "type",
-                    "http"
+                    "pingUrl"
                   ]
                 }
               }
@@ -1339,11 +1451,15 @@
                           "type": {
                             "type": "string",
                             "enum": [
-                              "http"
+                              "http",
+                              "heartbeat"
                             ]
                           },
                           "http": {
-                            "type": "object",
+                            "type": [
+                              "object",
+                              "null"
+                            ],
                             "properties": {
                               "url": {
                                 "type": "string",
@@ -1383,8 +1499,37 @@
                                 "default": true
                               }
                             },
+                            "default": null,
                             "required": [
                               "url"
+                            ]
+                          },
+                          "heartbeat": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "periodMinutes": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 43200
+                              },
+                              "graceMinutes": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 43200
+                              },
+                              "tokenIssuedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "default": null,
+                            "required": [
+                              "periodMinutes",
+                              "graceMinutes",
+                              "tokenIssuedAt"
                             ]
                           },
                           "publishPolicy": {
@@ -1457,6 +1602,10 @@
                                 "minimum": 1,
                                 "maximum": 240,
                                 "default": 15
+                              },
+                              "recoverAtOnce": {
+                                "type": "boolean",
+                                "default": false
                               }
                             },
                             "default": {}
@@ -1470,8 +1619,7 @@
                           "id",
                           "componentId",
                           "name",
-                          "type",
-                          "http"
+                          "type"
                         ]
                       }
                     }
@@ -1643,6 +1791,13 @@
                               "minutes",
                               "minutesDown"
                             ]
+                          },
+                          "lastPingAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
                           }
                         },
                         "required": [
@@ -1651,7 +1806,8 @@
                           "status",
                           "since",
                           "results",
-                          "summary"
+                          "summary",
+                          "lastPingAt"
                         ]
                       }
                     }
@@ -1708,12 +1864,16 @@
                   "type": {
                     "type": "string",
                     "enum": [
-                      "http"
+                      "http",
+                      "heartbeat"
                     ],
                     "default": "http"
                   },
                   "http": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "url": {
                         "type": "string",
@@ -1753,8 +1913,32 @@
                         "default": true
                       }
                     },
+                    "default": null,
                     "required": [
                       "url"
+                    ]
+                  },
+                  "heartbeat": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "periodMinutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 43200
+                      },
+                      "graceMinutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 43200
+                      }
+                    },
+                    "default": null,
+                    "required": [
+                      "periodMinutes",
+                      "graceMinutes"
                     ]
                   },
                   "publishPolicy": {
@@ -1827,6 +2011,10 @@
                         "minimum": 1,
                         "maximum": 240,
                         "default": 15
+                      },
+                      "recoverAtOnce": {
+                        "type": "boolean",
+                        "default": false
                       }
                     },
                     "default": {}
@@ -1837,8 +2025,7 @@
                   }
                 },
                 "required": [
-                  "name",
-                  "http"
+                  "name"
                 ]
               }
             }
@@ -1871,11 +2058,15 @@
                     "type": {
                       "type": "string",
                       "enum": [
-                        "http"
+                        "http",
+                        "heartbeat"
                       ]
                     },
                     "http": {
-                      "type": "object",
+                      "type": [
+                        "object",
+                        "null"
+                      ],
                       "properties": {
                         "url": {
                           "type": "string",
@@ -1915,8 +2106,37 @@
                           "default": true
                         }
                       },
+                      "default": null,
                       "required": [
                         "url"
+                      ]
+                    },
+                    "heartbeat": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "periodMinutes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 43200
+                        },
+                        "graceMinutes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 43200
+                        },
+                        "tokenIssuedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "default": null,
+                      "required": [
+                        "periodMinutes",
+                        "graceMinutes",
+                        "tokenIssuedAt"
                       ]
                     },
                     "publishPolicy": {
@@ -1989,6 +2209,10 @@
                           "minimum": 1,
                           "maximum": 240,
                           "default": 15
+                        },
+                        "recoverAtOnce": {
+                          "type": "boolean",
+                          "default": false
                         }
                       },
                       "default": {}
@@ -2002,8 +2226,7 @@
                     "id",
                     "componentId",
                     "name",
-                    "type",
-                    "http"
+                    "type"
                   ]
                 }
               }
@@ -2522,7 +2745,8 @@
                                   "http_status",
                                   "keyword_missing",
                                   "blocked_by_guard",
-                                  "probe_failed"
+                                  "probe_failed",
+                                  "heartbeat_missed"
                                 ]
                               },
                               "message": {
@@ -5526,6 +5750,91 @@
         "responses": {
           "204": {
             "description": "Done"
+          }
+        }
+      }
+    },
+    "/v1/monitors/{id}/ping-url": {
+      "post": {
+        "tags": [
+          "Monitors"
+        ],
+        "summary": "Make a new ping URL for a heartbeat monitor",
+        "description": "Check-ins through the old URL stop counting within about a minute, and the old URL is refused once the new one checks in. The new URL is in this answer only.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The new ping URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "url"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/monitors/{id}/check-ins": {
+      "get": {
+        "tags": [
+          "Monitors"
+        ],
+        "summary": "A heartbeat monitor's recent check-ins",
+        "description": "Newest first, at most 20, from the last 30 days. Empty for HTTP monitors.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Check-in times",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkIns": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    }
+                  },
+                  "required": [
+                    "checkIns"
+                  ]
+                }
+              }
+            }
           }
         }
       }

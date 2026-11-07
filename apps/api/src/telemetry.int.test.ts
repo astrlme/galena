@@ -117,7 +117,32 @@ test("reads the state, the summary and the newest 60 minutes of results, newest 
     enteredAt: 0,
     results: [],
     summary: null,
+    ping: null,
   });
+});
+
+test("a check-in through an older URL never overwrites a newer one's, and the newest reads back", async () => {
+  const telemetry = dynamoTelemetry(doc, "telemetry", REGIONS);
+  const first = new Date("2026-11-07T08:00:00.000Z");
+  const second = new Date("2026-11-07T09:00:00.000Z");
+  expect(await telemetry.checkIn(SILENT, first, new Date("2026-11-07T10:00:00.000Z"))).toBe(true);
+  expect(await telemetry.checkIn(SILENT, second, new Date("2026-11-07T10:05:00.000Z"))).toBe(true);
+  // The replaced URL is refused, and its check-in leaves the newer one as it was.
+  expect(await telemetry.checkIn(SILENT, first, new Date("2026-11-07T10:10:00.000Z"))).toBe(false);
+
+  const readings = await telemetry.read([SILENT], 1, [SILENT]);
+  expect(readings.get(SILENT)?.ping).toEqual({
+    at: Date.parse("2026-11-07T10:05:00.000Z"),
+    issuedAt: second.getTime(),
+  });
+  // Asked without it, a monitor's check-in isn't read.
+  expect((await telemetry.read([SILENT], 1)).get(SILENT)?.ping).toBeNull();
+  // Each recorded check-in is listed, newest first; the refused one is not.
+  expect(await telemetry.checkIns(SILENT, 20)).toEqual([
+    "2026-11-07T10:05:00.000Z",
+    "2026-11-07T10:00:00.000Z",
+  ]);
+  expect(await telemetry.checkIns(SILENT, 1)).toEqual(["2026-11-07T10:05:00.000Z"]);
 });
 
 test("a reading asked for fewer minutes reads only the newest ones", async () => {

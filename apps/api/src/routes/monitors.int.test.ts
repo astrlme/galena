@@ -5,6 +5,7 @@ import {
   monitorChanged,
   type OutboxId,
   type RecentCheck,
+  type StoredPing,
 } from "@galena/contracts";
 import type { MinuteCounts, PointAt } from "@galena/core";
 import { schema } from "@galena/db";
@@ -14,7 +15,7 @@ import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createApp, type Deps } from "../app.ts";
 import type { MonitorReading, Telemetry } from "../telemetry.ts";
-import { type Triggered, testDeps } from "../test-deps.ts";
+import { TEST_BASE_URL, type Triggered, testDeps } from "../test-deps.ts";
 import { expectProblem, Session } from "../test-session.ts";
 
 type View = {
@@ -37,6 +38,7 @@ let uptimes: Map<MonitorId, MinuteCounts>;
 let days: Map<MonitorId, MonitorDay[]>;
 let checks: Map<MonitorId, RecentCheck[]>;
 let months: Map<string, MinuteCounts>;
+let pings: Map<MonitorId, StoredPing>;
 let owner: Session;
 
 beforeAll(async () => {
@@ -51,6 +53,7 @@ beforeAll(async () => {
   days = built.days;
   checks = built.checks;
   months = built.months;
+  pings = built.pings;
   close = built.close;
   owner = new Session(createApp(deps));
   const setup = await owner.call("/v1/setup", {
@@ -255,6 +258,7 @@ test("telemetry maps each monitor's state to a status and passes its results and
     enteredAt: Date.parse("2026-09-28T17:30:00.000Z"),
     results: [...results],
     summary,
+    ping: null,
   });
 
   const response = await owner.call("/v1/monitors/telemetry?minutes=5");
@@ -271,6 +275,7 @@ test("telemetry maps each monitor's state to a status and passes its results and
     since: "2026-09-28T17:30:00.000Z",
     results,
     summary,
+    lastPingAt: null,
   });
   // No state item yet: detection has no opinion, so there is no status either.
   expect(body.monitors.find((m) => m.id === quiet.id)).toEqual({
@@ -280,6 +285,7 @@ test("telemetry maps each monitor's state to a status and passes its results and
     since: null,
     results: [],
     summary: null,
+    lastPingAt: null,
   });
   expect((await owner.call("/v1/monitors/telemetry?minutes=0")).status).toBe(400);
 });
@@ -456,6 +462,136 @@ test("pauses two monitors in one change, and refuses a list with someone else's 
   expect((await owner.call("/v1/monitors", { ids: [], enabled: false }, "PATCH")).status).toBe(400);
 });
 
+type Created = View & {
+  type: string;
+  pingUrl: string | null;
+  heartbeat: { periodMinutes: number; graceMinutes: number; tokenIssuedAt: string } | null;
+};
+const backups = {
+  name: "Nightly backup",
+  type: "heartbeat",
+  heartbeat: { periodMinutes: 1440, graceMinutes: 30 },
+  detection: { quorum: 3 },
+};
+/** A ping URL's path, as a job calls it through the dashboard's address. */
+const pathOf = (url: string) => new URL(url).pathname;
+
+test("a heartbeat monitor gets its ping URL once, fixed detection, and no URL to check", async () => {
+  const created = (await create(backups)) as Created;
+  expect(created).toMatchObject({
+    type: "heartbeat",
+    http: null,
+    heartbeat: { periodMinutes: 1440, graceMinutes: 30 },
+    // One late check-in is down whatever the request asked for.
+    detection: { quorum: 1, failThreshold: 1 },
+  });
+  expect(created.pingUrl?.startsWith(`${TEST_BASE_URL}/hb/heartbeat.`)).toBe(true);
+  const listed = (await list()).find((m) => m.id === created.id);
+  expect(listed).not.toHaveProperty("pingUrl");
+
+  // Renaming it keeps the URL working.
+  const renamed = await owner.call(
+    `/v1/monitors/${created.id}`,
+    { ...backups, name: "Backups" },
+    "PUT",
+  );
+  expect(renamed.status).toBe(200);
+  expect(((await renamed.json()) as Created).heartbeat?.tokenIssuedAt).toBe(
+    created.heartbeat?.tokenIssuedAt,
+  );
+});
+
+test("a check-in through the ping URL records its time without signing in, for GET, POST and HEAD", async () => {
+  const created = (await create(backups)) as Created;
+  const app = createApp(deps);
+  const path = pathOf(created.pingUrl ?? "");
+  for (const method of ["GET", "POST", "HEAD"]) {
+    const response = await app.request(path, { method });
+    expect(response.status, method).toBe(200);
+  }
+  expect(pings.get(created.id as MonitorId)?.issuedAt).toBe(
+    Date.parse(created.heartbeat?.tokenIssuedAt ?? ""),
+  );
+  // A forged or edited token is refused before anything is written.
+  const before = pings.size;
+  const forged = await app.request(`${path.slice(0, -2)}xx`);
+  await expectProblem(forged, 404, "unknown_ping_url");
+  expect(pings.size).toBe(before);
+});
+
+test("a new ping URL replaces the old one, which is refused once the new one checks in", async () => {
+  const created = (await create(backups)) as Created;
+  const old = pathOf(created.pingUrl ?? "");
+  const made = await owner.call(`/v1/monitors/${created.id}/ping-url`, {});
+  expect(made.status).toBe(200);
+  const { url } = (await made.json()) as { url: string };
+  expect(pathOf(url)).not.toBe(old);
+
+  // Fresh instances, so neither answers from memory.
+  expect((await createApp(deps).request(pathOf(url))).status).toBe(200);
+  await expectProblem(await createApp(deps).request(old), 404, "unknown_ping_url");
+  // The settings now carry the new URL's time, so the sweeper counts only its check-ins.
+  const listed = (await list()).find((m) => m.id === created.id) as Created | undefined;
+  expect(Date.parse(listed?.heartbeat?.tokenIssuedAt ?? "")).toBeGreaterThan(
+    Date.parse(created.heartbeat?.tokenIssuedAt ?? ""),
+  );
+});
+
+test("a monitor keeps its type, and only heartbeats have a ping URL", async () => {
+  const http = await create({ name: "Site", http: { url: "https://example.com/" } });
+  await expectProblem(
+    await owner.call(`/v1/monitors/${http.id}`, backups, "PUT"),
+    422,
+    "type_changed",
+  );
+  await expectProblem(
+    await owner.call(`/v1/monitors/${http.id}/ping-url`, {}),
+    422,
+    "not_heartbeat",
+  );
+});
+
+test("telemetry carries the check-in the sweeper counts: an old URL's only up to the new one", async () => {
+  const created = (await create(backups)) as Created;
+  const issued = Date.parse(created.heartbeat?.tokenIssuedAt ?? "");
+  const lastPingAt = async () => {
+    const body = (await (await owner.call("/v1/monitors/telemetry")).json()) as {
+      monitors: { id: string; lastPingAt: string | null }[];
+    };
+    return body.monitors.find((m) => m.id === created.id)?.lastPingAt;
+  };
+  const reading = (ping: StoredPing) =>
+    readings.set(created.id as MonitorId, {
+      state: "up",
+      enteredAt: ping.at,
+      results: [],
+      summary: null,
+      ping,
+    });
+
+  reading({ at: issued + 60_000, issuedAt: issued });
+  expect(await lastPingAt()).toBe(new Date(issued + 60_000).toISOString());
+  // Through a URL older than the current one, after the current one was made.
+  reading({ at: issued + 60_000, issuedAt: issued - 3_600_000 });
+  expect(await lastPingAt()).toBe(new Date(issued).toISOString());
+});
+
+test("a heartbeat's page lists its check-ins newest first", async () => {
+  const created = (await create(backups)) as Created;
+  const app = createApp(deps);
+  expect((await app.request(pathOf(created.pingUrl ?? ""))).status).toBe(200);
+  const listed = (await (await owner.call(`/v1/monitors/${created.id}/check-ins`)).json()) as {
+    checkIns: string[];
+  };
+  expect(listed.checkIns).toHaveLength(1);
+  expect(Date.parse(listed.checkIns[0] ?? "")).toBeGreaterThan(Date.now() - 60_000);
+  // An HTTP monitor has none.
+  const site = await create({ name: "Docs", http: { url: "https://docs.example.com/" } });
+  expect(await (await owner.call(`/v1/monitors/${site.id}/check-ins`)).json()).toEqual({
+    checkIns: [],
+  });
+});
+
 test("a viewer may list but not change monitors", async () => {
   await deps.db
     .update(schema.member)
@@ -473,4 +609,5 @@ test("a viewer may list but not change monitors", async () => {
     403,
     "forbidden",
   );
+  await expectProblem(await owner.call(`/v1/monitors/${v7()}/ping-url`, {}), 403, "forbidden");
 });

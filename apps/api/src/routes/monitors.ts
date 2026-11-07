@@ -1,22 +1,48 @@
 import {
   awsRegion,
+  heartbeatDetection,
   type MonitorConfig,
   type MonitorInput,
+  monitorCreated,
   monitorId,
   monitorInput,
   monitorsEnabledInput,
   monitorTelemetry,
   monitorView,
 } from "@galena/contracts";
-import { monitorStatus } from "@galena/core";
+import { lastCheckIn, monitorStatus } from "@galena/core";
 import { componentRepository, monitorRepository } from "@galena/db";
 import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { type App, type Deps, fail, type Member, notFound, requireRole } from "../http.ts";
 import { RECENT_MINUTES } from "../telemetry.ts";
-import { assertUnderCap, CAPS, changeOf, commit, json, jsonBody, noContent } from "./shared.ts";
+import { pingUrlOf } from "./heartbeats.ts";
+import {
+  assertUnderCap,
+  CAPS,
+  changeOf,
+  commit,
+  json,
+  jsonBody,
+  newTokenTime,
+  noContent,
+} from "./shared.ts";
 
 const toView = ({ workspaceId: _, ...view }: MonitorConfig) => view;
+
+/**
+ * The settings as stored. A heartbeat keeps its ping URL's issue time across edits and always has
+ * the heartbeat detection settings: there are no regions to tune.
+ */
+function toStored(input: MonitorInput, existing?: MonitorConfig) {
+  if (!input.heartbeat) return { ...input, heartbeat: null };
+  const tokenIssuedAt = existing?.heartbeat?.tokenIssuedAt ?? newTokenTime().toISOString();
+  return {
+    ...input,
+    detection: heartbeatDetection,
+    heartbeat: { ...input.heartbeat, tokenIssuedAt },
+  };
+}
 
 export function registerMonitorRoutes(app: App, deps: Deps) {
   const { db } = deps;
@@ -38,6 +64,7 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
         detail: "Pick a component from the list, or leave the monitor without one.",
       });
     }
+    if (!input.http) return;
     // Names are resolved again at check time; this catches literal addresses early.
     const url = deps.targets.checkUrl(input.http.url);
     if (!url.ok) {
@@ -92,6 +119,7 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
       const readings = await deps.telemetry.read(
         list.map((m) => m.id),
         minutes,
+        list.filter((m) => m.type === "heartbeat").map((m) => m.id),
       );
       const telemetry = list.map((monitor) => {
         const reading = readings.get(monitor.id);
@@ -103,6 +131,11 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
           since: reading?.enteredAt ? new Date(reading.enteredAt).toISOString() : null,
           results: reading?.results ?? [],
           summary: reading?.summary ?? null,
+          // The check-in the sweeper counts, so the page's due time agrees with it.
+          lastPingAt:
+            reading?.ping && monitor.heartbeat
+              ? new Date(lastCheckIn(monitor.heartbeat, reading.ping)).toISOString()
+              : null,
         };
       });
       return c.json({ regions: [...deps.telemetry.regions], monitors: telemetry }, 200);
@@ -115,9 +148,11 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
       path: "/v1/monitors",
       tags: ["Monitors"],
       summary: "Add a monitor; probes pick it up with the next config publish",
+      description:
+        "A heartbeat monitor's ping URL is in this answer only; `POST /v1/monitors/{id}/ping-url` makes a new one. Heartbeat monitors always use fixed detection settings: one late check-in is down, the next is up.",
       middleware: [editor],
       request: jsonBody(monitorInput),
-      responses: { 201: json(monitorView, "The new monitor") },
+      responses: { 201: json(monitorCreated, "The new monitor, with a heartbeat's ping URL") },
     }),
     async (c) => {
       const member = c.get("member");
@@ -131,12 +166,19 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
       const created: MonitorConfig = {
         id: monitorId.parse(v7()),
         workspaceId: member.workspaceId,
-        ...input,
+        ...toStored(input),
       };
       await commit(deps, changeOf(member, "monitor", "created", [created.id], input), (tx) =>
         monitorRepository(tx).save(created),
       );
-      return c.json(toView(created), 201);
+      const issuedAt = created.heartbeat?.tokenIssuedAt;
+      return c.json(
+        {
+          ...toView(created),
+          pingUrl: issuedAt ? pingUrlOf(deps, created.id, new Date(issuedAt)) : null,
+        },
+        201,
+      );
     },
   );
 
@@ -155,9 +197,21 @@ export function registerMonitorRoutes(app: App, deps: Deps) {
       const member = c.get("member");
       const { id } = c.req.valid("param");
       const input = c.req.valid("json");
-      if (!(await monitors.findById(member.workspaceId, id))) notFound("Monitor");
+      const existing = (await monitors.findById(member.workspaceId, id)) ?? notFound("Monitor");
+      if (existing.type !== input.type) {
+        fail({
+          status: 422,
+          code: "type_changed",
+          title: "A monitor keeps its type",
+          detail: `This is ${existing.type === "heartbeat" ? "a heartbeat" : "an HTTP"} monitor. Add a new monitor of the other type instead.`,
+        });
+      }
       await validate(member, input);
-      const updated: MonitorConfig = { id, workspaceId: member.workspaceId, ...input };
+      const updated: MonitorConfig = {
+        id,
+        workspaceId: member.workspaceId,
+        ...toStored(input, existing),
+      };
       await commit(deps, changeOf(member, "monitor", "updated", [id], input), (tx) =>
         monitorRepository(tx).save(updated),
       );
