@@ -16,6 +16,15 @@ export const jsonBody = <T extends z.ZodType>(schema: T) => ({
 export const noContent = { 204: { description: "Done" } };
 
 /**
+ * When a new signed URL is made: whole seconds, as its token carries them, and later than the
+ * URL it replaces even within the same second, or the "new" URL would be the old one.
+ */
+export const newTokenTime = (replacing?: Date) =>
+  new Date(
+    Math.max(Math.floor(Date.now() / 1000) * 1000, replacing ? replacing.getTime() + 1000 : 0),
+  );
+
+/**
  * How many of each a workspace may have. Monitors cost probe time and queue messages every minute
  * in every region (50 is what the default telemetry table takes), and the rest add sends or
  * lookups, so a mistake or a stolen key can't multiply the bill. Known limit: fixed here; make

@@ -22,7 +22,16 @@ import { linkToken } from "@galena/integrations/secrets";
 import { createRoute, z } from "@hono/zod-openapi";
 import { v7 } from "uuid";
 import { type App, type Deps, notFound, requireRole } from "../http.ts";
-import { assertUnderCap, CAPS, changeOf, commit, json, jsonBody, noContent } from "./shared.ts";
+import {
+  assertUnderCap,
+  CAPS,
+  changeOf,
+  commit,
+  json,
+  jsonBody,
+  newTokenTime,
+  noContent,
+} from "./shared.ts";
 
 // Alert sources and their hook URLs. A URL carries a signed token, so only admins manage
 // integrations, and the URL appears once: when the integration is made, and when a new URL
@@ -34,8 +43,6 @@ const toView = ({ workspaceId, tokenIssuedAt, ...i }: IntegrationRow) => ({
   createdAt: i.createdAt.toISOString(),
 });
 const idParam = z.object({ id: integrationId });
-/** Whole seconds: the token carries its issue time in seconds. */
-const wholeSecondNow = () => new Date(Math.floor(Date.now() / 1000) * 1000);
 
 export function registerIntegrationRoutes(app: App, deps: Deps) {
   const { db, keys } = deps;
@@ -82,7 +89,7 @@ export function registerIntegrationRoutes(app: App, deps: Deps) {
         id: integrationId.parse(v7()),
         workspaceId: member.workspaceId,
         ...input,
-        tokenIssuedAt: wholeSecondNow(),
+        tokenIssuedAt: newTokenTime(),
       };
       await commit(
         deps,
@@ -137,9 +144,7 @@ export function registerIntegrationRoutes(app: App, deps: Deps) {
       const member = c.get("member");
       const { id } = c.req.valid("param");
       const existing = await owned(member.workspaceId, id);
-      // Later than the current URL's, even within its second, or the "new" URL would be the old.
-      const after = existing.tokenIssuedAt.getTime() + 1000;
-      const issuedAt = new Date(Math.max(wholeSecondNow().getTime(), after));
+      const issuedAt = newTokenTime(existing.tokenIssuedAt);
       await commit(
         deps,
         changeOf(member, "integration", "updated", [id], { url: "replaced" }),
