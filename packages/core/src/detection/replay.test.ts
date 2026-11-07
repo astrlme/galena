@@ -14,6 +14,7 @@ import {
   type IncidentStatus,
   incidentId,
   type MonitorState,
+  type MonitorType,
   monitorId,
   workspaceId,
 } from "@galena/contracts";
@@ -30,7 +31,7 @@ const EVENT = eventId.parse("01920000-0000-7000-8000-0000000000e1");
 const EVALUATION_DELAY = 5_000;
 
 type Line =
-  | { type: "settings"; detection: Partial<DetectionSettings> }
+  | { type: "settings"; detection: Partial<DetectionSettings>; monitorType?: MonitorType }
   | { type: "check"; at: string; region: string; status: CheckStatus; latencyMs?: number }
   | { type: "canary"; at: string; region: string; passed: boolean }
   | { type: "maintenance"; at: string; active: boolean };
@@ -131,15 +132,17 @@ test.each(scenarios)("%s replays to exactly its expected transitions", (name) =>
 });
 
 /** The updates autopilot posts on the incident it opens, as the transitions arrive. */
-function autopilotUpdates(transitions: readonly Replayed[]) {
+function autopilotUpdates(transitions: readonly Replayed[], lines: readonly Line[]) {
   const api = componentId.parse("01920000-0000-7000-8000-000000000011");
+  const settings = lines.find((line) => line.type === "settings");
   const monitor = {
     id: MONITOR,
     componentId: api,
     componentName: "API",
+    type: settings?.monitorType ?? "http",
     publishPolicy: "auto" as const,
     downStatus: "major_outage" as const,
-    stableMinutes: detectionSettings.parse({}).stableMinutes,
+    stableMinutes: detectionSettings.parse(settings?.detection ?? {}).stableMinutes,
   };
   let open: Incident | undefined;
   const updates: { at: string; status: IncidentStatus }[] = [];
@@ -172,5 +175,7 @@ function autopilotUpdates(transitions: readonly Replayed[]) {
 
 test.each(scenarios)("%s drives autopilot to exactly its expected incident updates", (name) => {
   const transitions = JSON.parse(read(name, ".expected.json")) as Replayed[];
-  expect(autopilotUpdates(transitions)).toEqual(JSON.parse(read(name, ".autopilot.json")));
+  expect(autopilotUpdates(transitions, linesOf(name))).toEqual(
+    JSON.parse(read(name, ".autopilot.json")),
+  );
 });

@@ -25,6 +25,7 @@ const monitor: AutopilotMonitor = {
   id: monitorId.parse("01920000-0000-7000-8000-000000000201"),
   componentId: api,
   componentName: "API",
+  type: "http",
   publishPolicy: "approve",
   downStatus: "major_outage",
   stableMinutes: 15,
@@ -159,6 +160,33 @@ describe("planAutopilot: recovering", () => {
     expect(plan({ from: "recovering", to: "up", openIncidents: [manual] })).toEqual({
       action: "none",
       reason: "no_incident",
+    });
+  });
+});
+
+describe("planAutopilot: heartbeat monitors", () => {
+  const backups = {
+    ...monitor,
+    componentName: "Nightly backups",
+    type: "heartbeat" as const,
+    stableMinutes: 0,
+  };
+
+  test("a missed check-in drafts an incident about the job running late, without regions", () => {
+    expect(plan({ monitor: backups })).toMatchObject({
+      action: "open",
+      visibility: "draft",
+      title: "Nightly backups is down",
+      body: "Nightly backups is running behind schedule. We're investigating and will update by 10:30 UTC.",
+    });
+  });
+
+  test("the next check-in resolves it, working from now", () => {
+    expect(
+      plan({ monitor: backups, from: "down", to: "up", openIncidents: [own("investigating")] }),
+    ).toMatchObject({
+      status: "resolved",
+      body: "Nightly backups has worked normally since 10:00 UTC. It is running on schedule again.",
     });
   });
 });

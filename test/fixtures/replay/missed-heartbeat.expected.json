@@ -1,0 +1,20 @@
+[
+  {
+    "at": "2026-11-07T10:00:05.000Z",
+    "from": "unknown",
+    "to": "up",
+    "suppressed": false
+  },
+  {
+    "at": "2026-11-07T10:05:05.000Z",
+    "from": "up",
+    "to": "down",
+    "suppressed": false
+  },
+  {
+    "at": "2026-11-07T10:08:05.000Z",
+    "from": "down",
+    "to": "up",
+    "suppressed": false
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "at": "2026-11-07T10:00:05.000Z",
+    "from": "unknown",
+    "to": "up",
+    "suppressed": false
+  },
+  {
+    "at": "2026-11-07T10:01:05.000Z",
+    "from": "up",
+    "to": "down",
+    "suppressed": false
+  },
+  {
+    "at": "2026-11-07T10:02:05.000Z",
+    "from": "down",
+    "to": "up",
+    "suppressed": false
+  },
+  {
+    "at": "2026-11-07T10:03:05.000Z",
+    "from": "up",
+    "to": "down",
+    "suppressed": false
+  },
+  {
+    "at": "2026-11-07T10:04:05.000Z",
+    "from": "down",
+    "to": "up",
+    "suppressed": false
+  },
+  {
+    "at": "2026-11-07T10:05:05.000Z",
+    "from": "up",
+    "to": "flapping",
+    "suppressed": false
+  }
+]

@@ -7,10 +7,11 @@ import type {
   IncidentStatus,
   MonitorId,
   MonitorState,
+  MonitorType,
   PublishPolicy,
 } from "@galena/contracts";
 import type { Incident } from "../ports.ts";
-import { fillTemplate } from "./templates.ts";
+import { fill, fillTemplate, HEARTBEAT_INVESTIGATING } from "./templates.ts";
 
 // What autopilot does when a monitor changes state. An outage opens an incident, unless one is
 // already open on the component; the monitor's publish policy decides whether it goes out at once
@@ -29,6 +30,8 @@ export type AutopilotMonitor = {
   id: MonitorId;
   componentId: ComponentId | null;
   componentName: string | null;
+  /** A heartbeat has no regions and no checks to pass, so its words differ. */
+  type: MonitorType;
   publishPolicy: PublishPolicy;
   /** What the component shows while this monitor is down. */
   downStatus: DownStatus;
@@ -90,13 +93,17 @@ export function planAutopilot(input: {
   }
   const component = monitor.componentName;
   const own = input.openIncidents.find((i) => i.dedupKey === monitorDedupKey(monitor.id));
-  const investigating = fillTemplate("investigating", {
-    symptom: "failed checks",
-    component,
-    // A monitor is down only when at least two regions agree.
-    regions: "more than one region",
-    nextUpdate: utcTime(minutesFrom(now, NEXT_UPDATE_MINUTES)),
-  });
+  const nextUpdate = utcTime(minutesFrom(now, NEXT_UPDATE_MINUTES));
+  const isHeartbeat = monitor.type === "heartbeat";
+  const investigating = isHeartbeat
+    ? fill(HEARTBEAT_INVESTIGATING, { component, nextUpdate })
+    : fillTemplate("investigating", {
+        symptom: "failed checks",
+        component,
+        // A monitor is down only when at least two regions agree.
+        regions: "more than one region",
+        nextUpdate,
+      });
 
   if (to === "down") {
     // It failed again before it was stable: the incident goes back to Investigating.
@@ -146,7 +153,9 @@ export function planAutopilot(input: {
       body: fillTemplate("resolved", {
         component,
         time: utcTime(since),
-        summary: "Checks pass from every region again",
+        summary: isHeartbeat
+          ? "It is running on schedule again"
+          : "Checks pass from every region again",
       }),
     };
   }

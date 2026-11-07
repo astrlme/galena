@@ -1,0 +1,6 @@
+[
+  { "at": "2026-11-07T10:01:05.000Z", "status": "investigating" },
+  { "at": "2026-11-07T10:02:05.000Z", "status": "resolved" },
+  { "at": "2026-11-07T10:03:05.000Z", "status": "investigating" },
+  { "at": "2026-11-07T10:04:05.000Z", "status": "resolved" }
+]

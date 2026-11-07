@@ -1,0 +1,12 @@
+{"type":"settings","monitorType":"heartbeat","detection":{"failThreshold":1,"recoverThreshold":1,"quorum":1,"recoverAtOnce":true}}
+{"type":"check","at":"2026-11-07T10:00:00.000Z","region":"eu-central-1","status":"up"}
+{"type":"check","at":"2026-11-07T10:01:00.000Z","region":"eu-central-1","status":"up"}
+{"type":"check","at":"2026-11-07T10:02:00.000Z","region":"eu-central-1","status":"up"}
+{"type":"check","at":"2026-11-07T10:03:00.000Z","region":"eu-central-1","status":"up"}
+{"type":"check","at":"2026-11-07T10:04:00.000Z","region":"eu-central-1","status":"up"}
+{"type":"check","at":"2026-11-07T10:05:00.000Z","region":"eu-central-1","status":"down"}
+{"type":"check","at":"2026-11-07T10:06:00.000Z","region":"eu-central-1","status":"down"}
+{"type":"check","at":"2026-11-07T10:07:00.000Z","region":"eu-central-1","status":"down"}
+{"type":"check","at":"2026-11-07T10:08:00.000Z","region":"eu-central-1","status":"up"}
+{"type":"check","at":"2026-11-07T10:09:00.000Z","region":"eu-central-1","status":"up"}
+{"type":"check","at":"2026-11-07T10:10:00.000Z","region":"eu-central-1","status":"up"}
