@@ -10,6 +10,7 @@ import {
   publishPolicies,
 } from "./enums.ts";
 import { eventEnvelope } from "./events.ts";
+import { heartbeatSchedule, heartbeatSettings } from "./heartbeats.ts";
 import { componentId, eventId, monitorId, workspaceId } from "./ids.ts";
 
 export const awsRegion = z
@@ -51,10 +52,25 @@ export const detectionSettings = z.object({
   flapWindowMinutes: z.int().min(5).max(240).default(30),
   /** More transitions than this inside the window means FLAPPING. */
   flapMaxTransitions: z.int().min(2).max(20).default(4),
-  /** Time a monitor stays steady before RECOVERING resolves. */
+  /** Time a monitor stays steady before RECOVERING resolves, and down before FLAPPING ends. */
   stableMinutes: z.int().min(1).max(240).default(15),
+  /** Skip RECOVERING: a recovered monitor goes from down straight to up. */
+  recoverAtOnce: z.boolean().default(false),
 });
 export type DetectionSettings = z.infer<typeof detectionSettings>;
+
+/**
+ * A heartbeat has no regions to vote: one late check-in is down, and the next one is up again
+ * at once, since it is all the evidence there will be until the next. Flapping still holds for
+ * `stableMinutes` before it gives way to down. The API stores these for every heartbeat monitor
+ * whatever the request says.
+ */
+export const heartbeatDetection: DetectionSettings = detectionSettings.parse({
+  failThreshold: 1,
+  recoverThreshold: 1,
+  quorum: 1,
+  recoverAtOnce: true,
+});
 
 export const monitorConfig = z.object({
   id: monitorId,
@@ -62,7 +78,10 @@ export const monitorConfig = z.object({
   componentId: componentId.nullable(),
   name: z.string().trim().min(1, "Enter a name.").max(100, "Keep the name under 100 characters."),
   type: z.enum(monitorTypes),
-  http: httpCheck,
+  /** Set for `http` monitors only. */
+  http: httpCheck.nullable().default(null),
+  /** Set for `heartbeat` monitors only. */
+  heartbeat: heartbeatSettings.nullable().default(null),
   publishPolicy: z.enum(publishPolicies).default("approve"),
   downStatus: z.enum(downStatuses).default("major_outage"),
   // prefault, not default: a missing object must still get its fields' defaults.
@@ -72,13 +91,31 @@ export const monitorConfig = z.object({
 export type MonitorConfig = z.infer<typeof monitorConfig>;
 
 /** What the dashboard and API clients send to create or replace a monitor. */
-export const monitorInput = monitorConfig.omit({ id: true, workspaceId: true }).extend({
-  componentId: componentId.nullable().default(null),
-  type: z.enum(monitorTypes).default("http"),
-});
+export const monitorInput = monitorConfig
+  .omit({ id: true, workspaceId: true })
+  .extend({
+    componentId: componentId.nullable().default(null),
+    type: z.enum(monitorTypes).default("http"),
+    heartbeat: heartbeatSchedule.nullable().default(null),
+  })
+  .refine((m) => m.type !== "http" || m.http !== null, {
+    message: "Enter the URL to check.",
+    path: ["http"],
+  })
+  .refine((m) => m.type !== "heartbeat" || m.heartbeat !== null, {
+    message: "Say how often the job checks in.",
+    path: ["heartbeat"],
+  })
+  .refine((m) => (m.type === "http" ? m.heartbeat : m.http) === null, {
+    message: "Send only the settings of the monitor's own type.",
+    path: ["type"],
+  });
 export type MonitorInput = z.infer<typeof monitorInput>;
 
 export const monitorView = monitorConfig.omit({ workspaceId: true });
+
+/** A new monitor; a heartbeat's ping URL is in this answer only. */
+export const monitorCreated = monitorView.extend({ pingUrl: z.url().nullable() });
 
 /** A monitor was created, replaced or deleted; `monitors.json` needs writing again. */
 export const monitorChanged = eventEnvelope("monitor.changed", changeData);
@@ -97,6 +134,7 @@ export const monitorsFile = z.object({
         workspaceId: true,
         type: true,
         http: true,
+        heartbeat: true,
         downStatus: true,
         detection: true,
       })
@@ -185,6 +223,8 @@ export const monitorTelemetry = z.object({
   results: z.array(recentResult),
   /** Null until the hourly rollup has seen its checks. */
   summary: monitorSummary.nullable(),
+  /** A heartbeat monitor's newest check-in through its current URL or an older one; null for HTTP monitors and before the first. */
+  lastPingAt: z.iso.datetime().nullable(),
 });
 
 export type MonitorTelemetry = z.infer<typeof monitorTelemetry>;

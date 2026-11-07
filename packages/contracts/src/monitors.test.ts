@@ -4,6 +4,7 @@ import {
   checkResult,
   detectionSettings,
   monitorConfig,
+  monitorInput,
   monitorsFile,
   probeMessage,
   probeMessageIds,
@@ -93,10 +94,40 @@ test("monitors.json carries only what the hot path needs and round-trips", () =>
       },
     ],
   });
-  expect(Object.keys(file.monitors[0] ?? {}).sort()).toEqual(
-    ["detection", "downStatus", "http", "id", "maintenance", "type", "workspaceId"].sort(),
-  );
+  expect(Object.keys(file.monitors[0] ?? {}).sort()).toEqual([
+    "detection",
+    "downStatus",
+    "heartbeat",
+    "http",
+    "id",
+    "maintenance",
+    "type",
+    "workspaceId",
+  ]);
   expect(monitorsFile.safeParse({ ...file, version: 2 }).success).toBe(false);
+});
+
+const heartbeatInput = {
+  name: "Nightly backup",
+  type: "heartbeat",
+  heartbeat: { periodMinutes: 1440, graceMinutes: 30 },
+};
+
+test("a heartbeat monitor takes a schedule and no URL", () => {
+  const input = roundTrips(monitorInput, heartbeatInput);
+  expect(input).toMatchObject({ http: null, heartbeat: { periodMinutes: 1440, graceMinutes: 30 } });
+});
+
+test.each([
+  ["an HTTP monitor without a URL", { type: "http", heartbeat: null }, "http"],
+  ["a heartbeat monitor without a schedule", { heartbeat: null }, "heartbeat"],
+  ["a heartbeat monitor with a URL too", { http: { url: "https://example.com/" } }, "type"],
+  ["a period under a minute", { heartbeat: { periodMinutes: 0, graceMinutes: 5 } }, "heartbeat"],
+  ["grace over 30 days", { heartbeat: { periodMinutes: 60, graceMinutes: 43_201 } }, "heartbeat"],
+])("refuses %s, naming the field", (_, change, field) => {
+  const parsed = monitorInput.safeParse({ ...heartbeatInput, ...change });
+  expect(parsed.success).toBe(false);
+  expect(parsed.error?.issues[0]?.path[0]).toBe(field);
 });
 
 const upResult = {

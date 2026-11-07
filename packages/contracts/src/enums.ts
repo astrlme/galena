@@ -45,7 +45,7 @@ export type TimelineEventKind = (typeof timelineEventKinds)[number];
 export const publishPolicies = ["auto", "approve", "internal_only"] as const;
 export type PublishPolicy = (typeof publishPolicies)[number];
 
-export const monitorTypes = ["http"] as const; // post-v1: "tcp", "dns", "tls_expiry", "domain_expiry", "heartbeat"
+export const monitorTypes = ["http", "heartbeat"] as const; // post-v1: "tcp", "dns", "tls_expiry", "domain_expiry"
 export type MonitorType = (typeof monitorTypes)[number];
 
 export const monitorStates = [
@@ -76,6 +76,7 @@ export const checkErrorCodes = [
   "keyword_missing",
   "blocked_by_guard",
   "probe_failed",
+  "heartbeat_missed",
 ] as const;
 export type CheckErrorCode = (typeof checkErrorCodes)[number];
 
