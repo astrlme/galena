@@ -97,7 +97,7 @@ test("a run checks every monitor and sends the canary and results in batches of 
 
 test("a failing canary is reported, and a crashing check doesn't lose the others", async () => {
   const monitors = file(["/up?first", "/up?second"]);
-  const crashing = monitors.monitors[0]?.http.url;
+  const crashing = monitors.monitors[0]?.http?.url;
   const { batches, deps: probeDeps } = deps({
     canaryUrl: `${origin.replace("127.0.0.1", "10.0.0.1")}/up`,
     check: async (check) => {
@@ -113,6 +113,27 @@ test("a failing canary is reported, and a crashing check doesn't lose the others
     ["up", null],
   ]);
   expect(batches.flat()).toHaveLength(3);
+});
+
+test("heartbeat monitors are never requested: only HTTP monitors get a result", async () => {
+  const monitors = file(["/up"]);
+  const heartbeat = monitorsFile.parse({
+    ...monitors,
+    monitors: [
+      ...monitors.monitors,
+      {
+        id: v7(),
+        workspaceId: WORKSPACE,
+        type: "heartbeat",
+        heartbeat: { periodMinutes: 60, graceMinutes: 5, tokenIssuedAt: MINUTE },
+        downStatus: "major_outage",
+        detection: {},
+      },
+    ],
+  });
+  const { deps: probeDeps } = deps();
+  const { results } = await runProbe(heartbeat, SCHEDULED, probeDeps);
+  expect(results.map((r) => r.monitorId)).toEqual([monitors.monitors[0]?.id]);
 });
 
 test("with no monitors, the canary still goes out", async () => {

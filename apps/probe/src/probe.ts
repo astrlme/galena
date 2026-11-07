@@ -43,9 +43,11 @@ export async function runProbe(file: MonitorsFile, scheduledAt: string, deps: Pr
     }
   };
 
+  // Heartbeat monitors have nothing to request: the sweeper reports them from their check-ins.
+  const monitors = file.monitors.flatMap(({ id, http }) => (http ? [{ id, http }] : []));
   const [canaryOutcome, ...outcomes] = await Promise.all([
     limit(() => run(httpCheck.parse({ url: deps.canaryUrl }))),
-    ...file.monitors.map((monitor) => limit(() => run(monitor.http))),
+    ...monitors.map((monitor) => limit(() => run(monitor.http))),
   ]);
   const canary: CanaryResult = {
     region: deps.region,
@@ -53,7 +55,7 @@ export async function runProbe(file: MonitorsFile, scheduledAt: string, deps: Pr
     passed: canaryOutcome?.status === "up",
     eventId: deps.newEventId(),
   };
-  const results = file.monitors.map(
+  const results = monitors.map(
     (monitor, i): CheckResult => ({
       monitorId: monitor.id,
       region: deps.region,
