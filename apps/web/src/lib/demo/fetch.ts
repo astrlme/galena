@@ -35,6 +35,7 @@ export async function demoFetch(request: Request): Promise<Response> {
     "/v1/components": data.components,
     "/v1/monitors": data.monitors,
     "/v1/monitors/telemetry": data.telemetry,
+    "/v1/expiries": data.expiries,
     "/v1/incidents": { incidents },
     "/v1/maintenances": data.maintenances,
     "/v1/subscribers": data.subscribers,

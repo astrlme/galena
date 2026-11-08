@@ -1,12 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { Button } from "../../../components/button.tsx";
 import { Modal } from "../../../components/modal.tsx";
 import { Loading } from "../../../components/ui/loading.tsx";
 import { api, unwrap } from "../../../lib/api.ts";
 import { Time } from "../incidents/incident-ui.tsx";
+import { Fact } from "./fact.tsx";
 
 // A heartbeat monitor's own parts: its check-ins, and its ping URL, which is shown only once.
 
@@ -14,16 +15,6 @@ export type ShownUrl = { name: string; url: string };
 
 const MINUTE = 60_000;
 const iso = (ms: number) => new Date(ms).toISOString();
-
-/** One fact, as the monitor page's header shows them. */
-function Fact({ name, children }: { name: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col">
-      <dt className="text-[14px] text-slate">{name}</dt>
-      <dd className="text-[14px]">{children}</dd>
-    </div>
-  );
-}
 
 /**
  * The newest check-in, when the next is due and when it counts as late. The sweeper looks once a

@@ -16,6 +16,7 @@ import { Tabs } from "../../../../components/ui/tabs.tsx";
 import { toast } from "../../../../components/ui/toast.tsx";
 import { UptimeBar } from "../../../../components/ui/uptime-bar.tsx";
 import { api, unwrap } from "../../../../lib/api.ts";
+import { ExpiryFacts } from "../expiries.tsx";
 import { CheckIns, NewPingUrl, RecentCheckIns } from "../heartbeat.tsx";
 import { asBody, type FormOut, MonitorForm, policyLabel } from "../monitor-form.tsx";
 import { latency, percent, watches } from "../monitor-row.ts";
@@ -158,6 +159,7 @@ export function MonitorView() {
         <Stat name="When it goes down" value={policyLabel(monitor.publishPolicy) ?? ""} />
       </dl>
       {heartbeat && <CheckIns schedule={heartbeat} lastPingAt={reading?.lastPingAt ?? null} />}
+      {monitor.http && <ExpiryFacts monitorId={id} now={new Date()} />}
       <div className="mt-4 flex flex-wrap gap-3">
         <Button onClick={() => setEditing(true)}>Edit monitor</Button>
         <Button

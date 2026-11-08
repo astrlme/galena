@@ -1,5 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { BatchWriteCommand, DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { BatchWriteCommand, DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { expiryKey, expiryPartition, workspaceId } from "@galena/contracts";
 import { histogramOf, quantileOf, rollUp } from "@galena/core";
 import { expect, test } from "@playwright/test";
 import { expectAccessible, signIn } from "./helpers.ts";
@@ -112,4 +113,56 @@ test("a monitor's page reads its 7-day p95, and each chart's table holds the cha
   await dialog.getByRole("button", { name: "Delete monitor" }).click();
   await expect(page).toHaveURL(/\/dashboard\/monitors\/$/);
   await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(0);
+});
+
+test("a certificate 10 days from expiry shows on Home and on its monitor's page", async ({
+  page,
+}, testInfo) => {
+  const stamp = `${testInfo.project.name}-${Date.now()}`;
+  const name = `Expiring ${stamp}`;
+  const host = `expiring-${stamp}.example.com`;
+  await signIn(page);
+  await expect(page).toHaveURL(/\/dashboard\/$/);
+  const created = await page.request.post("/v1/monitors", {
+    data: { name, http: { url: `https://${host}/` } },
+  });
+  expect(created.status()).toBe(201);
+  const { id } = (await created.json()) as { id: string };
+  const me = (await (await page.request.get("/v1/me")).json()) as { workspaceId: string };
+  // As the hourly scan stores it, a minute short of 10 days out.
+  const expiresAt = new Date(Date.now() + 10 * 24 * HOUR - 60_000).toISOString();
+  await doc.send(
+    new PutCommand({
+      TableName: "telemetry",
+      Item: {
+        pk: expiryPartition(workspaceId.parse(me.workspaceId)),
+        sk: expiryKey({ kind: "certificate", name: host }),
+        kind: "certificate",
+        name: host,
+        expiresAt,
+        issuer: "Galena test CA",
+        monitorIds: [id],
+        checkedAt: new Date().toISOString(),
+        sent: null,
+        ttl: Math.floor(Date.now() / 1000) + 3600,
+      },
+    }),
+  );
+
+  await page.goto("/dashboard/");
+  const soon = page.getByRole("region", { name: "Expiring soon" });
+  const link = soon.getByRole("link", { name: `Certificate for ${host} expires in 10 days` });
+  await expect(link).toBeVisible();
+  await expect(soon).toContainText("Issued by Galena test CA.");
+  await expectAccessible(page);
+
+  await link.click();
+  await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
+  const certificate = page
+    .locator("dt", { hasText: "Certificate" })
+    .locator("xpath=following-sibling::dd");
+  await expect(certificate).toContainText("in 10 days. Issued by Galena test CA.");
+  await expectAccessible(page);
+
+  await page.request.delete(`/v1/monitors/${id}`);
 });

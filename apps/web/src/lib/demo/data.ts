@@ -360,6 +360,35 @@ export function demoData(now: Date) {
     } satisfies Answer<"/v1/components">,
     monitors: { monitors } satisfies Answer<"/v1/monitors">,
     telemetry: { regions: REGIONS, monitors: telemetry } satisfies Answer<"/v1/monitors/telemetry">,
+    // The dashboard's certificate renews in 12 days, so Home lists it.
+    expiries: {
+      expiries: [
+        {
+          kind: "certificate",
+          name: "app.acme.example.com",
+          expiresAt: new Date(lastHour + 12 * DAY).toISOString(),
+          issuer: "Let's Encrypt",
+          monitorIds: [id(0x33)],
+          checkedAt: new Date(lastHour + 25 * MINUTE).toISOString(),
+        },
+        {
+          kind: "certificate",
+          name: "acme.example.com",
+          expiresAt: new Date(lastHour + 64 * DAY).toISOString(),
+          issuer: "Let's Encrypt",
+          monitorIds: [id(0x31), id(0x34)],
+          checkedAt: new Date(lastHour + 25 * MINUTE).toISOString(),
+        },
+        {
+          kind: "domain",
+          name: "example.com",
+          expiresAt: new Date(lastHour + 210 * DAY).toISOString(),
+          issuer: null,
+          monitorIds: scenes.map((s) => id(s.n)),
+          checkedAt: new Date(lastHour - 3 * HOUR).toISOString(),
+        },
+      ],
+    } satisfies Answer<"/v1/expiries">,
     incidents,
     maintenances: {
       maintenances: [
