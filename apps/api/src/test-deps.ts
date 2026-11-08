@@ -60,6 +60,11 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
     async checks(id, since) {
       return (checks.get(id) ?? []).filter((r) => r.scheduledAt >= since);
     },
+    async checksIn(id, from, to) {
+      return (checks.get(id) ?? [])
+        .filter((r) => r.scheduledAt >= from && r.scheduledAt <= to)
+        .toSorted((a, b) => (a.scheduledAt < b.scheduledAt ? -1 : 1));
+    },
     async minutes(id, month, _today) {
       return months.get(`${id} ${month}`) ?? { minutes: 0, down: 0 };
     },

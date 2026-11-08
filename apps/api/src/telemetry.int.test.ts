@@ -211,6 +211,25 @@ test("a monitor's last hour of checks carries each failure's error", async () =>
   expect(new Set(late.map((r) => r.scheduledAt)).size).toBe(5);
 });
 
+test("checks in a span read oldest first and take every region's result at both ends", async () => {
+  const telemetry = dynamoTelemetry(doc, "telemetry", REGIONS);
+  const results = await telemetry.checksIn(MONITOR, minute(19), minute(21));
+  // eu-north-1 missed minute 20.
+  expect(results.map((r) => `${r.scheduledAt.slice(11, 16)} ${r.region}`)).toEqual([
+    "16:19 eu-north-1",
+    "16:19 eu-west-1",
+    "16:19 eu-west-3",
+    "16:20 eu-west-1",
+    "16:20 eu-west-3",
+    "16:21 eu-north-1",
+    "16:21 eu-west-1",
+    "16:21 eu-west-3",
+  ]);
+  expect(
+    await dynamoTelemetry(doc, "not-created", REGIONS).checksIn(MONITOR, minute(0), minute(9)),
+  ).toEqual([]);
+});
+
 const CHARTED = monitorId.parse("01920000-0000-7000-8000-0000000000b3");
 const DAY = 24 * 60 * 60_000;
 

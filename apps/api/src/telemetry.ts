@@ -92,6 +92,8 @@ export type Telemetry = {
   days(id: MonitorId, today: string): Promise<MonitorDay[]>;
   /** One monitor's results scheduled since `since` (60 minutes at most), newest first, with errors. */
   checks(id: MonitorId, since: string): Promise<RecentCheck[]>;
+  /** One monitor's results scheduled from `from` to `to` (ISO times, both included), oldest first. */
+  checksIn(id: MonitorId, from: string, to: string): Promise<RecentCheck[]>;
   /** Every certificate and domain the expiry scan stored for the workspace. */
   expiries(workspaceId: WorkspaceId): Promise<Expiry[]>;
 };
@@ -101,6 +103,18 @@ const DAY = 86_400_000;
 const PING_TTL_SECONDS = 400 * 86_400;
 /** Each check-in kept for the page's list lasts as long as the hours of a chart. */
 const CHECK_IN_TTL_SECONDS = 30 * 86_400;
+
+/** A result item, `R#<minute>#<region>`, as the dashboard reads it. */
+function checkOf(item: Record<string, unknown>): RecentCheck {
+  const [, scheduledAt = "", region = ""] = String(item.sk).split("#");
+  return {
+    region,
+    scheduledAt,
+    status: item.status as RecentCheck["status"],
+    latencyMs: (item.latencyMs as number | undefined) ?? null,
+    error: (item.error as RecentCheck["error"] | undefined) ?? null,
+  };
+}
 
 /**
  * `MON#<id>` / `STATE` for the detection state, `SUMMARY` for the hourly summary and
@@ -169,16 +183,10 @@ export function dynamoTelemetry(
     const minutes = new Set<string>();
     const recent: RecentCheck[] = [];
     for (const item of Items) {
-      const [, scheduledAt = "", region = ""] = String(item.sk).split("#");
-      minutes.add(scheduledAt);
+      const check = checkOf(item);
+      minutes.add(check.scheduledAt);
       if (minutes.size > count) break;
-      recent.push({
-        region,
-        scheduledAt,
-        status: item.status,
-        latencyMs: item.latencyMs ?? null,
-        error: item.error ?? null,
-      });
+      recent.push(check);
     }
     return recent;
   }
@@ -246,6 +254,10 @@ export function dynamoTelemetry(
         if (!(error instanceof ResourceNotFoundException)) throw error;
         return [];
       }
+    },
+    async checksIn(id, from, to) {
+      // `~` sorts after `#`, so the bound takes every region's result at `to`.
+      return (await span(id, { from: `R#${from}`, to: `R#${to}~` })).map(checkOf);
     },
     async minutes(id, month, today) {
       const { days } = monthSpan(month);
