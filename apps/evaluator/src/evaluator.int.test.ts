@@ -255,6 +255,39 @@ test.each(SCENARIOS)("%s: every expected transition triggers exactly once", asyn
   expect(first?.ttl).toBe(Date.parse(firstAt) / 1000 + 90 * 86_400);
 });
 
+test("a result keeps the certificate its check saw, for the expiry scan to read", async () => {
+  await createTable("certificates");
+  const store = createStore(doc, "certificates");
+  const certificate = {
+    host: "api.example.com",
+    validTo: "2026-11-18T12:00:00.000Z",
+    issuer: "Let's Encrypt",
+  };
+  await store.putResult(
+    checkResult.parse({
+      monitorId: MONITOR,
+      region: "eu-west-1",
+      scheduledAt: "2026-11-08T09:00:00.000Z",
+      checkedAt: "2026-11-08T09:00:01.000Z",
+      status: "up",
+      httpStatus: 200,
+      latencyMs: 120,
+      phases: null,
+      error: null,
+      certificate,
+      eventId: eventId.parse(v7()),
+    }),
+  );
+  const { Items = [] } = await doc.send(
+    new QueryCommand({
+      TableName: "certificates",
+      KeyConditionExpression: "pk = :pk",
+      ExpressionAttributeValues: { ":pk": `MON#${MONITOR}` },
+    }),
+  );
+  expect(Items[0]?.certificate).toEqual(certificate);
+});
+
 test("a failed message fails every message after it, so nothing overtakes it", async () => {
   await createTable("fifo-order");
   const { file, records } = load("clean-outage");
