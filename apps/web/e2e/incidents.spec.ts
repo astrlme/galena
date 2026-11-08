@@ -39,6 +39,10 @@ test("publish an incident, post an update, resolve it", async ({ page }, testInf
   await expect(affected).toContainText("API");
   await expect(affected).toContainText("Partial outage");
 
+  // On a phone the form waits in the sheet at the foot of the page.
+  if (testInfo.project.name.startsWith("phone")) {
+    await page.getByRole("button", { name: "Post update" }).click();
+  }
   const update = page.getByRole("form", { name: "Post an update" });
   await choose(update, "Status", "Identified");
   await expect(update.getByLabel("Message")).toHaveValue(
@@ -60,9 +64,13 @@ test("publish an incident, post an update, resolve it", async ({ page }, testInf
     .fill("API has worked normally since 14:40 UTC. The rollback fixed it.");
   await update.getByRole("button", { name: "Post update" }).click();
   await expect(page.getByText(/^Resolved\. Major impact\. Started .*, resolved /)).toBeVisible();
-  const updates = page.getByRole("region", { name: "Updates" }).getByRole("listitem");
+  // Updates sit on the timeline, oldest first.
+  const updates = page
+    .getByRole("region", { name: "Timeline" })
+    .getByRole("listitem")
+    .filter({ hasText: "Update posted" });
   await expect(updates).toHaveCount(3);
-  await expect(updates.first()).toContainText("The rollback fixed it.");
+  await expect(updates.last()).toContainText("The rollback fixed it.");
   await expectAccessible(page);
 
   await page.getByRole("link", { name: "All incidents" }).click();

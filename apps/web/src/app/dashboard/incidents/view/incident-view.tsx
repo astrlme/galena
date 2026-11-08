@@ -1,40 +1,35 @@
 "use client";
 
-import { type IncidentStatus, incidentUpdateCreate } from "@galena/contracts";
-import { nextStatuses } from "@galena/core";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import type { z } from "zod";
-import { Button } from "../../../../components/button.tsx";
+import type { ReactNode } from "react";
 import { StatusLabel } from "../../../../components/status.tsx";
 import { Loading } from "../../../../components/ui/loading.tsx";
-import { FormSelect } from "../../../../components/ui/select.tsx";
-import { toast } from "../../../../components/ui/toast.tsx";
 import { api, unwrap } from "../../../../lib/api.ts";
-import type { paths } from "../../../../lib/api-schema.ts";
-import { bodyChecked } from "../incident-form.tsx";
 import {
-  type Affected,
-  ComponentPicker,
-  componentNames,
   IMPACT_LABELS,
   IMPACT_TITLE,
   STATUS_LABELS,
   Time,
   VisibilityNote,
 } from "../incident-ui.tsx";
-import { MessageField, useTemplate } from "../message-field.tsx";
+import { type IncidentDetail, regionRows, timelineOf, triggerOf } from "./evidence.ts";
+import { LatencyCharts, RegionGrid, Timeline } from "./evidence-sections.tsx";
+import { IncidentPanel } from "./incident-panel.tsx";
 
-// Updates on a vertical line, as on the status page: a dot each, the latest filled. Plain ink and
-// greys, since incident statuses are not states.
-const step =
-  "relative pb-5 pl-6 last:pb-0 before:absolute before:top-5 before:bottom-0.5 before:left-[5px] before:w-px before:bg-mist last:before:hidden after:absolute after:top-[7px] after:left-0 after:size-[11px] after:rounded-full after:border-[1.5px] after:border-ash after:bg-paper first:after:border-ink first:after:bg-ink";
+const h2 = "text-[19px] font-semibold leading-[1.35]";
 
-type Incident = paths["/v1/incidents/{id}"]["get"]["responses"][200]["content"]["application/json"];
+function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <section aria-labelledby={id} className="flex flex-col gap-3">
+      <h2 id={id} className={h2}>
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
 
 export function IncidentView() {
   const id = useSearchParams().get("id") ?? "";
@@ -61,11 +56,15 @@ export function IncidentView() {
   if (!shown) return null;
 
   return (
-    <>
-      <Link href="/dashboard/incidents/" className="text-[14px] underline-offset-2 hover:underline">
-        All incidents
-      </Link>
-      <div className="mt-4 flex flex-col gap-2">
+    // Room at the foot for the phone's sheet.
+    <div className="flex flex-col gap-6 pb-48 sm:pb-0">
+      <div className="flex flex-col gap-2">
+        <Link
+          href="/dashboard/incidents/"
+          className="text-[14px] underline-offset-2 hover:underline"
+        >
+          All incidents
+        </Link>
         <h1 className={`text-[24px] leading-[1.25] ${IMPACT_TITLE[shown.impact]}`}>
           {shown.title}
         </h1>
@@ -82,168 +81,59 @@ export function IncidentView() {
         {shown.visibility !== "draft" && (
           <VisibilityNote visibility={shown.visibility} approvalDeadline={null} />
         )}
-      </div>
-      {shown.components.length > 0 && (
-        <ul aria-label="Affected components" className="mt-4 flex flex-wrap gap-3">
-          {shown.components.map((c) => (
-            <li key={c.componentId} className="flex items-center gap-2">
-              {nameOf(c.componentId)} <StatusLabel status={c.status} />
-            </li>
-          ))}
-        </ul>
-      )}
-      {shown.visibility === "draft" && <ApprovalCard incident={shown} />}
-      <UpdateForm key={shown.updates.length} incident={shown} components={all} />
-      <section aria-labelledby="updates" className="mt-8">
-        <h2 id="updates" className="border-b border-mist pb-2 text-[19px] font-semibold">
-          Updates
-        </h2>
-        <ol className="mt-4">
-          {shown.updates.map((update) => (
-            <li key={update.id} className={step}>
-              <span className="text-[14px]">
-                <span className="font-semibold">{STATUS_LABELS[update.status]}</span>{" "}
-                <span className="text-slate">
-                  <Time iso={update.createdAt} />
-                </span>
-              </span>
-              <p className="mt-1 max-w-[72ch] whitespace-pre-wrap">{update.body}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-    </>
-  );
-}
-
-const schema = incidentUpdateCreate.extend({
-  body: incidentUpdateCreate.shape.body.pipe(bodyChecked),
-});
-type FormIn = z.input<typeof schema>;
-type FormOut = z.output<typeof schema>;
-
-function UpdateForm({
-  incident,
-  components,
-}: {
-  incident: Incident;
-  components: { id: string; name: string }[];
-}) {
-  const queryClient = useQueryClient();
-  const [affected, setAffected] = useState<Affected[]>(incident.components);
-  const form = useForm<FormIn, unknown, FormOut>({
-    resolver: zodResolver(schema),
-    defaultValues: { status: incident.status, body: "" },
-  });
-  const status = (form.watch("status") ?? incident.status) as IncidentStatus;
-  useTemplate(status, componentNames(components, affected), form.watch("body") ?? "", (text) =>
-    form.setValue("body", text),
-  );
-  const post = useMutation({
-    mutationFn: (body: FormOut) =>
-      unwrap(
-        api.POST("/v1/incidents/{id}/updates", {
-          params: { path: { id: incident.id } },
-          body: { status: body.status, body: body.body, components: affected },
-        }),
-      ),
-    onSuccess: async () => {
-      // The form remounts once the new update arrives, so the toast carries the news.
-      toast("Update posted");
-      await queryClient.invalidateQueries({ queryKey: ["incidents"] });
-    },
-  });
-  const submit = form.handleSubmit((values) => post.mutateAsync(values).catch(() => {}));
-
-  if (incident.status === "postmortem") return null;
-  return (
-    <form
-      onSubmit={submit}
-      aria-label="Post an update"
-      className="mt-8 flex max-w-[640px] flex-col gap-4"
-      noValidate
-    >
-      <h2 className="text-[19px] font-semibold leading-[1.35]">Post an update</h2>
-      <FormSelect
-        control={form.control}
-        name="status"
-        label="Status"
-        options={nextStatuses(incident.status).map((next) => ({
-          value: next,
-          label: STATUS_LABELS[next],
-        }))}
-      />
-      <ComponentPicker components={components} value={affected} onChange={setAffected} />
-      <MessageField
-        id="update-body"
-        error={errors(form.formState.errors.body?.message, post.error?.message)}
-        registration={form.register("body")}
-      />
-      <div>
-        {/* On a draft, approving is the view's one primary action. */}
-        <Button
-          type="submit"
-          variant={incident.visibility === "draft" ? "secondary" : "primary"}
-          disabled={post.isPending}
-        >
-          {post.isPending ? "Posting…" : "Post update"}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-const errors = (...messages: (string | undefined)[]) => messages.find(Boolean);
-
-/** A draft a monitor opened, waiting for a person: publish it now, or dismiss it. */
-function ApprovalCard({ incident }: { incident: Incident }) {
-  const queryClient = useQueryClient();
-  const decide = useMutation({
-    mutationFn: (decision: "publish" | "dismiss") =>
-      unwrap(
-        api.POST("/v1/incidents/{id}/decision", {
-          params: { path: { id: incident.id } },
-          body: { decision },
-        }),
-      ),
-    onSuccess: (_, decision) => {
-      toast(decision === "publish" ? "Incident published" : "Draft dismissed");
-      return queryClient.invalidateQueries({ queryKey: ["incidents"] });
-    },
-  });
-  return (
-    <section
-      aria-labelledby="approval-title"
-      className="mt-6 flex max-w-[640px] flex-col gap-3 rounded-xl border border-mist bg-surface p-4"
-    >
-      <h2 id="approval-title" className="text-[16px] font-semibold">
-        Draft from a monitor
-      </h2>
-      <p className="text-[14px]">
-        {incident.approvalDeadline ? (
-          <>
-            Publishes automatically at <Time iso={incident.approvalDeadline} /> unless you approve
-            or dismiss it sooner.
-          </>
-        ) : (
-          "Not on the status page until you approve it."
+        {shown.components.length > 0 && (
+          <ul aria-label="Affected components" className="flex flex-wrap gap-x-4 gap-y-2">
+            {shown.components.map((c) => (
+              <li key={c.componentId} className="flex items-center gap-2">
+                {nameOf(c.componentId)} <StatusLabel status={c.status} />
+              </li>
+            ))}
+          </ul>
         )}
-      </p>
-      <div className="flex flex-wrap gap-3">
-        <Button
-          variant="primary"
-          disabled={decide.isPending}
-          onClick={() => decide.mutate("publish")}
-        >
-          Approve and publish
-        </Button>
-        <Button disabled={decide.isPending} onClick={() => decide.mutate("dismiss")}>
-          Dismiss
-        </Button>
       </div>
-      <p role="alert" className="text-[14px] font-semibold empty:hidden">
-        {decide.error?.message}
-      </p>
-    </section>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <IncidentEvidence incident={shown} />
+        <IncidentPanel incident={shown} components={all} nameOf={nameOf} />
+      </div>
+    </div>
+  );
+}
+
+/** Why it opened, each region's minutes, response time around the start, and the timeline. */
+function IncidentEvidence({ incident }: { incident: IncidentDetail }) {
+  const evidence = useQuery({
+    queryKey: ["incidents", incident.id, "evidence"],
+    queryFn: () =>
+      unwrap(api.GET("/v1/incidents/{id}/evidence", { params: { path: { id: incident.id } } })),
+    // Up to a few hundred results a read: asked again only when the incident changes.
+    refetchOnWindowFocus: false,
+  });
+  if (evidence.isPending) return <Loading label="Loading what happened" />;
+  if (evidence.error) return <p className="font-semibold">{evidence.error.message}</p>;
+  const { monitor } = evidence.data;
+  const rows = regionRows(evidence.data);
+  return (
+    <div className="flex min-w-0 flex-col gap-8">
+      <Section id="why" title="Why it opened">
+        <p className="max-w-[72ch] text-[16px]">{triggerOf(incident, evidence.data)}</p>
+      </Section>
+      {monitor && rows.length > 0 && (
+        <Section id="regions" title="Regions">
+          <RegionGrid
+            rows={rows}
+            window={monitor.window}
+            isResolved={incident.resolvedAt !== null}
+          />
+        </Section>
+      )}
+      {monitor && monitor.type !== "heartbeat" && monitor.results.length > 0 && (
+        <Section id="latency" title="Response time">
+          <LatencyCharts monitor={monitor} startedAt={incident.startedAt} />
+        </Section>
+      )}
+      <Section id="timeline" title="Timeline">
+        <Timeline entries={timelineOf(incident, evidence.data)} startedAt={incident.startedAt} />
+      </Section>
+    </div>
   );
 }

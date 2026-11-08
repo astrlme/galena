@@ -13,7 +13,7 @@ test("approve one monitor draft and dismiss another before their deadline", asyn
   await expect(page).toHaveURL(/\/dashboard\/$/);
   await page.goto(`/dashboard/incidents/view/?id=${approved}`);
   const card = page.getByRole("region", { name: "Draft from a monitor" });
-  await expect(card).toContainText("Publishes automatically at");
+  await expect(card).toContainText("Publishes automatically");
   await expect(card).toContainText("unless you approve or dismiss it sooner.");
   await expectAccessible(page);
   await card.getByRole("button", { name: "Approve and publish" }).click();
