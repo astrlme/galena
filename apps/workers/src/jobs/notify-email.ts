@@ -21,7 +21,10 @@ const FINAL = new Set([
   "BadRequestException",
 ]);
 
-/** One email, keyed `send:{eventId}:{subscriberId}`: a confirmation or a notice. */
+/**
+ * One email: a confirmation or a notice keyed `send:{eventId}:{subscriberId}`, or an expiry
+ * warning to a member keyed `send:{warningId}:{memberId}`.
+ */
 export const notifyEmailJob = defineJob({
   name: "notify.email",
   payload: emailPayload,
@@ -33,6 +36,7 @@ export const notifyEmailJob = defineJob({
         keys,
         mailer,
         url: env.GLN_PAGE_URL,
+        dashboardUrl: env.GLN_DASHBOARD_URL,
         now: () => new Date(),
         attempt,
       });

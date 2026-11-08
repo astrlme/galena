@@ -1,16 +1,25 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
-import { eventId, notice as noticeSchema, subscriberId } from "@galena/contracts";
+import {
+  EXPIRY_THRESHOLDS,
+  eventId,
+  expiry,
+  memberId,
+  notice as noticeSchema,
+  subscriberId,
+} from "@galena/contracts";
+import { assertNever, daysLeft } from "@galena/core";
 import {
   claimDelivery,
   type Db,
   ensurePage,
   findDelivery,
+  findMemberEmail,
   findSubscriber,
   settleDelivery,
 } from "@galena/db";
-import { confirmationEmail, noticeEmail } from "@galena/emails";
+import { confirmationEmail, expiryEmail, noticeEmail } from "@galena/emails";
 import { type AppKeys, keyedHash, linkToken } from "@galena/integrations/secrets";
 import { z } from "zod";
 
@@ -25,24 +34,36 @@ export type OutgoingEmail = {
 };
 export type Mailer = { send: (email: OutgoingEmail) => Promise<{ id: string }> };
 
+/** The warning a member gets when a certificate or domain crosses a threshold. */
+export const expiryWarning = expiry.pick({ kind: true, name: true, issuer: true }).extend({
+  expiresAt: z.iso.datetime(),
+  threshold: z.literal(EXPIRY_THRESHOLDS),
+});
+export type ExpiryWarningPayload = z.infer<typeof expiryWarning>;
+
 export const emailPayload = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("confirmation"), subscriberId, eventId }),
   z.object({ kind: z.literal("notice"), subscriberId, notice: noticeSchema }),
+  // To a member, never a subscriber: no delivery row, keyed `send:{warningId}:{memberId}`.
+  z.object({ kind: z.literal("expiry"), memberId, warning: expiryWarning }),
 ]);
 export type EmailPayload = z.infer<typeof emailPayload>;
+type SubscriberEmail = Extract<EmailPayload, { subscriberId: unknown }>;
 
 export type EmailDeps = {
   db: Db;
   keys: AppKeys;
   mailer: Mailer;
   url: string;
+  /** The dashboard's origin, which member emails link to. */
+  dashboardUrl: string;
   now: () => Date;
   /** The task's attempt number, from 1: what the delivery is claimed for. */
   attempt: number;
 };
 export type EmailOutcome = "sent" | "skipped" | "already_settled";
 
-const eventOf = (payload: EmailPayload) =>
+const eventOf = (payload: SubscriberEmail) =>
   payload.kind === "notice" ? payload.notice.eventId : payload.eventId;
 
 /**
@@ -51,7 +72,7 @@ const eventOf = (payload: EmailPayload) =>
  * Known limit: if the send succeeds and recording it fails, the retry sends again; SES takes no
  * idempotency key.
  */
-async function claim(payload: EmailPayload, deps: EmailDeps) {
+async function claim(payload: SubscriberEmail, deps: EmailDeps) {
   const delivery = await findDelivery(deps.db, eventOf(payload), {
     subscriberId: payload.subscriberId,
   });
@@ -131,14 +152,46 @@ async function sendNotice(payload: Extract<EmailPayload, { kind: "notice" }>, de
   return "sent";
 }
 
+/**
+ * A certificate or domain expiry warning to one member. Known limit: no delivery row, so a send
+ * that succeeds before the run fails is sent again on the retry; SES takes no idempotency key.
+ */
+async function sendExpiryWarning(
+  payload: Extract<EmailPayload, { kind: "expiry" }>,
+  deps: EmailDeps,
+): Promise<EmailOutcome> {
+  const [to, target] = await Promise.all([
+    findMemberEmail(deps.db, payload.memberId),
+    ensurePage(deps.db),
+  ]);
+  if (!to || !target) return "skipped";
+  const { warning } = payload;
+  const email = await expiryEmail(
+    { ...warning, daysLeft: daysLeft(warning.expiresAt, deps.now()) },
+    { page: { name: target.name, url: deps.url }, dashboardUrl: `${deps.dashboardUrl}/dashboard/` },
+  );
+  // Known limit: no `List-Unsubscribe`: members can't turn these warnings off yet; a setting
+  // per member would let them, and the header would point at it.
+  await deps.mailer.send({ to, fromName: target.name, headers: {}, ...email });
+  return "sent";
+}
+
 export async function sendEmail(payload: EmailPayload, deps: EmailDeps): Promise<EmailOutcome> {
-  return payload.kind === "confirmation"
-    ? sendConfirmation(payload, deps)
-    : sendNotice(payload, deps);
+  switch (payload.kind) {
+    case "confirmation":
+      return sendConfirmation(payload, deps);
+    case "notice":
+      return sendNotice(payload, deps);
+    case "expiry":
+      return sendExpiryWarning(payload, deps);
+    default:
+      return assertNever(payload);
+  }
 }
 
 /** After the last retry: the email's delivery is marked failed, with the reason. */
 export async function failEmail(payload: EmailPayload, error: string, deps: { db: Db }) {
+  if (payload.kind === "expiry") return; // a member email has no delivery row
   const delivery = await findDelivery(deps.db, eventOf(payload), {
     subscriberId: payload.subscriberId,
   });

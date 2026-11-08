@@ -2,6 +2,7 @@ import {
   componentId,
   eventId,
   incidentId,
+  memberId,
   type Notice,
   type SubscriberId,
   subscriberId,
@@ -49,6 +50,7 @@ function inbox() {
     db,
     keys,
     url,
+    dashboardUrl: "https://dashboard.example.com",
     now: () => now,
     attempt: 1,
     mailer: {
@@ -238,4 +240,36 @@ test("someone who unsubscribed before the send is skipped; a send that keeps fai
   expect(await findDelivery(db, n.eventId, { subscriberId: failing })).toMatchObject({
     status: "failed",
   });
+});
+
+test("an expiry warning goes to the member's own address, counting the days at send time", async () => {
+  const { sent, deps } = inbox();
+  const member = memberId.parse(v7());
+  await db.insert(schema.user).values({ id: "u-ada", name: "Ada", email: "ada@acme.test" });
+  await db
+    .insert(schema.member)
+    .values({ id: member, workspaceId: acme, userId: "u-ada", role: "viewer" });
+  const warning = {
+    kind: "certificate" as const,
+    name: "api.acme.test",
+    issuer: "Let's Encrypt",
+    // 9 days and 23 hours after `now`: it reads as 10 days.
+    expiresAt: "2026-10-10T11:00:00.000Z",
+    threshold: 14 as const,
+  };
+
+  expect(await sendEmail({ kind: "expiry", memberId: member, warning }, deps)).toBe("sent");
+  expect(sent).toHaveLength(1);
+  expect(sent[0]).toMatchObject({
+    to: "ada@acme.test",
+    fromName: "Acme",
+    subject: "Certificate for api.acme.test expires in 10 days",
+  });
+  expect(sent[0]?.text).toContain("https://dashboard.example.com/dashboard/");
+
+  // Someone who left the team gets nothing, and a final failure has no row to mark.
+  const gone = memberId.parse(v7());
+  expect(await sendEmail({ kind: "expiry", memberId: gone, warning }, deps)).toBe("skipped");
+  await failEmail({ kind: "expiry", memberId: gone, warning }, "Throttling", { db });
+  expect(sent).toHaveLength(1);
 });
