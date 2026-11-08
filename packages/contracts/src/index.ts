@@ -6,6 +6,7 @@ export * from "./events.ts";
 export * from "./expiries.ts";
 export * from "./heartbeats.ts";
 export * from "./ids.ts";
+export * from "./incident-evidence.ts";
 export * from "./incidents.ts";
 export * from "./maintenance.ts";
 export * from "./monitor-charts.ts";
