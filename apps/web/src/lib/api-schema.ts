@@ -1833,6 +1833,139 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/incidents/{id}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Why an incident opened and who was told
+         * @description For an incident a monitor opened: each region's results from 30 minutes before the start to the resolution, or now (an incident longer than 90 minutes keeps the hour around its start and its latest hour), and the monitor's state changes. For every incident: status changes and the alert groups integrations reported about it, with their first 20 alerts' labels. For admins and owners, each notice sent and how its deliveries went.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The incident's evidence */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            monitor: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                /** @enum {string} */
+                                type: "http" | "heartbeat";
+                                regions: string[];
+                                window: {
+                                    /** Format: date-time */
+                                    from: string;
+                                    /** Format: date-time */
+                                    to: string;
+                                    gap: {
+                                        /** Format: date-time */
+                                        from: string;
+                                        /** Format: date-time */
+                                        to: string;
+                                    } | null;
+                                };
+                                results: {
+                                    region: string;
+                                    /** Format: date-time */
+                                    scheduledAt: string;
+                                    /** @enum {string} */
+                                    status: "up" | "degraded" | "down" | "error";
+                                    latencyMs: number | null;
+                                    error: {
+                                        /** @enum {string} */
+                                        code: "timeout" | "dns_failed" | "connection_failed" | "tls_failed" | "http_status" | "keyword_missing" | "blocked_by_guard" | "probe_failed" | "heartbeat_missed";
+                                        message: string;
+                                    } | null;
+                                }[];
+                                transitions: {
+                                    /** @enum {string} */
+                                    from: "unknown" | "up" | "degraded" | "down" | "recovering" | "flapping";
+                                    /** @enum {string} */
+                                    to: "unknown" | "up" | "degraded" | "down" | "recovering" | "flapping";
+                                    /** Format: date-time */
+                                    at: string;
+                                }[];
+                            } | null;
+                            timeline: ({
+                                /** @enum {string} */
+                                kind: "status_changed";
+                                /** Format: date-time */
+                                at: string;
+                                /** @enum {string|null} */
+                                from: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem" | null;
+                                /** @enum {string} */
+                                to: "investigating" | "identified" | "monitoring" | "resolved" | "postmortem";
+                            } | {
+                                /** @enum {string} */
+                                kind: "signal";
+                                /** Format: date-time */
+                                at: string;
+                                /** Format: uuid */
+                                integrationId: string;
+                                integrationName: string | null;
+                                title: string;
+                                /** @enum {string} */
+                                status: "firing" | "resolved";
+                                alerts: {
+                                    [key: string]: string;
+                                }[];
+                                alertCount: number;
+                            })[];
+                            notifications: {
+                                /** Format: uuid */
+                                eventId: string;
+                                /** Format: date-time */
+                                at: string;
+                                subscribers: {
+                                    pending: number;
+                                    sent: number;
+                                    failed: number;
+                                    skipped: number;
+                                };
+                                endpoints: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    kind: "slack" | "webhook";
+                                    /** @enum {string} */
+                                    status: "pending" | "sent" | "failed" | "skipped";
+                                    attempts: number;
+                                    lastError: string | null;
+                                    /** Format: date-time */
+                                    sentAt: string | null;
+                                }[];
+                            }[] | null;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/maintenances": {
         parameters: {
             query?: never;

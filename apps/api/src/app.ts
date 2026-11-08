@@ -23,6 +23,7 @@ import { registerEndpointRoutes } from "./routes/endpoints.ts";
 import { registerExpiryRoutes } from "./routes/expiries.ts";
 import { registerHeartbeatRoutes } from "./routes/heartbeats.ts";
 import { registerHookRoutes } from "./routes/hooks.ts";
+import { registerIncidentEvidenceRoutes } from "./routes/incident-evidence.ts";
 import { registerIncidentRoutes } from "./routes/incidents.ts";
 import { registerIntegrationRoutes } from "./routes/integrations.ts";
 import { registerInternalPageRoutes } from "./routes/internal-page.ts";
@@ -329,6 +330,7 @@ export function createApp(deps: Deps) {
   registerMonitorChartRoutes(app, deps);
   registerExpiryRoutes(app, deps);
   registerIncidentRoutes(app, deps);
+  registerIncidentEvidenceRoutes(app, deps);
   registerMaintenanceRoutes(app, deps);
   registerApiKeyRoutes(app, deps);
   registerEndpointRoutes(app, deps);

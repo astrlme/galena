@@ -3923,6 +3923,449 @@
         }
       }
     },
+    "/v1/incidents/{id}/evidence": {
+      "get": {
+        "tags": [
+          "Incidents"
+        ],
+        "summary": "Why an incident opened and who was told",
+        "description": "For an incident a monitor opened: each region's results from 30 minutes before the start to the resolution, or now (an incident longer than 90 minutes keeps the hour around its start and its latest hour), and the monitor's state changes. For every incident: status changes and the alert groups integrations reported about it, with their first 20 alerts' labels. For admins and owners, each notice sent and how its deliveries went.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The incident's evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "monitor": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "http",
+                            "heartbeat"
+                          ]
+                        },
+                        "regions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2}(?:-gov)?-[a-z]+-\\d$"
+                          }
+                        },
+                        "window": {
+                          "type": "object",
+                          "properties": {
+                            "from": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "to": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "gap": {
+                              "type": [
+                                "object",
+                                "null"
+                              ],
+                              "properties": {
+                                "from": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "to": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              },
+                              "required": [
+                                "from",
+                                "to"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "from",
+                            "to",
+                            "gap"
+                          ]
+                        },
+                        "results": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "region": {
+                                "type": "string",
+                                "pattern": "^[a-z]{2}(?:-gov)?-[a-z]+-\\d$"
+                              },
+                              "scheduledAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "up",
+                                  "degraded",
+                                  "down",
+                                  "error"
+                                ]
+                              },
+                              "latencyMs": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "minimum": 0
+                              },
+                              "error": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "code": {
+                                    "type": "string",
+                                    "enum": [
+                                      "timeout",
+                                      "dns_failed",
+                                      "connection_failed",
+                                      "tls_failed",
+                                      "http_status",
+                                      "keyword_missing",
+                                      "blocked_by_guard",
+                                      "probe_failed",
+                                      "heartbeat_missed"
+                                    ]
+                                  },
+                                  "message": {
+                                    "type": "string",
+                                    "maxLength": 500
+                                  }
+                                },
+                                "required": [
+                                  "code",
+                                  "message"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "region",
+                              "scheduledAt",
+                              "status",
+                              "latencyMs",
+                              "error"
+                            ]
+                          }
+                        },
+                        "transitions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "type": "string",
+                                "enum": [
+                                  "unknown",
+                                  "up",
+                                  "degraded",
+                                  "down",
+                                  "recovering",
+                                  "flapping"
+                                ]
+                              },
+                              "to": {
+                                "type": "string",
+                                "enum": [
+                                  "unknown",
+                                  "up",
+                                  "degraded",
+                                  "down",
+                                  "recovering",
+                                  "flapping"
+                                ]
+                              },
+                              "at": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to",
+                              "at"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "type",
+                        "regions",
+                        "window",
+                        "results",
+                        "transitions"
+                      ]
+                    },
+                    "timeline": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "status_changed"
+                                ]
+                              },
+                              "at": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "from": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "enum": [
+                                  "investigating",
+                                  "identified",
+                                  "monitoring",
+                                  "resolved",
+                                  "postmortem",
+                                  null
+                                ]
+                              },
+                              "to": {
+                                "type": "string",
+                                "enum": [
+                                  "investigating",
+                                  "identified",
+                                  "monitoring",
+                                  "resolved",
+                                  "postmortem"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "at",
+                              "from",
+                              "to"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "signal"
+                                ]
+                              },
+                              "at": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "integrationId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "integrationName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "firing",
+                                  "resolved"
+                                ]
+                              },
+                              "alerts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "string",
+                                    "maxLength": 1000
+                                  }
+                                },
+                                "maxItems": 20
+                              },
+                              "alertCount": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "at",
+                              "integrationId",
+                              "integrationName",
+                              "title",
+                              "status",
+                              "alerts",
+                              "alertCount"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "notifications": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "eventId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "subscribers": {
+                            "type": "object",
+                            "properties": {
+                              "pending": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "sent": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "failed": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "skipped": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "pending",
+                              "sent",
+                              "failed",
+                              "skipped"
+                            ]
+                          },
+                          "endpoints": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "slack",
+                                    "webhook"
+                                  ]
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "pending",
+                                    "sent",
+                                    "failed",
+                                    "skipped"
+                                  ]
+                                },
+                                "attempts": {
+                                  "type": "integer"
+                                },
+                                "lastError": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "sentAt": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "format": "date-time"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name",
+                                "kind",
+                                "status",
+                                "attempts",
+                                "lastError",
+                                "sentAt"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "eventId",
+                          "at",
+                          "subscribers",
+                          "endpoints"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "monitor",
+                    "timeline",
+                    "notifications"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/maintenances": {
       "get": {
         "tags": [
