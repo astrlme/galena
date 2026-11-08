@@ -1,7 +1,8 @@
 import { type ClientRequest, request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { isIP, type LookupFunction } from "node:net";
-import type { CheckErrorCode, CheckResult, HttpCheck } from "@galena/contracts";
+import type { TLSSocket } from "node:tls";
+import type { CheckErrorCode, CheckResult, HttpCheck, TlsCertificate } from "@galena/contracts";
 import { BlockedByGuardError, guard as defaultGuard, type Guard } from "./ssrf.ts";
 
 const MAX_REDIRECTS = 5;
@@ -12,11 +13,18 @@ const USER_AGENT = "Galena-Probe (+https://github.com/astrlme/galena)";
 
 export type HttpOutcome = Pick<
   CheckResult,
-  "status" | "httpStatus" | "latencyMs" | "phases" | "error"
+  "status" | "httpStatus" | "latencyMs" | "phases" | "error" | "certificate"
 >;
 type Phases = NonNullable<CheckResult["phases"]>;
 type Sent =
-  | { ok: true; status: number; location: string | undefined; body: string; phases: Phases }
+  | {
+      ok: true;
+      status: number;
+      location: string | undefined;
+      body: string;
+      phases: Phases;
+      certificate: TlsCertificate | undefined;
+    }
   | { ok: false; code: CheckErrorCode; message: string };
 
 /**
@@ -30,12 +38,16 @@ export async function checkHttp(
   const signal = AbortSignal.timeout(check.timeoutMs);
   const started = performance.now();
   const latencyMs = () => Math.round(performance.now() - started);
+  // Any hop's certificate lapsing breaks the check, so the one expiring first is the one to watch.
+  let certificate: TlsCertificate | undefined;
+  const withCertificate = () => (certificate ? { certificate } : {});
   const down = (code: CheckErrorCode, message: string, httpStatus: number | null = null) => ({
     status: "down" as const,
     httpStatus,
     latencyMs: httpStatus === null ? null : latencyMs(),
     phases: null,
     error: { code, message },
+    ...withCertificate(),
   });
 
   let url = guard.checkUrl(check.url);
@@ -46,6 +58,9 @@ export async function checkHttp(
       if (sent.code !== "probe_failed") return down(sent.code, sent.message);
       return { status: "error", httpStatus: null, latencyMs: null, phases: null, error: sent };
     }
+    if (sent.certificate && (!certificate || sent.certificate.validTo < certificate.validTo)) {
+      certificate = sent.certificate;
+    }
     if (check.followRedirects && REDIRECTS.has(sent.status) && sent.location !== undefined) {
       if (redirects === MAX_REDIRECTS) {
         return down("http_status", `Stopped after ${MAX_REDIRECTS} redirects.`, sent.status);
@@ -54,7 +69,12 @@ export async function checkHttp(
       continue;
     }
 
-    const result = { httpStatus: sent.status, latencyMs: latencyMs(), phases: sent.phases };
+    const result = {
+      httpStatus: sent.status,
+      latencyMs: latencyMs(),
+      phases: sent.phases,
+      ...withCertificate(),
+    };
     const accepted = check.expectedStatus
       ? check.expectedStatus.includes(sent.status)
       : sent.status >= 200 && sent.status < 300;
@@ -77,6 +97,7 @@ function send(url: URL, check: HttpCheck, guard: Guard, signal: AbortSignal): Pr
     const isHttps = url.protocol === "https:";
     const start = performance.now();
     const at: { dns?: number; connect?: number; tls?: number; ttfb?: number } = {};
+    let certificate: TlsCertificate | undefined;
     const since = (from: number, to: number | undefined) =>
       Math.max(0, Math.round((to ?? from) - from));
 
@@ -132,6 +153,7 @@ function send(url: URL, check: HttpCheck, guard: Guard, signal: AbortSignal): Pr
       });
       socket.once("secureConnect", () => {
         at.tls = performance.now();
+        certificate = certificateOf(url.hostname, socket as TLSSocket);
       });
     });
     req.on("error", fail);
@@ -148,6 +170,7 @@ function send(url: URL, check: HttpCheck, guard: Guard, signal: AbortSignal): Pr
           status: response.statusCode ?? 0,
           location: response.headers.location,
           body: Buffer.concat(chunks).toString("utf8"),
+          certificate,
           phases: {
             dns: since(start, at.dns),
             connect: since(dnsDone, at.connect),
@@ -172,4 +195,15 @@ function send(url: URL, check: HttpCheck, guard: Guard, signal: AbortSignal): Pr
     });
     req.end();
   });
+}
+
+/** The leaf certificate's expiry and issuer; undefined if the socket gives none it can read. */
+function certificateOf(host: string, socket: TLSSocket): TlsCertificate | undefined {
+  const peer = socket.getPeerCertificate();
+  const validTo = new Date(peer.valid_to ?? Number.NaN);
+  if (Number.isNaN(validTo.getTime())) return undefined;
+  // A name field repeated in the certificate comes as an array.
+  const first = (field: string | string[] | undefined) => (Array.isArray(field) ? field[0] : field);
+  const issuer = first(peer.issuer?.O) || first(peer.issuer?.CN) || "Unknown issuer";
+  return { host, validTo: validTo.toISOString(), issuer: issuer.slice(0, 200) };
 }

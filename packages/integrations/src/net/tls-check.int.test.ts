@@ -23,6 +23,7 @@ leaf() {
 key ca
 openssl req -x509 -key ca.key -subj "/CN=Galena test CA" -days 1 -out ca.crt
 leaf valid local.test -days 1
+leaf ten-days local.test -days 10
 leaf expired local.test -not_before 20200101000000Z -not_after 20200102000000Z
 leaf wrong-host elsewhere.test -days 1
 key self-signed
@@ -51,10 +52,15 @@ beforeAll(async () => {
     .start();
   await run(certificates);
   setDefaultCACertificates([...defaultCAs, await run("cat /out/ca.crt")]);
-  for (const name of ["valid", "expired", "wrong-host", "self-signed"]) {
+  for (const name of ["valid", "expired", "wrong-host", "self-signed", "ten-days"]) {
     const server = createServer(
       { key: await run(`cat /out/${name}.key`), cert: await run(`cat /out/${name}.crt`) },
-      (_req, res) => res.end("ok"),
+      (req, res) => {
+        // `/to-valid` sends the check on to the server whose certificate expires in a day.
+        if (req.url === "/to-valid") {
+          res.writeHead(301, { location: `https://local.test:${ports.get("valid")}/` }).end();
+        } else res.end("ok");
+      },
     );
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     servers.push(server);
@@ -70,8 +76,9 @@ afterAll(async () => {
   await container?.stop();
 });
 
-const checkAgainst = (name: string) =>
-  checkHttp(httpCheck.parse({ url: `https://local.test:${ports.get(name)}/` }), testGuard);
+const checkAgainst = (name: string, path = "/") =>
+  checkHttp(httpCheck.parse({ url: `https://local.test:${ports.get(name)}${path}` }), testGuard);
+const DAY_MS = 86_400_000;
 
 test("a certificate from a trusted CA is up, with the TLS handshake timed", async () => {
   const outcome = await checkAgainst("valid");
@@ -92,4 +99,24 @@ test.each([
     phases: null,
     error: { code: "tls_failed", message: `The TLS handshake failed (${reason}).` },
   });
+});
+
+test("records the certificate's expiry and issuer", async () => {
+  const outcome = await checkAgainst("ten-days");
+  expect(outcome.status).toBe("up");
+  expect(outcome.certificate).toMatchObject({ host: "local.test", issuer: "Galena test CA" });
+  const left = Date.parse(outcome.certificate?.validTo ?? "") - Date.now();
+  expect(left).toBeGreaterThan(10 * DAY_MS - 60_000);
+  expect(left).toBeLessThanOrEqual(10 * DAY_MS);
+});
+
+test("across redirects, keeps the certificate that expires first", async () => {
+  const outcome = await checkAgainst("ten-days", "/to-valid");
+  expect(outcome.status).toBe("up");
+  const left = Date.parse(outcome.certificate?.validTo ?? "") - Date.now();
+  expect(left).toBeLessThanOrEqual(DAY_MS);
+});
+
+test("a failed handshake records no certificate", async () => {
+  expect((await checkAgainst("expired")).certificate).toBeUndefined();
 });
