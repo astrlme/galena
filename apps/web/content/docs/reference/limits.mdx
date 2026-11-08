@@ -29,6 +29,9 @@ description: Every fixed limit in Galena, in one place.
 | Checks run at once in one probe run | 50 |
 | Probe run time | 50 seconds |
 | Check results kept | 90 days |
+| Certificates gathered for expiry | once an hour |
+| Domain expiry looked up over RDAP | once a day per registered domain, at most 20 an hour, 4 at a time, 8 seconds each |
+| Expiry warnings | 30, 14 and 7 days before, once each, to members only |
 | Monitors, with the default DynamoDB capacity | about 50 on `dev`, about 200 on `prod`, across three regions |
 
 A probe run that waits on many slow targets at once can run out of its 50 seconds: 50 checks at a

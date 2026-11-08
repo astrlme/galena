@@ -42,6 +42,7 @@ type EventEnvelope<Type extends string, Data> = {
 | `page.rebuild-html` | `html:{snapshotVersion}` | One HTML build per published version |
 | `notify.fanout` | `fan:{eventId}` | One fan-out per event |
 | `notify.email` | `send:{eventId}:{subscriberId}` | One send per event and subscriber, backed by a unique delivery row |
+| `notify.email` (expiry warning) | `send:{warningId}:{memberId}` | One warning per member, certificate or domain, expiry date and threshold; the scan records it on the expiry, so a later run doesn't send it again |
 | `notify.slack`, `notify.webhook` | `send:{eventId}:{endpointId}`; `send:{eventId}:{endpointId}:{attempt}` | One send per event and endpoint, backed by a unique delivery row; each later attempt, from 2, is a job of its own |
 | `maintenance.lifecycle` | `mnt:{maintenanceId}:{version}`; `mnt:{maintenanceId}:{version}:{status}` | One run per version of a window, and one wake at its start and one at its end; an edit starts a new version |
 | `incident.autopilot` | `auto:{incidentId}` | One run per draft, at its deadline |

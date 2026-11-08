@@ -109,7 +109,7 @@ whatever route it comes through.
 
 ## Outbound requests
 
-Every outbound URL (monitor checks, Slack, webhooks, the canary) passes the SSRF guard:
+Every outbound URL (monitor checks, Slack, webhooks, the canary, RDAP lookups of domain expiry) passes the SSRF guard:
 
 - only `http://` and `https://`, and no credentials in the URL;
 - the host's addresses are checked before the request, then again as the socket connects, so a
@@ -117,7 +117,7 @@ Every outbound URL (monitor checks, Slack, webhooks, the canary) passes the SSRF
 - loopback, private, link-local (which includes the instance metadata service), carrier-grade
   NAT, multicast, documentation and other special-purpose ranges are refused, in IPv4 and IPv6,
   including IPv4 addresses embedded in IPv6 ones;
-- every redirect hop is checked again.
+- every redirect hop is checked again (RDAP lookups follow none).
 
 ## Secrets and keys
 

@@ -14,7 +14,10 @@ its grace have passed, then down. The verdicts go through the same detection, so
 opens, drafts and resolves incidents like any monitor. See
 [heartbeat monitors](/docs/guides/monitors/#heartbeat-monitors).
 
-TCP, DNS and certificate expiry monitors are on the [roadmap](/docs/roadmap/).
+An HTTP monitor also watches when its TLS certificate and its domain expire, and members are
+warned by email 30, 14 and 7 days before; see
+[certificate and domain expiry](/docs/guides/monitors/#certificate-and-domain-expiry). TCP and DNS
+monitors are on the [roadmap](/docs/roadmap/).
 
 ## What an HTTP check does
 
@@ -24,6 +27,7 @@ TCP, DNS and certificate expiry monitors are on the [roadmap](/docs/roadmap/).
 3. Passes when the final status is one you accept (any 2xx by default) and, when you set a
    keyword, the first megabyte of the body contains it.
 4. Gives up after the timeout, 10 seconds by default.
+5. On `https://`, records the certificate's expiry date and issuer.
 
 Every address is checked by the SSRF guard twice: before the request, and again for each address
 DNS returns as the socket connects. Private, loopback, link-local, carrier-grade NAT,
