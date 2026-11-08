@@ -52,6 +52,31 @@ export async function findMemberByEmail(
   return row;
 }
 
+// Known limit: mail to the whole team reaches the first 1,000 members; no team is near that.
+const MAX_MEMBERS = 1_000;
+
+/** Every member of `workspaceId`, for mail that goes to the whole team. */
+export async function listMemberIds(db: Db, workspaceId: WorkspaceId): Promise<MemberId[]> {
+  const rows = await db
+    .select({ id: member.id })
+    .from(member)
+    .where(eq(member.workspaceId, workspaceId))
+    .orderBy(member.id)
+    .limit(MAX_MEMBERS);
+  return rows.map((row) => row.id);
+}
+
+/** The address a member signs in with; undefined once they have left. */
+export async function findMemberEmail(db: Db, memberId: MemberId): Promise<string | undefined> {
+  const [row] = await db
+    .select({ email: user.email })
+    .from(member)
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(eq(member.id, memberId))
+    .limit(1);
+  return row?.email;
+}
+
 // Any constant works, as long as every first-run setup uses the same one.
 const SETUP_LOCK = 71_356_229;
 
