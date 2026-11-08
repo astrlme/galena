@@ -4,6 +4,7 @@ export * from "./detection/canary.ts";
 export * from "./detection/evaluate.ts";
 export * from "./incidents/autopilot.ts";
 export * from "./incidents/body.ts";
+export * from "./incidents/evidence.ts";
 export * from "./incidents/lifecycle.ts";
 export * from "./incidents/signals.ts";
 export * from "./incidents/templates.ts";
