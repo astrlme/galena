@@ -45,8 +45,12 @@ export type TimelineEventKind = (typeof timelineEventKinds)[number];
 export const publishPolicies = ["auto", "approve", "internal_only"] as const;
 export type PublishPolicy = (typeof publishPolicies)[number];
 
-export const monitorTypes = ["http", "heartbeat"] as const; // post-v1: "tcp", "dns", "tls_expiry", "domain_expiry"
+export const monitorTypes = ["http", "heartbeat"] as const; // post-v1: "tcp", "dns"
 export type MonitorType = (typeof monitorTypes)[number];
+
+/** What an HTTP monitor's expiry scan watches: the TLS certificate and the registered domain. */
+export const expiryKinds = ["certificate", "domain"] as const;
+export type ExpiryKind = (typeof expiryKinds)[number];
 
 export const monitorStates = [
   "unknown",

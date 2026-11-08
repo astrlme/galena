@@ -10,6 +10,7 @@ import {
   publishPolicies,
 } from "./enums.ts";
 import { eventEnvelope } from "./events.ts";
+import { tlsCertificate } from "./expiries.ts";
 import { heartbeatSchedule, heartbeatSettings } from "./heartbeats.ts";
 import { componentId, eventId, monitorId, workspaceId } from "./ids.ts";
 
@@ -176,6 +177,8 @@ export const checkResult = z
     latencyMs: ms.nullable(),
     phases: checkPhases.nullable(),
     error: checkError.nullable(),
+    /** HTTPS only, once the handshake completed; absent from older probes' results. */
+    certificate: tlsCertificate.optional(),
     /** Correlation id from probe to delivery. */
     eventId,
   })
