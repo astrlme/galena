@@ -24,7 +24,12 @@ async function readLocal(): Promise<MonitorsFile["monitors"]> {
   }
 }
 
+/** The enabled monitors, from `monitors.json`: no Aurora read. */
+export async function readMonitors(): Promise<MonitorsFile["monitors"]> {
+  return fromS3 ? (await fromS3()).monitors : await readLocal();
+}
+
 /** The enabled monitors and their quorum, from `monitors.json`: no Aurora read. */
 export async function monitorsToRoll(): Promise<MonitorToRoll[]> {
-  return toRoll(fromS3 ? await fromS3() : { monitors: await readLocal() });
+  return toRoll({ monitors: await readMonitors() });
 }

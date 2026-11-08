@@ -18,6 +18,8 @@ const serial: Record<string, string> = {
   "outbox.sweep": "sweep",
   "rollup.uptime": "rollup",
   "rollup.telemetry": "rollup",
+  // A retried scan never races the run before it to warn the same threshold.
+  "expiry.scan": "expiry",
 };
 
 /** SES's send rate allows a few emails at once. */

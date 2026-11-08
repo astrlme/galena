@@ -8,6 +8,8 @@ export const cronPatterns = {
   "page.heartbeat": "35 * * * *",
   // Reads monitors.json and DynamoDB only, never Aurora, so it may run every hour.
   "rollup.telemetry": "5 * * * *",
+  // Reads monitors.json and DynamoDB; Aurora only on the rare run with a warning to send.
+  "expiry.scan": "25 * * * *",
 } as const;
 
 /**

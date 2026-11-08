@@ -1,9 +1,4 @@
-import { setTimeout as sleep } from "node:timers/promises";
-import {
-  BatchWriteCommand,
-  type DynamoDBDocumentClient,
-  QueryCommand,
-} from "@aws-sdk/lib-dynamodb";
+import { type DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import type { MonitorId, MonitorsFile } from "@galena/contracts";
 import {
   type Clock,
@@ -29,6 +24,7 @@ import {
   SUMMARY_KEY,
   spanKeys,
 } from "@galena/integrations/telemetry";
+import { writeBatches } from "./batch-write.ts";
 
 type Item = Record<string, unknown>;
 
@@ -194,23 +190,11 @@ export function dynamoTelemetryStore(doc: DynamoDBDocumentClient, table: string)
       return items;
     },
     async write(items) {
-      for (let i = 0; i < items.length; i += 25) {
-        let requests = items.slice(i, i + 25).map((Item) => ({ PutRequest: { Item } }));
-        // What a batch couldn't write comes back as `UnprocessedItems` on a success, which the
-        // SDK doesn't retry: back off with full jitter and send the rest.
-        for (let attempt = 0; requests.length > 0; attempt++) {
-          if (attempt === 5) {
-            throw new Error(
-              "DynamoDB kept refusing rollup writes; the job's retry rolls up again.",
-            );
-          }
-          if (attempt > 0) await sleep(Math.random() * 100 * 2 ** attempt);
-          const { UnprocessedItems } = await doc.send(
-            new BatchWriteCommand({ RequestItems: { [table]: requests } }),
-          );
-          requests = (UnprocessedItems?.[table] ?? []) as typeof requests;
-        }
-      }
+      await writeBatches(
+        doc,
+        table,
+        items.map((Item) => ({ PutRequest: { Item } })),
+      );
     },
   };
 }

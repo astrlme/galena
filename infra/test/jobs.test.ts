@@ -192,6 +192,7 @@ test("the scheduled jobs run from Scheduler into the jobs queue, in their lanes,
   );
   const byJob = new Map(schedules.map((p) => [JSON.parse(p.Target.Input).job, p]));
   expect([...byJob.keys()].sort()).toEqual([
+    "expiry.scan",
     "outbox.sweep",
     "page.heartbeat",
     "rollup.telemetry",
@@ -217,6 +218,10 @@ test("the scheduled jobs run from Scheduler into the jobs queue, in their lanes,
   expect(byJob.get("rollup.telemetry")).toMatchObject({
     ScheduleExpression: "cron(5 * * * ? *)",
     Target: { SqsParameters: { MessageGroupId: "rollup" } },
+  });
+  expect(byJob.get("expiry.scan")).toMatchObject({
+    ScheduleExpression: "cron(25 * * * ? *)",
+    Target: { SqsParameters: { MessageGroupId: "expiry" } },
   });
 });
 

@@ -1,5 +1,6 @@
 import { cronPatterns } from "@galena/integrations/jobs";
 import type { Job } from "../runner.ts";
+import { expiryScanJob } from "./expiry-scan.ts";
 import { incidentAutopilotJob } from "./incident-autopilot.ts";
 import { maintenanceLifecycleJob } from "./maintenance-lifecycle.ts";
 import { monitorStateChangedJob } from "./monitor-state-changed.ts";
@@ -22,6 +23,7 @@ import { slackApprovalCardJob, slackCommandJob, slackInteractionJob } from "./sl
  */
 export const jobs: ReadonlyMap<string, Job<unknown>> = new Map(
   [
+    expiryScanJob,
     incidentAutopilotJob,
     maintenanceLifecycleJob,
     monitorStateChangedJob,
@@ -49,4 +51,5 @@ export const crons = {
   rollupUptime: { job: rollupUptimeJob, pattern: cronPatterns["rollup.uptime"] },
   pageHeartbeat: { job: pageHeartbeatJob, pattern: cronPatterns["page.heartbeat"] },
   rollupTelemetry: { job: rollupTelemetryJob, pattern: cronPatterns["rollup.telemetry"] },
+  expiryScan: { job: expiryScanJob, pattern: cronPatterns["expiry.scan"] },
 };
