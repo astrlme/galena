@@ -18,6 +18,12 @@ export function hm(minutes: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
+/** "14:07 UTC" */
+export function utcClock(iso: string) {
+  const at = new Date(iso);
+  return `${two(at.getUTCHours())}:${two(at.getUTCMinutes())} UTC`;
+}
+
 /** "2 Nov, 14:07 UTC" */
 export function utcMinute(iso: string) {
   const at = new Date(iso);
