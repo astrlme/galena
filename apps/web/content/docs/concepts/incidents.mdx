@@ -92,3 +92,17 @@ its latest update so feed readers show it again when it moves.
 Subscribers hear about a published incident when it is created, on each update, and when it is
 resolved, if it names a component they chose (or they chose none). See
 [Notifications](/docs/concepts/notifications/).
+
+## Evidence
+
+`GET /v1/incidents/{id}/evidence` answers why an incident opened and who was told:
+
+- **Checks:** for an incident a monitor opened, each region's results from 30 minutes before the
+  start until it resolved (or now), with each failure's error, and the monitor's state changes.
+  An incident longer than 90 minutes keeps the hour around its start and its latest hour; the
+  response marks the gap between them. Deleting the monitor removes this part.
+- **Timeline:** status changes, and each alert group an integration reported about the incident:
+  name, firing or resolved, and the labels of its first 20 alerts.
+- **Notices:** for admins and owners, each notice sent about the incident, with subscriber emails
+  counted by status (no addresses) and each destination's delivery by name. Deleting a subscriber
+  or a destination deletes its deliveries too.
