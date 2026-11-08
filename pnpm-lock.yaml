@@ -563,6 +563,9 @@ importers:
       '@galena/ui':
         specifier: workspace:*
         version: link:../ui
+      tldts-icann:
+        specifier: ^7.4.16
+        version: 7.4.16
     devDependencies:
       '@galena/config':
         specifier: workspace:*

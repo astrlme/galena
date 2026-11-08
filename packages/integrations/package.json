@@ -7,6 +7,7 @@
   "exports": {
     "./config": "./src/config/monitors-file.ts",
     "./net": "./src/net/index.ts",
+    "./rdap": "./src/net/rdap.ts",
     "./secrets": "./src/secrets/keys.ts",
     "./channels": "./src/channels/index.ts",
     "./slack": "./src/slack/index.ts",
@@ -25,7 +26,8 @@
     "@aws-sdk/client-sqs": "^3.1141.0",
     "@galena/contracts": "workspace:*",
     "@galena/core": "workspace:*",
-    "@galena/ui": "workspace:*"
+    "@galena/ui": "workspace:*",
+    "tldts-icann": "^7.4.16"
   },
   "devDependencies": {
     "@galena/config": "workspace:*",
