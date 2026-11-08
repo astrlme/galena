@@ -95,7 +95,11 @@ resolved, if it names a component they chose (or they chose none). See
 
 ## Evidence
 
-`GET /v1/incidents/{id}/evidence` answers why an incident opened and who was told:
+An incident's page in the dashboard starts with its evidence: why it opened, in words; each
+region's checks minute by minute; response time around the start; and a timeline of everything
+that happened. A draft's countdown and its Approve and publish and Dismiss buttons sit beside it,
+or at the foot of the screen on a phone. The same evidence comes from
+`GET /v1/incidents/{id}/evidence`:
 
 - **Checks:** for an incident a monitor opened, each region's results from 30 minutes before the
   start until it resolved (or now), with each failure's error, and the monitor's state changes.
