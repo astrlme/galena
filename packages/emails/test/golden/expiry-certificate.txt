@@ -1,0 +1,11 @@
+Certificate for api.example.com expires in 10 days
+
+The TLS certificate for api.example.com expires on 18 Nov 2026, 12:00 UTC. Let's Encrypt issued it.
+
+Renew it, or check that automatic renewal works, before then. Once it expires, browsers refuse the site and the monitors that reach it go down.
+
+See it in the dashboard: https://dashboard.example.com/dashboard/
+
+--
+
+You get this email because you're a member of the Acme dashboard. Warnings go out 30, 14 and 7 days before an expiry.

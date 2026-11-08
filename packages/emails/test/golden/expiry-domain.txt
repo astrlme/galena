@@ -1,0 +1,11 @@
+Domain example.com expires in 1 day
+
+The domain example.com expires on 9 Nov 2026, 04:00 UTC, according to its registry.
+
+Renew it with your registrar before then. Once a domain lapses, its websites and email stop working.
+
+See it in the dashboard: https://dashboard.example.com/dashboard/
+
+--
+
+You get this email because you're a member of the Acme dashboard. Warnings go out 30, 14 and 7 days before an expiry.

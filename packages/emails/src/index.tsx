@@ -3,12 +3,16 @@ import {
   type ComponentStatus,
   componentStatusLabels,
   componentStatusSymbols,
+  EXPIRY_THRESHOLDS,
+  type Expiry,
+  expirySubjects,
   type Notice,
   noticeAffectedLabel,
   noticeState,
   noticeParagraphs as paragraphs,
   noticeStatusLine as statusLine,
   noticeSubject as subject,
+  utcDateTime,
 } from "@galena/contracts";
 import { light, stateTokens } from "@galena/ui/tokens";
 import {
@@ -162,4 +166,50 @@ export async function noticeEmail(
     `${footerText(notice)} Unsubscribe: ${links.unsubscribeUrl}`,
   ];
   return { subject: subject(notice), html, text: plain.join("\n\n") };
+}
+
+/** What a member is warned about: one certificate or domain, its expiry date known. */
+export type ExpiryWarning = Pick<Expiry, "kind" | "name" | "issuer"> & {
+  expiresAt: string;
+  daysLeft: number;
+};
+
+/** A warning to a member, never a subscriber, that a certificate or domain expires soon. */
+export async function expiryEmail(
+  warning: ExpiryWarning,
+  links: { page: Page; dashboardUrl: string },
+): Promise<Email> {
+  const { kind, name, issuer, expiresAt, daysLeft } = warning;
+  const what = expirySubjects[kind](name);
+  const title = `${what} expires in ${daysLeft} ${daysLeft === 1 ? "day" : "days"}`;
+  const when =
+    kind === "certificate"
+      ? `The TLS certificate for ${name} expires on ${utcDateTime(expiresAt)}.${issuer ? ` ${issuer} issued it.` : ""}`
+      : `The domain ${name} expires on ${utcDateTime(expiresAt)}, according to its registry.`;
+  const act =
+    kind === "certificate"
+      ? "Renew it, or check that automatic renewal works, before then. Once it expires, browsers refuse the site and the monitors that reach it go down."
+      : "Renew it with your registrar before then. Once a domain lapses, its websites and email stop working.";
+  const days = `${EXPIRY_THRESHOLDS.slice(0, -1).join(", ")} and ${EXPIRY_THRESHOLDS.at(-1)}`;
+  const why = `You get this email because you're a member of the ${links.page.name} dashboard. Warnings go out ${days} days before an expiry.`;
+  const linkLabel = "See it in the dashboard";
+  const html = await render(
+    <Layout page={links.page} preview={when} footer={<Text style={secondary}>{why}</Text>}>
+      <Heading as="h1" style={{ fontSize: "24px", lineHeight: "1.25", margin: "24px 0 16px" }}>
+        {title}
+      </Heading>
+      <Text style={text}>{when}</Text>
+      <Text style={text}>{act}</Text>
+      <Text style={text}>
+        <Link href={links.dashboardUrl} style={link}>
+          {linkLabel}
+        </Link>
+      </Text>
+    </Layout>,
+  );
+  return {
+    subject: title,
+    html,
+    text: [when, act, `${linkLabel}: ${links.dashboardUrl}`, "--", why].join("\n\n"),
+  };
 }

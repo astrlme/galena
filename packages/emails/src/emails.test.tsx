@@ -1,6 +1,6 @@
 import { componentId, eventId, type Notice } from "@galena/contracts";
 import { describe, expect, test } from "vitest";
-import { confirmationEmail, noticeEmail } from "./index.tsx";
+import { confirmationEmail, expiryEmail, noticeEmail } from "./index.tsx";
 
 const page = { name: "Acme", url: "https://status.example.com" };
 const api = componentId.parse("01920000-0000-7000-8000-000000000011");
@@ -101,4 +101,40 @@ test("the confirmation email carries the link and says how long it works", async
   await expect(email.html).toMatchFileSnapshot("../test/golden/confirmation.html");
   expect(email.html).toContain(confirmUrl);
   expect(email.text).toContain("7 days");
+});
+
+describe.each([
+  [
+    "expiry-certificate",
+    {
+      kind: "certificate",
+      name: "api.example.com",
+      issuer: "Let's Encrypt",
+      expiresAt: "2026-11-18T12:00:00.000Z",
+      daysLeft: 10,
+    },
+    "Certificate for api.example.com expires in 10 days",
+  ],
+  [
+    "expiry-domain",
+    {
+      kind: "domain",
+      name: "example.com",
+      issuer: null,
+      expiresAt: "2026-11-09T04:00:00.000Z",
+      daysLeft: 1,
+    },
+    "Domain example.com expires in 1 day",
+  ],
+] as const)("%s", (name, warning, subject) => {
+  test("says what expires and when, and links to the dashboard", async () => {
+    const dashboardUrl = "https://dashboard.example.com/dashboard/";
+    const email = await expiryEmail(warning, { page, dashboardUrl });
+    expect(email.subject).toBe(subject);
+    await expect(`${email.subject}\n\n${email.text}\n`).toMatchFileSnapshot(
+      `../test/golden/${name}.txt`,
+    );
+    await expect(email.html).toMatchFileSnapshot(`../test/golden/${name}.html`);
+    expect(email.text).toContain(dashboardUrl);
+  });
 });
