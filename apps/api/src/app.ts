@@ -20,6 +20,7 @@ import { expiredPageCookies } from "./page-access.ts";
 import { registerApiKeyRoutes } from "./routes/api-keys.ts";
 import { registerComponentRoutes } from "./routes/components.ts";
 import { registerEndpointRoutes } from "./routes/endpoints.ts";
+import { registerExpiryRoutes } from "./routes/expiries.ts";
 import { registerHeartbeatRoutes } from "./routes/heartbeats.ts";
 import { registerHookRoutes } from "./routes/hooks.ts";
 import { registerIncidentRoutes } from "./routes/incidents.ts";
@@ -326,6 +327,7 @@ export function createApp(deps: Deps) {
   registerComponentRoutes(app, deps);
   registerMonitorRoutes(app, deps);
   registerMonitorChartRoutes(app, deps);
+  registerExpiryRoutes(app, deps);
   registerIncidentRoutes(app, deps);
   registerMaintenanceRoutes(app, deps);
   registerApiKeyRoutes(app, deps);

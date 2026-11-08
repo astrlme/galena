@@ -2846,6 +2846,85 @@
         }
       }
     },
+    "/v1/expiries": {
+      "get": {
+        "tags": [
+          "Monitors"
+        ],
+        "summary": "Certificates and domains that expire",
+        "description": "Each TLS certificate (by host) and registered domain the workspace's HTTP monitors reach, soonest expiry first; a domain whose registry publishes no expiry date comes last. Checked every hour, domains once a day.",
+        "responses": {
+          "200": {
+            "description": "Expiries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "expiries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "certificate",
+                              "domain"
+                            ]
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253
+                          },
+                          "expiresAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "issuer": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "maxLength": 200
+                          },
+                          "monitorIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid"
+                            }
+                          },
+                          "checkedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "name",
+                          "expiresAt",
+                          "issuer",
+                          "monitorIds",
+                          "checkedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "expiries"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/incidents": {
       "get": {
         "tags": [

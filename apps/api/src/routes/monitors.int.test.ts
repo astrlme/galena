@@ -1,8 +1,10 @@
 import {
+  type Expiry,
   type IncidentId,
   type MonitorDay,
   type MonitorId,
   monitorChanged,
+  monitorId,
   type OutboxId,
   type RecentCheck,
   type StoredPing,
@@ -39,6 +41,7 @@ let days: Map<MonitorId, MonitorDay[]>;
 let checks: Map<MonitorId, RecentCheck[]>;
 let months: Map<string, MinuteCounts>;
 let pings: Map<MonitorId, StoredPing>;
+let expiries: Expiry[];
 let owner: Session;
 
 beforeAll(async () => {
@@ -54,6 +57,7 @@ beforeAll(async () => {
   checks = built.checks;
   months = built.months;
   pings = built.pings;
+  expiries = built.expiries;
   close = built.close;
   owner = new Session(createApp(deps));
   const setup = await owner.call("/v1/setup", {
@@ -592,6 +596,34 @@ test("a heartbeat's page lists its check-ins newest first", async () => {
   });
 });
 
+test("lists the workspace's expiries, soonest first, without monitors it no longer has", async () => {
+  const site = await create({ name: "Site", http: { url: "https://www.example.com/" } });
+  const deleted = monitorId.parse(v7());
+  const expiry = (kind: "certificate" | "domain", name: string, expiresAt: string | null) => ({
+    kind,
+    name,
+    expiresAt,
+    issuer: kind === "certificate" ? "Let's Encrypt" : null,
+    monitorIds: [site.id as MonitorId, deleted],
+    checkedAt: "2026-11-08T09:25:00.000Z",
+  });
+  expiries.push(
+    expiry("domain", "example.com", null),
+    expiry("domain", "example.org", "2027-03-01T00:00:00.000Z"),
+    expiry("certificate", "www.example.com", "2026-11-18T12:00:00.000Z"),
+    {
+      ...expiry("certificate", "old.example.com", "2026-11-10T00:00:00.000Z"),
+      monitorIds: [deleted],
+    },
+  );
+  const { expiries: listed } = (await (await owner.call("/v1/expiries")).json()) as {
+    expiries: Expiry[];
+  };
+  expect(listed.map((e) => e.name)).toEqual(["www.example.com", "example.org", "example.com"]);
+  expect(listed[0]?.monitorIds).toEqual([site.id]);
+  expiries.length = 0;
+});
+
 test("a viewer may list but not change monitors", async () => {
   await deps.db
     .update(schema.member)
@@ -599,6 +631,7 @@ test("a viewer may list but not change monitors", async () => {
     .where(eq(schema.member.role, "owner"));
   expect((await owner.call("/v1/monitors")).status).toBe(200);
   expect((await owner.call("/v1/monitors/telemetry")).status).toBe(200);
+  expect((await owner.call("/v1/expiries")).status).toBe(200);
   await expectProblem(
     await owner.call("/v1/monitors", { name: "Nope", http: { url: "https://example.com/" } }),
     403,

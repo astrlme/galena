@@ -11,6 +11,8 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import {
   CHECK_IN_PREFIX,
+  type Expiry,
+  expiryPartition,
   type MonitorDay,
   type MonitorId,
   type MonitorState,
@@ -19,7 +21,9 @@ import {
   type RecentCheck,
   type RecentResult,
   type StoredPing,
+  storedExpiry,
   storedPing,
+  type WorkspaceId,
 } from "@galena/contracts";
 import {
   dayKey,
@@ -88,6 +92,8 @@ export type Telemetry = {
   days(id: MonitorId, today: string): Promise<MonitorDay[]>;
   /** One monitor's results scheduled since `since` (60 minutes at most), newest first, with errors. */
   checks(id: MonitorId, since: string): Promise<RecentCheck[]>;
+  /** Every certificate and domain the expiry scan stored for the workspace. */
+  expiries(workspaceId: WorkspaceId): Promise<Expiry[]>;
 };
 
 const DAY = 86_400_000;
@@ -300,6 +306,34 @@ export function dynamoTelemetry(
         if (!(error instanceof ResourceNotFoundException)) throw error;
         return [];
       }
+    },
+    async expiries(workspaceId) {
+      const found: Expiry[] = [];
+      try {
+        let start: Record<string, unknown> | undefined;
+        do {
+          const page = await doc.send(
+            new QueryCommand({
+              TableName: table,
+              KeyConditionExpression: "pk = :pk",
+              ExpressionAttributeValues: { ":pk": expiryPartition(workspaceId) },
+              ExclusiveStartKey: start,
+            }),
+          );
+          for (const item of page.Items ?? []) {
+            const parsed = storedExpiry.safeParse(item);
+            if (parsed.success) {
+              // Which warning members last got stays with the scan.
+              const { sent: _, ...expiry } = parsed.data;
+              found.push(expiry);
+            }
+          }
+          start = page.LastEvaluatedKey;
+        } while (start);
+      } catch (error) {
+        if (!(error instanceof ResourceNotFoundException)) throw error;
+      }
+      return found;
     },
     async read(ids, minutes, heartbeats = []) {
       const readings = new Map<MonitorId, MonitorReading>();

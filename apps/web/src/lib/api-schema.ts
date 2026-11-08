@@ -1387,6 +1387,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/expiries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Certificates and domains that expire
+         * @description Each TLS certificate (by host) and registered domain the workspace's HTTP monitors reach, soonest expiry first; a domain whose registry publishes no expiry date comes last. Checked every hour, domains once a day.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Expiries */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            expiries: {
+                                /** @enum {string} */
+                                kind: "certificate" | "domain";
+                                name: string;
+                                /** Format: date-time */
+                                expiresAt: string | null;
+                                issuer: string | null;
+                                monitorIds: string[];
+                                /** Format: date-time */
+                                checkedAt: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/incidents": {
         parameters: {
             query?: never;

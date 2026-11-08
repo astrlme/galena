@@ -1,5 +1,5 @@
 // Dependencies for tests. Nothing connects until a query runs, so unit tests need no database.
-import type { MonitorDay, MonitorId, RecentCheck, StoredPing } from "@galena/contracts";
+import type { Expiry, MonitorDay, MonitorId, RecentCheck, StoredPing } from "@galena/contracts";
 import type { MinuteCounts, WorkflowEngine } from "@galena/core";
 import { createDb } from "@galena/db";
 import { guard } from "@galena/integrations/net";
@@ -37,6 +37,7 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
   // Check-ins as DynamoDB keeps them: an older URL never overwrites a newer one's.
   const pings = new Map<MonitorId, StoredPing>();
   const checkInTimes = new Map<MonitorId, string[]>();
+  const expiries: Expiry[] = [];
   const telemetry: Telemetry = {
     regions: ["eu-west-1", "eu-west-3", "eu-north-1"],
     async read(ids) {
@@ -71,6 +72,9 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
     async checkIns(id, count) {
       return (checkInTimes.get(id) ?? []).slice(0, count);
     },
+    async expiries() {
+      return expiries;
+    },
   };
   return {
     deps: {
@@ -92,6 +96,7 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
     checks,
     months,
     pings,
+    expiries,
     migrate,
     close,
   };

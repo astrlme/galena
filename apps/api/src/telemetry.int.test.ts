@@ -1,12 +1,13 @@
 import { CreateTableCommand, DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { BatchWriteCommand, DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { monitorId } from "@galena/contracts";
+import { BatchWriteCommand, DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { expiryPartition, monitorId, workspaceId } from "@galena/contracts";
 import { rollUp, seriesWindow } from "@galena/core";
 import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { dynamoTelemetry, RECENT_MINUTES } from "./telemetry.ts";
 
 const REGIONS = ["eu-west-1", "eu-west-3", "eu-north-1"];
+const ACME = workspaceId.parse("01920000-0000-7000-8000-000000000001");
 const MONITOR = monitorId.parse("01920000-0000-7000-8000-0000000000b1");
 const SILENT = monitorId.parse("01920000-0000-7000-8000-0000000000b2");
 const START = Date.parse("2026-09-28T16:00:00.000Z");
@@ -150,6 +151,35 @@ test("a reading asked for fewer minutes reads only the newest ones", async () =>
   const results = readings.get(MONITOR)?.results ?? [];
   expect(new Set(results.map((r) => r.scheduledAt))).toEqual(new Set([minute(69), minute(68)]));
   expect(results).toHaveLength(6);
+});
+
+test("a workspace's expiries read back without the warning the scan last sent, skipping what doesn't parse", async () => {
+  const expiry = {
+    kind: "certificate",
+    name: "api.example.com",
+    expiresAt: "2026-11-18T12:00:00.000Z",
+    issuer: "Let's Encrypt",
+    monitorIds: [MONITOR],
+    checkedAt: "2026-11-08T09:25:00.000Z",
+  };
+  for (const Item of [
+    {
+      pk: expiryPartition(ACME),
+      sk: "certificate#api.example.com",
+      ...expiry,
+      sent: { expiresAt: expiry.expiresAt, threshold: 14 },
+      ttl: 0,
+    },
+    { pk: expiryPartition(ACME), sk: "domain#broken", kind: "domain" },
+  ]) {
+    await doc.send(new PutCommand({ TableName: "telemetry", Item }));
+  }
+  const telemetry = dynamoTelemetry(doc, "telemetry", REGIONS);
+  expect(await telemetry.expiries(ACME)).toEqual([expiry]);
+  expect(
+    await telemetry.expiries(workspaceId.parse("01920000-0000-7000-8000-000000000002")),
+  ).toEqual([]);
+  expect(await dynamoTelemetry(doc, "not-created", REGIONS).expiries(ACME)).toEqual([]);
 });
 
 test("a table that doesn't exist yet reads as no data", async () => {
