@@ -6,11 +6,18 @@ import { expect, type Locator, type Page } from "@playwright/test";
 // Seeded by `pnpm db:seed` (apps/api/src/seed.ts); local databases only.
 export const OWNER = { email: "owner@example.com", password: "galena-local-owner" };
 
-/** A monitor's draft on the local database, written as autopilot would but with no deadline job. */
-export const draft = (title: string) =>
+/**
+ * A monitor's draft on the local database, written as autopilot would but with no deadline job;
+ * with `monitorId`, that monitor's own.
+ */
+export const draft = (title: string, monitorId?: string) =>
   execSync("pnpm --filter @galena/api --silent draft:local", {
     encoding: "utf8",
-    env: { ...process.env, GLN_DRAFT_TITLE: title },
+    env: {
+      ...process.env,
+      GLN_DRAFT_TITLE: title,
+      ...(monitorId ? { GLN_DRAFT_MONITOR: monitorId } : {}),
+    },
   })
     .trim()
     .split("\n")
