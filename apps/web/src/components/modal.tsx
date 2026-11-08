@@ -11,12 +11,12 @@ import {
   useContext,
   useEffect,
   useId,
-  useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
 import { Drawer } from "vaul";
+import { useIsMobile } from "../lib/use-is-mobile.ts";
 import { PortalContainer } from "./ui/portal.tsx";
 
 // A centred dialog from 640 px, a vaul bottom drawer below that. Both trap focus and lock the
@@ -44,20 +44,6 @@ function useModalContext(): ModalContextValue {
   const ctx = useContext(ModalContext);
   if (!ctx) throw new Error("Modal subcomponents must be used inside <Modal.Root>");
   return ctx;
-}
-
-function useIsMobile(): boolean {
-  const [mobile, setMobile] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth < 640 : false,
-  );
-  useLayoutEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
-    const sync = (e: MediaQueryListEvent | MediaQueryList) => setMobile(e.matches);
-    sync(mq);
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
-  return mobile;
 }
 
 const FOCUSABLE = [

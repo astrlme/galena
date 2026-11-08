@@ -2,6 +2,7 @@
 
 import type { ComponentStatus } from "@galena/contracts";
 import { componentStatusLabels } from "@galena/contracts/copy";
+import { type Mark, MinuteMarks } from "../../../../components/ui/minute-marks.tsx";
 import type { paths } from "../../../../lib/api-schema.ts";
 import { two } from "../../../../lib/time.ts";
 import { latency } from "../monitor-row.ts";
@@ -16,19 +17,8 @@ const hhmm = (iso: string) => {
   return `${two(at.getUTCHours())}:${two(at.getUTCMinutes())}`;
 };
 
-// One mark per minute in the state vocabulary's heights and inks. A minute is down only when
-// the monitor's quorum of regions failed it, as the uptime bar counts it; a failure in fewer
-// regions is in the list below, not an outage.
-type Mark = ComponentStatus | "none";
-const MARKS: Record<
-  Exclude<Mark, "none" | "under_maintenance">,
-  { height: number; fill: string }
-> = {
-  operational: { height: 5, fill: "fill-operational" },
-  degraded_performance: { height: 12, fill: "fill-degraded" },
-  partial_outage: { height: 19, fill: "fill-partial" },
-  major_outage: { height: 27, fill: "fill-major" },
-};
+// A minute is down only when the monitor's quorum of regions failed it, as the uptime bar counts
+// it; a failure in fewer regions is in the list below, not an outage.
 
 function markOf(results: readonly Check[], quorum: number, downStatus: ComponentStatus): Mark {
   const reported = results.filter((r) => r.status !== "error");
@@ -75,36 +65,13 @@ export function LastHour({
   regions?: boolean;
 }) {
   const marks = minuteMarks(results, quorum, downStatus);
-  const width = MINUTES * 6 - 2;
   const failed = results.filter((r) => r.status === "down" || r.status === "error");
   return (
     <>
       {/* Narrower than the strip, the oldest minutes are cropped on the left; the latest stay. */}
       <figure className="flex w-fit min-w-0 max-w-full flex-col gap-1">
         <div className="flex justify-end overflow-hidden">
-          <svg
-            role="img"
-            aria-label={describe(marks)}
-            width={width}
-            height={28}
-            className="shrink-0"
-          >
-            <rect x={0} y={27} width={width} height={1} className="fill-mist" />
-            {marks.map((mark, i) => {
-              const x = i * 6;
-              if (mark === "none" || mark === "under_maintenance") {
-                return (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: one mark per fixed minute slot
-                  <rect key={i} x={x + 1.5} y={26} width={1} height={1} className="fill-ash" />
-                );
-              }
-              const { height, fill } = MARKS[mark];
-              return (
-                // biome-ignore lint/suspicious/noArrayIndexKey: one mark per fixed minute slot
-                <rect key={i} x={x} y={27 - height} width={4} height={height} className={fill} />
-              );
-            })}
-          </svg>
+          <MinuteMarks marks={marks} label={describe(marks)} />
         </div>
         <figcaption className="flex justify-between text-[13px] text-slate">
           <span>

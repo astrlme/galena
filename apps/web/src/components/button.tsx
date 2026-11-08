@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 // At most one primary button per view; `danger` only confirms a deletion in its dialog. Hover
 // shifts colour in 120 ms; nothing spins.
@@ -22,7 +22,7 @@ export function Button({
   variant = "secondary",
   className = "",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+}: ComponentProps<"button"> & { variant?: Variant }) {
   return <button className={`${base} ${styles[variant]} ${className}`} {...props} />;
 }
 
