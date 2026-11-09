@@ -51,9 +51,9 @@ export async function expectAccessible(page: Page) {
   expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
 }
 
-export async function signIn(page: Page, password = OWNER.password) {
+export async function signIn(page: Page, password = OWNER.password, email = OWNER.email) {
   await page.goto("/sign-in/");
-  await page.getByLabel("Email").fill(OWNER.email);
+  await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 }
