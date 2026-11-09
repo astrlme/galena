@@ -27,12 +27,15 @@ import { registerIncidentEvidenceRoutes } from "./routes/incident-evidence.ts";
 import { registerIncidentRoutes } from "./routes/incidents.ts";
 import { registerIntegrationRoutes } from "./routes/integrations.ts";
 import { registerInternalPageRoutes } from "./routes/internal-page.ts";
+import { registerInviteRoutes } from "./routes/invite-accept.ts";
 import { registerMaintenanceRoutes } from "./routes/maintenance.ts";
 import { registerMonitorChartRoutes } from "./routes/monitor-charts.ts";
 import { registerMonitorRoutes } from "./routes/monitors.ts";
 import { registerNotificationRoutes } from "./routes/notifications.ts";
 import { registerPublicRoutes } from "./routes/public.ts";
+import { startJob } from "./routes/shared.ts";
 import { registerSlackRoutes } from "./routes/slack.ts";
+import { registerTeamRoutes } from "./routes/team.ts";
 
 export { type Deps, problemResponse, requireRole } from "./http.ts";
 
@@ -288,17 +291,13 @@ export function createApp(deps: Deps) {
     }
     // The rollup creates the page and publishes it, so a new deployment's page is live now
     // rather than at the next hourly heartbeat, which still publishes it if this trigger fails.
-    await deps.engine
-      .trigger(
-        "rollup.uptime",
-        { timestamp: new Date().toISOString() },
-        { idempotencyKey: `setup:${id}` },
-      )
-      .catch((error: unknown) => {
-        const reason = error instanceof Error ? error.message : String(error);
-        // The API stack's UntriggeredJobs alarm matches "was not triggered": keep the words.
-        console.warn("rollup.uptime was not triggered", { workspaceId: id, reason });
-      });
+    await startJob(
+      deps,
+      "rollup.uptime",
+      { timestamp: new Date().toISOString() },
+      { idempotencyKey: `setup:${id}` },
+      { workspaceId: id },
+    );
     for (const cookie of signUp.headers.getSetCookie()) {
       c.header("set-cookie", cookie, { append: true });
     }
@@ -331,6 +330,8 @@ export function createApp(deps: Deps) {
   registerExpiryRoutes(app, deps);
   registerIncidentRoutes(app, deps);
   registerIncidentEvidenceRoutes(app, deps);
+  registerTeamRoutes(app, deps);
+  registerInviteRoutes(app, deps);
   registerMaintenanceRoutes(app, deps);
   registerApiKeyRoutes(app, deps);
   registerEndpointRoutes(app, deps);

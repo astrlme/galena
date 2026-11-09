@@ -53,7 +53,9 @@ export function changeOf(
     | "webhook_endpoint"
     | "subscriber"
     | "integration"
-    | "api_key",
+    | "api_key"
+    | "member"
+    | "invite",
   action: ChangeAction,
   ids: string[],
   data?: unknown,
@@ -121,11 +123,27 @@ export async function dispatch(deps: Deps, id: OutboxId) {
 }
 
 async function trigger(deps: Deps, id: OutboxId, options: { idempotencyKey: string; at?: Date }) {
+  await startJob(deps, "outbox.dispatch", { outboxId: id }, options, { outboxId: id });
+}
+
+/**
+ * Starts a job, and says whether it did: a failure is logged, never thrown, since the change it
+ * follows has already committed.
+ */
+export async function startJob(
+  deps: Deps,
+  job: string,
+  payload: unknown,
+  options: { idempotencyKey: string; at?: Date },
+  context: Record<string, string>,
+): Promise<boolean> {
   try {
-    await deps.engine.trigger("outbox.dispatch", { outboxId: id }, options);
+    await deps.engine.trigger(job, payload, options);
+    return true;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     // The API stack's UntriggeredJobs alarm matches "was not triggered": keep the words.
-    console.warn("outbox.dispatch was not triggered", { outboxId: id, reason });
+    console.warn(`${job} was not triggered`, { ...context, reason });
+    return false;
   }
 }

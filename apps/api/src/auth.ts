@@ -1,4 +1,4 @@
-import { type Db, schema, workspaceExists } from "@galena/db";
+import { type Db, hasOpenInvite, schema, workspaceExists } from "@galena/db";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
@@ -32,6 +32,9 @@ export function createAuth({ db, secret, baseURL, github, rateLimit = false }: A
     emailAndPassword: { enabled: true, minPasswordLength: 12 },
     ...(github ? { socialProviders: { github } } : {}),
     plugins: [twoFactor({ issuer: "Galena" })],
+    // A GitHub sign-in never joins an account made another way: whoever accepted an invite set
+    // that account's password, so linking by a matching email would hand them the newcomer's way in.
+    account: { accountLinking: { disableImplicitLinking: true } },
     // Counted in memory, per API instance: kept in the database, every /auth request (even a
     // stranger's get-session) would write to Aurora and keep a paused cluster awake.
     rateLimit: { enabled: rateLimit, storage: "memory" },
@@ -39,9 +42,10 @@ export function createAuth({ db, secret, baseURL, github, rateLimit = false }: A
     databaseHooks: {
       user: {
         create: {
-          // Only the first-run setup creates an account; afterwards owners invite people.
+          // Only the first-run setup creates an account; afterwards an account is made only for
+          // an address holding an open invite, which is how owners and admins add people.
           before: async (user) => {
-            if (await workspaceExists(db)) {
+            if ((await workspaceExists(db)) && !(await hasOpenInvite(db, user.email, new Date()))) {
               throw new APIError("FORBIDDEN", {
                 message: "Sign-up is closed. Ask an owner of this workspace to invite you.",
               });
