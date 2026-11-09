@@ -21,14 +21,12 @@ test("signing in lands on Home, which lists what exists", async ({ page }) => {
   const { monitors } = (await (await page.request.get("/v1/monitors")).json()) as {
     monitors: unknown[];
   };
+  // The rail beside the work lists every monitor.
+  const rail = page.getByRole("region", { name: "Monitors" });
   if (monitors.length === 0) {
-    await expect(page.getByText("No monitors yet.")).toBeVisible();
+    await expect(rail).toContainText("No monitors yet.");
   } else {
-    const count = `${monitors.length} ${monitors.length === 1 ? "monitor" : "monitors"}`;
-    await expect(page.getByRole("heading", { name: count, level: 2 })).toBeVisible();
-    await expect(page.getByRole("region", { name: count }).getByRole("listitem")).toHaveCount(
-      monitors.length,
-    );
+    await expect(rail.getByRole("listitem")).toHaveCount(monitors.length);
   }
   // With or without monitors: a draft can come from an alert source.
   await expect(page.getByRole("heading", { name: "Open incidents", level: 2 })).toBeVisible();

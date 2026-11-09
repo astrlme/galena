@@ -150,7 +150,7 @@ test("a certificate 10 days from expiry shows on Home and on its monitor's page"
   );
 
   await page.goto("/dashboard/");
-  const soon = page.getByRole("region", { name: "Expiring soon" });
+  const soon = page.getByRole("region", { name: "Needs you" });
   const link = soon.getByRole("link", { name: `Certificate for ${host} expires in 10 days` });
   await expect(link).toBeVisible();
   await expect(soon).toContainText("Issued by Galena test CA.");
