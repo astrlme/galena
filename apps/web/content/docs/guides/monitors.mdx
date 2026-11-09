@@ -115,7 +115,8 @@ expires first, since any of them lapsing breaks the check. Once an hour Galena g
 day it asks each monitor's registered domain (`example.co.uk` for `api.example.co.uk`) for its
 expiry date over [RDAP](https://about.rdap.org/), the registries' public lookup service.
 
-- **Home** lists every certificate and domain that expires within 30 days, soonest first.
+- **Home** lists every certificate and domain that expires within 30 days among the things that
+  need you, soonest first, after drafts, down monitors and failing destinations.
 - **A monitor's page** shows when its certificate and its domain expire, and who issued the
   certificate.
 - **Email:** every member of the workspace gets a warning 30, 14 and 7 days before an expiry, once
