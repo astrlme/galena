@@ -50,10 +50,16 @@ export function open(keys: AppKeys, sealed: string): string {
 }
 
 /**
- * `hook` is an integration's alert URL and `heartbeat` a heartbeat monitor's ping URL: the API
- * checks both without reading the database.
+ * `hook` is an integration's alert URL, `heartbeat` a heartbeat monitor's ping URL and `invite` a
+ * team invite's link: the API checks each without reading the database.
  */
-export type LinkPurpose = "confirm" | "unsubscribe" | "slack-install" | "hook" | "heartbeat";
+export type LinkPurpose =
+  | "confirm"
+  | "unsubscribe"
+  | "slack-install"
+  | "hook"
+  | "heartbeat"
+  | "invite";
 
 const mac = (keys: AppKeys, text: string) => createHmac("sha256", keys.link).update(text).digest();
 
@@ -61,6 +67,11 @@ const mac = (keys: AppKeys, text: string) => createHmac("sha256", keys.link).upd
 export function linkToken(keys: AppKeys, purpose: LinkPurpose, id: string, issuedAt: Date): string {
   const body = `${purpose}.${id}.${Math.floor(issuedAt.getTime() / 1000)}`;
   return `${body}.${b64(mac(keys, body))}`;
+}
+
+/** The dashboard page that accepts an invite, at `origin`: the API shows it, the email carries it. */
+export function inviteUrl(keys: AppKeys, origin: string, id: string, issuedAt: Date): string {
+  return `${origin}/invite/?token=${encodeURIComponent(linkToken(keys, "invite", id, issuedAt))}`;
 }
 
 /** The id and issue time, or undefined for a token that isn't ours or isn't for `purpose`. */
