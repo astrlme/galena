@@ -14,6 +14,17 @@ const FAILED = {
     "That backup code didn't work. Each code works once; check it, or use your authenticator app.",
 };
 
+/**
+ * Where to go after signing in: the `next` page it was asked for (an invite, say), or the
+ * dashboard. Parsed against this origin, so `//other.site` or `/\other.site` stays here.
+ */
+function nextPage() {
+  const next = new URLSearchParams(window.location.search).get("next");
+  if (!next) return "/dashboard/";
+  const url = new URL(next, window.location.origin);
+  return url.origin === window.location.origin ? `${url.pathname}${url.search}` : "/dashboard/";
+}
+
 export function SignInForm() {
   const [step, setStep] = useState<Step>("password");
   const [error, setError] = useState<string>();
@@ -39,7 +50,7 @@ export function SignInForm() {
       } else {
         await authPost("two-factor/verify-backup-code", { code: form.get("backup") });
       }
-      window.location.assign("/dashboard/");
+      window.location.assign(nextPage());
     } catch (failure) {
       setError(authFailure(failure, FAILED[step]));
     } finally {
