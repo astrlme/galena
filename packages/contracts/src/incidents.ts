@@ -6,7 +6,7 @@ import {
   incidentStatuses,
   incidentVisibilities,
 } from "./enums.ts";
-import { componentId, incidentId, incidentUpdateId } from "./ids.ts";
+import { componentId, incidentId, incidentUpdateId, monitorId } from "./ids.ts";
 
 /** What an incident may say about a component; maintenance windows own `under_maintenance`. */
 export const incidentComponentStatus = z.enum(componentStatuses).exclude(["under_maintenance"]);
@@ -70,6 +70,8 @@ export const incidentSummary = z.object({
   components: z.array(affectedComponent),
   /** A draft a monitor opened publishes at this time if the monitor is still down. */
   approvalDeadline: z.iso.datetime().nullable(),
+  /** The monitor that opened it and follows it; null for any other incident. */
+  monitorId: monitorId.nullable(),
 });
 export type IncidentSummary = z.infer<typeof incidentSummary>;
 

@@ -23,6 +23,7 @@ const incident = (over: Partial<IncidentDetail> = {}): IncidentDetail => ({
   updatedAt: minute("10:02"),
   components: [],
   approvalDeadline: minute("10:17"),
+  monitorId: MONITOR,
   updates: [
     {
       id: "01920000-0000-7000-8000-000000000053",

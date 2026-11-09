@@ -1490,6 +1490,8 @@ export interface paths {
                                 }[];
                                 /** Format: date-time */
                                 approvalDeadline: string | null;
+                                /** Format: uuid */
+                                monitorId: string | null;
                             }[];
                         };
                     };
@@ -1565,6 +1567,8 @@ export interface paths {
                             }[];
                             /** Format: date-time */
                             approvalDeadline: string | null;
+                            /** Format: uuid */
+                            monitorId: string | null;
                             updates: {
                                 /** Format: uuid */
                                 id: string;
@@ -1636,6 +1640,8 @@ export interface paths {
                             }[];
                             /** Format: date-time */
                             approvalDeadline: string | null;
+                            /** Format: uuid */
+                            monitorId: string | null;
                             updates: {
                                 /** Format: uuid */
                                 id: string;
@@ -1730,6 +1736,8 @@ export interface paths {
                             }[];
                             /** Format: date-time */
                             approvalDeadline: string | null;
+                            /** Format: uuid */
+                            monitorId: string | null;
                             updates: {
                                 /** Format: uuid */
                                 id: string;
@@ -1813,6 +1821,8 @@ export interface paths {
                             }[];
                             /** Format: date-time */
                             approvalDeadline: string | null;
+                            /** Format: uuid */
+                            monitorId: string | null;
                             updates: {
                                 /** Format: uuid */
                                 id: string;

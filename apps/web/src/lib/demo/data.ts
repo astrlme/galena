@@ -1,11 +1,5 @@
-import type { paths } from "../api-schema.ts";
+import type { Answer } from "../answer.ts";
 
-/** The JSON a GET on `path` answers with, from the API's own schema. */
-export type Answer<P extends keyof paths> = paths[P] extends {
-  get: { responses: { 200: { content: { "application/json": infer T } } } };
-}
-  ? T
-  : never;
 type Monitor = Answer<"/v1/monitors">["monitors"][number];
 type Reading = Answer<"/v1/monitors/telemetry">["monitors"][number];
 type Incident = Answer<"/v1/incidents/{id}">;
@@ -142,7 +136,7 @@ export function demoData(now: Date) {
     };
   });
 
-  const incidents: Incident[] = [
+  const written: Omit<Incident, "monitorId">[] = [
     {
       id: id(0x41),
       title: "Elevated errors on the API",
@@ -279,6 +273,15 @@ export function demoData(now: Date) {
       ],
     },
   ];
+  // A monitor's incident is the one on its component.
+  const incidents: Incident[] = written.map((i) => ({
+    ...i,
+    monitorId:
+      i.source === "monitor"
+        ? (monitors.find((m) => i.components.some((c) => c.componentId === m.componentId))?.id ??
+          null)
+        : null,
+  }));
 
   const status = (componentId: string) =>
     incidents

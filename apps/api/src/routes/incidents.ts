@@ -16,6 +16,7 @@ import {
   type Incident,
   type IncidentChange,
   type IncidentUpdate,
+  monitorOfIncident,
   startIncident,
 } from "@galena/core";
 import { componentRepository, incidentRepository } from "@galena/db";
@@ -37,6 +38,7 @@ const toSummary = (i: Incident) => ({
   updatedAt: i.updatedAt.toISOString(),
   components: i.components,
   approvalDeadline: iso(i.approvalDeadline ?? null),
+  monitorId: monitorOfIncident(i.dedupKey ?? null),
 });
 const toView = (i: Incident & { updates: IncidentUpdate[] }) => ({
   ...toSummary(i),

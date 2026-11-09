@@ -138,6 +138,9 @@ test("a monitor incident shows the monitor's checks and state changes from 30 mi
   });
 
   const { monitor: shown, timeline, notifications } = await evidence(id);
+  // The incident itself names the monitor that opened it.
+  const view = (await (await owner.call(`/v1/incidents/${id}`)).json()) as { monitorId: string };
+  expect(view.monitorId).toBe(monitor);
 
   expect(shown).toEqual({
     id: monitor,
@@ -401,6 +404,8 @@ test("a manual incident shows its status changes and every notice sent about it"
   const shown = await evidence(id);
 
   expect(shown.monitor).toBeNull();
+  const view = (await (await owner.call(`/v1/incidents/${id}`)).json()) as { monitorId: unknown };
+  expect(view.monitorId).toBeNull();
   expect(shown.timeline.map((e) => e.kind === "status_changed" && [e.from, e.to])).toEqual([
     [null, "investigating"],
     ["investigating", "resolved"],
