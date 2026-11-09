@@ -54,7 +54,7 @@ function readCollapsed(): boolean {
   }
 }
 
-type Me = { email: string; workspaceName: string };
+type Me = { email: string; role: string; workspaceName: string };
 
 /** The section links. In the rail each shows its icon, named for assistive tech and on hover. */
 function NavLinks({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
@@ -255,6 +255,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 <a href="https://galena.astrl.me/" className="text-ink underline">
                   About Galena
                 </a>
+              </p>
+            )}
+            {me.role === "viewer" && !demo && (
+              <p className="mb-6 max-w-[72ch] rounded-xl border border-mist bg-surface px-4 py-3 text-[14px] text-graphite">
+                You can view this workspace. Ask an owner or an admin to change your role to make
+                changes.
               </p>
             )}
             {children}

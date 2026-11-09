@@ -335,6 +335,50 @@ export function demoData(now: Date) {
       workspaceId: id(0x02),
       workspaceName: "Acme",
     } satisfies Answer<"/v1/me">,
+    team: {
+      members: [
+        {
+          id: id(0x91),
+          name: "Ada Owner",
+          email: "owner@example.com",
+          role: "owner",
+          joinedAt: at(60 * 24 * 40),
+          isYou: true,
+        },
+        {
+          id: id(0x92),
+          name: "Linus Editor",
+          email: "linus@example.com",
+          role: "editor",
+          joinedAt: at(60 * 24 * 21),
+          isYou: false,
+        },
+        {
+          id: id(0x93),
+          name: "Grace Viewer",
+          email: "grace@example.com",
+          role: "viewer",
+          joinedAt: at(60 * 24 * 9),
+          isYou: false,
+        },
+      ],
+      invites: [
+        {
+          id: id(0x94),
+          email: "margaret@example.com",
+          role: "admin",
+          expiresAt: new Date(now.getTime() + 30 * HOUR).toISOString(),
+          invitedBy: "Ada Owner",
+        },
+      ],
+    } satisfies Answer<"/v1/team">,
+    invitePreview: {
+      email: "margaret@example.com",
+      role: "admin",
+      workspaceName: "Acme",
+      expiresAt: new Date(now.getTime() + 30 * HOUR).toISOString(),
+      hasAccount: false,
+    } satisfies Answer<"/v1/invites/preview">,
     session: {
       session: { id: id(0x03) },
       user: { email: "owner@example.com", twoFactorEnabled: true },

@@ -44,6 +44,8 @@ export async function demoFetch(request: Request): Promise<Response> {
     "/v1/integrations": data.integrations,
     "/v1/api-keys": data.apiKeys,
     "/v1/slack": data.slack,
+    "/v1/team": data.team,
+    "/v1/invites/preview": data.invitePreview,
     ...Object.fromEntries(data.incidents.map((i) => [`/v1/incidents/${i.id}`, i])),
   };
   const log = /^\/v1\/webhook-endpoints\/([^/]+)\/deliveries$/.exec(url.pathname);

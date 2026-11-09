@@ -8,6 +8,7 @@ import { ApiKeys } from "./api-keys.tsx";
 import { Password } from "./password.tsx";
 import { Sessions } from "./sessions.tsx";
 import { SlackConnection } from "./slack.tsx";
+import { Team } from "./team.tsx";
 import { TwoFactor } from "./two-factor.tsx";
 
 /** What Better Auth's `get-session` returns for the signed-in person. */
@@ -46,6 +47,7 @@ export function SettingsEditor() {
       <Password />
       <Sessions currentId={current.data.session.id} />
       <ShortcutsSetting />
+      <Team />
       <SlackConnection />
       <ApiKeys />
     </>

@@ -30,13 +30,15 @@ export function ConfirmDelete({
     | "subscriber"
     | "integration"
     | "API key"
-    | "Slack";
+    | "Slack"
+    | "member"
+    | "invite";
   name: string;
   /** What to type, when it isn't "the {kind} name". */
   noun?: string;
   consequence: string;
   /** The action's own word, kept from the button that opened the dialog. */
-  verb?: "Delete" | "Cancel" | "Disconnect";
+  verb?: "Delete" | "Cancel" | "Disconnect" | "Remove";
   onConfirm: () => void;
   onClose: () => void;
 }) {

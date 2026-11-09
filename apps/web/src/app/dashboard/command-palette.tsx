@@ -14,6 +14,7 @@ type Group = { value: string; items: Command[] };
 
 // Settings is one page; its parts are reached by their headings.
 const SETTINGS_PARTS = [
+  { title: "Team", href: "/dashboard/settings/#team-heading" },
   { title: "API keys", href: "/dashboard/settings/#api-keys-heading" },
   { title: "Slack", href: "/dashboard/settings/#slack-heading" },
 ];
