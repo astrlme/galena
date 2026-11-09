@@ -19,7 +19,7 @@ a member with a lower role; whoever holds a leaked API key or hook URL; a compro
 | Threat | What stops it |
 | --- | --- |
 | Someone changes what the status page says | The page is static files that only the background jobs write; every change through the API checks the member's role; an incident a monitor opens publishes only as its publish policy allows |
-| Someone signs in as a member | Hashed passwords, TOTP two-factor with backup codes, signed session cookies, sign-in limits per visitor address; sign-up is closed |
+| Someone signs in as a member | Hashed passwords, TOTP two-factor with backup codes, signed session cookies, sign-in limits per visitor address; sign-up by invite only |
 | A script runs up the owner's bill | Requests without a valid credential are refused before any database query; throttles per path; caps on monitors, destinations, integrations and keys; alarms on traffic and on a database kept awake |
 | A monitor or webhook URL reaches inside AWS | Every outbound request resolves the name first and refuses loopback, link-local (the instance metadata service), private ranges and other schemes, again after each redirect |
 | A forged Slack request or alert | Slack's signature is checked on the raw body, within five minutes, before anything is parsed; an alert needs a signed hook URL: a forged one is refused before any database query, a replaced one within a minute |
@@ -102,10 +102,15 @@ minute.
 
 ### Sign-up
 
-Only first-run setup creates an account. In AWS it needs the setup token, a SecureString only
-someone with access to the AWS account can read, so nobody can claim a fresh deployment first.
-After the workspace exists, every attempt to create a user is refused in a database hook,
-whatever route it comes through.
+Only first-run setup creates the first account. In AWS it needs the setup token, a SecureString
+only someone with access to the AWS account can read, so nobody can claim a fresh deployment
+first. After the workspace exists, a database hook refuses to create any user whose address holds
+no open invite, whatever route the attempt comes through.
+
+An invite link is signed with the deployment's link key and carries the invite and its time: a
+link that isn't the deployment's own, or is older than 48 hours, is refused before any database
+query. Accepting marks the invite used in the same transaction that adds the member, so a link
+works once; the account takes the invited address, so the link can't make any other.
 
 ## Outbound requests
 

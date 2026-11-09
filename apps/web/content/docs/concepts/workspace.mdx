@@ -5,7 +5,7 @@ description: One deployment, one workspace, and the four roles its members can h
 
 A Galena deployment serves one organisation. Everything it holds belongs to a single
 **workspace**: components, monitors, incidents, maintenance windows, subscribers and the status
-page. First-run setup creates the workspace and its owner; after that, sign-up is closed.
+page. First-run setup creates the workspace and its owner; after that, people join by invite.
 
 The database still carries a `workspace_id` on every table, so a later version can host several
 workspaces without reshaping the data. Sign-in identities (users, sessions and accounts) are the
@@ -17,18 +17,32 @@ Each member holds one role. Every role includes everything the roles below it ca
 
 | Role | Can |
 | --- | --- |
-| Owner | Everything an admin can. Created by first-run setup. |
-| Admin | Manage email subscribers, Slack and webhook endpoints. Subscriber addresses are personal data and endpoints hold credentials, so these need admin. |
+| Owner | Everything an admin can, and make, change and remove owners. Created by first-run setup; a workspace always keeps at least one. |
+| Admin | Manage the team, email subscribers, Slack, webhook endpoints, integrations and API keys. Subscriber addresses are personal data and endpoints hold credentials, so these need admin. |
 | Editor | Create and change components, groups, monitors, incidents and maintenance windows. |
 | Viewer | Read everything in the dashboard. |
 
-The API enforces roles on every request; the dashboard only hides what you can't use.
+The API enforces roles on every request. A viewer sees a note at the top of the dashboard saying
+they can look but not change anything.
 
-<Callout>
-Inviting members, changing roles and workspace settings come later; Settings holds only your own
-account for now (two-factor, password, sessions). Until then a deployment has its owner only. See
-the [roadmap](/docs/roadmap/).
-</Callout>
+## Team
+
+**Settings → Team** lists the members with their roles, and the invites still open. Admins and
+owners manage it there; everyone else sees it.
+
+- **Invite:** enter an address and a role. Galena makes a link that works once, for 48 hours, and
+  only for an account with that address. It shows the link once to copy, and emails it too when
+  the deployment sends email. To send a new link, invite the address again: the new invite
+  replaces the open one. **Cancel invite** ends it. Only an owner invites an owner, or cancels or
+  replaces an owner's invite.
+- **Accept:** the link opens a page with the address, the role and the workspace. Someone new
+  chooses a name and a password and lands in the dashboard. An address that has an account
+  already (someone removed and invited again) signs in first, then accepts.
+- **Change role** and **Remove:** a removed member is signed out at once, and their API keys stop
+  working. Only an owner makes, changes or removes an owner, and the last owner can be neither
+  removed nor made anything else: make someone else an owner first.
+
+Every invite, acceptance, role change and removal goes into the audit log, without addresses.
 
 ## The status page
 
