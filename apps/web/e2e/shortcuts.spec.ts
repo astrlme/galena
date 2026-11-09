@@ -41,11 +41,16 @@ test("C adds in this list; J moves to a row and E edits it", async ({ page }) =>
 });
 
 test("shortcuts stay out of the way while someone types", async ({ page }, testInfo) => {
-  // The update form sits on the page itself, outside any dialog.
+  // The update form sits on the page itself, outside any dialog: behind a toggle on a draft, and
+  // in the sheet at the foot on a phone.
   const id = draft(`Typing check ${testInfo.project.name} ${Date.now()}`);
   await signIn(page);
   await expect(page).toHaveURL(/\/dashboard\/$/);
   await page.goto(`/dashboard/incidents/view/?id=${id}`);
+  if (testInfo.project.name.startsWith("phone")) {
+    await page.getByRole("button", { name: "Read the draft" }).click();
+  }
+  await page.getByRole("button", { name: "Post an update to the draft" }).click();
   const message = page.getByRole("form", { name: "Post an update" }).getByLabel("Message");
   await message.fill("");
   await message.pressSequentially("gm c?");
