@@ -6,6 +6,8 @@ import {
   EXPIRY_THRESHOLDS,
   type Expiry,
   expirySubjects,
+  type MemberRole,
+  memberRoleInvitations,
   type Notice,
   noticeAffectedLabel,
   noticeState,
@@ -211,5 +213,44 @@ export async function expiryEmail(
     subject: title,
     html,
     text: [when, act, `${linkLabel}: ${links.dashboardUrl}`, "--", why].join("\n\n"),
+  };
+}
+
+export type Invitation = {
+  workspaceName: string;
+  /** Null once whoever sent it has left. */
+  inviterName: string | null;
+  email: string;
+  role: MemberRole;
+  expiresAt: string;
+  link: string;
+};
+
+/** An invite to join a workspace's dashboard: the link works once, for this address only. */
+export async function inviteEmail(invite: Invitation, page: Page): Promise<Email> {
+  const by = invite.inviterName ?? "Someone";
+  const title = `${by} invited you to the ${invite.workspaceName} dashboard`;
+  const what = memberRoleInvitations[invite.role];
+  const when = `The link works once, for ${invite.email}, until ${utcDateTime(invite.expiresAt)}.`;
+  const why = `You get this email because someone invited ${invite.email} to the ${invite.workspaceName} dashboard. If you didn't expect it, ignore it: nothing happens unless the link is used.`;
+  const linkLabel = "Accept invite";
+  const html = await render(
+    <Layout page={page} preview={what} footer={<Text style={secondary}>{why}</Text>}>
+      <Heading as="h1" style={{ fontSize: "24px", lineHeight: "1.25", margin: "24px 0 16px" }}>
+        {title}
+      </Heading>
+      <Text style={text}>{what}</Text>
+      <Text style={text}>{when}</Text>
+      <Text style={text}>
+        <Link href={invite.link} style={link}>
+          {linkLabel}
+        </Link>
+      </Text>
+    </Layout>,
+  );
+  return {
+    subject: title,
+    html,
+    text: [what, when, `${linkLabel}: ${invite.link}`, "--", why].join("\n\n"),
   };
 }

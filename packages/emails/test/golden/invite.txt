@@ -1,0 +1,11 @@
+Ada Lovelace invited you to the Acme dashboard
+
+As a viewer you'll see everything and change nothing.
+
+The link works once, for grace@example.com, until 11 Nov 2026, 09:00 UTC.
+
+Accept invite: https://dashboard.example.com/invite/?token=invite.abc.123.sig
+
+--
+
+You get this email because someone invited grace@example.com to the Acme dashboard. If you didn't expect it, ignore it: nothing happens unless the link is used.

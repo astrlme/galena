@@ -1,6 +1,6 @@
 import { componentId, eventId, type Notice } from "@galena/contracts";
 import { describe, expect, test } from "vitest";
-import { confirmationEmail, expiryEmail, noticeEmail } from "./index.tsx";
+import { confirmationEmail, expiryEmail, inviteEmail, noticeEmail } from "./index.tsx";
 
 const page = { name: "Acme", url: "https://status.example.com" };
 const api = componentId.parse("01920000-0000-7000-8000-000000000011");
@@ -137,4 +137,26 @@ describe.each([
     await expect(email.html).toMatchFileSnapshot(`../test/golden/${name}.html`);
     expect(email.text).toContain(dashboardUrl);
   });
+});
+
+test("an invite names who sent it, the role, the address and when the link stops working", async () => {
+  const link = "https://dashboard.example.com/invite/?token=invite.abc.123.sig";
+  const email = await inviteEmail(
+    {
+      workspaceName: "Acme",
+      inviterName: "Ada Lovelace",
+      email: "grace@example.com",
+      role: "viewer",
+      expiresAt: "2026-11-11T09:00:00.000Z",
+      link,
+    },
+    page,
+  );
+  expect(email.subject).toBe("Ada Lovelace invited you to the Acme dashboard");
+  await expect(`${email.subject}\n\n${email.text}\n`).toMatchFileSnapshot(
+    "../test/golden/invite.txt",
+  );
+  await expect(email.html).toMatchFileSnapshot("../test/golden/invite.html");
+  expect(email.text).toContain(link);
+  expect(email.text).toContain("grace@example.com");
 });
