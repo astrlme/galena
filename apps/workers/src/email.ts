@@ -5,22 +5,25 @@ import {
   EXPIRY_THRESHOLDS,
   eventId,
   expiry,
+  inviteId,
   memberId,
   notice as noticeSchema,
   subscriberId,
 } from "@galena/contracts";
-import { assertNever, daysLeft } from "@galena/core";
+import { assertNever, daysLeft, inviteState } from "@galena/core";
 import {
   claimDelivery,
   type Db,
   ensurePage,
   findDelivery,
+  findInvite,
   findMemberEmail,
   findSubscriber,
+  findWorkspaceName,
   settleDelivery,
 } from "@galena/db";
-import { confirmationEmail, expiryEmail, noticeEmail } from "@galena/emails";
-import { type AppKeys, keyedHash, linkToken } from "@galena/integrations/secrets";
+import { confirmationEmail, expiryEmail, inviteEmail, noticeEmail } from "@galena/emails";
+import { type AppKeys, inviteUrl, keyedHash, linkToken } from "@galena/integrations/secrets";
 import { z } from "zod";
 
 export type OutgoingEmail = {
@@ -46,6 +49,9 @@ export const emailPayload = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("notice"), subscriberId, notice: noticeSchema }),
   // To a member, never a subscriber: no delivery row, keyed `send:{warningId}:{memberId}`.
   z.object({ kind: z.literal("expiry"), memberId, warning: expiryWarning }),
+  // To someone invited to the team: the address is read from the invite when it's sent, so it
+  // never rides in the queue. Keyed `send:invite:{inviteId}`.
+  z.object({ kind: z.literal("invite"), inviteId }),
 ]);
 export type EmailPayload = z.infer<typeof emailPayload>;
 type SubscriberEmail = Extract<EmailPayload, { subscriberId: unknown }>;
@@ -176,6 +182,35 @@ async function sendExpiryWarning(
   return "sent";
 }
 
+/** An invite to the team, while it's still open; a used, revoked or expired one is skipped. */
+async function sendInvite(
+  payload: Extract<EmailPayload, { kind: "invite" }>,
+  deps: EmailDeps,
+): Promise<EmailOutcome> {
+  const found = await findInvite(deps.db, payload.inviteId);
+  if (!found || inviteState(found, deps.now()) !== "open") return "skipped";
+  const [workspaceName, target] = await Promise.all([
+    findWorkspaceName(deps.db, found.workspaceId),
+    ensurePage(deps.db),
+  ]);
+  if (!target) return "skipped";
+  const email = await inviteEmail(
+    {
+      workspaceName: workspaceName ?? target.name,
+      inviterName: found.invitedBy,
+      email: found.email,
+      role: found.role,
+      expiresAt: found.expiresAt.toISOString(),
+      link: inviteUrl(deps.keys, deps.dashboardUrl, found.id, found.createdAt),
+    },
+    { name: target.name, url: deps.url },
+  );
+  // Known limit: no `List-Unsubscribe`: an invite is one email to one address, nothing to
+  // unsubscribe from.
+  await deps.mailer.send({ to: found.email, fromName: target.name, headers: {}, ...email });
+  return "sent";
+}
+
 export async function sendEmail(payload: EmailPayload, deps: EmailDeps): Promise<EmailOutcome> {
   switch (payload.kind) {
     case "confirmation":
@@ -184,6 +219,8 @@ export async function sendEmail(payload: EmailPayload, deps: EmailDeps): Promise
       return sendNotice(payload, deps);
     case "expiry":
       return sendExpiryWarning(payload, deps);
+    case "invite":
+      return sendInvite(payload, deps);
     default:
       return assertNever(payload);
   }
@@ -191,7 +228,8 @@ export async function sendEmail(payload: EmailPayload, deps: EmailDeps): Promise
 
 /** After the last retry: the email's delivery is marked failed, with the reason. */
 export async function failEmail(payload: EmailPayload, error: string, deps: { db: Db }) {
-  if (payload.kind === "expiry") return; // a member email has no delivery row
+  // A member's or an invitee's email has no delivery row.
+  if (payload.kind === "expiry" || payload.kind === "invite") return;
   const delivery = await findDelivery(deps.db, eventOf(payload), {
     subscriberId: payload.subscriberId,
   });

@@ -22,8 +22,9 @@ const FINAL = new Set([
 ]);
 
 /**
- * One email: a confirmation or a notice keyed `send:{eventId}:{subscriberId}`, or an expiry
- * warning to a member keyed `send:{warningId}:{memberId}`.
+ * One email: a confirmation or a notice keyed `send:{eventId}:{subscriberId}`, an expiry
+ * warning to a member keyed `send:{warningId}:{memberId}`, or an invite keyed
+ * `send:invite:{inviteId}`.
  */
 export const notifyEmailJob = defineJob({
   name: "notify.email",
