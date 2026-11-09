@@ -2,6 +2,7 @@ import {
   type ApiKeyId,
   type AuditLogId,
   apiKeyScopes,
+  type InviteId,
   type MemberId,
   memberRoles,
   type OutboxId,
@@ -50,6 +51,34 @@ export const member = pgTable(
     ...timestamps,
   },
   (t) => [uniqueIndex().on(t.workspaceId, t.userId), index().on(t.userId)],
+);
+
+/**
+ * A way in for one address, with a role: its link is signed, works once and for 48 hours, and
+ * only an account with this email can accept it. Kept after it's used or revoked, for the record.
+ */
+export const invite = pgTable(
+  "invite",
+  {
+    id: uuid().primaryKey().$type<InviteId>(),
+    workspaceId: workspaceRef(),
+    /** Lower-cased. */
+    email: text().notNull(),
+    role: memberRole().notNull(),
+    invitedByUserId: text().references(() => user.id, { onDelete: "set null" }),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    acceptedAt: timestamp({ withTimezone: true }),
+    revokedAt: timestamp({ withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index().on(t.workspaceId),
+    index().on(t.invitedByUserId),
+    // One open invite per address: a new one replaces the old.
+    uniqueIndex("invite_open_email_idx")
+      .on(t.workspaceId, t.email)
+      .where(sql`${t.acceptedAt} is null and ${t.revokedAt} is null`),
+  ],
 );
 
 export const apiKeyScope = pgEnum("api_key_scope", apiKeyScopes);

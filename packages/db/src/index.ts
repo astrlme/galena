@@ -92,6 +92,20 @@ export {
   slackRepository,
 } from "./repositories/slack.ts";
 export {
+  claimInvite,
+  countOpenInvites,
+  createInvite,
+  findInvite,
+  findOpenInvite,
+  findUserByEmail,
+  hasOpenInvite,
+  listTeam,
+  lockTeam,
+  removeMember,
+  revokeInvite,
+  setMemberRole,
+} from "./repositories/team.ts";
+export {
   createWorkspace,
   findMemberByEmail,
   findMemberEmail,

@@ -127,6 +127,13 @@
       "when": 1794076213833,
       "tag": "0017_heartbeat_monitors",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794212190608,
+      "tag": "0018_team_invites",
+      "breakpoints": true
     }
   ]
 }
