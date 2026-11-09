@@ -1,7 +1,8 @@
 import { type SeriesRange, seriesRanges } from "@galena/contracts";
 import { seriesWindow } from "@galena/core";
+import type { Answer } from "../answer.ts";
 import { spans } from "../time.ts";
-import type { Answer, demoData } from "./data.ts";
+import type { demoData } from "./data.ts";
 
 // A demo monitor's page: the same gentle daily curve for every range, each region a little
 // slower than the last, a few short outages in the 90 days, and the last hour from the list's

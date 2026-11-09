@@ -3,6 +3,7 @@
 import { useId } from "react";
 import { StateGlyph } from "../../../../components/status.tsx";
 import { MinuteMarks } from "../../../../components/ui/minute-marks.tsx";
+import { UtcClock } from "../../../../components/ui/utc-clock.tsx";
 import { regionName } from "../../../../lib/regions.ts";
 import { hm, utcClock, utcMinute } from "../../../../lib/time.ts";
 import { latency } from "../../monitors/monitor-row.ts";
@@ -10,15 +11,6 @@ import { byTime, type Entry, type EvidenceMonitor, type RegionRow } from "./evid
 
 // The incident page's evidence, before any form: each region's minutes, response time around the
 // start, and everything that happened.
-
-/** A UTC time of day, with the reader's local time on hover. */
-function Clock({ iso }: { iso: string }) {
-  return (
-    <time dateTime={iso} title={new Date(iso).toLocaleString()} className="tabular-nums">
-      {utcClock(iso)}
-    </time>
-  );
-}
 
 /** One row per region: its minutes as marks, and in words whether it fails and since when. */
 export function RegionGrid({
@@ -71,7 +63,7 @@ function RegionState({ row }: { row: RegionRow }) {
       <span className="flex items-center gap-1.5 font-semibold tabular-nums">
         <StateGlyph status="major_outage" />
         <span>
-          Failing since <Clock iso={row.failing.since} />
+          Failing since <UtcClock iso={row.failing.since} />
           {row.failing.mayBeOlder ? " or earlier" : ""}
         </span>
       </span>

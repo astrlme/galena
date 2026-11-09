@@ -4,9 +4,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "../../../../components/button.tsx";
 import { StatusLabel } from "../../../../components/status.tsx";
+import { Countdown } from "../../../../components/ui/live-time.tsx";
 import { toast } from "../../../../components/ui/toast.tsx";
+import { UtcClock } from "../../../../components/ui/utc-clock.tsx";
 import { api, unwrap } from "../../../../lib/api.ts";
-import { two, utcClock } from "../../../../lib/time.ts";
 import { useIsMobile } from "../../../../lib/use-is-mobile.ts";
 import { IMPACT_TITLE, STATUS_LABELS } from "../incident-ui.tsx";
 import type { IncidentDetail } from "./evidence.ts";
@@ -17,27 +18,6 @@ import { UpdateForm } from "./update-form.tsx";
 // keeps the decision in reach. The sheet isn't modal: the page behind it stays in use.
 
 type Components = { id: string; name: string }[];
-
-/** "11 min 26 s" to the deadline, swapped in place once a second (not a live region). */
-function Countdown({ deadline, className = "" }: { deadline: string; className?: string }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  const s = Math.round((Date.parse(deadline) - now) / 1000);
-  const left =
-    s <= 0 ? "a moment" : s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${two(s % 60)} s`;
-  return <span className={`tabular-nums ${className}`}>{left}</span>;
-}
-
-function Deadline({ iso }: { iso: string }) {
-  return (
-    <time dateTime={iso} title={new Date(iso).toLocaleString()} className="tabular-nums">
-      {utcClock(iso)}
-    </time>
-  );
-}
 
 /** Asks for the incident again once the deadline has passed: it is published by then. */
 function useRefetchAfter(deadline: string | null) {
@@ -153,7 +133,7 @@ function DraftPanel({
             className="text-[24px] leading-[1.25] font-semibold text-ink"
           />
           <span>
-            at <Deadline iso={deadline} /> unless you approve or dismiss it sooner.
+            at <UtcClock iso={deadline} /> unless you approve or dismiss it sooner.
           </span>
         </div>
       ) : (
@@ -265,7 +245,7 @@ export function IncidentPanel({
         <div className="flex flex-col gap-3">
           {deadline && (
             <p className="text-[14px]">
-              Publishes automatically at <Deadline iso={deadline} />, in{" "}
+              Publishes automatically at <UtcClock iso={deadline} />, in{" "}
               <Countdown deadline={deadline} />, unless you approve or dismiss it sooner.
             </p>
           )}

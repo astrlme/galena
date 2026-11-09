@@ -40,17 +40,25 @@ function usePresent(ms: number) {
 }
 
 /**
- * Each monitor's state, newest results and summary. Checks run once a minute, so polling every
- * 30 s while someone is on the page is fresh enough. Away for 15 minutes, it stops (`paused`),
- * and starts again with a fresh read when they return.
+ * How often a page's live reads repeat: every 30 s while someone is on it (checks run once a
+ * minute, so that is fresh enough), never once they've been away 15 minutes.
  */
-export function useTelemetry() {
+export function useLiveInterval() {
   const present = usePresent(AWAY_MS);
+  return { present, interval: present ? 30_000 : (false as const) };
+}
+
+/**
+ * Each monitor's state, its newest `minutes` of results and its summary, read again every 30 s
+ * while someone is on the page. Away for 15 minutes, it stops (`paused`), and starts again with a
+ * fresh read when they return.
+ */
+export function useTelemetry(minutes = MINUTES) {
+  const { present, interval } = useLiveInterval();
   const query = useQuery({
-    queryKey: ["monitors", "telemetry"],
-    queryFn: () =>
-      unwrap(api.GET("/v1/monitors/telemetry", { params: { query: { minutes: MINUTES } } })),
-    refetchInterval: present ? 30_000 : false,
+    queryKey: ["monitors", "telemetry", minutes],
+    queryFn: () => unwrap(api.GET("/v1/monitors/telemetry", { params: { query: { minutes } } })),
+    refetchInterval: interval,
   });
   const wasPresent = useRef(present);
   const { refetch } = query;
@@ -58,7 +66,8 @@ export function useTelemetry() {
     if (present && !wasPresent.current) void refetch();
     wasPresent.current = present;
   }, [present, refetch]);
-  return { ...query, paused: !present };
+  // The page's other live reads repeat on the same beat, so it tracks presence once.
+  return { ...query, paused: !present, interval };
 }
 
 /** Said where check results show, while polling is paused. */

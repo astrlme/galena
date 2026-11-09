@@ -1,17 +1,15 @@
 import type { CheckStatus, Labels, MonitorState } from "@galena/contracts";
 import { incidentStatusLabels } from "@galena/contracts/copy";
 import type { Mark } from "../../../../components/ui/minute-marks.tsx";
-import type { paths } from "../../../../lib/api-schema.ts";
+import type { Answer } from "../../../../lib/answer.ts";
 import { regionName } from "../../../../lib/regions.ts";
 import { utcClock } from "../../../../lib/time.ts";
 import { latency } from "../../monitors/monitor-row.ts";
 
 // What the incident page says about an incident's evidence, worked out from the API's answer.
 
-export type IncidentDetail =
-  paths["/v1/incidents/{id}"]["get"]["responses"][200]["content"]["application/json"];
-export type Evidence =
-  paths["/v1/incidents/{id}/evidence"]["get"]["responses"][200]["content"]["application/json"];
+export type IncidentDetail = Answer<"/v1/incidents/{id}">;
+export type Evidence = Answer<"/v1/incidents/{id}/evidence">;
 export type EvidenceMonitor = NonNullable<Evidence["monitor"]>;
 type Result = EvidenceMonitor["results"][number];
 

@@ -1,5 +1,6 @@
 import { evidenceWindow } from "@galena/core";
-import type { Answer, demoData } from "./data.ts";
+import type { Answer } from "../answer.ts";
+import type { demoData } from "./data.ts";
 
 // A demo incident's evidence: its monitor's last hour as the window shows it, and one notice per
 // published update, delivered everywhere but the failing endpoint.

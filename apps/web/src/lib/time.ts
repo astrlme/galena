@@ -18,6 +18,10 @@ export function hm(minutes: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
+/** Oldest first for ISO times in one format, which sort as text; a missing time goes last. */
+export const compareIso = (a: string | null | undefined, b: string | null | undefined) =>
+  a === b ? 0 : a == null ? 1 : b == null ? -1 : a < b ? -1 : 1;
+
 /** "14:07 UTC" */
 export function utcClock(iso: string) {
   const at = new Date(iso);
