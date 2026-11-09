@@ -3,6 +3,7 @@ import type {
   IncidentImpact,
   IncidentStatus,
   MaintenanceStatus,
+  MemberRole,
   PageIndicator,
 } from "./enums.ts";
 
@@ -63,4 +64,29 @@ export const maintenanceStatusLabels: Record<MaintenanceStatus, string> = {
   in_progress: "In progress",
   verifying: "Verifying",
   completed: "Completed",
+};
+
+export const memberRoleLabels: Record<MemberRole, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  editor: "Editor",
+  viewer: "Viewer",
+};
+
+/** What each role may do, standing alone: for a list of roles or a role select. */
+export const memberRoleSummaries: Record<MemberRole, string> = {
+  viewer: "Sees everything and changes nothing.",
+  editor: "Changes monitors, incidents, maintenance and the status page.",
+  admin: "Does what an editor does, and manages the team, integrations, destinations and API keys.",
+  owner: "Does what an admin does, and makes and removes owners.",
+};
+
+/** The same, said to someone invited with the role: in the invite email and on its page. */
+export const memberRoleInvitations: Record<MemberRole, string> = {
+  viewer: "As a viewer you'll see everything and change nothing.",
+  editor:
+    "As an editor you'll see everything and change monitors, incidents, maintenance and the status page.",
+  admin:
+    "As an admin you'll do what an editor does, and manage the team, integrations, destinations and API keys.",
+  owner: "As an owner you'll do what an admin does, and make and remove owners.",
 };
