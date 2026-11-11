@@ -1,0 +1,76 @@
+---
+title: Recovery
+description: The two secrets no backup holds, what the backups cover, and how to send failed jobs back.
+---
+
+## Keep these two secrets
+
+`galena deploy` makes two SecureStrings in the home region the first time it runs. They are in no
+backup, and nothing can make them again with the same value.
+
+| Parameter | Without it |
+| --- | --- |
+| `/galena/<stage>/app-key` | Saved credentials (destination URLs, Slack tokens) can't be opened, and every hook URL, ping URL, unsubscribe link and API key stops working |
+| `/galena/<stage>/auth-secret` | Everyone is signed out, and two-factor stops working for every member |
+
+Copy both into a password manager when you deploy:
+
+```bash
+aws ssm get-parameter --region <home region> --with-decryption \
+  --name /galena/<stage>/app-key --query Parameter.Value --output text
+aws ssm get-parameter --region <home region> --with-decryption \
+  --name /galena/<stage>/auth-secret --query Parameter.Value --output text
+```
+
+`galena deploy` makes only the secrets that are missing, so after losing one (or moving to another
+account), put the copy back under the same name as a SecureString before you deploy.
+`galena doctor` fails while either is missing.
+
+## What the backups cover
+
+| Data | Kept by |
+| --- | --- |
+| Aurora: workspace, members, monitors, incidents, subscribers, settings | Automated backups for 14 days, restorable to any second, in the home region. Deletion protection is on, and the cluster stays if its stack is deleted |
+| DynamoDB `telemetry`: check results and detection state | Nothing: results expire after 90 days, and detection rebuilds its state from the next checks |
+| The page bucket | Replication to the replica region; every publish writes the files again |
+| `monitors.json` in the config bucket | Written again from the database on every monitor change |
+
+Aurora restores a point in time into a **new** cluster (RDS console, **Restore to point in
+time**). The Foundation stack owns the cluster it made, so `galena deploy` doesn't switch a
+deployment to a restored copy. Use the copy to read back what was lost (turn on its Data API and
+query it in the RDS query editor), then enter it again through the dashboard or the API.
+
+## Dead-letter queues
+
+A message lands in a dead-letter queue when its last attempt failed and nothing recorded the
+failure. Each queue keeps messages for 14 days and has an [alarm](/docs/operations/troubleshooting/#alarms).
+
+| Queue | Holds | Alarm |
+| --- | --- | --- |
+| Check results' | A check result the evaluator failed five times | Dead letters |
+| Jobs' | A job that failed for good, or a message no job understands | Job or build dead letters |
+| Builds' | An HTML build that failed for good | Job or build dead letters |
+| Scheduler's | A job for later (or a recurring one) that Scheduler couldn't deliver within an hour | Undelivered schedules |
+
+Find the cause in the logs first (`/galena/<stage>/jobs` or `/galena/<stage>/builder`, which log
+each job's name, key and outcome). Once it is fixed, send the messages back: every job is safe
+to run twice, and one that has nothing left to do says so in its log.
+
+```bash
+param() {
+  aws ssm get-parameter --region <home region> --name "/galena/<stage>/$1" \
+    --query Parameter.Value --output text
+}
+# Jobs; for HTML builds use builds-dead-letter-arn and builds-queue-arn.
+aws sqs start-message-move-task --region <home region> \
+  --source-arn "$(param jobs-dead-letter-arn)" --destination-arn "$(param jobs-queue-arn)"
+```
+
+Two queues need no redrive:
+
+- **Check results.** Probes send a new result every minute, and the evaluator ignores a result
+  older than the last one it applied. Purge the queue once you know why they failed.
+- **Scheduler's.** It is a standard queue, so its messages can't move into the FIFO job queue. Each
+  holds `{ job, key, payload }`. Backstops, dispatch retries and recurring jobs are covered by the
+  next run or the outbox sweep. An `incident.autopilot` message is a draft's deadline: approve or
+  dismiss that draft in the dashboard instead.
