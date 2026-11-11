@@ -21,9 +21,12 @@ marks the row dispatched; consumers are idempotent.
 Two more safeguards:
 
 - **A backstop.** The row's id is generated in the application, so before the transaction the
-  API also triggers a dispatch delayed by one minute, which finds the row already handled, or
-  missing if the transaction rolled back. The public subscribe form arms none, so a stranger
-  can't start runs by posting it; the sweep covers it.
+  API, and the background jobs that write incident and maintenance changes, also trigger a
+  dispatch delayed by one minute, which finds the row already handled, or missing if the
+  transaction rolled back. The public subscribe form arms none, so a stranger can't start runs by
+  posting it; the sweep covers it.
+- **Retries after a failed dispatch.** One that fails all its attempts tries again after 5
+  minutes, 15 minutes and an hour, waking Aurora only while the row is still pending.
 - **A sweep every six hours** of rows still pending after five minutes, at the same minute as the
   uptime rollup, covering the job queue being unreachable when the change was written.
 
@@ -39,9 +42,10 @@ Two more safeguards:
 
 - Every consumer must be safe to run twice; they are, through their keys.
 - Every change costs two `outbox.dispatch` runs instead of one.
-- After a crash between commit and trigger, the event arrives about a minute late. If the job
-  queue is unreachable when a change is saved, the event waits for the first sweep after it comes
-  back, at most six hours.
+- After a crash between commit and trigger, the event arrives about a minute late. A dispatch
+  that fails is tried three more times, the last about 80 minutes after the first failure. If the job queue is
+  unreachable when a change is saved, the event waits for the first sweep after it comes back, at
+  most six hours.
 
 ## Revisit when
 

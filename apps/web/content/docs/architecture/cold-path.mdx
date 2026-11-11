@@ -53,8 +53,10 @@ committed state is always written last.
 
 <Callout>
 If the job queue is unreachable at the moment of the change, the request still succeeds and the
-row stays pending. `outbox.sweep`, every six hours, hands every row still pending after five minutes
-back to the dispatcher, keyed `outbox:{outboxId}:sweep:{hour}`, so each run tries again.
+row stays pending. A dispatch that fails all five attempts tries again after 5 minutes, 15 minutes
+and an hour (`outbox:{outboxId}:retry:{n}`). `outbox.sweep`, every six hours, hands every row
+still pending after five minutes back to the dispatcher, keyed `outbox:{outboxId}:sweep:{hour}`,
+so each run tries again.
 </Callout>
 
 ## Why nothing polls the database
