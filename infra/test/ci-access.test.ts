@@ -1,5 +1,5 @@
 import { App, Validations } from "aws-cdk-lib";
-import { Match, Template } from "aws-cdk-lib/assertions";
+import { Template } from "aws-cdk-lib/assertions";
 import { AwsSolutionsChecks } from "cdk-nag";
 import { expect, test } from "vitest";
 import { stageRegions, stageSchema } from "../config/stages.ts";
@@ -13,41 +13,51 @@ if (!github) throw new Error("The fixture deploys from GitHub.");
 const stack = new CiAccessStack(app, "CiAccess", { config: { ...fixture, github } });
 const template = Template.fromStack(stack);
 
-test("only workflows on the repository's deploy ref can assume the deploy role", () => {
-  template.hasResourceProperties("AWS::IAM::Role", {
-    AssumeRolePolicyDocument: {
-      Statement: [
-        Match.objectLike({
-          Action: "sts:AssumeRoleWithWebIdentity",
-          Condition: {
-            StringEquals: {
-              "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-              "token.actions.githubusercontent.com:sub":
-                "repo:example@1001/galena@2002:ref:refs/heads/main",
-            },
-          },
-        }),
-      ],
-    },
-  });
-});
-
-test("the deploy role can only assume the CDK bootstrap roles in the stage's regions", () => {
-  const policies = Object.values(template.findResources("AWS::IAM::Policy"));
-  const statements = policies.flatMap((p) => p.Properties.PolicyDocument.Statement);
+const SUB = "token.actions.githubusercontent.com:sub";
+const roles = Object.values(template.findResources("AWS::IAM::Role")).map((r) => r.Properties);
+const roleNamed = (name: string) => roles.find((r) => r.RoleName === name);
+const subjectsOf = (role: (typeof roles)[number]) => {
+  const [statement, ...others] = role.AssumeRolePolicyDocument.Statement;
+  expect(others).toEqual([]);
+  expect(statement.Action).toBe("sts:AssumeRoleWithWebIdentity");
+  expect(statement.Condition.StringEquals["token.actions.githubusercontent.com:aud"]).toBe(
+    "sts.amazonaws.com",
+  );
+  return [statement.Condition.StringEquals[SUB]].flat();
+};
+const policyOf = (role: string) => {
+  const statements = Object.values(template.findResources("AWS::IAM::Policy"))
+    .filter((p) => JSON.stringify(p.Properties.Roles).includes(role))
+    .flatMap((p) => p.Properties.PolicyDocument.Statement);
   expect(statements).toHaveLength(1);
   expect(statements[0]).toMatchObject({ Action: "sts:AssumeRole", Effect: "Allow" });
   expect(JSON.stringify(statements[0].Resource)).not.toContain("*");
-
-  const granted = statements[0].Resource.map((arn: unknown) => {
-    const [, role, region] =
+  return [statements[0].Resource].flat().map((arn: unknown) => {
+    const [, name, region] =
       JSON.stringify(arn).match(/cdk-hnb659fds-([a-z-]+)-role-.*?-([a-z]{2}-[a-z]+-\d)"/) ?? [];
-    return `${role} ${region}`;
+    return `${name} ${region}`;
   });
+};
+
+test("only the deploy environment and the deploy ref can assume the deploy role", () => {
+  expect(subjectsOf(roleNamed("galena-dev-github-deploy")).sort()).toEqual([
+    "repo:example@1001/galena@2002:environment:deploy",
+    "repo:example@1001/galena@2002:ref:refs/heads/main",
+  ]);
+});
+
+test("the deploy role can only assume the CDK bootstrap roles in the stage's regions", () => {
   const expected = stageRegions(fixture).flatMap((region) =>
     ["deploy", "file-publishing", "lookup"].map((role) => `${role} ${region}`),
   );
-  expect(granted.sort()).toEqual(expected.sort());
+  expect(policyOf("DeployRole").sort()).toEqual(expected.sort());
+});
+
+test("the lookup role, for the deploy ref, can only assume the home region's CDK lookup role", () => {
+  expect(subjectsOf(roleNamed("galena-dev-github-lookup"))).toEqual([
+    "repo:example@1001/galena@2002:ref:refs/heads/main",
+  ]);
+  expect(policyOf("LookupRole")).toEqual([`lookup ${fixture.homeRegion}`]);
 });
 
 test("passes cdk-nag AwsSolutions", () => {
