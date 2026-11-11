@@ -96,11 +96,8 @@ test("the jobs function gets the workers' settings, its queues and Scheduler, ne
   expect(fn("Jobs").Environment.Variables.GLN_PAGE_URL).toBe("https://status.example.com");
 });
 
-test("the builder gets only what a build reads: the database, the page bucket and its queue", () => {
+test("the builder gets only what a build reads: the page bucket and its queue", () => {
   expect(variables("Builder")).toEqual([
-    "GLN_DB_CLUSTER_ARN",
-    "GLN_DB_NAME",
-    "GLN_DB_SECRET_ARN",
     "GLN_DEAD_LETTER_URL",
     "GLN_HOME_REGION",
     "GLN_PAGE_BUCKET",
@@ -158,19 +155,13 @@ test("the jobs function reads the app key and its heartbeat URL, and no other pa
   expect(fn("Jobs").Environment.Variables.GLN_HEARTBEAT_PARAM).toBe("/galena/dev/jobs-heartbeat");
 });
 
-test("the builder may build and upload the page, and no more: no app key, email or Scheduler", () => {
+test("the builder may build and upload the page, and no more: no database, app key, email or Scheduler", () => {
   expect([...new Set(actionsOf("BuilderRole"))]).toEqual([
     "logs:CreateLogStream",
     "logs:PutLogEvents",
-    "rds-data:BatchExecuteStatement",
-    "rds-data:BeginTransaction",
-    "rds-data:CommitTransaction",
-    "rds-data:ExecuteStatement",
-    "rds-data:RollbackTransaction",
     "s3:GetObject",
     "s3:ListBucket",
     "s3:PutObject",
-    "secretsmanager:GetSecretValue",
     "sqs:ChangeMessageVisibility",
     "sqs:DeleteMessage",
     "sqs:GetQueueAttributes",

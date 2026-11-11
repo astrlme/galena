@@ -12,7 +12,7 @@ import {
 } from "aws-cdk-lib";
 import { ComparisonOperator, MathExpression, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
 import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
-import { type IRole, PolicyStatement } from "aws-cdk-lib/aws-iam";
+import { type IRole, PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { Architecture, Code, Function as LambdaFunction, Runtime } from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
@@ -68,9 +68,8 @@ export class JobsStack extends Stack {
     const heartbeat = `/galena/${stage}/jobs-heartbeat`;
     const database = dataApiAccess(this, stage);
 
-    // What both functions read: the database, the page bucket, their queue and its dead letters.
+    // What both functions read: the page bucket, their queue and its dead letters.
     const shared = (reads: ReturnType<typeof queue>) => ({
-      ...database.environment,
       GLN_HOME_REGION: this.region,
       GLN_PAGE_BUCKET: pageBucketName(stage, this.account),
       GLN_PAGE_REGION: config.pageRegions.primary,
@@ -169,6 +168,7 @@ export class JobsStack extends Stack {
       role: jobsRole,
       logGroup: jobsLogs,
       environment: {
+        ...database.environment,
         ...shared(jobs),
         GLN_CONFIG_BUCKET: param("config-bucket"),
         GLN_TELEMETRY_TABLE: param("telemetry-table"),
@@ -255,9 +255,12 @@ export class JobsStack extends Stack {
       logGroupName: `/galena/${stage}/builder`,
       retention: RetentionDays.ONE_MONTH,
     });
-    // The builder runs Astro and Vite, so it gets no more than a build needs: no app key, no
-    // config bucket, no email, no Scheduler.
-    const builderRole = database.role("BuilderRole", builderLogs);
+    // The builder runs Astro and Vite, so it gets no more than a build needs: no database, no
+    // app key, no config bucket, no email, no Scheduler.
+    const builderRole = new Role(this, "BuilderRole", {
+      assumedBy: new ServicePrincipal("lambda.amazonaws.com"),
+    });
+    builderLogs.grantWrite(builderRole);
     grantShared(builderRole, builds);
     const builder = new LambdaFunction(this, "Builder", {
       // Not a NodejsFunction: index.mjs ships beside a production install of the status app,
