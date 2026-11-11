@@ -7,43 +7,51 @@ import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { snapshot } from "@galena/contracts";
 import { INTERNAL_SLUG } from "@galena/core";
-import { advancePageVersion, type Db, ensurePage } from "@galena/db";
 import { z } from "zod";
 import type { PageStore, StoredFile } from "./publishing.ts";
 
-export const rebuildPayload = z.object({ version: z.int().min(1) });
+export const rebuildPayload = z.object({ version: z.int().min(1), slug: z.string().min(1) });
 export type RebuildPayload = z.infer<typeof rebuildPayload>;
 
 /** Renders the status page for the snapshot in `snapshotFile` into `outDir`, served at `base`. */
 export type BuildPage = (snapshotFile: string, outDir: string, base: string) => Promise<void>;
-export type RebuildDeps = { db: Db; store: PageStore; build: BuildPage };
-export type RebuildOutcome = "no_page" | "no_snapshot" | "superseded" | "built";
+export type RebuildDeps = { store: PageStore; build: BuildPage };
+export type RebuildOutcome = "no_snapshot" | "superseded" | "built";
 
 /**
  * Builds the page's HTML from the newest published `snapshot.json`, which may already be newer
- * than the version that asked for this run; once that HTML is out, older runs stop.
+ * than the version that asked for this run; once that HTML is out, older runs stop. The page's
+ * own `index.html` says which snapshot it was built from, so the build needs no database.
  */
 export async function rebuildHtml(
-  { version }: RebuildPayload,
+  { version, slug }: RebuildPayload,
   deps: RebuildDeps,
 ): Promise<{ outcome: RebuildOutcome; built?: number }> {
-  const target = await ensurePage(deps.db);
-  if (!target) return { outcome: "no_page" };
-  if (target.htmlVersion >= version) return { outcome: "superseded" };
-  const body = await deps.store.read(target.slug, "snapshot.json");
+  const built = builtFrom(await deps.store.read(slug, "index.html"));
+  if (built >= version) return { outcome: "superseded" };
+  const body = await deps.store.read(slug, "snapshot.json");
   if (!body) return { outcome: "no_snapshot" };
   const { snapshotVersion } = snapshot.parse(JSON.parse(body));
-  if (target.htmlVersion >= snapshotVersion) return { outcome: "superseded" };
+  if (built >= snapshotVersion) return { outcome: "superseded" };
 
   const work = await mkdtemp(join(tmpdir(), "galena-html-"));
-  const build = async (slug: string, text: string, base: string) => {
-    const file = join(work, `${slug}.json`);
+  const build = async (target: string, text: string, base: string) => {
+    const file = join(work, `${target}.json`);
     await writeFile(file, text);
-    await deps.build(file, join(work, slug), base);
-    await deps.store.write(slug, await readTree(join(work, slug)));
+    await deps.build(file, join(work, target), base);
+    const files = await readTree(join(work, target));
+    // index.html last: it marks the build as out, so a retry after a failed upload builds again.
+    await deps.store.write(
+      target,
+      files.filter((f) => f.path !== "index.html"),
+    );
+    await deps.store.write(
+      target,
+      files.filter((f) => f.path === "index.html"),
+    );
   };
   try {
-    await build(target.slug, body, "/");
+    await build(slug, body, "/");
     // The internal view, written by the same publish, is served under /internal/ on the dashboard.
     // A failure here waits for the next publish rather than building the page again.
     const internal = await deps.store.read(INTERNAL_SLUG, "snapshot.json");
@@ -55,9 +63,12 @@ export async function rebuildHtml(
   } finally {
     await rm(work, { recursive: true, force: true });
   }
-  // Runs of this task queue one at a time, so nothing newer went out while this one wrote.
-  await advancePageVersion(deps.db, target.id, "html", snapshotVersion);
   return { outcome: "built", built: snapshotVersion };
+}
+
+/** The snapshot version an `index.html` was built from; 0 for none. */
+function builtFrom(html: string | undefined): number {
+  return Number(html?.match(/data-snapshot-version="(\d+)"/)?.[1] ?? 0);
 }
 
 const CONTENT_TYPES: Record<string, string> = {

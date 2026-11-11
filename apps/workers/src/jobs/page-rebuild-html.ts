@@ -1,4 +1,3 @@
-import { db } from "../db.ts";
 import { astroBuild, rebuildHtml, rebuildPayload } from "../html.ts";
 import { log } from "../log.ts";
 import { pageStore } from "../page-store.ts";
@@ -14,7 +13,7 @@ export const pageRebuildHtmlJob = defineJob({
   name: "page.rebuild-html",
   payload: rebuildPayload,
   run: async (request) => {
-    const result = await rebuildHtml(request, { db, store: pageStore, build: astroBuild });
+    const result = await rebuildHtml(request, { store: pageStore, build: astroBuild });
     log.info("page.rebuild-html", { ...request, ...result });
     return result;
   },

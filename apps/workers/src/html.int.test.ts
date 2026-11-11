@@ -8,7 +8,7 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testconta
 import { v7 } from "uuid";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { astroBuild, rebuildHtml } from "./html.ts";
-import { localPageStore, publishPage } from "./publishing.ts";
+import { localPageStore, type PageStore, publishPage } from "./publishing.ts";
 
 let container: StartedPostgreSqlContainer | undefined;
 let db: Db;
@@ -37,10 +37,10 @@ afterAll(async () => {
 
 test("builds the HTML from the published snapshot once per version, with no form when email is off", async () => {
   const store = localPageStore(dir);
-  const asked: number[] = [];
+  const asked: { version: number; slug: string }[] = [];
   const clock = fixedClock("2026-09-29T12:00:00.000Z");
   const url = "https://status.example.com";
-  const rebuild = async (version: number) => void asked.push(version);
+  const rebuild = async (version: number, slug: string) => void asked.push({ version, slug });
   await publishPage(
     { version: await nextSnapshotVersion(db) },
     {
@@ -54,10 +54,11 @@ test("builds the HTML from the published snapshot once per version, with no form
       rebuildHtml: rebuild,
     },
   );
-  const version = asked[0] ?? 0;
+  const request = asked[0] ?? { version: 0, slug: "" };
+  const { version } = request;
 
-  const deps = { db, store, build: astroBuild };
-  expect(await rebuildHtml({ version }, deps)).toEqual({ outcome: "built", built: version });
+  const deps = { store, build: astroBuild };
+  expect(await rebuildHtml(request, deps)).toEqual({ outcome: "built", built: version });
   const html = await readFile(join(dir, "status", "index.html"), "utf8");
   expect(html).toContain("Checkout");
   expect(html).toContain(`data-snapshot-version="${version}"`);
@@ -73,7 +74,8 @@ test("builds the HTML from the published snapshot once per version, with no form
   expect(html).not.toContain("/internal/");
   expect(html).not.toContain("noindex");
   expect(html).toContain("feed.rss");
-  expect(await rebuildHtml({ version }, deps)).toEqual({ outcome: "superseded" });
+  // The page's own index.html says it is built from this version: nothing to do again.
+  expect(await rebuildHtml(request, deps)).toEqual({ outcome: "superseded" });
 }, 120_000);
 
 test("an internal view that fails to build doesn't hold the page's HTML back", async () => {
@@ -93,17 +95,71 @@ test("an internal view that fails to build doesn't hold the page's HTML back", a
     },
   );
   const version = asked[0] ?? 0;
+  const slug = "status";
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   const build = async (_snapshot: string, outDir: string, base: string) => {
     if (base !== "/") throw new Error("astro build failed");
     await mkdir(outDir, { recursive: true });
     await writeFile(join(outDir, "index.html"), `built ${version}`);
   };
-  expect(await rebuildHtml({ version }, { db, store, build })).toEqual({
+  expect(await rebuildHtml({ version, slug }, { store, build })).toEqual({
     outcome: "built",
     built: version,
   });
   expect(await readFile(join(dir, "status", "index.html"), "utf8")).toBe(`built ${version}`);
   expect(warn).toHaveBeenCalledOnce();
   warn.mockRestore();
+});
+
+test("an upload that fails partway is built again: index.html goes up last", async () => {
+  const published = localPageStore(dir);
+  await publishPage(
+    { version: await nextSnapshotVersion(db) },
+    {
+      db,
+      clock: fixedClock("2026-09-29T14:00:00.000Z"),
+      store: published,
+      note: { read: async () => undefined, write: async () => {} },
+      url: "https://status.example.com",
+      internalUrl: "https://dashboard.example.com/internal/",
+      subscribe: false,
+      rebuildHtml: async () => {},
+    },
+  );
+  const snapshotJson = (await published.read("status", "snapshot.json")) ?? "";
+  const { snapshotVersion } = JSON.parse(snapshotJson) as { snapshotVersion: number };
+  // A bucket that refuses the stylesheet the first time; the files beside it, sent in parallel,
+  // land.
+  const files = new Map([["snapshot.json", snapshotJson]]);
+  let failing = true;
+  const store: PageStore = {
+    read: async (slug, path) => (slug === "status" ? files.get(path) : undefined),
+    write: async (_slug, written) => {
+      const refused = failing && written.some((f) => f.path.endsWith(".css"));
+      for (const f of written) {
+        if (!(refused && f.path.endsWith(".css")))
+          files.set(f.path, Buffer.from(f.body).toString());
+      }
+      if (refused) throw new Error("SlowDown");
+    },
+  };
+  const build = async (_snapshot: string, outDir: string, base: string) => {
+    if (base !== "/") return;
+    await mkdir(join(outDir, "_astro"), { recursive: true });
+    await writeFile(join(outDir, "_astro", "page.css"), "body{}");
+    await writeFile(
+      join(outDir, "index.html"),
+      `<html data-snapshot-version="${snapshotVersion}">`,
+    );
+  };
+  const request = { version: snapshotVersion, slug: "status" };
+
+  await expect(rebuildHtml(request, { store, build })).rejects.toThrow("SlowDown");
+  expect(files.has("index.html")).toBe(false);
+  failing = false;
+  expect(await rebuildHtml(request, { store, build })).toEqual({
+    outcome: "built",
+    built: snapshotVersion,
+  });
+  expect(files.get("_astro/page.css")).toBe("body{}");
 });

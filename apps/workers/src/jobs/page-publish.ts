@@ -24,8 +24,12 @@ export const pagePublishJob = defineJob({
       internalUrl: new URL(`/${INTERNAL_SLUG}/`, env.GLN_DASHBOARD_URL).href,
       // Locally mail lands in GLN_MAIL_DIR; a deployment without an address has none to send.
       subscribe: Boolean(env.GLN_EMAIL_FROM) || !env.GLN_DB_CLUSTER_ARN,
-      rebuildHtml: (version) =>
-        engine().trigger("page.rebuild-html", { version }, { idempotencyKey: `html:${version}` }),
+      rebuildHtml: (version, slug) =>
+        engine().trigger(
+          "page.rebuild-html",
+          { version, slug },
+          { idempotencyKey: `html:${version}` },
+        ),
     });
     log.info("page.publish", { ...request, ...result });
     return result;

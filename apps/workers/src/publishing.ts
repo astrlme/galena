@@ -62,8 +62,8 @@ export type PublishDeps = {
   internalUrl: string;
   /** Whether the page offers email updates. */
   subscribe: boolean;
-  /** Starts `page.rebuild-html` for the version just published. */
-  rebuildHtml: (version: number) => Promise<void>;
+  /** Starts `page.rebuild-html` for the version just published, and the page it belongs to. */
+  rebuildHtml: (version: number, slug: string) => Promise<void>;
 };
 export type PublishOutcome = "no_page" | "superseded" | "published";
 
@@ -112,8 +112,8 @@ export async function publishPage(
       console.warn("page.publish note not written", { error: String(error) });
     });
   // Runs of this task queue one at a time, so nothing newer went out while this one wrote.
-  await advancePageVersion(deps.db, target.id, "data", current);
-  await deps.rebuildHtml(current);
+  await advancePageVersion(deps.db, target.id, current);
+  await deps.rebuildHtml(current, target.slug);
   return { outcome: "published", published: current };
 }
 

@@ -119,16 +119,15 @@ test("snapshot versions count up from 1", async () => {
   expect(await nextSnapshotVersion(db)).toBe(first + 1);
 });
 
-test("a page version only moves forward, separately for data and HTML", async () => {
-  expect(await advancePageVersion(db, acmePage, "data", 5)).toBe(true);
-  expect(await advancePageVersion(db, acmePage, "data", 3)).toBe(false);
-  expect(await advancePageVersion(db, acmePage, "data", 5)).toBe(false);
-  expect(await advancePageVersion(db, acmePage, "html", 3)).toBe(true);
+test("a page's data version only moves forward", async () => {
+  expect(await advancePageVersion(db, acmePage, 5)).toBe(true);
+  expect(await advancePageVersion(db, acmePage, 3)).toBe(false);
+  expect(await advancePageVersion(db, acmePage, 5)).toBe(false);
   const [row] = await db
-    .select({ data: page.publishedVersion, html: page.htmlVersion })
+    .select({ data: page.publishedVersion })
     .from(page)
     .where(eq(page.id, acmePage));
-  expect(row).toEqual({ data: 5, html: 3 });
+  expect(row).toEqual({ data: 5 });
 });
 
 test("saving a day's rollup again replaces its minutes", async () => {

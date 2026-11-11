@@ -120,23 +120,19 @@ export async function nextSnapshotVersion(db: Db): Promise<number> {
   return Number(rows[0].version);
 }
 
-const layers = { data: "publishedVersion", html: "htmlVersion" } as const;
-
 /**
- * Moves the page's data or HTML version forward to `version`. False when that version or a
- * newer one is already out, which is the caller's cue to stop: the newest publish wins.
+ * Moves the page's data version forward to `version`. False when that version or a newer one is
+ * already out, which is the caller's cue to stop: the newest publish wins.
  */
 export async function advancePageVersion(
   db: Db,
   pageId: PageId,
-  layer: keyof typeof layers,
   version: number,
 ): Promise<boolean> {
-  const column = layers[layer];
   const rows = await db
     .update(page)
-    .set({ [column]: version })
-    .where(and(eq(page.id, pageId), lt(page[column], version)))
+    .set({ publishedVersion: version })
+    .where(and(eq(page.id, pageId), lt(page.publishedVersion, version)))
     .returning({ id: page.id });
   return rows.length === 1;
 }
@@ -186,7 +182,6 @@ const pageColumns = {
   slug: page.slug,
   name: page.name,
   publishedVersion: page.publishedVersion,
-  htmlVersion: page.htmlVersion,
 };
 export type PageRow = {
   id: PageId;
@@ -194,7 +189,6 @@ export type PageRow = {
   slug: string;
   name: string;
   publishedVersion: number;
-  htmlVersion: number;
 };
 
 /**
