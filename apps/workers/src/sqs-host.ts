@@ -30,7 +30,12 @@ const DEFAULT_RETRY: Retry = { attempts: 5, minMs: 1_000, maxMs: 30_000, factor:
 // job that ran out of time.
 const SETTLE_MS = 10_000;
 
-/** Rejects once `ms` pass without `work` settling; `work` itself can't be stopped. */
+/**
+ * Rejects once `ms` pass without `work` settling.
+ * Known limit: `work` itself can't be stopped, so it may go on when this Lambda instance is next
+ * invoked, beside the retry; the jobs' idempotency keys cover that as they cover a redelivery.
+ * Pass jobs an `AbortSignal` if one ever can't bear it.
+ */
 function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   const deadline = new Promise<never>((_, reject) => {
