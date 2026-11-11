@@ -214,6 +214,30 @@ test("a replaced or deleted hook URL is refused at the API, starting no job", as
   expect(triggered.filter((t) => t.task === "signal.ingest")).toHaveLength(1);
 });
 
+test("alerts to a replaced hook URL don't spend the budget of the URL that replaced it", async () => {
+  const response = await owner.call("/v1/integrations", { source: "generic", name: "Leaked" });
+  const { integration, url: leaked } = (await response.json()) as Created;
+  const renewed = await owner.call(`/v1/integrations/${integration.id}/url`, {});
+  const { url: next } = (await renewed.json()) as { url: string };
+  const fresh = createApp(deps);
+  const send = (to: string, n: number) =>
+    fresh.request(new URL(to).pathname, {
+      method: "POST",
+      body: JSON.stringify(
+        Array.from({ length: n }, (_, i) => ({
+          key: `alert-${i}`,
+          status: "firing",
+          startsAt: "2026-10-19T12:00:00Z",
+        })),
+      ),
+      headers: { "content-type": "application/json" },
+    });
+
+  await expectProblem(await send(leaked, 100), 404, "unknown_hook");
+  await expectProblem(await send(leaked, 100), 404, "unknown_hook");
+  expect((await send(next, 100)).status).toBe(202);
+});
+
 test("past 120 alerts a minute an integration gets 429 and starts no more jobs", async () => {
   const response = await owner.call("/v1/integrations", { source: "generic", name: "Noisy" });
   const { url } = (await response.json()) as Created;

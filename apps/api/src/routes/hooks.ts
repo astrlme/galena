@@ -93,10 +93,11 @@ export function registerHookRoutes(app: App, deps: Deps) {
     }
     const signals = readSignals(source.data, body);
     if (!signals) return notAlerts(source.data);
-    if (!perIntegration(id.data, signals.length)) return tooMany();
+    // Currency first: a replaced URL must not spend the budget of the one that replaced it.
     if ((await currentIssuedAt(id.data, source.data)) !== token.issuedAt.getTime()) {
       return unknownHook();
     }
+    if (!perIntegration(id.data, signals.length)) return tooMany();
 
     const tokenIssuedAt = token.issuedAt.toISOString();
     for (let i = 0; i < signals.length; i += BATCH) {

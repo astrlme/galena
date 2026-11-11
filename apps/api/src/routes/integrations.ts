@@ -35,7 +35,8 @@ import {
 
 // Alert sources and their hook URLs. A URL carries a signed token, so only admins manage
 // integrations, and the URL appears once: when the integration is made, and when a new URL
-// replaces the old one (which stops working at once).
+// replaces the old one. Alerts sent to the old one are dropped at once by `signal.ingest`; within
+// a minute the hook route refuses it too.
 
 const toView = ({ workspaceId, tokenIssuedAt, ...i }: IntegrationRow) => ({
   ...i,
