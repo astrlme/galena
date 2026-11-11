@@ -13,9 +13,42 @@ permissions:
   contents: read
 
 jobs:
+  # Synth has one question for AWS: the home region's availability zones, for the VPC's subnets.
+  # This job asks it with the CDK lookup role and runs no repository code, so the build job can
+  # synthesise without credentials.
+  lookups:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+    outputs:
+      zones: ${{ steps.zones.outputs.zones }}
+    steps:
+      - name: Read the deployment config
+        env:
+          GLN_CONFIG: ${{ vars.GLN_CONFIG }}
+        run: echo "GLN_HOME_REGION=$(jq -r .homeRegion <<< "$GLN_CONFIG")" >> "$GITHUB_ENV"
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.GLN_HOME_REGION }}
+      - id: zones
+        env:
+          AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          partition=$(cut -d: -f2 <<< "$AWS_DEPLOY_ROLE_ARN")
+          account=$(cut -d: -f5 <<< "$AWS_DEPLOY_ROLE_ARN")
+          role="arn:$partition:iam::$account:role/cdk-hnb659fds-lookup-role-$account-$GLN_HOME_REGION"
+          read -r AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN < <(aws sts assume-role             --role-arn "$role" --role-session-name lookups --output text             --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]')
+          export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+          # The same answer CDK's own lookup keeps in cdk.context.json.
+          zones=$(aws ec2 describe-availability-zones --filters Name=state,Values=available             --query 'AvailabilityZones[].ZoneName' --output json | jq -c .)
+          echo "zones=$zones" >> "$GITHUB_OUTPUT"
+
   # Installs, builds and synthesises without any AWS access: the dependency tree's code never
   # runs in a job that can ask for the OIDC token.
   build:
+    needs: lookups
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -38,12 +71,16 @@ jobs:
         env:
           GLN_CONFIG: ${{ vars.GLN_CONFIG }}
           AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          ZONES: ${{ needs.lookups.outputs.zones }}
         run: |
           test -n "$GLN_CONFIG" || { echo "Set the GLN_CONFIG repository variable."; exit 1; }
           printf '%s' "$GLN_CONFIG" > galena.config.json
           # Without credentials CDK can't find the account, so name it: the templates then match
           # what a deploy with credentials would synthesise.
-          echo "CDK_DEFAULT_ACCOUNT=$(cut -d: -f5 <<< "$AWS_DEPLOY_ROLE_ARN")" >> "$GITHUB_ENV"
+          account=$(cut -d: -f5 <<< "$AWS_DEPLOY_ROLE_ARN")
+          echo "CDK_DEFAULT_ACCOUNT=$account" >> "$GITHUB_ENV"
+          # The lookups job's answer, where synth looks for it.
+          jq -n --arg key "availability-zones:account=$account:region=$(jq -r .homeRegion <<< "$GLN_CONFIG")"             --argjson zones "$ZONES" '{($key): $zones}' > infra/cdk.context.json
       # The Web stack uploads apps/web/out; without it the dashboard would not change.
       - run: pnpm --filter @galena/web build
       # Only the project's own deployment sets GLN_SITE to `project`: its site stack uploads
