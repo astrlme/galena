@@ -34,7 +34,7 @@ Fourteen CloudWatch alarms in the home region publish to the SNS topic `galena-<
 | Untriggered jobs | The API couldn't start a job, so a saved change waits for the outbox sweep, up to six hours: check SQS and Scheduler, and the API's log for the reason |
 
 Nothing subscribes to the topic in code, so no address is kept in your fork. Subscribe one once,
-then confirm the email AWS sends:
+then confirm the email AWS sends; `galena doctor` fails until a subscription is confirmed:
 
 ```bash
 aws sns subscribe --region <home region> --protocol email --notification-endpoint you@example.com \

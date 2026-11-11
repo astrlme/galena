@@ -1,4 +1,5 @@
 import { CloudFormationClient, DescribeStacksCommand } from "@aws-sdk/client-cloudformation";
+import { paginateListSubscriptionsByTopic, SNSClient } from "@aws-sdk/client-sns";
 import {
   DeleteParameterCommand,
   GetParameterCommand,
@@ -100,6 +101,16 @@ export async function parameter(config: StageConfig, name: string): Promise<stri
     )
     .then(({ Parameter }) => Parameter?.Value)
     .catch(missingParameter);
+}
+
+/** The `SubscriptionArn` of each subscription on a topic: `PendingConfirmation` until confirmed. */
+export async function topicSubscriptions(region: string, topicArn: string): Promise<string[]> {
+  const arns: string[] = [];
+  const client = new SNSClient({ region });
+  for await (const page of paginateListSubscriptionsByTopic({ client }, { TopicArn: topicArn })) {
+    arns.push(...(page.Subscriptions ?? []).map((s) => s.SubscriptionArn ?? ""));
+  }
+  return arns;
 }
 
 /** Every stack the config creates, with its status (none when not deployed) and outputs. */

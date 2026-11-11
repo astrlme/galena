@@ -11,6 +11,7 @@ import {
   parameterTypes,
   readStacks,
   type Stack,
+  topicSubscriptions,
 } from "./aws.ts";
 import { fetchLatestRelease, isNewer, REPOSITORY, readCheckout } from "./version.ts";
 
@@ -167,6 +168,32 @@ export function versionCheck({
  * Checks a deployment without changing anything: names and states only, never a secret's value.
  * Each check runs after the one before, so the output streams.
  */
+/**
+ * Whether anyone hears the alarms: the alarm topic has a confirmed subscription. The stacks make
+ * the topic and leave subscribing to the operator, so a skipped step leaves every alarm silent.
+ */
+export function alarmsCheck(
+  topic: { arn: string; subscriptions: string[] } | undefined,
+  region: string,
+): Finding {
+  if (!topic) return ok("No alarm topic yet; the foundation stack makes it");
+  // A confirmed subscription's id is its ARN; others read PendingConfirmation.
+  const confirmed = topic.subscriptions.filter((arn) => arn.startsWith("arn:")).length;
+  if (confirmed) return ok(`${confirmed} confirmed subscription(s) to the alarm topic`);
+  const pending = topic.subscriptions.length;
+  return judge("Nobody receives the alarms", [
+    pending
+      ? {
+          status: "fail",
+          text: `${pending} subscription(s) wait for confirmation: open the email from AWS Notifications and confirm`,
+        }
+      : {
+          status: "fail",
+          text: `Subscribe, then confirm the email: aws sns subscribe --region ${region} --topic-arn ${topic.arn} --protocol email --notification-endpoint <your address>`,
+        },
+  ]);
+}
+
 function checks(config: StageConfig) {
   const home = config.homeRegion;
   let stacks = new Map<string, Stack>();
@@ -221,6 +248,14 @@ function checks(config: StageConfig) {
     [
       "heartbeat",
       async () => heartbeatCheck(types ?? (await parameterTypes(config)), config.stage),
+    ],
+    [
+      "alarms",
+      async () => {
+        const arn = await parameter(config, "alarm-topic-arn");
+        const topic = arn ? { arn, subscriptions: await topicSubscriptions(home, arn) } : undefined;
+        return alarmsCheck(topic, home);
+      },
     ],
     [
       "stacks",

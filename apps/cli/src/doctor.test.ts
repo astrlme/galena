@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { expect, test } from "vitest";
 import {
+  alarmsCheck,
   capacityCheck,
   doctor,
   formatCheck,
@@ -126,4 +127,26 @@ test("a missing outside heartbeat URL is a warning saying what nobody would hear
     "/galena/dev/evaluator-heartbeat is missing: nothing outside AWS emails you when detection stops",
     "/galena/dev/jobs-heartbeat is a String, not a SecureString: anyone who reads it can keep the check quiet",
   ]);
+});
+
+test("alarms that reach nobody fail, with the command that subscribes", () => {
+  const arn = "arn:aws:sns:eu-central-1:111122223333:galena-dev-alarms";
+  expect(alarmsCheck({ arn, subscriptions: [`${arn}:6b0e71bd`] }, "eu-central-1")).toEqual({
+    status: "ok",
+    summary: "1 confirmed subscription(s) to the alarm topic",
+    details: [],
+  });
+  expect(alarmsCheck({ arn, subscriptions: [] }, "eu-central-1")).toEqual({
+    status: "fail",
+    summary: "Nobody receives the alarms",
+    details: [
+      `Subscribe, then confirm the email: aws sns subscribe --region eu-central-1 --topic-arn ${arn} --protocol email --notification-endpoint <your address>`,
+    ],
+  });
+  const pending = alarmsCheck({ arn, subscriptions: ["PendingConfirmation"] }, "eu-central-1");
+  expect(pending.status).toBe("fail");
+  expect(pending.details).toEqual([
+    "1 subscription(s) wait for confirmation: open the email from AWS Notifications and confirm",
+  ]);
+  expect(alarmsCheck(undefined, "eu-central-1").status).toBe("ok");
 });
