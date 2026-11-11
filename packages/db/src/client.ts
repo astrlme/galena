@@ -41,7 +41,12 @@ export function createDb(config: DbConfig): {
     };
   }
 
-  const client = new RDSDataClient({ region: config.region });
+  // The Data API ends a statement at 45 s; past that a request waits on a connection that is
+  // gone, holding its job (and the job's lane) until the function times out.
+  const client = new RDSDataClient({
+    region: config.region,
+    requestHandler: { connectionTimeout: 5_000, requestTimeout: 50_000 },
+  });
   // Before serialisation, so every retry is signed afresh.
   client.middlewareStack.add((next) => (args) => retryWhileResuming(() => next(args)), {
     step: "initialize",
