@@ -160,3 +160,24 @@ test("when SQS can't take the retry or the dead letter, the message comes back",
     batchItemFailures: [{ itemIdentifier: "m1" }],
   });
 });
+
+test("a job still running near the function's timeout backs off instead of holding its lane", async () => {
+  vi.useFakeTimers();
+  try {
+    const { handle, sent } = setup(
+      defineJob({
+        name: "test.job",
+        payload: z.object({ n: z.number() }),
+        retry: { attempts: 5, minMs: 2_000, maxMs: 60_000, factor: 2 },
+        run: () => new Promise(() => {}),
+      }),
+    );
+    // 30 s left in the invocation: the job gets 20 s, and 10 s remain to hand the message back.
+    const handled = handle({ Records: [record(1)] }, () => 30_000);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(await handled).toEqual({ batchItemFailures: [{ itemIdentifier: "m1" }] });
+    expect((sent[0] as ChangeMessageVisibilityCommand).input.VisibilityTimeout).toBe(2);
+  } finally {
+    vi.useRealTimers();
+  }
+});

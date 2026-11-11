@@ -26,6 +26,19 @@ const message = z.object({ job: z.string(), key: z.string(), payload: z.unknown(
 // between them; a backstop or the sweep picks up what still fails.
 const DEFAULT_RETRY: Retry = { attempts: 5, minMs: 1_000, maxMs: 30_000, factor: 4 };
 
+// Time kept back from the function's timeout to hand the message back (or set it aside) after a
+// job that ran out of time.
+const SETTLE_MS = 10_000;
+
+/** Rejects once `ms` pass without `work` settling; `work` itself can't be stopped. */
+function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`The job was still running after ${ms} ms.`)), ms);
+  });
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
+
 export type SqsHostDeps = {
   sqs: Pick<SQSClient, "send">;
   jobs: ReadonlyMap<string, Job<unknown>>;
@@ -39,7 +52,9 @@ export type SqsHostDeps = {
  * attempts (`ApproximateReceiveCount`); a retry hides the message for the job's backoff, which
  * holds its lane as a queue holds a message it will deliver again. A job that failed for good is
  * never handed back, or SQS would run it again: its failure hook records it, or else it goes to
- * the dead-letter queue, where an alarm sees it. The queue's redrive catches crashes and timeouts.
+ * the dead-letter queue, where an alarm sees it. A job still running shortly before the function
+ * times out counts as a failed attempt, so it backs off like any other instead of holding its
+ * lane for the queue's whole visibility timeout; the queue's redrive catches crashes.
  */
 export function sqsHost({ sqs, jobs, queueUrl, deadLetterUrl }: SqsHostDeps) {
   const deadLetter = (record: SqsJobRecord) =>
@@ -53,7 +68,7 @@ export function sqsHost({ sqs, jobs, queueUrl, deadLetterUrl }: SqsHostDeps) {
     );
 
   /** Whether SQS should deliver the message again. */
-  async function handle(record: SqsJobRecord): Promise<boolean> {
+  async function handle(record: SqsJobRecord, remainingMs: () => number): Promise<boolean> {
     const parsed = message.safeParse(safeJson(record.body));
     const job = parsed.success ? jobs.get(parsed.data.job) : undefined;
     if (!parsed.success || !job) {
@@ -63,8 +78,14 @@ export function sqsHost({ sqs, jobs, queueUrl, deadLetterUrl }: SqsHostDeps) {
     }
     const { key, payload } = parsed.data;
     const attempt = Number(record.attributes.ApproximateReceiveCount);
+    const budget = Math.max(0, remainingMs() - SETTLE_MS);
     const result = await runAttempt(
-      { ...job, retry: job.retry ?? DEFAULT_RETRY },
+      {
+        ...job,
+        retry: job.retry ?? DEFAULT_RETRY,
+        run: (input, ctx) =>
+          Number.isFinite(budget) ? withDeadline(job.run(input, ctx), budget) : job.run(input, ctx),
+      },
       payload,
       attempt,
     );
@@ -91,10 +112,11 @@ export function sqsHost({ sqs, jobs, queueUrl, deadLetterUrl }: SqsHostDeps) {
     }
   }
 
-  return async (event: { Records: SqsJobRecord[] }) => {
+  /** `remainingMs`: the time left in the Lambda invocation (its context's), unbounded if absent. */
+  return async (event: { Records: SqsJobRecord[] }, remainingMs = () => Infinity) => {
     const batchItemFailures: { itemIdentifier: string }[] = [];
     for (const record of event.Records) {
-      const again = await handle(record).catch((error: unknown) => {
+      const again = await handle(record, remainingMs).catch((error: unknown) => {
         log.error("job message not settled", {
           messageId: record.messageId,
           ...errorFields(error),

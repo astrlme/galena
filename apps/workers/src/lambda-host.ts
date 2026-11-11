@@ -13,11 +13,14 @@ export function sqsLambda(load: (sqs: SQSClient) => Promise<ReadonlyMap<string, 
   const sqs = new SQSClient({});
   const start = async () => sqsHost({ sqs, jobs: await load(sqs), queueUrl, deadLetterUrl });
   let started: ReturnType<typeof start> | undefined;
-  return async (event: { Records: SqsJobRecord[] }) => {
+  return async (
+    event: { Records: SqsJobRecord[] },
+    context: { getRemainingTimeInMillis: () => number },
+  ) => {
     started ??= start().catch((error: unknown) => {
       started = undefined;
       throw error;
     });
-    return (await started)(event);
+    return (await started)(event, () => context.getRemainingTimeInMillis());
   };
 }
