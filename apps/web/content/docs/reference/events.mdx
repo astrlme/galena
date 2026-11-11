@@ -37,7 +37,7 @@ type EventEnvelope<Type extends string, Data> = {
 
 | Job | Key | Meaning |
 | --- | --- | --- |
-| `outbox.dispatch` | `outbox:{outboxId}`; `outbox:{outboxId}:backstop`; `outbox:{outboxId}:sweep:{hour}` | One dispatch per outbox row after the commit, one delayed backstop, one retry per sweep (every six hours) |
+| `outbox.dispatch` | `outbox:{outboxId}`; `outbox:{outboxId}:backstop`; `outbox:{outboxId}:retry:{n}`; `outbox:{outboxId}:sweep:{hour}` | One dispatch per outbox row after the commit, one delayed backstop, up to three retries (5 min, 15 min, 1 h) after a dispatch that failed every attempt, one retry per sweep (every six hours) |
 | `page.publish` | `pub:{snapshotVersion}` | One publish per version; older versions stop early |
 | `page.rebuild-html` | `html:{snapshotVersion}` | One HTML build per published version |
 | `notify.fanout` | `fan:{eventId}` | One fan-out per event |
