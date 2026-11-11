@@ -18,7 +18,8 @@ them.
 90 days of history and uptime, open and recent incidents with their updates, and maintenance
 windows. Every other file is derived from it, including the HTML: `page.rebuild-html` runs
 `astro build` against the newest `snapshot.json` in the builder, a Lambda function that carries
-the status app, and uploads the result.
+the status app, and uploads the result. The builder runs a site toolchain, so it has no access to
+the database, the app key or the config bucket: only the page bucket and its own queue.
 
 The data layer lands within seconds of a change; the HTML follows a few seconds later. Open pages
 poll `snapshot.json` every 30 seconds and update in place, so readers see a change as soon as the
@@ -41,7 +42,9 @@ changes coalesces into one or two publishes. Taking the version inside the chang
 would race: versions are handed out in time order, commits aren't, and a lower version could
 commit after a higher one was published.
 
-The HTML layer works the same way with its own recorded version.
+The HTML layer works the same way. Its version is the one `index.html` was built from, which the
+page carries as `data-snapshot-version`; `index.html` is uploaded after every other file, so a
+build that fails partway is built again.
 
 ## Caching
 
