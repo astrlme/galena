@@ -541,6 +541,20 @@ test("a new ping URL replaces the old one, which is refused once the new one che
   );
 });
 
+test("a signed-in change sent from another site's page is refused; the dashboard's passes", async () => {
+  const created = (await create(backups)) as Created;
+  const path = `/v1/monitors/${created.id}/ping-url`;
+  // A page on a sibling subdomain: a body-less POST needs no preflight, and the cookie rides along.
+  const sibling = { origin: "https://www.localhost:8787", "content-type": "text/plain" };
+  await expectProblem(await owner.call(path, undefined, "POST", sibling), 403, "cross_origin");
+  // Without `Origin`, only a same-origin `Sec-Fetch-Site` passes.
+  const unnamed = { origin: "", "sec-fetch-site": "same-site" };
+  await expectProblem(await owner.call(path, undefined, "POST", unnamed), 403, "cross_origin");
+  const sameOrigin = { origin: "", "sec-fetch-site": "same-origin" };
+  expect((await owner.call(path, undefined, "POST", sameOrigin)).status).toBe(200);
+  expect((await owner.call(path, undefined, "POST")).status).toBe(200);
+});
+
 test("a monitor keeps its type, and only heartbeats have a ping URL", async () => {
   const http = await create({ name: "Site", http: { url: "https://example.com/" } });
   await expectProblem(

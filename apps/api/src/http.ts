@@ -136,16 +136,26 @@ async function keyMember(db: Db, keys: AppKeys, key: string): Promise<Member | u
   };
 }
 
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/** Browsers send `Origin` on every POST, PUT, PATCH and DELETE; older ones `Sec-Fetch-Site`. */
+function isFromOrigin(headers: Headers, origin: string): boolean {
+  const sent = headers.get("origin");
+  if (sent) return sent === origin;
+  return headers.get("sec-fetch-site") === "same-origin";
+}
+
 /**
  * 401 without a session or a valid API key, 403 below `required`; sets `member` for the
  * handler. A key acts as the member who made it, at most at its scope's role (`keyRole`).
  * `apiKeys: false` takes a signed-in member only: keys can't make more keys.
  */
 export function requireRole(
-  { db, auth, keys }: Deps,
+  { db, auth, keys, publicUrl }: Deps,
   required: MemberRole,
   { apiKeys = true } = {},
 ): MiddlewareHandler<Env> {
+  const ownOrigin = new URL(publicUrl).origin;
   return async (c, next) => {
     const key = bearerOf(c.req.header("authorization"));
     // Whoever sends a key is answered about the key, never as a visitor without a session.
@@ -178,6 +188,17 @@ export function requireRole(
       }
       c.set("member", member);
       return next();
+    }
+    // The session cookie is SameSite=Lax, which counts every subdomain of the site as the same
+    // site, and a POST without a body needs no preflight: a page on a sibling subdomain could
+    // send one with the member's cookie. Only the dashboard itself may change things with it.
+    if (!SAFE_METHODS.has(c.req.method) && !isFromOrigin(c.req.raw.headers, ownOrigin)) {
+      return problemResponse({
+        status: 403,
+        code: "cross_origin",
+        title: "This request came from another site",
+        detail: "Signed-in changes are accepted from the dashboard only. Make the change there.",
+      });
     }
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) {
