@@ -23,6 +23,36 @@ test("a file that doesn't match the contract fails the run instead of checking n
   await expect(load()).rejects.toThrow();
 });
 
+test("after one good load, a failed read keeps checking with the file it holds", async () => {
+  const outage = new Error("SlowDown");
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce({ etag: '"a"', body: body("2026-09-27T10:00:00.000Z") })
+    .mockRejectedValueOnce(outage);
+  const onStale = vi.fn();
+  const load = createConfigLoader(fetch, onStale);
+
+  const first = await load();
+  expect(await load()).toBe(first);
+  expect(onStale).toHaveBeenCalledWith(outage);
+});
+
+test("a newer file that fails the contract keeps the one held, and says so each time", async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce({ etag: '"a"', body: body("2026-09-27T10:00:00.000Z") })
+    .mockResolvedValue({ etag: '"b"', body: '{"version":2}' });
+  const onStale = vi.fn();
+  const load = createConfigLoader(fetch, onStale);
+
+  const first = await load();
+  expect(await load()).toBe(first);
+  expect(await load()).toBe(first);
+  expect(onStale).toHaveBeenCalledTimes(2);
+  // Still asks with the held file's ETag, so a fixed file is picked up on the next run.
+  expect(fetch.mock.calls.at(-1)).toEqual(['"a"']);
+});
+
 test("S3's 304 means not modified; other errors propagate", async () => {
   const s3Error = (httpStatusCode: number) =>
     new S3ServiceException({

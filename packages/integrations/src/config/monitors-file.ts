@@ -6,13 +6,25 @@ type Fetched = { etag: string; body: string } | "not_modified";
 /**
  * `monitors.json`, kept in memory between invocations: a warm Lambda sends the ETag it holds
  * and downloads the file again only when it changed.
+ *
+ * A failed read, or a file this code can't parse (written by a newer release, say), keeps the
+ * copy already held, so one S3 error doesn't stop detection in every region; `onStale` hears of
+ * it. Only a cold Lambda with nothing held fails the run.
  */
-export function createConfigLoader(fetch: (etag: string | undefined) => Promise<Fetched>) {
+export function createConfigLoader(
+  fetch: (etag: string | undefined) => Promise<Fetched>,
+  onStale: (error: unknown) => void = () => {},
+) {
   let cached: { etag: string; file: MonitorsFile } | undefined;
   return async (): Promise<MonitorsFile> => {
-    const fetched = await fetch(cached?.etag);
-    if (fetched !== "not_modified") {
-      cached = { etag: fetched.etag, file: monitorsFile.parse(JSON.parse(fetched.body)) };
+    try {
+      const fetched = await fetch(cached?.etag);
+      if (fetched !== "not_modified") {
+        cached = { etag: fetched.etag, file: monitorsFile.parse(JSON.parse(fetched.body)) };
+      }
+    } catch (error) {
+      if (!cached) throw error;
+      onStale(error);
     }
     if (!cached) throw new Error("S3 answered 304 to a request that sent no ETag.");
     return cached.file;
@@ -36,7 +48,12 @@ export function fetchFromS3(s3: Pick<S3Client, "send">, bucket: string, key: str
 }
 
 /** The loader both hot-path Lambdas use: one S3 client, the ETag cache for the process. */
-export function monitorsFileFromS3(options: { region: string; bucket: string; key: string }) {
+export function monitorsFileFromS3(options: {
+  region: string;
+  bucket: string;
+  key: string;
+  onStale?: (error: unknown) => void;
+}) {
   const s3 = new S3Client({ region: options.region });
-  return createConfigLoader(fetchFromS3(s3, options.bucket, options.key));
+  return createConfigLoader(fetchFromS3(s3, options.bucket, options.key), options.onStale);
 }

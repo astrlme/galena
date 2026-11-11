@@ -20,6 +20,12 @@ const loadConfig = monitorsFileFromS3({
   region: env.GLN_HOME_REGION,
   bucket: env.GLN_CONFIG_BUCKET,
   key: env.GLN_CONFIG_KEY,
+  onStale: (error) => {
+    logger.warn("monitors.json not read; checking with the copy held", {
+      error: error instanceof Error ? error.name : typeof error,
+    });
+    metrics.addMetric("config_stale", MetricUnit.Count, 1);
+  },
 });
 
 /** The Scheduler's input template passes `<aws.scheduler.scheduled-time>` through. */

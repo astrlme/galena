@@ -28,6 +28,12 @@ const loadConfig = monitorsFileFromS3({
   region: env.AWS_REGION,
   bucket: env.GLN_CONFIG_BUCKET,
   key: env.GLN_CONFIG_KEY,
+  onStale: (error) => {
+    logger.warn("monitors.json not read; checking with the copy held", {
+      error: error instanceof Error ? error.name : typeof error,
+    });
+    metrics.addMetric("config_stale", MetricUnit.Count, 1);
+  },
 });
 // The only job the hot path starts, one message on a transition, never per check.
 const engine = awsJobEngine({
