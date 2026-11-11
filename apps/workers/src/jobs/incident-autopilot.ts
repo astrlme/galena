@@ -1,6 +1,6 @@
 import { draftPayload, settleDraft } from "../autopilot.ts";
 import { db } from "../db.ts";
-import { triggerDispatch } from "../engine.ts";
+import { outboxTriggers } from "../engine.ts";
 import { log } from "../log.ts";
 import { defineJob } from "../runner.ts";
 
@@ -15,7 +15,7 @@ export const incidentAutopilotJob = defineJob({
     const outcome = await settleDraft(draft, {
       db,
       clock: { now: () => new Date() },
-      dispatch: triggerDispatch,
+      ...outboxTriggers,
     });
     log.info("incident.autopilot", { ...draft, outcome });
     return { outcome };

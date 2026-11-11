@@ -81,6 +81,7 @@ function waker(onWake?: (date: Date) => Promise<void>, { lateMs = 0 } = {}) {
       pending = next;
       wakes.push({ at: new Date(next.at), key });
     },
+    backstop: async () => {},
     dispatch: async (id: OutboxId) => void dispatched.push(id),
   };
   return {

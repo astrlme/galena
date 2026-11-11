@@ -115,12 +115,15 @@ const transition = (
 function recorder() {
   const dispatched: OutboxId[] = [];
   const approvals: DraftDeadline[] = [];
+  const backstops: OutboxId[] = [];
   return {
     dispatched,
     approvals,
+    backstops,
     deps: {
       db,
       clock,
+      backstop: async (id: OutboxId) => void backstops.push(id),
       dispatch: async (id: OutboxId) => void dispatched.push(id),
       armDraft: async (draft: DraftDeadline) => void approvals.push(draft),
     },
@@ -155,6 +158,23 @@ test("auto: a monitor going down publishes an incident at once, and a retry open
   const again = await actOnTransition(transition(monitor.id, "down", 1), deps);
   expect(again).toMatchObject({ action: "attach", incidentId: id });
   expect(dispatched).toHaveLength(1);
+});
+
+test("a dispatch that fails after the incident opened leaves its row to the backstop", async () => {
+  const monitor = await monitorWith("auto");
+  const { deps, dispatched, backstops } = recorder();
+  const unreachable = async () => {
+    throw new Error("queue unreachable");
+  };
+
+  await expect(
+    actOnTransition(transition(monitor.id, "down", 1), { ...deps, dispatch: unreachable }),
+  ).rejects.toThrow("queue unreachable");
+  // Its retry finds the incident open and dispatches nothing; the backstop armed before the
+  // transaction names the row it wrote.
+  await actOnTransition(transition(monitor.id, "down", 1), deps);
+  expect(dispatched).toEqual([]);
+  expect(await eventOf(backstops[0])).toMatchObject({ type: "incident.created" });
 });
 
 test.each([
@@ -192,7 +212,7 @@ test.each([
       at: NOW,
     });
     const { deadline: _, ...draft } = approvals[0] as DraftDeadline;
-    const settled = await settleDraft(draft, { db, clock, dispatch: deps.dispatch });
+    const settled = await settleDraft(draft, deps);
     expect(settled).toBe(outcome);
     expect(await incidentRepository(db).findById(acme, id)).toMatchObject({
       visibility: outcome,

@@ -11,7 +11,6 @@ import {
   type MonitorId,
   type MonitorTransitioned,
   monitorId,
-  type OutboxId,
   type WorkspaceId,
   workspaceId,
 } from "@galena/contracts";
@@ -34,6 +33,7 @@ import {
 } from "@galena/db";
 import { v7 } from "uuid";
 import { z } from "zod";
+import { armedOutboxId, type OutboxTriggers } from "./outbox-triggers.ts";
 
 /** What `incident.autopilot` settles: one draft a monitor (`monitorId`) or an alert group opened. */
 export const draftPayload = z.object({ workspaceId, incidentId, monitorId: monitorId.optional() });
@@ -61,11 +61,9 @@ export function draftPayloadOf(draft: {
   };
 }
 
-export type AutopilotDeps = {
+export type AutopilotDeps = OutboxTriggers & {
   db: Db;
   clock: Clock;
-  /** Hands a committed outbox row to `outbox.dispatch`. */
-  dispatch: (outboxId: OutboxId) => Promise<void>;
   /**
    * Posts the draft's approval card and starts `incident.autopilot` at the deadline, keyed
    * `card:{incidentId}` and `auto:{incidentId}`.
@@ -73,7 +71,7 @@ export type AutopilotDeps = {
   armDraft: (draft: DraftDeadline) => Promise<void>;
 };
 
-export type ApprovalDeps = Pick<AutopilotDeps, "db" | "clock" | "dispatch">;
+export type ApprovalDeps = Pick<AutopilotDeps, "db" | "clock" | "backstop" | "dispatch">;
 
 /**
  * After `monitor.state-changed` records a transition: opens an incident for an outage, moves the
@@ -143,6 +141,7 @@ export async function openIncident(
     createdAt: now,
     createdByUserId: null,
   };
+  const pending = await armedOutboxId(deps);
   const opened = await deps.db.transaction(async (tx) => {
     const result = await incidentRepository(tx).createOnce(
       {
@@ -171,12 +170,11 @@ export async function openIncident(
             "incident.created",
             { status: "investigating", impact: plan.impact, visibility: plan.visibility },
           ),
+          pending,
         )
       : null;
     return { ...result, outboxId };
   });
-  // Known limit: if this trigger fails, a retry finds the incident already opened and the row
-  // stays pending until the outbox sweep exists.
   if (opened.outboxId) await deps.dispatch(opened.outboxId);
   if (plan.visibility === "draft") {
     // A retry arms the deadline the draft was opened with, the one its card states, and
@@ -215,6 +213,7 @@ export async function postUpdate(
     createdAt: deps.clock.now(),
     createdByUserId: null,
   };
+  const pending = await armedOutboxId(deps);
   const outboxId = await deps.db.transaction(async (tx) => {
     const applied = await incidentRepository(tx).append(workspaceId, incident.id, plan.expected, {
       update,
@@ -229,6 +228,7 @@ export async function postUpdate(
         event,
         { status: stage.status, impact: incident.impact, visibility: incident.visibility },
       ),
+      pending,
     );
   });
   if (outboxId) await deps.dispatch(outboxId);
@@ -285,12 +285,13 @@ export async function decideDraft(
     visibility: "published" | "dismissed";
     actorUserId: string | null;
   },
-  deps: Pick<AutopilotDeps, "db" | "clock" | "dispatch">,
+  deps: ApprovalDeps,
 ): Promise<boolean> {
   const { workspaceId, incidentId: id, visibility, actorUserId } = input;
   const draft = await incidentRepository(deps.db).findById(workspaceId, id);
   const latest = draft?.updates[0];
   if (draft?.visibility !== "draft" || !latest) return false;
+  const pending = await armedOutboxId(deps);
   const outboxId = await deps.db.transaction(async (tx) => {
     if (!(await incidentRepository(tx).decide(workspaceId, id, visibility))) return null;
     return recordChange(
@@ -300,6 +301,7 @@ export async function decideDraft(
         "incident.updated",
         { status: draft.status, impact: draft.impact, visibility },
       ),
+      pending,
     );
   });
   if (!outboxId) return false;

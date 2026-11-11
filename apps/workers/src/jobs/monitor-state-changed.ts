@@ -2,7 +2,7 @@ import { monitorTransitioned } from "@galena/contracts";
 import { nextSnapshotVersion, recordMonitorTransition } from "@galena/db";
 import { actOnTransition } from "../autopilot.ts";
 import { db } from "../db.ts";
-import { armDraft, triggerDispatch, triggerPublish } from "../engine.ts";
+import { armDraft, outboxTriggers, triggerPublish } from "../engine.ts";
 import { log } from "../log.ts";
 import { defineJob } from "../runner.ts";
 
@@ -27,7 +27,7 @@ export const monitorStateChangedJob = defineJob({
     const autopilot = await actOnTransition(transition, {
       db,
       clock: { now: () => new Date() },
-      dispatch: triggerDispatch,
+      ...outboxTriggers,
       armDraft,
     });
     if (!data.suppressed) await triggerPublish(await nextSnapshotVersion(db));

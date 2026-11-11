@@ -3,7 +3,7 @@ import { guard } from "@galena/integrations/net";
 import { appKeys } from "@galena/integrations/secrets";
 import { SlackApiError, slackApi } from "@galena/integrations/slack";
 import { db } from "../db.ts";
-import { triggerDispatch } from "../engine.ts";
+import { outboxTriggers } from "../engine.ts";
 import { appKey, env } from "../env.ts";
 import { log } from "../log.ts";
 import { defineJob, FinalError, type Retry } from "../runner.ts";
@@ -25,7 +25,7 @@ const deps: SlackDeps = {
   clock: { now: () => new Date() },
   api: slackApi({ guard }),
   dashboardUrl: env.GLN_DASHBOARD_URL,
-  dispatch: triggerDispatch,
+  ...outboxTriggers,
 };
 
 /** Runs `work`, failing at once when Slack's answer won't change on a retry. */

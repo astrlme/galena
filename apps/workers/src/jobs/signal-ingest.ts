@@ -1,6 +1,6 @@
 import { signalIdempotencyKey, signalIngest } from "@galena/contracts";
 import { db } from "../db.ts";
-import { armDraft, triggerDispatch } from "../engine.ts";
+import { armDraft, outboxTriggers } from "../engine.ts";
 import { log } from "../log.ts";
 import { defineJob } from "../runner.ts";
 import { actOnSignal } from "../signals.ts";
@@ -17,7 +17,7 @@ export const signalIngestJob = defineJob({
     const result = await actOnSignal(ingest, {
       db,
       clock: { now: () => new Date() },
-      dispatch: triggerDispatch,
+      ...outboxTriggers,
       armDraft,
     });
     log.info("signal.ingest", {

@@ -71,6 +71,7 @@ beforeAll(async () => {
     keys,
     clock: { now: () => NOW },
     dashboardUrl: "https://dashboard.example.com",
+    backstop: async () => {},
     dispatch: async (id) => void dispatched.push(id),
     api: {
       postMessage: async (token, channel, message) => {

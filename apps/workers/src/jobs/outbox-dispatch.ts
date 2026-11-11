@@ -1,10 +1,9 @@
-import { outboxId } from "@galena/contracts";
-import { z } from "zod";
 import { db } from "../db.ts";
 import { engine, triggerPublish } from "../engine.ts";
 import { env } from "../env.ts";
 import { log } from "../log.ts";
 import { dispatchOutbox, localMonitorsFile, s3MonitorsFile } from "../outbox.ts";
+import { dispatchPayload, retryDispatch } from "../outbox-triggers.ts";
 import { defineJob } from "../runner.ts";
 
 const writeMonitorsFile = env.GLN_CONFIG_BUCKET
@@ -15,10 +14,13 @@ const writeMonitorsFile = env.GLN_CONFIG_BUCKET
     })
   : localMonitorsFile(env.GLN_CONFIG_DIR);
 
-/** After each committed change, keyed `outbox:{outboxId}`: hands its event to its consumers. */
+/**
+ * After each committed change, keyed `outbox:{outboxId}`: hands its event to its consumers. One
+ * that fails every attempt tries again later, keyed `outbox:{outboxId}:retry:{n}`.
+ */
 export const outboxDispatchJob = defineJob({
   name: "outbox.dispatch",
-  payload: z.object({ outboxId }),
+  payload: dispatchPayload,
   run: async ({ outboxId: id }) => {
     const outcome = await dispatchOutbox(id, {
       db,
@@ -41,4 +43,9 @@ export const outboxDispatchJob = defineJob({
     log.info("outbox.dispatch", { outboxId: id, outcome });
     return { outcome };
   },
+  onFailure: (payload, error) =>
+    retryDispatch(payload, error, {
+      clock: { now: () => new Date() },
+      schedule: (next, options) => engine().trigger("outbox.dispatch", next, options),
+    }),
 });

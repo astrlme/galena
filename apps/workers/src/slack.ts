@@ -1,7 +1,6 @@
 import {
   type IncidentId,
   incidentId,
-  type OutboxId,
   type SlackClick,
   type SlackCommandRequest,
   type WorkspaceId,
@@ -28,6 +27,7 @@ import {
 } from "@galena/integrations/slack";
 import { z } from "zod";
 import { decideDraft } from "./autopilot.ts";
+import type { OutboxTriggers } from "./outbox-triggers.ts";
 
 // The Slack app's side of approvals: posting a draft's card, answering a press of Approve or
 // Dismiss, and `/incident`. The API only checked Slack's signature; everything that needs the
@@ -44,9 +44,7 @@ export type SlackDeps = {
   api: Pick<SlackApi, "postMessage" | "userEmail" | "respond">;
   /** The dashboard's origin, for links. */
   dashboardUrl: string;
-  /** Hands a committed outbox row to `outbox.dispatch`. */
-  dispatch: (outboxId: OutboxId) => Promise<void>;
-};
+} & OutboxTriggers;
 
 /** One incident as the cards show it, with component names and a dashboard link. */
 async function toCard(

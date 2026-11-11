@@ -2,13 +2,13 @@ import {
   eventId,
   type MaintenanceEventType,
   maintenanceEventData,
-  type OutboxId,
   workspaceId,
 } from "@galena/contracts";
 import { type Clock, type Maintenance, maintenanceStep } from "@galena/core";
 import { type Db, maintenanceRepository, recordChange } from "@galena/db";
 import { v7 } from "uuid";
 import { z } from "zod";
+import { armedOutboxId, type OutboxTriggers } from "./outbox-triggers.ts";
 
 /** What `maintenance.lifecycle` runs: one version of one window, now or at a wake. */
 export const lifecyclePayload = z.object({
@@ -20,13 +20,11 @@ export const lifecyclePayload = z.object({
 });
 export type LifecyclePayload = z.infer<typeof lifecyclePayload>;
 
-export type LifecycleDeps = {
+export type LifecycleDeps = OutboxTriggers & {
   db: Db;
   clock: Clock;
   /** Runs this job again at `next.at`. */
   wakeAt: (next: LifecyclePayload & { at: string }, idempotencyKey: string) => Promise<void>;
-  /** Hands a committed outbox row to `outbox.dispatch`. */
-  dispatch: (outboxId: OutboxId) => Promise<void>;
 };
 
 /**
@@ -55,6 +53,7 @@ export async function runMaintenance(
       );
       return "waiting";
     }
+    const pending = await armedOutboxId(deps);
     const outboxId = await deps.db.transaction(async (tx) => {
       const moved = await maintenanceRepository(tx).transition(
         workspaceId,
@@ -62,10 +61,10 @@ export async function runMaintenance(
         { version, status: window.status },
         { status: step.to },
       );
-      return moved ? recordChange(tx, systemChange(window, step.event, step.to, deps.clock)) : null;
+      return moved
+        ? recordChange(tx, systemChange(window, step.event, step.to, deps.clock), pending)
+        : null;
     });
-    // Known limit: if this trigger fails, the retry finds the window already moved and the
-    // row stays pending; nothing sweeps pending rows yet.
     if (outboxId) await deps.dispatch(outboxId);
   }
 }

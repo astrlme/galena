@@ -1,5 +1,6 @@
 import type { JobEngine } from "@galena/core";
 import type { DraftDeadline } from "./autopilot.ts";
+import type { OutboxTriggers } from "./outbox-triggers.ts";
 
 let current: JobEngine | undefined;
 
@@ -17,6 +18,17 @@ export function engine(): JobEngine {
 /** Hands a committed outbox row to `outbox.dispatch`, keyed `outbox:{outboxId}`. */
 export const triggerDispatch = (outboxId: string) =>
   engine().trigger("outbox.dispatch", { outboxId }, { idempotencyKey: `outbox:${outboxId}` });
+
+/** `backstop` keyed `outbox:{outboxId}:backstop` a minute out; `dispatch` is `triggerDispatch`. */
+export const outboxTriggers: OutboxTriggers = {
+  backstop: (id) =>
+    engine().trigger(
+      "outbox.dispatch",
+      { outboxId: id },
+      { idempotencyKey: `outbox:${id}:backstop`, at: new Date(Date.now() + 60_000) },
+    ),
+  dispatch: triggerDispatch,
+};
 
 /** Starts a publish for `version`, keyed `pub:{version}`. */
 export const triggerPublish = (version: number) =>

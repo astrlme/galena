@@ -1,5 +1,5 @@
 import { db } from "../db.ts";
-import { engine, triggerDispatch } from "../engine.ts";
+import { engine, outboxTriggers } from "../engine.ts";
 import { log } from "../log.ts";
 import { lifecyclePayload, runMaintenance } from "../maintenance.ts";
 import { defineJob } from "../runner.ts";
@@ -17,7 +17,7 @@ export const maintenanceLifecycleJob = defineJob({
           idempotencyKey,
           at: new Date(next.at),
         }),
-      dispatch: triggerDispatch,
+      ...outboxTriggers,
     });
     log.info("maintenance.lifecycle", { ...window, outcome });
     return { outcome };

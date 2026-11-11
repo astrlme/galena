@@ -83,12 +83,15 @@ async function integrationWith(publishPolicy: PublishPolicy, match = { service: 
 function recorder() {
   const dispatched: OutboxId[] = [];
   const approvals: DraftDeadline[] = [];
+  const backstops: OutboxId[] = [];
   return {
     dispatched,
     approvals,
+    backstops,
     deps: {
       db,
       clock,
+      backstop: async (id: OutboxId) => void backstops.push(id),
       dispatch: async (id: OutboxId) => void dispatched.push(id),
       armDraft: async (draft: DraftDeadline) => void approvals.push(draft),
     },
@@ -167,11 +170,7 @@ test("approve: one firing group opens one draft, repeats change nothing, and its
   ]);
 
   // Nobody answered, and the group resolved before the deadline: the draft is dismissed.
-  const settled = await settleDraft(approvals[0] as DraftPayload, {
-    db,
-    clock,
-    dispatch: deps.dispatch,
-  });
+  const settled = await settleDraft(approvals[0] as DraftPayload, deps);
   expect(settled).toBe("dismissed");
 });
 
@@ -211,11 +210,7 @@ test("approve: a group still firing at the deadline publishes its draft", async 
   const integration = await integrationWith("approve");
   const { deps, approvals } = recorder();
   await send(integration.id, "firing", deps);
-  const settled = await settleDraft(approvals[0] as DraftPayload, {
-    db,
-    clock,
-    dispatch: deps.dispatch,
-  });
+  const settled = await settleDraft(approvals[0] as DraftPayload, deps);
   expect(settled).toBe("published");
 });
 
