@@ -8,12 +8,20 @@ const desktop = {
 const phone = { ...desktop, viewport: { width: 390, height: 844 }, hasTouch: true };
 const PHONE_SKIPS = ["**/layout.spec.ts"];
 
+const BASE_URL = "http://localhost:3000";
+
 // Run through `pnpm test:e2e`, which starts Postgres, migrates and seeds the local owner first.
 export default defineConfig({
   testDir: "e2e",
   workers: 1,
   reporter: [["list"]],
-  use: { baseURL: "http://localhost:3000", trace: "retain-on-failure" },
+  use: {
+    baseURL: BASE_URL,
+    trace: "retain-on-failure",
+    // The API takes signed-in changes from the dashboard's origin only. A browser says so itself;
+    // `page.request` doesn't, and it shares these headers.
+    extraHTTPHeaders: { origin: BASE_URL },
+  },
   // The installed Google Chrome (GitHub's Ubuntu runners have it too), so no browser download.
   // Every spec runs at 1280 and at 390 px (a phone), in light and dark. The layout spec sets its
   // own phone viewport and checks the desktop sidebar, so it runs at desktop width only.
