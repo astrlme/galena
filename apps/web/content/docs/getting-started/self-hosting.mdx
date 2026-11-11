@@ -157,11 +157,16 @@ Deploy the CI stack once from your machine:
 pnpm --filter @galena/infra exec cdk deploy galena-dev-ci-access
 ```
 
-It creates GitHub's OIDC provider and the role `galena-dev-github-deploy`. Only workflows on
-`refs/heads/main` of your fork can assume it, and it can do nothing but assume the CDK bootstrap
-roles. Add its ARN to your fork as the repository variable `AWS_DEPLOY_ROLE_ARN` (Settings,
-Secrets and variables, Actions, Variables), and the whole of `galena.config.json` as the variable
-`GLN_CONFIG`: the Deploy workflow writes it back to the file.
+It creates GitHub's OIDC provider and two roles. `galena-dev-github-deploy` can do nothing but
+assume the CDK bootstrap roles, and only a job in your fork's `deploy` environment can assume it.
+`galena-dev-github-lookup` can only read what a build looks up, for workflows on
+`refs/heads/main`. Add the deploy role's ARN to your fork as the repository variable
+`AWS_DEPLOY_ROLE_ARN` (Settings, Secrets and variables, Actions, Variables), and the whole of
+`galena.config.json` as the variable `GLN_CONFIG`: the Deploy workflow writes it back to the file.
+
+Then create the `deploy` environment (Settings, Environments): add yourself as a required
+reviewer and limit its deployment branches to `main`. Without those rules anyone who can run
+workflows in the repository can deploy.
 
 </Step>
 <Step>

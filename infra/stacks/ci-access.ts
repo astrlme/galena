@@ -51,10 +51,11 @@ export class CiAccessStack extends Stack {
 
     this.deployRole = new Role(this, "DeployRole", {
       roleName: `galena-${stage}-github-deploy`,
-      description: `GitHub Actions on ${github.repository} ${github.deployRef} deploying Galena ${stage}`,
+      description: `GitHub Actions on ${github.repository} in the ${DEPLOY_ENVIRONMENT} environment deploying Galena ${stage}`,
       maxSessionDuration: Duration.hours(1),
-      // A job in an environment presents the environment as its subject, not the ref.
-      assumedBy: trusted(onDeployRef, `environment:${DEPLOY_ENVIRONMENT}`),
+      // A job in an environment presents the environment as its subject, not the ref, so the
+      // environment's own rules (reviewers, branches) are what stand between a push and a deploy.
+      assumedBy: trusted(`environment:${DEPLOY_ENVIRONMENT}`),
     });
 
     // cdk deploy works by assuming the bootstrap roles; the deploy role needs nothing more.

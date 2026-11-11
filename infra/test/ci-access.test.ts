@@ -39,10 +39,9 @@ const policyOf = (role: string) => {
   });
 };
 
-test("only the deploy environment and the deploy ref can assume the deploy role", () => {
-  expect(subjectsOf(roleNamed("galena-dev-github-deploy")).sort()).toEqual([
+test("only the deploy environment can assume the deploy role", () => {
+  expect(subjectsOf(roleNamed("galena-dev-github-deploy"))).toEqual([
     "repo:example@1001/galena@2002:environment:deploy",
-    "repo:example@1001/galena@2002:ref:refs/heads/main",
   ]);
 });
 
