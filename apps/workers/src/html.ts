@@ -10,7 +10,11 @@ import { INTERNAL_SLUG } from "@galena/core";
 import { z } from "zod";
 import type { PageStore, StoredFile } from "./publishing.ts";
 
-export const rebuildPayload = z.object({ version: z.int().min(1), slug: z.string().min(1) });
+// The slug names a folder, in the bucket and in the build's working directory.
+export const rebuildPayload = z.object({
+  version: z.int().min(1),
+  slug: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
+});
 export type RebuildPayload = z.infer<typeof rebuildPayload>;
 
 /** Renders the status page for the snapshot in `snapshotFile` into `outDir`, served at `base`. */
