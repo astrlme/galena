@@ -5,6 +5,7 @@ import { expect, test } from "vitest";
 import {
   deploy,
   dnsRecords,
+  keepCopyNotice,
   newSecret,
   retryable,
   secretsToMake,
@@ -93,4 +94,12 @@ test("lists each domain's CNAME and the email stack's records, without arrows", 
 test("tries setup again only while the API or the database is starting", () => {
   expect([502, 503, 504].every(retryable)).toBe(true);
   expect([400, 403, 409, 422, 500].some(retryable)).toBe(false);
+});
+
+test("tells whoever deploys to keep the app key and auth secret, with how to read each", () => {
+  const notice = keepCopyNotice("demo", "eu-central-1", ["auth-secret", "app-key"]);
+  expect(notice).toContain("Keep a copy of auth-secret and app-key in a password manager now.");
+  expect(notice).toContain(
+    "aws ssm get-parameter --region eu-central-1 --with-decryption --name /galena/demo/app-key --query Parameter.Value --output text",
+  );
 });

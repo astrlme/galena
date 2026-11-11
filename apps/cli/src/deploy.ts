@@ -73,6 +73,25 @@ async function createSecrets(config: StageConfig, stacks: Map<string, Stack>, sa
       ? `Stored ${made.join(", ")} as SecureStrings under /galena/${config.stage}/.`
       : "Every secret is already stored.",
   );
+  const kept = made.filter((name) => name === "app-key" || name === "auth-secret");
+  if (kept.length) say(keepCopyNotice(config.stage, config.homeRegion, kept));
+}
+
+/**
+ * The two secrets no backup holds: without the app key every sealed credential, signed link and
+ * API key stops working; without the auth secret everyone is signed out and two-factor stops.
+ */
+export function keepCopyNotice(stage: string, region: string, names: string[]): string {
+  const reads = names.map(
+    (name) =>
+      `  aws ssm get-parameter --region ${region} --with-decryption --name /galena/${stage}/${name} --query Parameter.Value --output text`,
+  );
+  return [
+    `Keep a copy of ${names.join(" and ")} in a password manager now. No backup holds them: without`,
+    "the app key, saved credentials, issued links and API keys stop working; without the auth",
+    "secret, everyone is signed out and two-factor stops working. Read them with:",
+    ...reads,
+  ].join("\n");
 }
 
 /** The config's own domains, which get certificates in us-east-1. */
