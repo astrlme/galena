@@ -125,7 +125,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                     key={item.id}
                     value={item}
                     onClick={item.run}
-                    className="flex min-h-[44px] cursor-default items-center justify-between gap-3 rounded-[6px] px-3 text-[16px] -outline-offset-2 select-none data-highlighted:bg-mist data-highlighted:outline-2 data-highlighted:outline-ink data-highlighted:outline-solid"
+                    // Focus stays in the search box, so the highlighted item draws the ring. It
+                    // follows a pointer or a finger too: a thin `slate` line, as on text fields.
+                    className="flex min-h-[44px] cursor-default items-center justify-between gap-3 rounded-[6px] px-3 text-[16px] -outline-offset-1 select-none data-highlighted:bg-mist data-highlighted:outline-1 data-highlighted:outline-slate data-highlighted:outline-solid"
                   >
                     <span className="truncate">{item.label}</span>
                     {item.hint && (

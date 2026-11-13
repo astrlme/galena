@@ -52,7 +52,11 @@ test("the Search button opens the same palette, and an action starts its form", 
     .click();
   const palette = page.getByRole("dialog", { name: "Search the dashboard" });
   await palette.getByRole("combobox").fill("schedule");
-  await palette.getByRole("option", { name: "Schedule window" }).click();
+  // The highlighted result draws the ring the search box's focus can't: thin, as on fields.
+  const result = palette.getByRole("option", { name: "Schedule window" });
+  await expect(result).toHaveAttribute("data-highlighted", "");
+  expect(await result.evaluate((el) => getComputedStyle(el).outlineWidth)).toBe("1px");
+  await result.click();
   await expect(page).toHaveURL(/\/dashboard\/status-page\/maintenance\/$/);
   await expect(page.getByRole("form", { name: "Schedule a window" })).toBeVisible();
 });
