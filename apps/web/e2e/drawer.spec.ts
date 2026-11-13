@@ -60,6 +60,14 @@ test("a form's drawer fits the screen, keeps Minimize off the handle and its foo
   const keyword = form.getByLabel("Keyword (optional)");
   await expect(keyword).toHaveAttribute("autocapitalize", "none");
   await expect(keyword).toHaveAttribute("autocorrect", "off");
+  // Focused, a field's ink border carries it, with a thin ring flush outside, not a heavy frame.
+  await keyword.focus();
+  expect(
+    await keyword.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return [s.outlineWidth, s.outlineOffset];
+    }),
+  ).toEqual(["1px", "0px"]);
   const submit = form.getByRole("button", { name: "Add monitor" });
   await submit.scrollIntoViewIfNeeded();
   await expect(submit).toBeInViewport();
