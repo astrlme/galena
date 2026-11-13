@@ -74,8 +74,9 @@ const columns = col.columns([
     sortFn: "text",
     // The name opens the monitor's page. The URL (a heartbeat's schedule) is in the tooltip, so a
     // row stays one line; search matches it too. A narrow table, where the other columns have given
-    // way and no finger raises a tooltip, shows it on a line of its own. A long word (a URL as a
-    // name, say) breaks anywhere rather than widening the table.
+    // way and no finger raises a tooltip, shows it on one line of its own, cut short (the column
+    // takes the spare width so it can be). A long word (a URL as a name, say) breaks anywhere
+    // rather than widening the table.
     cell: ({ row: { original: r } }) => (
       <>
         <Link
@@ -85,11 +86,12 @@ const columns = col.columns([
         >
           {r.monitor.name}
         </Link>
-        <span className="block text-slate [overflow-wrap:anywhere] @md:hidden">
-          {watches(r.monitor)}
+        <span className="block truncate text-slate @md:hidden">
+          {watches(r.monitor).replace(/^https?:\/\//, "")}
         </span>
       </>
     ),
+    meta: { className: "w-full max-w-0 @md:w-auto @md:max-w-none" },
   }),
   col.display({
     id: "type",
