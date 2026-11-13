@@ -73,16 +73,22 @@ const columns = col.columns([
     header: "Name",
     sortFn: "text",
     // The name opens the monitor's page. The URL (a heartbeat's schedule) is in the tooltip, so a
-    // row stays one line; search matches it too. A long word (a URL as a name, say) breaks anywhere rather than
-    // widening the table.
+    // row stays one line; search matches it too. A narrow table, where the other columns have given
+    // way and no finger raises a tooltip, shows it on a line of its own. A long word (a URL as a
+    // name, say) breaks anywhere rather than widening the table.
     cell: ({ row: { original: r } }) => (
-      <Link
-        href={`/dashboard/monitors/view/?id=${r.id}`}
-        title={watches(r.monitor)}
-        className="font-semibold [overflow-wrap:anywhere] hover:underline active:underline"
-      >
-        {r.monitor.name}
-      </Link>
+      <>
+        <Link
+          href={`/dashboard/monitors/view/?id=${r.id}`}
+          title={watches(r.monitor)}
+          className="font-semibold [overflow-wrap:anywhere] hover:underline active:underline"
+        >
+          {r.monitor.name}
+        </Link>
+        <span className="block text-slate [overflow-wrap:anywhere] @md:hidden">
+          {watches(r.monitor)}
+        </span>
+      </>
     ),
   }),
   col.display({

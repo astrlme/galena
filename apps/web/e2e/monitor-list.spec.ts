@@ -91,6 +91,10 @@ test("filters to down monitors in one action and pauses two at once", async ({
   const row = (name: string) => list.getByRole("row").filter({ hasText: name });
   await expect(row(downName)).toContainText("Major outage", { timeout: 120_000 });
   await expect(row(upName)).toContainText("Operational", { timeout: 60_000 });
+  // What a monitor checks: a tooltip on its name, and a line under it where a finger can't hover.
+  const url = row(upName).getByText(up.url, { exact: true });
+  if ((page.viewportSize()?.width ?? 1280) < 640) await expect(url).toBeVisible();
+  else await expect(url).toBeHidden();
 
   const j = journey();
   await j.click(list.getByRole("button", { name: /^Down \d+$/ }));
