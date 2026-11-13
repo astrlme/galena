@@ -75,8 +75,9 @@ const columns = col.columns([
     // The name opens the monitor's page. The URL (a heartbeat's schedule) is in the tooltip, so a
     // row stays one line; search matches it too. A narrow table, where the other columns have given
     // way and no finger raises a tooltip, shows it on one line of its own, cut short (the column
-    // takes the spare width so it can be). A long word (a URL as a name, say) breaks anywhere
-    // rather than widening the table.
+    // takes the spare width so it can be) and without `https://`; a plain `http://` stays, so an
+    // unencrypted check still says so. A long word (a URL as a name, say) breaks anywhere rather
+    // than widening the table.
     cell: ({ row: { original: r } }) => (
       <>
         <Link
@@ -86,8 +87,9 @@ const columns = col.columns([
         >
           {r.monitor.name}
         </Link>
-        <span className="block truncate text-slate @md:hidden">
-          {watches(r.monitor).replace(/^https?:\/\//, "")}
+        {/* Assistive tech has it from the title already. */}
+        <span aria-hidden="true" className="block truncate text-slate @md:hidden">
+          {watches(r.monitor).replace(/^https:\/\//, "")}
         </span>
       </>
     ),
@@ -262,9 +264,13 @@ export function MonitorsTable({
           <input
             type="search"
             placeholder="Name or URL"
-            // The list narrows as you type; the keyboard's Search key puts it away to show it.
+            // The list narrows as you type; a phone keyboard's Search key puts the keyboard away
+            // to show it. A desktop keyboard keeps its focus.
             enterKeyHint="search"
-            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+            onKeyDown={(e) => {
+              const done = e.key === "Enter" && !e.nativeEvent.isComposing;
+              if (done && matchMedia("(pointer: coarse)").matches) e.currentTarget.blur();
+            }}
             {...literal}
             value={search}
             onChange={(e) => narrow({ search: e.target.value })}

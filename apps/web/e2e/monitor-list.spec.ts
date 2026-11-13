@@ -92,7 +92,8 @@ test("filters to down monitors in one action and pauses two at once", async ({
   await expect(row(downName)).toContainText("Major outage", { timeout: 120_000 });
   await expect(row(upName)).toContainText("Operational", { timeout: 60_000 });
   // What a monitor checks: a tooltip on its name, and a line under it where a finger can't hover.
-  const url = row(upName).getByText(up.url.replace(/^https?:\/\//, ""), { exact: true });
+  // Only https:// is dropped: this plain http:// address keeps saying so.
+  const url = row(upName).getByText(up.url, { exact: true });
   if ((page.viewportSize()?.width ?? 1280) < 640) await expect(url).toBeVisible();
   else await expect(url).toBeHidden();
 
