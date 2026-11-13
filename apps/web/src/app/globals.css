@@ -144,6 +144,15 @@
   }
 }
 
+/* On a phone a toast and the drafts dock would share the foot of the screen: the toast stands on
+   the dock's row instead of covering it. Outside a layer, so it outranks the toast's own utilities.
+   Known limit: drafts that wrap onto a second row still have their top row covered for 6 s. */
+@media (width < 40rem) {
+  :root:has([data-drafts]) [data-toasts] {
+    bottom: calc(1rem + 2.75rem + 0.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* Docs diagrams: inline SVG whose classes map to the tokens, so each follows the theme. A wide
    diagram scrolls inside its frame on narrow screens instead of shrinking its text. */
 .diagram {

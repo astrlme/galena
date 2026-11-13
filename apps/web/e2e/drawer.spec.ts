@@ -1,5 +1,5 @@
 import { expect, type Locator, test } from "@playwright/test";
-import { openSection, signIn } from "./helpers.ts";
+import { openSection, rowAction, signIn } from "./helpers.ts";
 
 // Below 640 px every form and dialog is a bottom drawer.
 test.beforeEach(({ page }) => {
@@ -86,4 +86,49 @@ test("the menu drawer floats inside the screen with its own scroll", async ({ pa
     blur: getComputedStyle(document.querySelector("[data-vaul-overlay]") ?? el).backdropFilter,
   }));
   expect(styles).toEqual({ overscroll: "contain", blur: "none" });
+});
+
+test("a toast stands above the drafts dock, and both take a full finger", async ({
+  page,
+}, testInfo) => {
+  const name = `Toast ${testInfo.project.name} ${Date.now()}`;
+  await signIn(page);
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  const created = await page.request.post("/v1/monitors", {
+    data: { name, http: { url: "https://toast.example.com/health" } },
+  });
+  expect(created.status()).toBe(201);
+  const { id } = (await created.json()) as { id: string };
+
+  try {
+    await page.goto("/dashboard/monitors/");
+    const list = page.getByRole("region", { name: "All monitors" });
+    await list.getByRole("button", { name: "Add monitor" }).click();
+    const drawer = page.getByRole("dialog", { name: "Add a monitor" });
+    await drawer.getByLabel("Monitor name").fill("Waiting on a phone");
+    await drawer.getByRole("button", { name: "Minimize" }).click();
+    const chip = page.getByRole("complementary", { name: "Drafts" }).getByRole("link");
+    await expect(chip).toBeVisible();
+
+    await list.getByRole("searchbox").fill(name);
+    await rowAction(list, name, "Pause");
+    const toast = page.locator("[data-toasts] > *").filter({ hasText: "Monitor paused" });
+    await expect(toast).toBeVisible();
+    // Read together: the toast leaves after 6 s.
+    const [above, dismiss, dock] = await Promise.all([
+      box(toast),
+      // Base UI hides Dismiss from assistive tech until focus moves into the toasts.
+      box(toast.locator("button")),
+      box(chip),
+    ]);
+    expect(above.y + above.height).toBeLessThanOrEqual(dock.y);
+    expect(dismiss.height).toBeGreaterThanOrEqual(44);
+    expect(dock.height).toBeGreaterThanOrEqual(44);
+    expect((await box(list.getByRole("button", { name: "Add monitor" }))).height).toBe(44);
+
+    await chip.click();
+    await drawer.getByRole("button", { name: "Discard" }).click();
+  } finally {
+    await page.request.delete(`/v1/monitors/${id}`);
+  }
 });

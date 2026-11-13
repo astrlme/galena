@@ -11,8 +11,9 @@ const styles = {
   quiet: "text-ink hover:underline active:underline focus-visible:underline",
   danger: "bg-major text-paper font-semibold disabled:bg-mist disabled:text-slate",
 } as const;
+// 40 px tall, 44 px under a finger.
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-[6px] px-4 py-2 text-[16px] transition-colors duration-[120ms] motion-reduce:transition-none disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center gap-2 rounded-[6px] px-4 py-2 text-[16px] pointer-coarse:min-h-11 transition-colors duration-[120ms] motion-reduce:transition-none disabled:cursor-not-allowed";
 
 type Variant = keyof typeof styles;
 

@@ -165,14 +165,15 @@ export function DraftDock() {
   return (
     <aside
       aria-label="Drafts"
-      className="fixed right-4 bottom-4 z-40 flex max-w-[calc(100vw-2rem)] flex-wrap justify-end gap-2"
+      data-drafts=""
+      className="fixed right-[calc(1rem+env(safe-area-inset-right,0px))] bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-40 flex max-w-[calc(100vw-2rem)] flex-wrap justify-end gap-2"
     >
       {drafts.map(([key, label, href]) => (
         <Link
           key={key}
           href={href}
           onClick={() => setRequested(key)}
-          className="inline-flex items-center gap-2 rounded-[6px] border border-mist bg-surface px-3 py-1.5 text-[14px] transition-colors duration-[120ms] hover:border-slate active:border-slate motion-reduce:transition-none"
+          className="inline-flex items-center gap-2 rounded-[6px] border border-mist bg-surface px-3 py-1.5 text-[14px] pointer-coarse:min-h-11 transition-colors duration-[120ms] hover:border-slate active:border-slate motion-reduce:transition-none"
         >
           <FilePen aria-hidden="true" size={16} strokeWidth={1.5} />
           {label}
