@@ -125,6 +125,9 @@ const SIDE_START = {
   "--initial-transform": "calc(100% + 8px + env(safe-area-inset-right, 0px))",
 } as CSSProperties;
 const FIELD = "form :is(input, select, textarea):not([disabled])";
+// How much shorter than the page the visible part must be before it counts as a keyboard, as
+// vaul reckons it: the URL bar alone moves less.
+const KEYBOARD_PX = 60;
 
 function ModalPortal({
   open,
@@ -257,8 +260,34 @@ function ModalRoot({
     setDescribed,
   };
   const describedBy = described ? descriptionId : undefined;
+  const drawer = isMobile || side;
 
-  if (isMobile || side) {
+  // vaul fits a drawer above an iOS keyboard by setting its height and bottom in px, then on
+  // the way down puts back the height it first saw. Where the page itself shrinks for the
+  // keyboard (Android here) that was already the short one, so the drawer stayed half height
+  // and later steps of a dialog were squeezed into it. Whenever no keyboard covers the page,
+  // the drawer goes back to its CSS size. After vaul's own listener: the next frame.
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!open || !drawer || !viewport) return;
+    let frame = 0;
+    const release = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const el = contentRef.current;
+        if (!el || viewport.height < window.innerHeight - KEYBOARD_PX) return;
+        el.style.removeProperty("height");
+        el.style.removeProperty("bottom");
+      });
+    };
+    viewport.addEventListener("resize", release);
+    return () => {
+      cancelAnimationFrame(frame);
+      viewport.removeEventListener("resize", release);
+    };
+  }, [open, drawer]);
+
+  if (drawer) {
     return (
       <ModalContext.Provider value={ctx}>
         <Drawer.Root

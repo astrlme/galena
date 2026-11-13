@@ -138,3 +138,34 @@ test("a toast stands above the drafts dock, and both take a full finger", async 
     await page.request.delete(`/v1/monitors/${id}`);
   }
 });
+
+test("a drawer goes back to its full height once the keyboard is down", async ({ page }) => {
+  await signIn(page);
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  await page.goto("/dashboard/monitors/");
+  await page
+    .getByRole("region", { name: "All monitors" })
+    .getByRole("button", { name: "Add monitor" })
+    .click();
+  const drawer = page.getByRole("dialog", { name: "Add a monitor" });
+  await expect(drawer.getByRole("form", { name: "Add a monitor" })).toBeVisible();
+  await page.waitForFunction(() =>
+    document.getAnimations().every((a) => a.playState !== "running"),
+  );
+  const full = await box(drawer);
+
+  // A keyboard that shrinks the page, as Android's does here, then goes away.
+  const screen = page.viewportSize() ?? { width: 390, height: 844 };
+  await drawer.getByLabel("Monitor name").focus();
+  await page.setViewportSize({ width: screen.width, height: 420 });
+  await expect
+    .poll(async () => Math.round((await box(drawer)).y + (await box(drawer)).height))
+    .toBeLessThanOrEqual(420);
+  await page.setViewportSize(screen);
+  await expect
+    .poll(async () => Math.round((await box(drawer)).height))
+    .toBe(Math.round(full.height));
+  expect(await drawer.evaluate((el) => el.style.height)).toBe("");
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+});
