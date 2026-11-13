@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 /** A section's parts as a row of links above its pages; the current one is marked. */
 export function SectionNav({
@@ -12,9 +13,20 @@ export function SectionNav({
   parts: readonly { title: string; href: string }[];
 }) {
   const pathname = usePathname();
+  const nav = useRef<HTMLElement>(null);
+  // On a phone the row scrolls sideways: bring the current part into view, at once.
+  useEffect(() => {
+    const box = nav.current;
+    const tab = box?.querySelector('[aria-current="page"]');
+    if (!box || !tab || !pathname) return;
+    const [edge, part] = [box.getBoundingClientRect(), tab.getBoundingClientRect()];
+    if (part.right > edge.right) box.scrollLeft += part.right - edge.right;
+    else if (part.left < edge.left) box.scrollLeft -= edge.left - part.left;
+  }, [pathname]);
   return (
     // The rule sits on the list, so the current tab's underline overlaps it inside the scroll box.
-    <nav aria-label={label} className="mb-6 overflow-x-auto">
+    // A sideways swipe at either end stays in the row rather than going back a page.
+    <nav ref={nav} aria-label={label} className="mb-6 overflow-x-auto overscroll-x-contain">
       <ul className="flex w-max min-w-full gap-1 border-b border-mist">
         {parts.map(({ title, href }) => {
           const current = pathname.startsWith(href);

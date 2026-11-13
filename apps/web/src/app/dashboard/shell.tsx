@@ -54,11 +54,15 @@ const quiet = "text-graphite hover:bg-surface hover:text-ink active:bg-mist acti
 const FROM_LEFT = {
   "--initial-transform": "calc(100% + 8px + env(safe-area-inset-left, 0px))",
 } as CSSProperties;
-// The frame: a bar below 768 px, the sidebar from there. The loading state draws it too.
-const frame = "flex min-h-screen flex-col md:flex-row";
-const bar = "flex items-center justify-between border-mist border-b px-4 py-2 md:hidden";
+// The frame: a bar below 768 px, the sidebar from there. The loading state draws it too. Both
+// stay in reach while the page scrolls, measured in `dvh` (the height the browser shows now),
+// clear of a notch or the status bar. The page behind the notch keeps the paper colour.
+const frame =
+  "flex min-h-dvh flex-col pr-[env(safe-area-inset-right,0px)] pl-[env(safe-area-inset-left,0px)] md:flex-row";
+const bar =
+  "sticky top-0 z-30 flex items-center justify-between border-mist border-b bg-paper px-4 pt-[max(0.5rem,env(safe-area-inset-top,0px))] pb-2 md:hidden";
 const sidebar =
-  "sticky top-0 hidden h-screen shrink-0 flex-col gap-8 overflow-y-auto overflow-x-hidden border-mist border-r px-3 py-6 md:flex";
+  "sticky top-0 hidden h-dvh shrink-0 flex-col gap-8 overflow-y-auto overflow-x-hidden border-mist border-r px-3 py-6 md:flex";
 const slide = "transition-[width] duration-[120ms] ease-out motion-reduce:transition-none";
 // Room at the foot for the drafts dock.
 const content = "w-full min-w-0 p-4 pb-24 md:p-8 md:pb-24";

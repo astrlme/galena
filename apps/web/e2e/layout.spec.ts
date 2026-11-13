@@ -143,4 +143,30 @@ test.describe("on a phone", () => {
     await sheet.getByRole("button", { name: "Discard" }).click();
     await expect(dock).toBeHidden();
   });
+
+  test("the bar with Search and Menu stays at the top while the page scrolls", async ({ page }) => {
+    await signIn(page);
+    await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+    // However little the local database holds, the page is long enough to scroll.
+    await page.getByRole("main").evaluate((main) => {
+      main.style.minHeight = "3000px";
+    });
+    await page.mouse.wheel(0, 2000);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1000);
+    const menu = page.getByRole("button", { name: "Menu" });
+    await expect(menu).toBeInViewport({ ratio: 1 });
+    await menu.click();
+    await expect(page.getByRole("dialog", { name: /menu/ })).toBeVisible();
+  });
+
+  test("Status page's row of parts scrolls to the current one", async ({ page }) => {
+    await signIn(page);
+    await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+    await page.goto("/dashboard/status-page/internal/");
+    const current = page
+      .getByRole("navigation", { name: "Status page" })
+      .getByRole("link", { name: "Internal page" });
+    await expect(current).toHaveAttribute("aria-current", "page");
+    await expect(current).toBeInViewport({ ratio: 1 });
+  });
 });

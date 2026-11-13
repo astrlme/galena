@@ -70,6 +70,12 @@
     -webkit-user-select: none;
     user-select: none;
   }
+  /* The phone's bar stays at the top: whatever focus or a link scrolls to stops below it. */
+  @media (width < 48rem) {
+    :root:has([data-dashboard]) {
+      scroll-padding-top: calc(4rem + env(safe-area-inset-top, 0px));
+    }
+  }
 }
 
 /* The modal's motion (components/modal.tsx): 220 ms, only when someone opens or closes it. */
