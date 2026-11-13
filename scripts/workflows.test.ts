@@ -50,15 +50,29 @@ function tokenJobsThatRunDependencies(workflow: string): string[] {
     .map(([name]) => name);
 }
 
-/** Jobs that can ask for the OIDC token without waiting, directly or through others, for `gate`. */
+// A job whose condition holds when a job it needs failed runs anyway.
+const RUNS_AFTER_FAILURE = /^ {4}if:.*\b(always|cancelled|failure)\(\)/;
+
+/**
+ * Jobs that can ask for the OIDC token without waiting, directly or through others, for `gate`
+ * to pass: no path to it through `needs`, or a condition that runs them after a failure.
+ */
 function tokenJobsNotAfter(workflow: string, gate: string): string[] {
   const jobs = jobsOf(workflow);
   const waitsFor = (name: string, seen: Set<string>): boolean =>
     (jobs.get(name)?.needs ?? []).some(
       (need) => need === gate || (!seen.has(need) && waitsFor(need, seen.add(need))),
     );
+  const runsAnyway = (name: string, seen: Set<string>): boolean => {
+    const job = jobs.get(name);
+    if (!job) return false;
+    if (job.body.some((line) => RUNS_AFTER_FAILURE.test(line))) return true;
+    return job.needs.some((need) => !seen.has(need) && runsAnyway(need, seen.add(need)));
+  };
   return [...jobs]
-    .filter(([name, job]) => job.hasToken && !waitsFor(name, new Set()))
+    .filter(
+      ([name, job]) => job.hasToken && (!waitsFor(name, new Set()) || runsAnyway(name, new Set())),
+    )
     .map(([name]) => name);
 }
 
@@ -122,4 +136,21 @@ ${lookupsNeeds}
 `;
   expect(tokenJobsNotAfter(workflow("    needs: ci"), "ci")).toEqual([]);
   expect(tokenJobsNotAfter(workflow(""), "ci")).toEqual(["lookups", "deploy"]);
+});
+
+test("finds a token job that runs even when the gate failed", () => {
+  const workflow = (condition: string) => `
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+  deploy:
+    needs: ci
+${condition}
+    permissions:
+      id-token: write
+`;
+  expect(tokenJobsNotAfter(workflow(""), "ci")).toEqual([]);
+  expect(tokenJobsNotAfter(workflow("    if: github.ref == 'refs/heads/main'"), "ci")).toEqual([]);
+  expect(tokenJobsNotAfter(workflow("    if: always()"), "ci")).toEqual(["deploy"]);
+  expect(tokenJobsNotAfter(workflow("    if: failure()"), "ci")).toEqual(["deploy"]);
 });

@@ -14,8 +14,9 @@ permissions:
   contents: read
 
 jobs:
-  # Deploys only a commit CI has passed, so a push straight to main (a changed workflow
-  # included) can't skip the checks. It reads this repository's runs: no checkout, no AWS.
+  # Deploys only a commit CI has passed, so a push straight to main can't skip the checks. A
+  # commit that weakens CI, or this job, is what the deploy environment's reviewer is for. It
+  # reads this repository's runs: no checkout, no AWS.
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 5
