@@ -90,6 +90,10 @@ export async function choose(scope: Locator, label: string, option: string) {
 
 /** Runs one of a row's actions from its menu, the button named "Actions for {name}". */
 export async function rowAction(scope: Locator, name: string, action: string) {
+  // A toast that appeared under the resting pointer (a phone drawer's submit button sits where
+  // toasts do) stays open while hovered, over the rows at the foot of the screen. A finger lifts;
+  // the test's mouse moves away, so the toast leaves in its 6 s and the click gets through.
+  await scope.page().mouse.move(0, 0);
   await scope.getByRole("button", { name: `Actions for ${name}`, exact: true }).click();
   await scope.page().getByRole("menuitem", { name: action, exact: true }).click();
 }
