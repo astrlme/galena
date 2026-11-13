@@ -28,6 +28,14 @@ describe("isPublicAddress", () => {
     "fc00::1",
     "fd00:ec2::254",
     "ff02::1",
+    "::ffff:0:a00:1", // IPv4-translated 10.0.0.1
+    "::ffff:0:808:808",
+    "2001:20::1", // ORCHIDv2
+    "2001:2f:ffff::1",
+    "3fff::1", // documentation
+    "3fff:fff:ffff::1",
+    "5f00::1", // SRv6 SIDs
+    "5f00:ffff::1",
     "not-an-ip",
   ])("refuses %s", (address) => {
     expect(isPublicAddress(address)).toBe(false);
@@ -42,6 +50,9 @@ describe("isPublicAddress", () => {
     "100.128.0.1",
     "::ffff:8.8.8.8",
     "2606:4700:4700::1111",
+    "2001:30::1", // just past ORCHIDv2
+    "3fff:1000::1", // just past the documentation /20
+    "5f01::1",
   ])("allows %s", (address) => {
     expect(isPublicAddress(address)).toBe(true);
   });

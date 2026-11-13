@@ -31,12 +31,16 @@ for (const [network, prefix] of [
 // IPv4-mapped addresses (::ffff:10.0.0.1) are matched against the IPv4 ranges by BlockList.
 for (const [network, prefix] of [
   ["::", 96], // unspecified, loopback and the deprecated IPv4-compatible range
+  ["::ffff:0:0:0", 96], // IPv4-translated (SIIT) embeds an IPv4 address
   ["64:ff9b::", 96], // NAT64 reaches IPv4, private ranges included
   ["64:ff9b:1::", 48],
   ["100::", 64], // discard
   ["2001::", 32], // Teredo embeds an IPv4 address
+  ["2001:20::", 28], // ORCHIDv2 identifiers, never routed
   ["2001:db8::", 32], // documentation
   ["2002::", 16], // 6to4 embeds an IPv4 address
+  ["3fff::", 20], // documentation
+  ["5f00::", 16], // SRv6 segment identifiers
   ["fc00::", 7], // unique local, including EC2's fd00:ec2::254
   ["fe80::", 10], // link-local
   ["fec0::", 10], // site-local
