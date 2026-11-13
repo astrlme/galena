@@ -16,7 +16,7 @@ capacity. It adds no custom metrics, and it is one of the three dashboards the f
 
 ## Alarms
 
-Fourteen CloudWatch alarms in the home region publish to the SNS topic `galena-<stage>-alarms`:
+Sixteen CloudWatch alarms in the home region publish to the SNS topic `galena-<stage>-alarms`:
 
 | Alarm | Fires when |
 | --- | --- |
@@ -30,7 +30,9 @@ Fourteen CloudWatch alarms in the home region publish to the SNS topic `galena-<
 | Undelivered schedules | Scheduler couldn't deliver a job for later or a recurring job within an hour |
 | No heartbeat | `page.heartbeat` hasn't run for two hours |
 | Database awake | Aurora has been awake for 4 hours in a row: something keeps querying it |
-| API traffic | The API answered over 5,000 requests in an hour: look for unexpected callers |
+| Telemetry throttled | DynamoDB throttled a read or a write on the telemetry table: check results may back up; compare its consumed and provisioned capacity |
+| API traffic | The API answered over 5,000 requests in an hour: look for unexpected callers in its access log, which names each request's route and answer |
+| Throttled check-ins and alerts | API Gateway turned away heartbeat check-ins or alerts because their limit was full: a heartbeat monitor may show an outage that isn't one |
 | Untriggered jobs | The API couldn't start a job, so a saved change waits for the outbox sweep, up to six hours: check SQS and Scheduler, and the API's log for the reason |
 
 Nothing subscribes to the topic in code, so no address is kept in your fork. Subscribe one once,

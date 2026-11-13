@@ -9,8 +9,9 @@ announces it**, and **everything that can run twice carries a deterministic key*
 
 ## The API
 
-The API is Hono on one Lambda behind an API Gateway HTTP API, throttled at 50 requests a second
-with bursts of 100. The dashboard reaches it on its own origin: the dashboard's CloudFront
+The API is Hono on one Lambda behind an API Gateway HTTP API, throttled at 20 requests a second
+per route with bursts of 40: lower for sign-in and the subscribe form, higher for heartbeat
+check-ins and alerts. The dashboard reaches it on its own origin: the dashboard's CloudFront
 distribution forwards `/auth/*` and `/v1/*` to it, so cookies are first-party and there is no
 CORS. A secret header that only CloudFront adds keeps the API from being called directly.
 
