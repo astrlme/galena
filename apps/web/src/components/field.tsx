@@ -11,6 +11,12 @@ type FieldProps = InputHTMLAttributes<HTMLInputElement> & {
 export const control =
   "rounded-[6px] border border-mist bg-paper px-3 py-2 text-[16px] text-ink transition-colors duration-[120ms] hover:border-slate focus:border-ink motion-reduce:transition-none aria-invalid:border-major";
 
+/**
+ * For text matched exactly (a keyword, labels, a code): a phone's keyboard leaves it as typed,
+ * with no capital first letter and no autocorrect.
+ */
+export const literal = { autoCapitalize: "none", autoCorrect: "off", spellCheck: false } as const;
+
 /** Label above, help or error below. */
 export function Field({ id, label, help, error, ...input }: FieldProps) {
   const note = error ?? help;

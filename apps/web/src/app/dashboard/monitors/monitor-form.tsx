@@ -6,7 +6,7 @@ import { type Control, useController, useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { useDraft } from "../../../components/drafts.tsx";
-import { Field } from "../../../components/field.tsx";
+import { Field, literal } from "../../../components/field.tsx";
 import { DOWN_STATUS_OPTIONS } from "../../../components/status.tsx";
 import { FormSelect, Select } from "../../../components/ui/select.tsx";
 import type { paths } from "../../../lib/api-schema.ts";
@@ -217,6 +217,7 @@ export function MonitorForm({
             label="Keyword (optional)"
             help="The check fails when the response doesn't contain this text."
             error={errors.http?.keyword?.message}
+            {...literal}
             {...form.register("http.keyword", {
               setValueAs: (v: string | undefined) => (v?.trim() ? v : undefined),
             })}

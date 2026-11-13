@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import { Button } from "../../components/button.tsx";
-import { Field } from "../../components/field.tsx";
+import { Field, literal } from "../../components/field.tsx";
 import { authFailure, authPost } from "../../lib/api.ts";
 
 type Step = "password" | "code" | "backup";
@@ -89,7 +89,7 @@ export function SignInForm() {
           label="Backup code"
           help="One of the codes you saved when you turned on two-factor. Each works once."
           autoComplete="off"
-          spellCheck={false}
+          {...literal}
           required
         />
       )}

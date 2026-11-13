@@ -14,7 +14,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "../../../components/button.tsx";
 import { useDraft } from "../../../components/drafts.tsx";
-import { Field } from "../../../components/field.tsx";
+import { Field, literal } from "../../../components/field.tsx";
 import { DOWN_STATUS_OPTIONS } from "../../../components/status.tsx";
 import { FormSelect } from "../../../components/ui/select.tsx";
 import type { paths } from "../../../lib/api-schema.ts";
@@ -183,6 +183,7 @@ export function IntegrationForm({
               label="Labels"
               help="Like service=api, severity=critical."
               error={errors.routes?.[index]?.match?.message}
+              {...literal}
               {...form.register(`routes.${index}.match`)}
             />
             <fieldset

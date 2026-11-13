@@ -4,7 +4,7 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { openEditor } from "../../components/drafts.tsx";
-import { control } from "../../components/field.tsx";
+import { control, literal } from "../../components/field.tsx";
 import { Modal } from "../../components/modal.tsx";
 import { api, unwrap } from "../../lib/api.ts";
 import { actions, places } from "./sections.ts";
@@ -105,6 +105,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         <Autocomplete.Input
           aria-label="Search monitors, incidents, components and actions"
           placeholder="Search monitors, incidents, components and actions"
+          // Enter opens the highlighted item: the phone's key says so.
+          enterKeyHint="go"
+          {...literal}
           className={`${control} w-full`}
         />
         <Autocomplete.Empty>

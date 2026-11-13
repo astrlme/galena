@@ -4,7 +4,7 @@ import { SEVERITY_RANK } from "@galena/core";
 import Link from "next/link";
 import { useState } from "react";
 import { Button, buttonClass } from "../../../components/button.tsx";
-import { control } from "../../../components/field.tsx";
+import { control, literal } from "../../../components/field.tsx";
 import { GlyphOnly } from "../../../components/status.tsx";
 import {
   columnsFor,
@@ -260,6 +260,10 @@ export function MonitorsTable({
           <input
             type="search"
             placeholder="Name or URL"
+            // The list narrows as you type; the keyboard's Search key puts it away to show it.
+            enterKeyHint="search"
+            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+            {...literal}
             value={search}
             onChange={(e) => narrow({ search: e.target.value })}
             className={`${control} font-normal placeholder:text-slate`}

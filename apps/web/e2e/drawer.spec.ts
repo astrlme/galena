@@ -19,6 +19,8 @@ test("a form's drawer fits the screen, keeps Minimize off the handle and its foo
   await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
   await openSection(page, "Monitors");
   const list = page.getByRole("region", { name: "All monitors" });
+  // The list narrows as you type; the keyboard's key says Search.
+  await expect(list.getByRole("searchbox")).toHaveAttribute("enterkeyhint", "search");
   await list.getByRole("button", { name: "Add monitor" }).click();
   const drawer = page.getByRole("dialog", { name: "Add a monitor" });
   const form = drawer.getByRole("form", { name: "Add a monitor" });
@@ -54,6 +56,10 @@ test("a form's drawer fits the screen, keeps Minimize off the handle and its foo
   });
   // 24 px plus the home indicator's inset, which is 0 off a real phone.
   expect(styles).toEqual({ overscroll: "contain", foot: "24px", blur: "none" });
+  // A keyword is matched exactly, so the keyboard neither capitalises nor corrects it.
+  const keyword = form.getByLabel("Keyword (optional)");
+  await expect(keyword).toHaveAttribute("autocapitalize", "none");
+  await expect(keyword).toHaveAttribute("autocorrect", "off");
   const submit = form.getByRole("button", { name: "Add monitor" });
   await submit.scrollIntoViewIfNeeded();
   await expect(submit).toBeInViewport();
