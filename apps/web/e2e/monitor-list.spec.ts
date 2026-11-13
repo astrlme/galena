@@ -25,9 +25,15 @@ async function addMonitor(page: Page, name: string, url: string) {
   await form.getByLabel("URL").fill(url);
   await form.getByRole("button", { name: "Add monitor" }).click();
   await expect(form).toBeHidden();
+  // The toast lands where a phone's drawer had its button; a resting pointer would hold it open.
+  await page.mouse.move(0, 0);
 }
 
 async function deleteMonitor(page: Page, name: string) {
+  // The last step's toast can sit over a row's menu at the foot of a phone's screen, and a
+  // pointer resting on it keeps it open: move away and let it go.
+  await page.mouse.move(0, 0);
+  await expect(page.locator("[data-toasts] > *")).toHaveCount(0, { timeout: 10_000 });
   const row = page.getByRole("row").filter({ hasText: name });
   await rowAction(row, name, "Delete");
   const dialog = page.getByRole("dialog", { name: `Delete ${name}?` });

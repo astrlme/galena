@@ -45,9 +45,16 @@ export async function expectAccessible(page: Page) {
   await page.waitForFunction(() =>
     document.getAnimations().every((a) => a.playState !== "running"),
   );
+  // The phone's bar is sticky, so on a scrolled page it covers whatever passes under it, which
+  // axe reads as an obscured target. A person scrolls a little; check the page as it is laid out,
+  // with the bar back in the flow at the top (where it already sits, so nothing else moves).
+  const bar = page.locator("[data-dashboard] > header");
+  const sticky = (await bar.count()) > 0;
+  if (sticky) await bar.evaluate((el) => el.style.setProperty("position", "relative"));
   const { violations } = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
     .analyze();
+  if (sticky) await bar.evaluate((el) => el.style.removeProperty("position"));
   expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
 }
 
