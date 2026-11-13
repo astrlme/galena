@@ -169,3 +169,41 @@ test("a drawer goes back to its full height once the keyboard is down", async ({
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
 });
+
+test("no page of the dashboard scrolls sideways on a narrow phone", async ({ page }, testInfo) => {
+  await signIn(page);
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  // A long name, which the rail on Home cuts short.
+  const name = `A monitor with a long name to cut short ${testInfo.project.name} ${Date.now()}`;
+  const created = await page.request.post("/v1/monitors", {
+    data: { name, http: { url: "https://narrow.example.com/health" } },
+  });
+  expect(created.status()).toBe(201);
+  const { id } = (await created.json()) as { id: string };
+  try {
+    await page.setViewportSize({ width: 360, height: 780 });
+    const wide: string[] = [];
+    for (const path of [
+      "/dashboard/",
+      "/dashboard/incidents/",
+      "/dashboard/monitors/",
+      "/dashboard/status-page/components/",
+      "/dashboard/status-page/maintenance/",
+      "/dashboard/status-page/subscribers/",
+      "/dashboard/status-page/internal/",
+      "/dashboard/integrations/",
+      "/dashboard/settings/",
+    ]) {
+      await page.goto(path);
+      await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      const past = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      if (past > 0) wide.push(`${path} by ${past} px`);
+    }
+    expect(wide).toEqual([]);
+  } finally {
+    await page.request.delete(`/v1/monitors/${id}`);
+  }
+});

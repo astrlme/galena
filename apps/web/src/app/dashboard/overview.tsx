@@ -119,6 +119,8 @@ export function HomeView() {
   const needs = needsOf(data);
   const open = data.incidents.filter((i) => i.visibility !== "draft");
 
+  // Both columns are `min-w-0`: a grid item is otherwise at least as wide as its longest monitor
+  // name, cut short or not, which pushed a 360 px phone's page sideways.
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
       <div className="flex min-w-0 max-w-[760px] flex-col gap-6">
@@ -167,7 +169,7 @@ export function HomeView() {
 
       <aside
         aria-label="State of things"
-        className="flex flex-col gap-6 lg:border-l lg:border-mist lg:pl-8"
+        className="flex min-w-0 flex-col gap-6 lg:border-l lg:border-mist lg:pl-8"
       >
         <div className="flex flex-col gap-1">
           <Updated at={home.updatedAt} />

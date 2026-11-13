@@ -84,7 +84,9 @@ export function DataTable<T extends { id: string }>({
   const all = table.getIsAllRowsSelected();
   const some = table.getIsSomeRowsSelected();
   return (
-    <div className="@container mt-4 overflow-x-auto rounded-xl border border-mist bg-surface">
+    // Positioned, so the visually hidden labels in its cells (absolutely placed) scroll and clip
+    // with the table instead of widening the page past a phone's screen.
+    <div className="@container relative mt-4 overflow-x-auto rounded-xl border border-mist bg-surface">
       <table className="w-full text-[14px]">
         <caption className="sr-only">{label}</caption>
         <thead>
