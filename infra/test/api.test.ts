@@ -170,14 +170,20 @@ test("throttles each route at 20 requests a second, sign-in and forms lower, che
 test("logs each request's route and answer, never its path, which can hold a hook or ping token", () => {
   const [stage] = Object.values(template.findResources("AWS::ApiGatewayV2::Stage"));
   const format = JSON.parse(stage?.Properties.AccessLogSettings.Format) as Record<string, string>;
-  expect(format).toMatchObject({ route: "$context.routeKey", status: "$context.status" });
-  expect(Object.values(format).join(" ")).not.toMatch(/$context.(path|resourcePath)/);
+  expect(format).toMatchObject({
+    route: "$context.routeKey",
+    status: "$context.status",
+    integrationStatus: "$context.integrationStatus",
+  });
+  expect(Object.values(format).join(" ")).not.toMatch(/\$context\.(path|resourcePath)\b/);
 });
 
-test("alarms when check-ins or alert hooks are turned away by their throttle", () => {
+test("alarms when the gateway's throttle turns away check-ins or alerts, not the app's own limit", () => {
+  // No integration ran: the gateway answered. The API's own 429 (too many alerts from one
+  // integration) comes back from the Lambda and isn't counted.
   template.hasResourceProperties("AWS::Logs::MetricFilter", {
     FilterPattern:
-      '{ ($.status = "429") && (($.route = "ANY /hb/{proxy+}") || ($.route = "ANY /hooks/{proxy+}")) }',
+      '{ ($.status = "429") && ($.integrationStatus = "-") && (($.route = "ANY /hb/{proxy+}") || ($.route = "ANY /hooks/{proxy+}")) }',
     MetricTransformations: [
       { MetricNamespace: "Galena", MetricName: "throttled_check_ins_and_alerts", MetricValue: "1" },
     ],

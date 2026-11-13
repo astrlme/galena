@@ -11,7 +11,9 @@ test("alarms when the telemetry table throttles a read or a write", () => {
     Threshold: 1,
     ComparisonOperator: "GreaterThanOrEqualToThreshold",
     Metrics: Match.arrayWith([
-      Match.objectLike({ Expression: "writes + reads" }),
+      // DynamoDB sends a throttle metric only for a period that had one: without FILL, writes
+      // throttled alone would leave the sum without a datapoint and the alarm OK.
+      Match.objectLike({ Expression: "FILL(writes, 0) + FILL(reads, 0)" }),
       Match.objectLike({
         Id: "writes",
         MetricStat: Match.objectLike({

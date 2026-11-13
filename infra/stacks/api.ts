@@ -236,7 +236,8 @@ export class ApiStack extends Stack {
     // The paths anyone can call without signing in get limits of their own. Sign-in and the
     // subscribe form stay below a dashboard's 20 a second. Check-ins and alerts go above it: one
     // turned away becomes a late heartbeat that opens an incident, or an outage nobody hears of.
-    // Neither reaches Aurora for a bad token, and the traffic alarm watches what they cost.
+    // Neither reaches Aurora for a forged token (a replaced hook URL can, once per instance: see
+    // hooks.ts), and the traffic alarm watches what they cost.
     // Throttled requests never reach the Lambda.
     const openPaths = {
       "/auth/{proxy+}": { rateLimit: 5, burstLimit: 10 },
@@ -265,6 +266,8 @@ export class ApiStack extends Stack {
             time: "$context.requestTime",
             route: "$context.routeKey",
             status: "$context.status",
+            // "-" when no integration ran: the gateway answered, as it does when it throttles.
+            integrationStatus: "$context.integrationStatus",
             latencyMs: "$context.responseLatency",
             error: "$context.error.message",
           }),
@@ -338,6 +341,7 @@ export class ApiStack extends Stack {
       logGroup: accessLogs,
       filterPattern: FilterPattern.all(
         FilterPattern.stringValue("$.status", "=", "429"),
+        FilterPattern.stringValue("$.integrationStatus", "=", "-"),
         FilterPattern.any(
           FilterPattern.stringValue("$.route", "=", "ANY /hb/{proxy+}"),
           FilterPattern.stringValue("$.route", "=", "ANY /hooks/{proxy+}"),
