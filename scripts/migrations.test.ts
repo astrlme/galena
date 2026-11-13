@@ -12,7 +12,8 @@ const CONTRACT = /^-- galena: contract\b/;
 // During a deploy the previous release's API and jobs keep running against the new schema until
 // their own stacks update, so a migration may only add. Each of these can break that code.
 const BREAKING: [RegExp, string][] = [
-  [/\bdrop\s+(table|column|type|view)\b/i, "drops"],
+  // An index or constraint an upsert's `onConflict` targets, or a default old inserts rely on.
+  [/\bdrop\s+(table|column|type|view|index|constraint|default)\b/i, "drops"],
   [/\balter\s+column\s+"?\w+"?\s+(set\s+data\s+)?type\b/i, "changes a column's type"],
   [/\brename\b/i, "renames"],
   [/\bset\s+not\s+null\b/i, "makes a column required"],
@@ -41,6 +42,9 @@ test("every new migration works with the release before it, or says it is a cont
 
 test("names what would break the release before it", () => {
   expect(breaking('ALTER TABLE "monitor" DROP COLUMN "kind";')).toEqual(["drops"]);
+  expect(breaking('DROP INDEX "invite_open_email";')).toEqual(["drops"]);
+  expect(breaking('ALTER TABLE "invite" DROP CONSTRAINT "invite_pk";')).toEqual(["drops"]);
+  expect(breaking('ALTER TABLE "monitor" ALTER COLUMN "enabled" DROP DEFAULT;')).toEqual(["drops"]);
   expect(breaking('ALTER TABLE "monitor" ALTER COLUMN "name" SET DATA TYPE varchar(80);')).toEqual([
     "changes a column's type",
   ]);
