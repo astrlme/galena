@@ -1,8 +1,10 @@
 import { createHmac } from "node:crypto";
-import { schema } from "@galena/db";
+import { inviteId } from "@galena/contracts";
+import { createInvite, schema } from "@galena/db";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { v7 } from "uuid";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { createApp, type Deps, requireRole } from "./app.ts";
 import { createAuth } from "./auth.ts";
 import { TEST_BASE_URL, testDeps } from "./test-deps.ts";
@@ -193,5 +195,88 @@ describe("roles", () => {
       .where(eq(schema.member.userId, account?.id ?? ""));
     await expectProblem(await owner.call("/v1/admin-probe"), 403, "forbidden");
     expect((await owner.call("/v1/me")).status).toBe(200); // viewers may still read
+  });
+});
+
+describe("GitHub sign-in", () => {
+  // GitHub's two answers, as its token and user endpoints give them; nothing leaves the machine.
+  function answerAsGitHub(email: string) {
+    const answers: Record<string, unknown> = {
+      "https://github.com/login/oauth/access_token": {
+        access_token: "gho_test",
+        token_type: "bearer",
+        scope: "read:user,user:email",
+      },
+      "https://api.github.com/user": { id: 4242, login: "invitee", name: "Invitee", email },
+      "https://api.github.com/user/emails": [{ email, primary: true, verified: true }],
+    };
+    const real = globalThis.fetch;
+    return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const href = input instanceof Request ? input.url : String(input);
+      const answer = answers[href.split("?")[0] ?? ""];
+      return answer ? Response.json(answer) : real(input, init);
+    });
+  }
+
+  test("never makes an account, even for an address with an open invite", async () => {
+    const github = createAuth({
+      db: deps.db,
+      secret: "test-secret-that-is-at-least-32-chars",
+      baseURL: TEST_BASE_URL,
+      github: { clientId: "gh-client", clientSecret: "gh-secret" },
+    });
+    const email = "invited-by-github@example.com";
+    const [workspace] = await deps.db.select({ id: schema.workspace.id }).from(schema.workspace);
+    const [ada] = await deps.db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, OWNER.email));
+    if (!workspace || !ada) throw new Error("first-run setup didn't run");
+    const now = new Date();
+    await createInvite(
+      deps.db,
+      {
+        id: inviteId.parse(v7()),
+        workspaceId: workspace.id,
+        email,
+        role: "viewer",
+        invitedByUserId: ada.id,
+        expiresAt: new Date(now.getTime() + 3_600_000),
+      },
+      now,
+    );
+
+    const start = await github.handler(
+      new Request(`${TEST_BASE_URL}/auth/sign-in/social`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: TEST_BASE_URL },
+        body: JSON.stringify({ provider: "github", callbackURL: "/dashboard/" }),
+      }),
+    );
+    const { url } = (await start.json()) as { url: string };
+    const state = new URL(url).searchParams.get("state") ?? "";
+    const cookie = start.headers
+      .getSetCookie()
+      .map((c) => c.split(";")[0])
+      .join("; ");
+
+    const fetchSpy = answerAsGitHub(email);
+    let callback: Response;
+    try {
+      callback = await github.handler(
+        new Request(`${TEST_BASE_URL}/auth/callback/github?code=from-github&state=${state}`, {
+          headers: { cookie },
+        }),
+      );
+    } finally {
+      fetchSpy.mockRestore();
+    }
+    expect(callback.status).toBe(302);
+    expect(callback.headers.get("location")).toContain("sign_up_closed");
+    const made = await deps.db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, email));
+    expect(made).toEqual([]);
   });
 });

@@ -35,6 +35,18 @@ export function createAuth({ db, secret, baseURL, github, rateLimit = false }: A
     // A GitHub sign-in never joins an account made another way: whoever accepted an invite set
     // that account's password, so linking by a matching email would hand them the newcomer's way in.
     account: { accountLinking: { disableImplicitLinking: true } },
+    // Nor does it make one. Accounts come from first-run setup and invite links, both with an
+    // email and a password; an account GitHub made for an invited address would leave the
+    // invitee unable to accept, with that address already taken.
+    user: {
+      validateUserInfo: ({ source }) =>
+        source.action === "create-user" && source.method !== "email-password"
+          ? {
+              error: "sign_up_closed",
+              errorDescription: "Sign-up is closed. Open your invite link to make your account.",
+            }
+          : undefined,
+    },
     // Counted in memory, per API instance: kept in the database, every /auth request (even a
     // stranger's get-session) would write to Aurora and keep a paused cluster awake.
     rateLimit: { enabled: rateLimit, storage: "memory" },
