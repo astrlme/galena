@@ -6,6 +6,28 @@ import { checkSharedFreeTier, type StageConfig } from "../config/stages.ts";
 import { FoundationStack } from "../stacks/foundation.ts";
 import { fixture, plain } from "./fixture.ts";
 
+test("alarms when the telemetry table throttles a read or a write", () => {
+  dev.template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+    Threshold: 1,
+    ComparisonOperator: "GreaterThanOrEqualToThreshold",
+    Metrics: Match.arrayWith([
+      Match.objectLike({ Expression: "writes + reads" }),
+      Match.objectLike({
+        Id: "writes",
+        MetricStat: Match.objectLike({
+          Metric: Match.objectLike({ MetricName: "WriteThrottleEvents" }),
+        }),
+      }),
+      Match.objectLike({
+        Id: "reads",
+        MetricStat: Match.objectLike({
+          Metric: Match.objectLike({ MetricName: "ReadThrottleEvents" }),
+        }),
+      }),
+    ]),
+  });
+});
+
 function synth(config: StageConfig) {
   const app = new App();
   Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
@@ -170,6 +192,8 @@ test("alarms on dead letters, stuck jobs and silent probes, to a TLS-only topic 
   expect(
     alarms.map((a) => [a.MetricName, a.ComparisonOperator, a.TreatMissingData]).sort(),
   ).toEqual([
+    // Telemetry throttling: a sum of two metrics, so no single metric name.
+    [undefined, "GreaterThanOrEqualToThreshold", "notBreaching"],
     ["ApproximateAgeOfOldestMessage", "GreaterThanThreshold", "notBreaching"],
     ["ApproximateAgeOfOldestMessage", "GreaterThanThreshold", "notBreaching"],
     ["ApproximateNumberOfMessagesVisible", "GreaterThanOrEqualToThreshold", "notBreaching"],

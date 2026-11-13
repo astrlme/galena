@@ -1,5 +1,5 @@
 import { Duration, RemovalPolicy, Stack, type StackProps, Validations } from "aws-cdk-lib";
-import { ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
+import { ComparisonOperator, MathExpression, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
 import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
 import { AttributeType, BillingMode, Table } from "aws-cdk-lib/aws-dynamodb";
 import { SubnetType, Vpc } from "aws-cdk-lib/aws-ec2";
@@ -168,6 +168,29 @@ export class FoundationStack extends Stack {
           "Aurora has been awake for 4 hours in a row. Look for unexpected traffic in the API's and the jobs' logs.",
         threshold: 0.25,
         evaluationPeriods: 4,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+      })
+      .addAlarmAction(notify);
+
+    // Telemetry runs on provisioned capacity sized for the monitor cap. Writes past it slow the
+    // evaluator until check results back up; reads past it slow the dashboard's charts. One alarm
+    // for both says the table needs more capacity, or something reads or writes far too much.
+    const throttled = (name: string) =>
+      this.telemetry.metric(name, { statistic: "Sum", period: Duration.minutes(5) });
+    new MathExpression({
+      expression: "writes + reads",
+      usingMetrics: {
+        writes: throttled("WriteThrottleEvents"),
+        reads: throttled("ReadThrottleEvents"),
+      },
+      period: Duration.minutes(5),
+    })
+      .createAlarm(this, "TelemetryThrottledAlarm", {
+        alarmDescription:
+          "DynamoDB throttled reads or writes on the telemetry table. Check results may back up. Compare consumed and provisioned capacity on the table.",
+        threshold: 1,
+        evaluationPeriods: 1,
         comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
         treatMissingData: TreatMissingData.NOT_BREACHING,
       })
