@@ -129,6 +129,7 @@ const FIELD = "form :is(input, select, textarea):not([disabled])";
 // vaul reckons it: the URL bar alone moves less.
 const KEYBOARD_PX = 60;
 
+
 function ModalPortal({
   open,
   onClose,
@@ -190,9 +191,13 @@ function ModalPortal({
           aria-describedby={descriptionId}
           data-closing={closing ? "true" : undefined}
           tabIndex={-1}
-          className="pointer-events-auto max-h-[calc(100dvh-2rem)] w-[min(448px,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-mist bg-surface p-6 text-ink shadow-2xl outline-none animate-[modalIn_220ms_cubic-bezier(0.16,1,0.3,1)_forwards] data-closing:animate-[modalOut_220ms_cubic-bezier(0.16,1,0.3,1)_forwards] motion-reduce:[animation-duration:1ms]"
+          className="pointer-events-auto flex max-h-[calc(100dvh-2rem)] w-[min(448px,calc(100vw-2rem))] flex-col rounded-2xl border border-mist bg-surface text-ink shadow-2xl outline-none animate-[modalIn_220ms_cubic-bezier(0.16,1,0.3,1)_forwards] data-closing:animate-[modalOut_220ms_cubic-bezier(0.16,1,0.3,1)_forwards] motion-reduce:[animation-duration:1ms]"
         >
-          <PortalContainer.Provider value={panel}>{children}</PortalContainer.Provider>
+          {/* The body scrolls, the panel doesn't: a select's list renders in the panel (to stay
+              in the focus trap) and may reach past its edge, which a scrolling panel cut off. */}
+          <div className="min-h-0 overflow-y-auto overscroll-contain p-6">
+            <PortalContainer.Provider value={panel}>{children}</PortalContainer.Provider>
+          </div>
         </div>
       </div>
     </>,

@@ -95,7 +95,9 @@ export function Select<V extends string | null>({
                 <Base.Item
                   key={option.value ?? ""}
                   value={option.value}
-                  className="grid min-h-[44px] cursor-default grid-cols-[16px_minmax(0,1fr)] items-center gap-2 px-3 text-[16px] -outline-offset-2 select-none data-highlighted:bg-mist"
+                  // Padded, so a label that wraps (a role and what it does) reads as one option,
+                  // apart from the next; a one-line option keeps its 44 px.
+                  className="grid min-h-[44px] cursor-default grid-cols-[16px_minmax(0,1fr)] items-center gap-2 px-3 py-2.5 text-[16px] -outline-offset-2 select-none data-highlighted:bg-mist"
                 >
                   <Base.ItemIndicator className="col-start-1">
                     <Check aria-hidden="true" size={16} strokeWidth={1.5} />

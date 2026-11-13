@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, signIn } from "./helpers.ts";
+import { expectAccessible, rowAction, signIn } from "./helpers.ts";
 
 type Team = {
   members: { id: string; name: string; email: string; isYou: boolean; role: string }[];
@@ -73,5 +73,30 @@ test("the owner invites a viewer, who signs in read-only; the last owner can't b
   const after = (await (await page.request.get("/v1/team")).json()) as Team;
   const joined = after.members.find((m) => m.email === email);
   expect(joined?.role).toBe("viewer");
+
+  // Changing their role: every role in the list can be reached (none cut off past the dialog's
+  // edge), and a label that wraps stands apart from the next.
+  await page.reload();
+  const row = team
+    .getByRole("table", { name: "Members" })
+    .getByRole("row")
+    .filter({ hasText: email });
+  await rowAction(row, "Read Only", "Change role");
+  const changing = page.getByRole("dialog", { name: "Change Read Only's role" });
+  await changing.getByRole("combobox", { name: "Role" }).click();
+  const roles = page.getByRole("option");
+  await expect(roles).toHaveCount(4);
+  const reachable = await roles.evaluateAll((els) =>
+    els.map((el) => {
+      const r = el.getBoundingClientRect();
+      return el.contains(document.elementFromPoint(r.left + 20, r.top + r.height / 2));
+    }),
+  );
+  expect(reachable).toEqual([true, true, true, true]);
+  expect(await roles.first().evaluate((el) => getComputedStyle(el).paddingTop)).toBe("10px");
+  // Choosing the current role closes the list.
+  await roles.last().click();
+  await changing.getByRole("button", { name: "Cancel" }).click();
+  await expect(changing).toBeHidden();
   if (joined) expect((await page.request.delete(`/v1/members/${joined.id}`)).status()).toBe(204);
 });
