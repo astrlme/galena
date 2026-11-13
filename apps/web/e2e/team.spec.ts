@@ -94,8 +94,10 @@ test("the owner invites a viewer, who signs in read-only; the last owner can't b
   );
   expect(reachable).toEqual([true, true, true, true]);
   expect(await roles.first().evaluate((el) => getComputedStyle(el).paddingTop)).toBe("10px");
-  // Choosing the current role closes the list.
-  await roles.last().click();
+  // Esc closes the list, not the dialog around it.
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(changing).toBeVisible();
   await changing.getByRole("button", { name: "Cancel" }).click();
   await expect(changing).toBeHidden();
   if (joined) expect((await page.request.delete(`/v1/members/${joined.id}`)).status()).toBe(204);

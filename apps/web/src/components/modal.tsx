@@ -129,6 +129,12 @@ const FIELD = "form :is(input, select, textarea):not([disabled])";
 // vaul reckons it: the URL bar alone moves less.
 const KEYBOARD_PX = 60;
 
+/**
+ * Whether a select's list or a menu is open inside: Esc then closes that, not the modal. The
+ * command palette's search box is an always-expanded input, not a button, so it doesn't count.
+ */
+const popupOpenIn = (el: HTMLElement | null) =>
+  el?.querySelector('button[aria-haspopup][aria-expanded="true"]') != null;
 
 function ModalPortal({
   open,
@@ -162,9 +168,11 @@ function ModalPortal({
 
   useEffect(() => {
     if (!open || !closeOnEsc) return;
-    const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    // Before the popup's own handler, while it still reads as open.
+    const handler = (e: KeyboardEvent) =>
+      e.key === "Escape" && !popupOpenIn(panelRef.current) && onClose();
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
   }, [open, onClose, closeOnEsc]);
   useScrollLock(open);
   useFocusTrap(panelRef, open);
@@ -313,7 +321,7 @@ function ModalRoot({
               // vaul's `dismissible` refuses every close but ours, Esc included: Esc follows
               // `closeOnEsc` on its own.
               onEscapeKeyDown={(e) => {
-                if (!closeOnEsc) e.preventDefault();
+                if (!closeOnEsc || popupOpenIn(contentRef.current)) e.preventDefault();
                 else if (!closeOnOverlayClick) onClose();
               }}
               // The first field, as the dialog does; on a phone that would raise the keyboard.
