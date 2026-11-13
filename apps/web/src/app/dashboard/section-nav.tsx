@@ -23,7 +23,7 @@ export function SectionNav({
               <Link
                 href={href}
                 aria-current={current ? "page" : undefined}
-                className={`-mb-px inline-flex min-h-[44px] items-center whitespace-nowrap border-b-2 px-3 text-[14px] -outline-offset-2 ${current ? "border-ink font-semibold" : "border-transparent text-graphite hover:text-ink"}`}
+                className={`-mb-px inline-flex min-h-[44px] items-center whitespace-nowrap border-b-2 px-3 text-[14px] -outline-offset-2 ${current ? "border-ink font-semibold" : "border-transparent text-graphite hover:text-ink active:text-ink"}`}
               >
                 {title}
               </Link>

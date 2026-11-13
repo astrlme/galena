@@ -172,7 +172,7 @@ export function DraftDock() {
           key={key}
           href={href}
           onClick={() => setRequested(key)}
-          className="inline-flex items-center gap-2 rounded-[6px] border border-mist bg-surface px-3 py-1.5 text-[14px] transition-colors duration-[120ms] hover:border-slate motion-reduce:transition-none"
+          className="inline-flex items-center gap-2 rounded-[6px] border border-mist bg-surface px-3 py-1.5 text-[14px] transition-colors duration-[120ms] hover:border-slate active:border-slate motion-reduce:transition-none"
         >
           <FilePen aria-hidden="true" size={16} strokeWidth={1.5} />
           {label}

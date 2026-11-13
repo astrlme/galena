@@ -31,7 +31,7 @@ import { PausedNotice, useTelemetry } from "./monitors/telemetry.tsx";
 /** Home's rail shows each monitor's last half hour. */
 const RAIL_MINUTES = 30;
 const card = "rounded-xl border border-mist bg-surface";
-const link = "underline-offset-2 hover:underline";
+const link = "underline-offset-2 hover:underline active:underline";
 
 function useHome() {
   // Known limit: every monitor's last 30 minutes on each poll (30 minutes × 3 regions, 90 items a
@@ -150,7 +150,7 @@ export function HomeView() {
                 <li key={i.id}>
                   <Link
                     href={incidentPage(i.id)}
-                    className={`${card} flex flex-col gap-1 px-4 py-3 hover:border-slate`}
+                    className={`${card} flex flex-col gap-1 px-4 py-3 hover:border-slate active:border-slate`}
                   >
                     <span className="font-semibold">{i.title}</span>
                     <span className="text-[14px] text-slate tabular-nums">

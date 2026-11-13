@@ -44,6 +44,32 @@
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
+
+  /* The dashboard on a touch screen. Its shell carries `data-dashboard`; drawers, menus and
+     toasts render outside it, so these hang off the root. Taps fire without waiting to see
+     whether a double tap zooms, and a long press on a control doesn't select its label; text
+     stays selectable. (Tailwind's preflight already clears the browser's tap flash: every
+     control has its own pressed state instead.) */
+  :root:has([data-dashboard])
+  :is(
+    a,
+    button,
+    label,
+    summary,
+    [role="button"],
+    [role="checkbox"],
+    [role="menuitem"],
+    [role="option"],
+    [role="radio"],
+    [role="tab"]
+  ) {
+    touch-action: manipulation;
+  }
+  :root:has([data-dashboard])
+    :is(button, [role="button"], [role="menuitem"], [role="option"], [role="tab"]) {
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 
 /* The modal's motion (components/modal.tsx): 220 ms, only when someone opens or closes it. */

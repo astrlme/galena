@@ -91,7 +91,7 @@ export function IncidentsEditor() {
                 <Link
                   data-row=""
                   href={`/dashboard/incidents/view/?id=${incident.id}`}
-                  className={`text-[16px] underline-offset-2 hover:underline ${IMPACT_TITLE[incident.impact]}`}
+                  className={`text-[16px] underline-offset-2 hover:underline active:underline ${IMPACT_TITLE[incident.impact]}`}
                 >
                   {incident.title}
                 </Link>

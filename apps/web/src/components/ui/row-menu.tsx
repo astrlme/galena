@@ -63,7 +63,7 @@ export function RowMenu({ name, actions }: { name: string; actions: RowAction[] 
         ref={trigger}
         data-row=""
         aria-label={`Actions for ${name}`}
-        className="inline-flex size-11 shrink-0 md:size-9 items-center justify-center rounded-[6px] text-graphite transition-colors duration-[120ms] hover:bg-mist hover:text-ink data-popup-open:bg-mist data-popup-open:text-ink motion-reduce:transition-none"
+        className="inline-flex size-11 shrink-0 md:size-9 items-center justify-center rounded-[6px] text-graphite transition-colors duration-[120ms] hover:bg-mist hover:text-ink active:bg-mist active:text-ink data-popup-open:bg-mist data-popup-open:text-ink motion-reduce:transition-none"
       >
         <Ellipsis aria-hidden="true" size={20} strokeWidth={1.5} />
       </Menu.Trigger>

@@ -61,7 +61,7 @@ export function IncidentView() {
       <div className="flex flex-col gap-2">
         <Link
           href="/dashboard/incidents/"
-          className="text-[14px] underline-offset-2 hover:underline"
+          className="text-[14px] underline-offset-2 hover:underline active:underline"
         >
           All incidents
         </Link>

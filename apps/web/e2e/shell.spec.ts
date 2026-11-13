@@ -45,3 +45,40 @@ test("signing in lands on Home, which lists what exists", async ({ page }) => {
   );
   await expectAccessible(page);
 });
+
+test("the dashboard draws edge to edge with the page's own colour behind the browser's bars", async ({
+  page,
+}) => {
+  await signIn(page);
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
+    "content",
+    /viewport-fit=cover.*interactive-widget=resizes-content/,
+  );
+  const themes = page.locator('meta[name="theme-color"]');
+  await expect(themes).toHaveCount(2);
+  await expect(themes.first()).toHaveAttribute("media", "(prefers-color-scheme: light)");
+  // Taps get each control's own pressed state, not the browser's flash; labels aren't selected.
+  const styles = await page.evaluate(() => {
+    const button = document.querySelector("[data-dashboard] button");
+    const heading = document.querySelector("h1");
+    return {
+      highlight: getComputedStyle(document.documentElement).getPropertyValue(
+        "-webkit-tap-highlight-color",
+      ),
+      touch: button && getComputedStyle(button).touchAction,
+      buttonSelect: button && getComputedStyle(button).userSelect,
+      textSelect: heading && getComputedStyle(heading).userSelect,
+    };
+  });
+  expect(styles).toEqual({
+    highlight: "rgba(0, 0, 0, 0)",
+    touch: "manipulation",
+    buttonSelect: "none",
+    textSelect: "auto",
+  });
+
+  // The landing page and docs keep their own settings.
+  await page.goto("/");
+  await expect(page.locator('meta[name="theme-color"]')).toHaveCount(0);
+});

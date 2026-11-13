@@ -121,7 +121,7 @@ export function DataTable<T extends { id: string }>({
                       <button
                         type="button"
                         onClick={header.column.getToggleSortingHandler()}
-                        className="inline-flex min-h-[44px] items-center gap-1 font-semibold hover:underline md:min-h-0"
+                        className="inline-flex min-h-[44px] items-center gap-1 font-semibold hover:underline active:underline md:min-h-0"
                       >
                         <table.FlexRender header={header} />
                         {sorted === "asc" && <ArrowUp {...icon} />}

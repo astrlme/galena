@@ -40,7 +40,7 @@ const icon = { "aria-hidden": true, size: 20, strokeWidth: 1.5, className: "shri
 // 10 + 20 + 10 px fills the rail's 40 px, so each icon sits centred in it.
 const row =
   "flex items-center gap-3 whitespace-nowrap rounded-[6px] px-2.5 py-1.5 text-left transition-colors duration-[120ms] motion-reduce:transition-none";
-const quiet = "text-graphite hover:bg-surface hover:text-ink";
+const quiet = "text-graphite hover:bg-surface hover:text-ink active:bg-mist active:text-ink";
 // The menu drawer floats 8 px off the edge; vaul starts it that much further out.
 const FROM_LEFT = { "--initial-transform": "calc(100% + 8px)" } as CSSProperties;
 
@@ -155,7 +155,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <Toasts>
-        <div className="flex min-h-screen flex-col md:flex-row">
+        <div data-dashboard="" className="flex min-h-screen flex-col md:flex-row">
           {/* Below 768 px: a bar whose menu opens the same links in a drawer from the left. */}
           <header className="flex items-center justify-between border-mist border-b px-4 py-2 md:hidden">
             <Wordmark />
@@ -163,13 +163,15 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               type="button"
               onClick={() => setPaletteOpen(true)}
               aria-keyshortcuts="Control+K Meta+K"
-              className={`${row} ml-auto min-h-11 min-w-11 justify-center hover:bg-surface`}
+              className={`${row} ml-auto min-h-11 min-w-11 justify-center hover:bg-surface active:bg-mist`}
             >
               <Search {...icon} />
               <span className="sr-only">Search</span>
             </button>
             <Drawer.Root open={menuOpen} onOpenChange={setMenuOpen} direction="left">
-              <Drawer.Trigger className={`${row} min-h-11 font-semibold hover:bg-surface`}>
+              <Drawer.Trigger
+                className={`${row} min-h-11 font-semibold hover:bg-surface active:bg-mist`}
+              >
                 <Menu {...icon} />
                 Menu
               </Drawer.Trigger>

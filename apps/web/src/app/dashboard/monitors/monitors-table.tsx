@@ -79,7 +79,7 @@ const columns = col.columns([
       <Link
         href={`/dashboard/monitors/view/?id=${r.id}`}
         title={watches(r.monitor)}
-        className="font-semibold [overflow-wrap:anywhere] hover:underline"
+        className="font-semibold [overflow-wrap:anywhere] hover:underline active:underline"
       >
         {r.monitor.name}
       </Link>

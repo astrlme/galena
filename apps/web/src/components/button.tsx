@@ -4,10 +4,11 @@ import type { ComponentProps, ReactNode } from "react";
 // At most one primary button per view; `danger` only confirms a deletion in its dialog. Hover
 // shifts colour in 120 ms; nothing spins.
 const styles = {
-  primary: "bg-ink text-paper font-semibold hover:bg-graphite disabled:bg-mist disabled:text-slate",
+  primary:
+    "bg-ink text-paper font-semibold hover:bg-graphite active:bg-graphite disabled:bg-mist disabled:text-slate",
   secondary:
-    "border border-mist bg-surface text-ink hover:border-slate disabled:border-mist disabled:text-slate",
-  quiet: "text-ink hover:underline focus-visible:underline",
+    "border border-mist bg-surface text-ink hover:border-slate active:border-slate active:bg-mist disabled:border-mist disabled:text-slate",
+  quiet: "text-ink hover:underline active:underline focus-visible:underline",
   danger: "bg-major text-paper font-semibold disabled:bg-mist disabled:text-slate",
 } as const;
 const base =
