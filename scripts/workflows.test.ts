@@ -7,8 +7,8 @@ const DIR = ".github/workflows";
 // fetches that one package, not the dependency tree.
 const RUNS_DEPENDENCIES = /\b(pnpm|yarn|turbo)\b|\bnpm (ci|install|i|run|exec)\b|\bnode\s+\S/;
 
-/** Jobs that can ask for GitHub's OIDC token and also run the dependency tree's code. */
-function tokenJobsThatRunDependencies(workflow: string): string[] {
+/** A workflow's jobs: each one's lines, whether it can ask for the OIDC token, what it needs. */
+function jobsOf(workflow: string) {
   const lines = workflow.split("\n").filter((line) => !line.trim().startsWith("#"));
   const topLevel = (key: string) => {
     const start = lines.findIndex((line) => line.startsWith(`${key}:`));
@@ -18,23 +18,47 @@ function tokenJobsThatRunDependencies(workflow: string): string[] {
   };
   const workflowHasToken = topLevel("permissions").some((l) => l.includes("id-token: write"));
 
-  const jobs = new Map<string, string[]>();
+  const bodies = new Map<string, string[]>();
   let current: string[] | undefined;
   for (const line of topLevel("jobs")) {
     const header = line.match(/^ {2}([\w-]+):\s*$/);
     if (header?.[1]) {
       current = [];
-      jobs.set(header[1], current);
+      bodies.set(header[1], current);
     } else current?.push(line);
   }
-  return [...jobs]
-    .filter(([, body]) => {
+  return new Map(
+    [...bodies].map(([name, body]) => {
       const ownPermissions = body.some((line) => /^ {4}permissions:/.test(line));
       const hasToken = ownPermissions
         ? body.some((line) => line.includes("id-token: write"))
         : workflowHasToken;
-      return hasToken && body.some((line) => RUNS_DEPENDENCIES.test(line));
-    })
+      const needs = (body.find((line) => /^ {4}needs:/.test(line)) ?? "")
+        .replace(/^ {4}needs:/, "")
+        .replace(/[[\]\s]/g, "")
+        .split(",")
+        .filter(Boolean);
+      return [name, { body, hasToken, needs }] as const;
+    }),
+  );
+}
+
+/** Jobs that can ask for GitHub's OIDC token and also run the dependency tree's code. */
+function tokenJobsThatRunDependencies(workflow: string): string[] {
+  return [...jobsOf(workflow)]
+    .filter(([, job]) => job.hasToken && job.body.some((line) => RUNS_DEPENDENCIES.test(line)))
+    .map(([name]) => name);
+}
+
+/** Jobs that can ask for the OIDC token without waiting, directly or through others, for `gate`. */
+function tokenJobsNotAfter(workflow: string, gate: string): string[] {
+  const jobs = jobsOf(workflow);
+  const waitsFor = (name: string, seen: Set<string>): boolean =>
+    (jobs.get(name)?.needs ?? []).some(
+      (need) => need === gate || (!seen.has(need) && waitsFor(need, seen.add(need))),
+    );
+  return [...jobs]
+    .filter(([name, job]) => job.hasToken && !waitsFor(name, new Set()))
     .map(([name]) => name);
 }
 
@@ -72,4 +96,30 @@ ${jobPermissions}
       workflow("  id-token: write", "    permissions:\n      id-token: write"),
     ),
   ).toEqual(["build"]);
+});
+
+test("Deploy reaches AWS only after CI passed on the same commit", () => {
+  expect(tokenJobsNotAfter(readFileSync(join(DIR, "deploy.yml"), "utf8"), "ci")).toEqual([]);
+});
+
+test("finds a token job that doesn't wait for the gate, directly or through another job", () => {
+  const workflow = (lookupsNeeds: string) => `
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+  lookups:
+${lookupsNeeds}
+    permissions:
+      id-token: write
+  build:
+    needs: lookups
+  deploy:
+    needs: [build]
+    permissions:
+      id-token: write
+`;
+  expect(tokenJobsNotAfter(workflow("    needs: ci"), "ci")).toEqual([]);
+  expect(tokenJobsNotAfter(workflow(""), "ci")).toEqual(["lookups", "deploy"]);
 });

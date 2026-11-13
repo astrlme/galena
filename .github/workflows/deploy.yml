@@ -14,10 +14,31 @@ permissions:
   contents: read
 
 jobs:
+  # Deploys only a commit CI has passed, so a push straight to main (a changed workflow
+  # included) can't skip the checks. It reads this repository's runs: no checkout, no AWS.
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    steps:
+      - name: CI passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          passed=$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --status success \
+            --json databaseId --jq length)
+          test "$passed" -gt 0 || {
+            echo "CI hasn't passed on $GITHUB_SHA. Wait for it, or rerun it, then deploy again."
+            exit 1
+          }
+
   # Synth has one question for AWS: the home region's availability zones, for the VPC's subnets.
   # This job asks it with a role that can only read, and runs no repository code, so the build
   # job can synthesise without credentials and only the deploy job waits for an approval.
   lookups:
+    needs: ci
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
