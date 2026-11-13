@@ -199,7 +199,7 @@ function ModalPortal({
 
 /**
  * Closes a sheet and leaves what was typed in its draft. Top right of the side sheet; in the
- * bottom drawer, its own row under the handle, so it is never part of the drag.
+ * bottom drawer, its own row under the handle, which never starts a drag.
  */
 function Minimize() {
   const { onClose, bottom } = useModalContext();
@@ -210,6 +210,7 @@ function Minimize() {
     <button
       type="button"
       onClick={onClose}
+      data-vaul-no-drag=""
       className={`${place} inline-flex shrink-0 items-center gap-1.5 rounded-[6px] bg-surface text-[14px] text-ink hover:underline active:underline focus-visible:underline`}
     >
       <Minus aria-hidden="true" size={16} strokeWidth={1.5} />
@@ -290,7 +291,9 @@ function ModalRoot({
               style={side ? SIDE_START : undefined}
               className={side ? SIDE : BOTTOM}
             >
-              {!side && <Drawer.Handle className={sheet ? "mb-1" : "mb-5"} />}
+              {/* vaul closes an undismissible drawer when its handle is tapped: a secret shown
+                  once would go. Without snap points a tap has nothing else to do. */}
+              {!side && <Drawer.Handle preventCycle className={sheet ? "mb-1" : "mb-5"} />}
               {sheet && <Minimize />}
               <div className={side ? SIDE_BODY : BOTTOM_BODY}>
                 <PortalContainer.Provider value={panel}>{stableChildren}</PortalContainer.Provider>

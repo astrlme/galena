@@ -138,6 +138,13 @@ test("make an API key, see it once, then delete it after confirming its name; a 
   // Shown once, so it closes only on Done: Esc leaves it, in the dialog and the phone's drawer.
   await page.keyboard.press("Escape");
   await expect(shown).toBeVisible();
+  // Nor does a tap on the drawer's handle.
+  if ((page.viewportSize()?.width ?? 1280) < 640) {
+    await page.locator("[data-vaul-handle]").click();
+    await page.waitForTimeout(300); // vaul waits 120 ms to tell a tap from a double tap
+    const drawer = page.getByRole("dialog", { name: `API key for ${name}` });
+    await expect(drawer).toHaveAttribute("data-state", "open");
+  }
   await page.getByRole("button", { name: "Done" }).click();
   await expect(shown).toBeHidden();
 
