@@ -1,4 +1,5 @@
 import { CfnOutput, Duration, Stack, type StackProps, Validations } from "aws-cdk-lib";
+import { AccessLogFormat } from "aws-cdk-lib/aws-apigateway";
 import {
   type CfnStage,
   HttpApi,
@@ -232,15 +233,18 @@ export class ApiStack extends Stack {
       defaultIntegration: integration,
       createDefaultStage: false,
     });
-    // The paths anyone can call without signing in get their own, lower limits, so a flood of
-    // them can't take every request the stage allows. Throttled requests never reach the Lambda.
+    // The paths anyone can call without signing in get limits of their own. Sign-in and the
+    // subscribe form stay below a dashboard's 20 a second. Check-ins and alerts go above it: one
+    // turned away becomes a late heartbeat that opens an incident, or an outage nobody hears of.
+    // Neither reaches Aurora for a bad token, and the traffic alarm watches what they cost.
+    // Throttled requests never reach the Lambda.
     const openPaths = {
       "/auth/{proxy+}": { rateLimit: 5, burstLimit: 10 },
       "/public/{proxy+}": { rateLimit: 2, burstLimit: 5 },
-      "/hooks/{proxy+}": { rateLimit: 10, burstLimit: 20 },
+      "/hooks/{proxy+}": { rateLimit: 25, burstLimit: 50 },
       "/slack/{proxy+}": { rateLimit: 5, burstLimit: 10 },
-      // Cron jobs check in on the minute, all at once: room for a monitor cap's worth together.
-      "/hb/{proxy+}": { rateLimit: 10, burstLimit: 50 },
+      // Cron jobs check in on the minute, all at once: room for twice a monitor cap's worth.
+      "/hb/{proxy+}": { rateLimit: 25, burstLimit: 100 },
     } satisfies Record<string, ThrottleSettings>;
     const routes = Object.keys(openPaths).flatMap((path) =>
       this.api.addRoutes({ path, methods: [HttpMethod.ANY], integration }),
@@ -252,7 +256,20 @@ export class ApiStack extends Stack {
       autoDeploy: true,
       // A single-tenant dashboard asks for a few requests a second at most.
       throttle: { rateLimit: 20, burstLimit: 40 } satisfies ThrottleSettings,
-      accessLogSettings: { destination: new LogGroupLogDestination(accessLogs) },
+      // The route, never the path: a hook or ping URL's last segment is its credential.
+      accessLogSettings: {
+        destination: new LogGroupLogDestination(accessLogs),
+        format: AccessLogFormat.custom(
+          JSON.stringify({
+            requestId: "$context.requestId",
+            time: "$context.requestTime",
+            route: "$context.routeKey",
+            status: "$context.status",
+            latencyMs: "$context.responseLatency",
+            error: "$context.error.message",
+          }),
+        ),
+      },
     });
     (defaultStage.node.defaultChild as CfnStage).routeSettings = Object.fromEntries(
       Object.entries(openPaths).map(([path, limit]) => [
@@ -308,6 +325,32 @@ export class ApiStack extends Stack {
       .createAlarm(this, "UntriggeredJobsAlarm", {
         alarmDescription:
           "The API couldn't start a job, so a saved change waits for the outbox sweep, up to six hours. Check SQS and Scheduler in the home region, and the API's log for the reason.",
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+      })
+      .addAlarmAction(notify);
+
+    // A flood on the check-in or alert paths fills their throttle, and genuine check-ins and
+    // alerts are turned away with them: heartbeat monitors then go down without being down.
+    new MetricFilter(this, "ThrottledCheckInsAndAlerts", {
+      logGroup: accessLogs,
+      filterPattern: FilterPattern.all(
+        FilterPattern.stringValue("$.status", "=", "429"),
+        FilterPattern.any(
+          FilterPattern.stringValue("$.route", "=", "ANY /hb/{proxy+}"),
+          FilterPattern.stringValue("$.route", "=", "ANY /hooks/{proxy+}"),
+        ),
+      ),
+      metricNamespace: "Galena",
+      metricName: "throttled_check_ins_and_alerts",
+      metricValue: "1",
+    })
+      .metric({ statistic: "Sum", period: Duration.minutes(5) })
+      .createAlarm(this, "ThrottledCheckInsAndAlertsAlarm", {
+        alarmDescription:
+          "API Gateway turned away heartbeat check-ins or alerts: their throttle was full. A heartbeat monitor may show an outage that isn't one. The API's access logs say which route; the traffic alarm, how much.",
         threshold: 1,
         evaluationPeriods: 1,
         comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,

@@ -148,24 +148,50 @@ test("migrations run on deploy through a trigger with room for Aurora to resume"
   });
 });
 
-test("throttles the stage at 20 requests a second, and the paths open to anyone lower", () => {
+test("throttles each route at 20 requests a second, sign-in and forms lower, check-ins and alerts higher", () => {
   template.hasResourceProperties("AWS::ApiGatewayV2::Stage", {
     StageName: "$default",
     DefaultRouteSettings: { ThrottlingRateLimit: 20, ThrottlingBurstLimit: 40 },
     RouteSettings: {
       "ANY /auth/{proxy+}": { ThrottlingRateLimit: 5, ThrottlingBurstLimit: 10 },
       "ANY /public/{proxy+}": { ThrottlingRateLimit: 2, ThrottlingBurstLimit: 5 },
-      "ANY /hooks/{proxy+}": { ThrottlingRateLimit: 10, ThrottlingBurstLimit: 20 },
+      "ANY /hooks/{proxy+}": { ThrottlingRateLimit: 25, ThrottlingBurstLimit: 50 },
       "ANY /slack/{proxy+}": { ThrottlingRateLimit: 5, ThrottlingBurstLimit: 10 },
-      "ANY /hb/{proxy+}": { ThrottlingRateLimit: 10, ThrottlingBurstLimit: 50 },
+      "ANY /hb/{proxy+}": { ThrottlingRateLimit: 25, ThrottlingBurstLimit: 100 },
     },
-    AccessLogSettings: {},
   });
   for (const key of ["/auth", "/public", "/hooks", "/slack", "/hb"]) {
     template.hasResourceProperties("AWS::ApiGatewayV2::Route", {
       RouteKey: `ANY ${key}/{proxy+}`,
     });
   }
+});
+
+test("logs each request's route and answer, never its path, which can hold a hook or ping token", () => {
+  const [stage] = Object.values(template.findResources("AWS::ApiGatewayV2::Stage"));
+  const format = JSON.parse(stage?.Properties.AccessLogSettings.Format) as Record<string, string>;
+  expect(format).toMatchObject({ route: "$context.routeKey", status: "$context.status" });
+  expect(Object.values(format).join(" ")).not.toMatch(/$context.(path|resourcePath)/);
+});
+
+test("alarms when check-ins or alert hooks are turned away by their throttle", () => {
+  template.hasResourceProperties("AWS::Logs::MetricFilter", {
+    FilterPattern:
+      '{ ($.status = "429") && (($.route = "ANY /hb/{proxy+}") || ($.route = "ANY /hooks/{proxy+}")) }',
+    MetricTransformations: [
+      { MetricNamespace: "Galena", MetricName: "throttled_check_ins_and_alerts", MetricValue: "1" },
+    ],
+  });
+  template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+    MetricName: "throttled_check_ins_and_alerts",
+    Namespace: "Galena",
+    Statistic: "Sum",
+    Period: 300,
+    Threshold: 1,
+    ComparisonOperator: "GreaterThanOrEqualToThreshold",
+    TreatMissingData: "notBreaching",
+    AlarmActions: [{ Ref: Match.stringLikeRegexp("alarmtopicarn") }],
+  });
 });
 
 test("alarms when the API answers far more requests in an hour than a dashboard makes", () => {
