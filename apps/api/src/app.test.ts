@@ -101,3 +101,15 @@ test("with an origin secret, only requests carrying it reach a route; /health st
   await expectProblem(await app.request("/nope", through), 404, "not_found");
   expect((await app.request("/health")).status).toBe(200);
 });
+
+test("the origin and cache checks run for paths with an encoded line terminator", async () => {
+  const app = createApp({ ...testDeps().deps, originSecret: "from-cloudfront" });
+  for (const path of ["/nope%0A", "/v1/me%0A", "/v1/monitors/x%0D", "/health%E2%80%A8"]) {
+    const response = await app.request(path);
+    expect([path, response.status, response.headers.get("cache-control")]).toEqual([
+      path,
+      403,
+      "no-store",
+    ]);
+  }
+});
