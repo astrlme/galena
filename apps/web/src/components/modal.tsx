@@ -33,8 +33,10 @@ type ModalContextValue = {
   descriptionId: string;
   /** In the drawer the title is vaul's, which names the drawer for assistive tech. */
   drawer: boolean;
-  /** A sheet's title leaves room for Minimize. */
+  /** A sheet's title leaves room for Minimize, unless Minimize has its own row. */
   sheet: boolean;
+  /** The bottom drawer, below 640 px. */
+  bottom: boolean;
   /** A description registers itself, so `aria-describedby` never points at nothing. */
   setDescribed: (described: boolean) => void;
 };
@@ -102,16 +104,26 @@ function useScrollLock(enabled: boolean): void {
 }
 
 const SCRIM = "fixed inset-0 z-50 bg-scrim/60 backdrop-blur-sm";
+// No blur behind a phone's drawer: the browser would blur the whole page again on every frame
+// while the drawer is dragged.
+export const PHONE_SCRIM = "fixed inset-0 z-50 bg-scrim/60";
 // vaul hangs a block twice the drawer's size off its outer edge for the overshoot, so the drawer
-// itself must not scroll, or that block scrolls in over the form: the content scrolls inside.
+// itself must not scroll, or that block scrolls in over the form: the content scrolls inside, and
+// stops there rather than moving the page behind. The drawer stays within the visible viewport
+// (`dvh`, below the notch); vaul lifts it above an iOS keyboard, and on Android the keyboard
+// shrinks the viewport itself. The foot clears the home indicator.
 const BOTTOM =
-  "fixed right-0 bottom-0 left-0 z-50 flex h-auto max-h-[96%] flex-col rounded-t-3xl border-mist border-t bg-surface pt-4 text-ink outline-none";
-const BOTTOM_BODY = "min-h-0 flex-1 overflow-y-auto px-6 pb-10";
-// Floats 8 px off the edges; vaul starts it that much further out so it slides in from off-screen.
+  "fixed right-0 bottom-0 left-0 z-50 flex h-auto max-h-[calc(100dvh-2rem-env(safe-area-inset-top,0px))] flex-col rounded-t-3xl border-mist border-t bg-surface pt-3 text-ink outline-none";
+const BOTTOM_BODY =
+  "min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]";
+// Floats 8 px off the edges (and off a landscape phone's notch); vaul starts it that much further
+// out so it slides in from off-screen.
 const SIDE =
-  "fixed inset-y-2 right-2 z-50 flex w-[480px] flex-col rounded-2xl border border-mist bg-surface text-ink shadow-2xl outline-none";
-const SIDE_BODY = "min-h-0 flex-1 overflow-y-auto p-6";
-const SIDE_START = { "--initial-transform": "calc(100% + 8px)" } as CSSProperties;
+  "fixed top-[calc(0.5rem+env(safe-area-inset-top,0px))] right-[calc(0.5rem+env(safe-area-inset-right,0px))] bottom-[calc(0.5rem+env(safe-area-inset-bottom,0px))] z-50 flex w-[480px] flex-col rounded-2xl border border-mist bg-surface text-ink shadow-2xl outline-none";
+const SIDE_BODY = "min-h-0 flex-1 overflow-y-auto overscroll-contain p-6";
+const SIDE_START = {
+  "--initial-transform": "calc(100% + 8px + env(safe-area-inset-right, 0px))",
+} as CSSProperties;
 const FIELD = "form :is(input, select, textarea):not([disabled])";
 
 function ModalPortal({
@@ -185,13 +197,20 @@ function ModalPortal({
   );
 }
 
+/**
+ * Closes a sheet and leaves what was typed in its draft. Top right of the side sheet; in the
+ * bottom drawer, its own row under the handle, so it is never part of the drag.
+ */
 function Minimize() {
-  const { onClose } = useModalContext();
+  const { onClose, bottom } = useModalContext();
+  const place = bottom
+    ? "mr-2 ml-auto min-h-11 px-3"
+    : "absolute top-4 right-4 z-10 px-2 py-1 pointer-coarse:min-h-11";
   return (
     <button
       type="button"
       onClick={onClose}
-      className="absolute top-4 right-4 z-10 inline-flex items-center gap-1.5 rounded-[6px] bg-surface px-2 py-1 text-[14px] text-ink hover:underline focus-visible:underline"
+      className={`${place} inline-flex shrink-0 items-center gap-1.5 rounded-[6px] bg-surface text-[14px] text-ink hover:underline active:underline focus-visible:underline`}
     >
       <Minus aria-hidden="true" size={16} strokeWidth={1.5} />
       Minimize
@@ -233,6 +252,7 @@ function ModalRoot({
     descriptionId,
     drawer: isMobile || side,
     sheet,
+    bottom: isMobile,
     setDescribed,
   };
   const describedBy = described ? descriptionId : undefined;
@@ -247,7 +267,7 @@ function ModalRoot({
           direction={side ? "right" : "bottom"}
         >
           <Drawer.Portal>
-            <Drawer.Overlay className={SCRIM} />
+            <Drawer.Overlay className={side ? SCRIM : PHONE_SCRIM} />
             <Drawer.Content
               ref={(el) => {
                 contentRef.current = el;
@@ -255,6 +275,12 @@ function ModalRoot({
               }}
               aria-labelledby={titleId}
               aria-describedby={describedBy}
+              // vaul's `dismissible` refuses every close but ours, Esc included: Esc follows
+              // `closeOnEsc` on its own.
+              onEscapeKeyDown={(e) => {
+                if (!closeOnEsc) e.preventDefault();
+                else if (!closeOnOverlayClick) onClose();
+              }}
               // The first field, as the dialog does; on a phone that would raise the keyboard.
               onOpenAutoFocus={(e) => {
                 if (!side) return;
@@ -264,7 +290,7 @@ function ModalRoot({
               style={side ? SIDE_START : undefined}
               className={side ? SIDE : BOTTOM}
             >
-              {!side && <Drawer.Handle className="mb-5" />}
+              {!side && <Drawer.Handle className={sheet ? "mb-1" : "mb-5"} />}
               {sheet && <Minimize />}
               <div className={side ? SIDE_BODY : BOTTOM_BODY}>
                 <PortalContainer.Provider value={panel}>{stableChildren}</PortalContainer.Provider>
@@ -292,8 +318,8 @@ function ModalRoot({
 }
 
 function ModalTitle({ children, className = "" }: { children: ReactNode; className?: string }) {
-  const { titleId, drawer, sheet } = useModalContext();
-  const style = `font-semibold text-[19px] leading-[1.35] ${sheet ? "pr-28" : ""} ${className}`;
+  const { titleId, drawer, sheet, bottom } = useModalContext();
+  const style = `font-semibold text-[19px] leading-[1.35] ${sheet && !bottom ? "pr-28" : ""} ${className}`;
   return drawer ? (
     <Drawer.Title id={titleId} className={style}>
       {children}

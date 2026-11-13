@@ -230,7 +230,7 @@ export function IncidentPanel({
     >
       {isOpen ? (
         // Padded so focus rings at the edges aren't clipped by the scrolling box.
-        <div className="-mx-1 flex max-h-[70vh] flex-col gap-3 overflow-y-auto px-1 py-1">
+        <div className="-mx-1 flex max-h-[70dvh] flex-col gap-3 overflow-y-auto overscroll-contain px-1 py-1">
           <div className="flex items-center justify-between gap-3">
             <h2 ref={heading} tabIndex={-1} className="text-[19px] leading-[1.35] font-semibold">
               {title}

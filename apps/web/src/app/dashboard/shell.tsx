@@ -27,6 +27,7 @@ import {
 } from "react";
 import { Drawer } from "vaul";
 import { DraftDock, forgetDrafts } from "../../components/drafts.tsx";
+import { PHONE_SCRIM } from "../../components/modal.tsx";
 import { Loading } from "../../components/ui/loading.tsx";
 import { Toasts } from "../../components/ui/toast.tsx";
 import { Wordmark } from "../../components/wordmark.tsx";
@@ -49,8 +50,10 @@ const icon = { "aria-hidden": true, size: 20, strokeWidth: 1.5, className: "shri
 const row =
   "flex items-center gap-3 whitespace-nowrap rounded-[6px] px-2.5 py-1.5 text-left transition-colors duration-[120ms] motion-reduce:transition-none";
 const quiet = "text-graphite hover:bg-surface hover:text-ink active:bg-mist active:text-ink";
-// The menu drawer floats 8 px off the edge; vaul starts it that much further out.
-const FROM_LEFT = { "--initial-transform": "calc(100% + 8px)" } as CSSProperties;
+// The menu drawer floats 8 px off the edges and the notch; vaul starts it that much further out.
+const FROM_LEFT = {
+  "--initial-transform": "calc(100% + 8px + env(safe-area-inset-left, 0px))",
+} as CSSProperties;
 // The frame: a bar below 768 px, the sidebar from there. The loading state draws it too.
 const frame = "flex min-h-screen flex-col md:flex-row";
 const bar = "flex items-center justify-between border-mist border-b px-4 py-2 md:hidden";
@@ -222,11 +225,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 Menu
               </Drawer.Trigger>
               <Drawer.Portal>
-                <Drawer.Overlay className="fixed inset-0 z-50 bg-scrim/60 backdrop-blur-sm" />
+                <Drawer.Overlay className={PHONE_SCRIM} />
                 <Drawer.Content
                   aria-describedby={undefined}
                   style={FROM_LEFT}
-                  className="fixed inset-y-2 left-2 z-50 flex w-[min(280px,calc(100vw-4rem))] flex-col gap-6 overflow-y-auto rounded-2xl border border-mist bg-surface px-3 py-5 text-ink outline-none"
+                  className="fixed top-[calc(0.5rem+env(safe-area-inset-top,0px))] bottom-[calc(0.5rem+env(safe-area-inset-bottom,0px))] left-[calc(0.5rem+env(safe-area-inset-left,0px))] z-50 flex w-[min(280px,calc(100vw-4rem))] flex-col gap-6 overflow-y-auto overscroll-contain rounded-2xl border border-mist bg-surface px-3 py-5 text-ink outline-none"
                 >
                   <Drawer.Title className="flex flex-col gap-2 px-2.5">
                     <Wordmark />

@@ -110,7 +110,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         <Autocomplete.Empty>
           <p className="mt-4 text-[14px] text-slate">Nothing matches. Try part of a name.</p>
         </Autocomplete.Empty>
-        <Autocomplete.List className="mt-3 max-h-[min(60dvh,24rem)] overflow-y-auto">
+        <Autocomplete.List className="mt-3 max-h-[min(60dvh,24rem)] overflow-y-auto overscroll-contain">
           {(group: Group) => (
             <Autocomplete.Group key={group.value} items={group.items} className="mb-2">
               <Autocomplete.GroupLabel className="px-3 py-1 text-[13px] text-slate">

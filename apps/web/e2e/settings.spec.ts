@@ -135,6 +135,9 @@ test("make an API key, see it once, then delete it after confirming its name; a 
   const shown = page.getByRole("status").filter({ hasText: `API key for ${name}` });
   await expect(shown).toContainText("gln_");
   await expectAccessible(page);
+  // Shown once, so it closes only on Done: Esc leaves it, in the dialog and the phone's drawer.
+  await page.keyboard.press("Escape");
+  await expect(shown).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
   await expect(shown).toBeHidden();
 
