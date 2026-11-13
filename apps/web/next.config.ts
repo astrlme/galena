@@ -18,6 +18,9 @@ const config: NextConfig = {
   env: { GLN_SITE: process.env.GLN_SITE ?? "" },
   ...(process.env.NODE_ENV === "development"
     ? {
+        // A phone on the local network opens the dev server by this machine's address, say
+        // GLN_DEV_HOST=192.168.1.20; Next serves its dev assets to localhost only otherwise.
+        ...(process.env.GLN_DEV_HOST ? { allowedDevOrigins: [process.env.GLN_DEV_HOST] } : {}),
         rewrites: async () => [
           { source: "/auth/:path*", destination: `${api}/auth/:path*` },
           { source: "/v1/:path*", destination: `${api}/v1/:path*` },
