@@ -35,6 +35,10 @@ account is needed.
 - **`packages/core` is pure.** No I/O, no clock, no environment; pass ports in. Write its tests
   first, with fast-check for state machines.
 - **No NAT gateway and no Lambda in a VPC.** Aurora is reached through the RDS Data API.
+- **A migration works with the release before it.** During a deploy the previous release's code
+  runs against the new schema for a while, so a migration only adds. Drop, rename or retype in a
+  later release, once nothing reads the old shape, and start that migration with
+  `-- galena: contract (unused since <release>)`; `pnpm check` refuses one without it.
 - **Secrets never appear** in code, logs or error messages, and every outbound URL passes the
   SSRF guard in `packages/integrations/src/net/ssrf.ts`.
 
