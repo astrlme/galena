@@ -120,7 +120,7 @@ function LoadingFrame({ unreachable }: { unreachable: boolean }) {
     <div data-dashboard="" className={frame}>
       <header className={bar}>
         <Wordmark />
-        <span aria-hidden="true" className="flex items-center gap-6">
+        <span aria-hidden="true" className="flex min-h-11 items-center gap-6">
           <span className={`${block} size-6`} />
           <span className={`${block} h-6 w-20`} />
         </span>
@@ -136,9 +136,9 @@ function LoadingFrame({ unreachable }: { unreachable: boolean }) {
           ))}
         </div>
       </div>
-      <main className={content} aria-live="polite">
+      <main className={content}>
         {unreachable ? (
-          <p className="text-slate">
+          <p role="alert" className="text-slate">
             Couldn't load your workspace. Check your connection, then reload the page.
           </p>
         ) : (
