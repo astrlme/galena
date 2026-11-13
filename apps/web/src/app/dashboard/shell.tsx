@@ -17,9 +17,17 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Drawer } from "vaul";
 import { DraftDock, forgetDrafts } from "../../components/drafts.tsx";
+import { Loading } from "../../components/ui/loading.tsx";
 import { Toasts } from "../../components/ui/toast.tsx";
 import { Wordmark } from "../../components/wordmark.tsx";
 import { api, authPost, demo } from "../../lib/api.ts";
@@ -43,6 +51,15 @@ const row =
 const quiet = "text-graphite hover:bg-surface hover:text-ink active:bg-mist active:text-ink";
 // The menu drawer floats 8 px off the edge; vaul starts it that much further out.
 const FROM_LEFT = { "--initial-transform": "calc(100% + 8px)" } as CSSProperties;
+// The frame: a bar below 768 px, the sidebar from there. The loading state draws it too.
+const frame = "flex min-h-screen flex-col md:flex-row";
+const bar = "flex items-center justify-between border-mist border-b px-4 py-2 md:hidden";
+const sidebar =
+  "sticky top-0 hidden h-screen shrink-0 flex-col gap-8 overflow-y-auto overflow-x-hidden border-mist border-r px-3 py-6 md:flex";
+const slide = "transition-[width] duration-[120ms] ease-out motion-reduce:transition-none";
+// Room at the foot for the drafts dock.
+const content = "w-full min-w-0 p-4 pb-24 md:p-8 md:pb-24";
+const block = "block rounded-[6px] bg-mist";
 
 // Whether the sidebar is a rail, kept in this browser; storage can be blocked, so it opens wide.
 const SIDEBAR = "galena:sidebar";
@@ -53,6 +70,7 @@ function readCollapsed(): boolean {
     return false;
   }
 }
+const noChanges = () => () => {};
 
 type Me = { email: string; role: string; workspaceName: string };
 
@@ -84,13 +102,55 @@ function NavLinks({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: 
   );
 }
 
+/**
+ * The frame with still blocks where its parts will be, until `/v1/me` answers: up to 15 s after
+ * the database's idle pause, which `Loading` explains once 10 s have passed.
+ */
+function LoadingFrame({ unreachable }: { unreachable: boolean }) {
+  // The static page is drawn wide; a stored rail applies once the page runs, without sliding.
+  const collapsed = useSyncExternalStore(noChanges, readCollapsed, () => false);
+  return (
+    <div data-dashboard="" className={frame}>
+      <header className={bar}>
+        <Wordmark />
+        <span aria-hidden="true" className="flex items-center gap-6">
+          <span className={`${block} size-6`} />
+          <span className={`${block} h-6 w-20`} />
+        </span>
+      </header>
+      <div aria-hidden="true" className={`${sidebar} ${collapsed ? "w-16" : "w-[240px]"}`}>
+        <div className="flex flex-col gap-3 px-2">
+          <Wordmark markOnly={collapsed} />
+          {!collapsed && <span className={`${block} h-4 w-24`} />}
+        </div>
+        <div className="flex flex-col gap-1">
+          {["search", ...sections.map((s) => s.key)].map((key) => (
+            <span key={key} className={`${block} h-8`} />
+          ))}
+        </div>
+      </div>
+      <main className={content} aria-live="polite">
+        {unreachable ? (
+          <p className="text-slate">
+            Couldn't load your workspace. Check your connection, then reload the page.
+          </p>
+        ) : (
+          <>
+            <span aria-hidden="true" className={`${block} h-8 w-40`} />
+            <Loading label="Loading your workspace" />
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
 export function DashboardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [queryClient] = useState(
     () => new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: false } } }),
   );
   const [me, setMe] = useState<Me>();
-  const [slow, setSlow] = useState(false);
   const [unreachable, setUnreachable] = useState(false);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -101,29 +161,15 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   useShortcuts({ openPalette, openHelp });
 
   useEffect(() => {
-    // Explain the wait once it passes 10 s (Aurora resuming).
-    const timer = setTimeout(() => setSlow(true), 10_000);
     api
       .GET("/v1/me")
       .then(({ data, response }) =>
         response.status === 401 || !data ? router.replace("/sign-in/") : setMe(data),
       )
-      .catch(() => setUnreachable(true))
-      .finally(() => clearTimeout(timer));
-    return () => clearTimeout(timer);
+      .catch(() => setUnreachable(true));
   }, [router]);
 
-  if (!me) {
-    return (
-      <p className="p-8 text-[16px] text-slate" aria-live="polite">
-        {unreachable
-          ? "Couldn't load your workspace. Check your connection, then reload the page."
-          : slow
-            ? "Waking the database. This takes about 15 seconds after a quiet period."
-            : "Loading your workspace"}
-      </p>
-    );
-  }
+  if (!me) return <LoadingFrame unreachable={unreachable} />;
 
   async function signOut() {
     // There is no one to sign out in the demo: back to the project's site.
@@ -155,9 +201,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <Toasts>
-        <div data-dashboard="" className="flex min-h-screen flex-col md:flex-row">
+        <div data-dashboard="" className={frame}>
           {/* Below 768 px: a bar whose menu opens the same links in a drawer from the left. */}
-          <header className="flex items-center justify-between border-mist border-b px-4 py-2 md:hidden">
+          <header className={bar}>
             <Wordmark />
             <button
               type="button"
@@ -202,7 +248,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           {/* From 768 px: the sidebar, which collapses to a rail of icons. */}
           <nav
             aria-label="Dashboard"
-            className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-8 overflow-y-auto overflow-x-hidden border-mist border-r px-3 py-6 transition-[width] duration-[120ms] ease-out motion-reduce:transition-none md:flex ${collapsed ? "w-16" : "w-[240px]"}`}
+            className={`${sidebar} ${slide} ${collapsed ? "w-16" : "w-[240px]"}`}
           >
             <div className="flex flex-col gap-3 px-2">
               <Wordmark markOnly={collapsed} />
@@ -249,8 +295,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               {signOutButton(collapsed)}
             </div>
           </nav>
-          {/* Room at the foot for the drafts dock. */}
-          <main className="w-full min-w-0 p-4 pb-24 md:p-8 md:pb-24">
+          <main className={content}>
             {demo && (
               <p className="mb-6 rounded-xl border border-mist bg-surface px-4 py-3 text-[14px] text-graphite">
                 A demo with sample data. Changes aren't saved.{" "}

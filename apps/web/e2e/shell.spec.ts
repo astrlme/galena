@@ -82,3 +82,45 @@ test("the dashboard draws edge to edge with the page's own colour behind the bro
   await page.goto("/");
   await expect(page.locator('meta[name="theme-color"]')).toHaveCount(0);
 });
+
+test("while the workspace loads, the dashboard's frame holds still blocks, then explains the wait", async ({
+  page,
+}) => {
+  await signIn(page);
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  // As after the database's idle pause: /v1/me answers only when the test says so.
+  let answer = () => {};
+  const held = new Promise<void>((resolve) => {
+    answer = resolve;
+  });
+  await page.route("**/v1/me", async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.clock.install();
+  await page.goto("/dashboard/monitors/");
+
+  // The phone's bar, or the sidebar from 768 px, around the blocks.
+  const frame = page.locator("[data-dashboard]");
+  await expect(frame.getByText("galena", { exact: true }).filter({ visible: true })).toHaveCount(1);
+  const status = frame.getByRole("status");
+  await expect(status).toHaveText("Loading your workspace");
+  await expect(status.locator(".bg-mist").first()).toBeVisible();
+  await expectAccessible(page);
+
+  await page.clock.fastForward(10_000);
+  await expect(status).toHaveText(
+    "Waking the database. This takes about 15 seconds after a quiet period.",
+  );
+
+  answer();
+  await expect(page.getByRole("heading", { name: "Monitors", level: 1 })).toBeVisible();
+
+  // An API that can't be reached says so in the same frame.
+  await page.unroute("**/v1/me");
+  await page.route("**/v1/me", (route) => route.abort());
+  await page.reload();
+  await expect(frame.getByRole("main")).toHaveText(
+    "Couldn't load your workspace. Check your connection, then reload the page.",
+  );
+});
