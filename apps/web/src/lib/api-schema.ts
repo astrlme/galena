@@ -3346,7 +3346,7 @@ export interface paths {
         put?: never;
         /**
          * Make a new hook URL
-         * @description The old URL stops working at once. The new one is in this answer only.
+         * @description Alerts sent to the old URL are dropped from now on, and within a minute it answers 404. The new URL is in this answer only.
          */
         post: {
             parameters: {

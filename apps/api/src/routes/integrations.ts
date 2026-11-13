@@ -136,7 +136,8 @@ export function registerIntegrationRoutes(app: App, deps: Deps) {
       path: "/v1/integrations/{id}/url",
       tags: ["Integrations"],
       summary: "Make a new hook URL",
-      description: "The old URL stops working at once. The new one is in this answer only.",
+      description:
+        "Alerts sent to the old URL are dropped from now on, and within a minute it answers 404. The new URL is in this answer only.",
       middleware: [admin],
       request: { params: idParam },
       responses: { 200: json(hookUrl, "The new hook URL") },
