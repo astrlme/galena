@@ -26,7 +26,7 @@
     "fumadocs-openapi": "12.1.0",
     "fumadocs-ui": "16.15.17",
     "lucide-react": "^1.49.0",
-    "next": "16.4.3",
+    "next": "16.4.5",
     "openapi-fetch": "^0.17.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
