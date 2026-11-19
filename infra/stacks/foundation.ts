@@ -176,15 +176,15 @@ export class FoundationStack extends Stack {
     // Telemetry runs on provisioned capacity sized for the monitor cap. Writes past it slow the
     // evaluator until check results back up; reads past it slow the dashboard's charts. One alarm
     // for both says the table needs more capacity, or something reads or writes far too much.
-    const throttled = (name: string) =>
+    const throttleMetric = (name: string) =>
       this.telemetry.metric(name, { statistic: "Sum", period: Duration.minutes(5) });
     new MathExpression({
       // DynamoDB sends a throttle metric only for a period that had one: without FILL, writes
       // throttled alone would leave the sum without a datapoint and the alarm OK.
       expression: "FILL(writes, 0) + FILL(reads, 0)",
       usingMetrics: {
-        writes: throttled("WriteThrottleEvents"),
-        reads: throttled("ReadThrottleEvents"),
+        writes: throttleMetric("WriteThrottleEvents"),
+        reads: throttleMetric("ReadThrottleEvents"),
       },
       period: Duration.minutes(5),
     })

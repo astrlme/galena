@@ -237,8 +237,8 @@ export class ApiStack extends Stack {
     // subscribe form stay below a dashboard's 20 a second. Check-ins and alerts go above it: one
     // turned away becomes a late heartbeat that opens an incident, or an outage nobody hears of.
     // Neither reaches Aurora for a forged token (a replaced hook URL can, once per instance: see
-    // hooks.ts), and the traffic alarm watches what they cost.
-    // Throttled requests never reach the Lambda.
+    // hooks.ts), and the traffic alarm watches what they cost. Throttled requests never reach the
+    // Lambda.
     const openPaths = {
       "/auth/{proxy+}": { rateLimit: 5, burstLimit: 10 },
       "/public/{proxy+}": { rateLimit: 2, burstLimit: 5 },
@@ -343,8 +343,9 @@ export class ApiStack extends Stack {
         FilterPattern.stringValue("$.status", "=", "429"),
         FilterPattern.stringValue("$.integrationStatus", "=", "-"),
         FilterPattern.any(
-          FilterPattern.stringValue("$.route", "=", "ANY /hb/{proxy+}"),
-          FilterPattern.stringValue("$.route", "=", "ANY /hooks/{proxy+}"),
+          ...(["/hb/{proxy+}", "/hooks/{proxy+}"] satisfies (keyof typeof openPaths)[]).map(
+            (path) => FilterPattern.stringValue("$.route", "=", `ANY ${path}`),
+          ),
         ),
       ),
       metricNamespace: "Galena",

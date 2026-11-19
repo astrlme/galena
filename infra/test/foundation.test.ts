@@ -6,13 +6,22 @@ import { checkSharedFreeTier, type StageConfig } from "../config/stages.ts";
 import { FoundationStack } from "../stacks/foundation.ts";
 import { fixture, plain } from "./fixture.ts";
 
+function synth(config: StageConfig) {
+  const app = new App();
+  Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
+  const stack = new FoundationStack(app, "Foundation", { config });
+  return { app, template: Template.fromStack(stack) };
+}
+
+const dev = synth(fixture);
+const prod = synth(plain);
+const resources = (type: string) => Object.values(dev.template.findResources(type));
+
 test("alarms when the telemetry table throttles a read or a write", () => {
   dev.template.hasResourceProperties("AWS::CloudWatch::Alarm", {
     Threshold: 1,
     ComparisonOperator: "GreaterThanOrEqualToThreshold",
     Metrics: Match.arrayWith([
-      // DynamoDB sends a throttle metric only for a period that had one: without FILL, writes
-      // throttled alone would leave the sum without a datapoint and the alarm OK.
       Match.objectLike({ Expression: "FILL(writes, 0) + FILL(reads, 0)" }),
       Match.objectLike({
         Id: "writes",
@@ -27,19 +36,9 @@ test("alarms when the telemetry table throttles a read or a write", () => {
         }),
       }),
     ]),
+    AlarmActions: [{ Ref: Match.stringLikeRegexp("^Alarms") }],
   });
 });
-
-function synth(config: StageConfig) {
-  const app = new App();
-  Validations.of(app).addPlugins(new AwsSolutionsChecks(app));
-  const stack = new FoundationStack(app, "Foundation", { config });
-  return { app, template: Template.fromStack(stack) };
-}
-
-const dev = synth(fixture);
-const prod = synth(plain);
-const resources = (type: string) => Object.values(dev.template.findResources(type));
 
 describe("no NAT gateway, no Lambda in a VPC", () => {
   test("has no NAT gateway, internet gateway or public subnet", () => {
