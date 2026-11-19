@@ -112,6 +112,8 @@ test("while the workspace loads, the dashboard's frame holds still blocks, then 
   await expect(status).toHaveText(
     "Waking the database. This takes about 15 seconds after a quiet period.",
   );
+  // The words take the blocks' place, not a place beside them.
+  await expect(frame.getByRole("main").locator(".bg-mist")).toHaveCount(0);
 
   answer();
   await expect(page.getByRole("heading", { name: "Monitors", level: 1 })).toBeVisible();

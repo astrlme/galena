@@ -142,10 +142,7 @@ function LoadingFrame({ unreachable }: { unreachable: boolean }) {
             Couldn't load your workspace. Check your connection, then reload the page.
           </p>
         ) : (
-          <>
-            <span aria-hidden="true" className={`${block} h-8 w-40`} />
-            <Loading label="Loading your workspace" />
-          </>
+          <Loading label="Loading your workspace" className="" />
         )}
       </main>
     </div>
