@@ -1,12 +1,14 @@
 import { createHmac } from "node:crypto";
 import { inviteId } from "@galena/contracts";
 import { createInvite, schema } from "@galena/db";
+import { inviteUrl } from "@galena/integrations/secrets";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
 import { v7 } from "uuid";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { createApp, type Deps, requireRole } from "./app.ts";
 import { createAuth } from "./auth.ts";
+import { newTokenTime } from "./routes/shared.ts";
 import { TEST_BASE_URL, testDeps } from "./test-deps.ts";
 import { Session as BaseSession, expectProblem } from "./test-session.ts";
 
@@ -199,7 +201,8 @@ describe("roles", () => {
 });
 
 describe("GitHub sign-in", () => {
-  // GitHub's two answers, as its token and user endpoints give them; nothing leaves the machine.
+  // GitHub's answers, as its token, user and emails endpoints give them; any other request fails,
+  // so nothing leaves the machine.
   function answerAsGitHub(email: string) {
     const answers: Record<string, unknown> = {
       "https://github.com/login/oauth/access_token": {
@@ -210,15 +213,15 @@ describe("GitHub sign-in", () => {
       "https://api.github.com/user": { id: 4242, login: "invitee", name: "Invitee", email },
       "https://api.github.com/user/emails": [{ email, primary: true, verified: true }],
     };
-    const real = globalThis.fetch;
-    return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const href = input instanceof Request ? input.url : String(input);
       const answer = answers[href.split("?")[0] ?? ""];
-      return answer ? Response.json(answer) : real(input, init);
+      if (!answer) throw new Error(`unexpected request to ${href}`);
+      return Response.json(answer);
     });
   }
 
-  test("never makes an account, even for an address with an open invite", async () => {
+  test("never makes an account; the invite link still does", async () => {
     const github = createAuth({
       db: deps.db,
       secret: "test-secret-that-is-at-least-32-chars",
@@ -232,11 +235,12 @@ describe("GitHub sign-in", () => {
       .from(schema.user)
       .where(eq(schema.user.email, OWNER.email));
     if (!workspace || !ada) throw new Error("first-run setup didn't run");
-    const now = new Date();
+    const now = newTokenTime();
+    const invite = inviteId.parse(v7());
     await createInvite(
       deps.db,
       {
-        id: inviteId.parse(v7()),
+        id: invite,
         workspaceId: workspace.id,
         email,
         role: "viewer",
@@ -278,5 +282,20 @@ describe("GitHub sign-in", () => {
       .from(schema.user)
       .where(eq(schema.user.email, email));
     expect(made).toEqual([]);
+
+    // Sign-up stays closed to the invited address too; only the link makes its account.
+    const signUp = await new Session().call("/auth/sign-up/email", {
+      name: "Invitee",
+      email,
+      password: "a long enough password",
+    });
+    expect(signUp.status).toBe(403);
+    const link = new URL(inviteUrl(deps.keys, TEST_BASE_URL, invite, now));
+    const joined = await new Session().call("/v1/invites/accept", {
+      token: link.searchParams.get("token") ?? "",
+      name: "Invitee",
+      password: "a long enough password",
+    });
+    expect(joined.status, await joined.clone().text()).toBe(201);
   });
 });
