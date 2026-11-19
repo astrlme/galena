@@ -263,23 +263,25 @@ function ModalRoot({
   const [snapshot, setSnapshot] = useState<ReactNode>(children);
   if (open && snapshot !== children) setSnapshot(children);
   const stableChildren = open ? children : snapshot;
+  const drawer = isMobile || side;
   const ctx: ModalContextValue = {
     onClose,
     titleId,
     descriptionId,
-    drawer: isMobile || side,
+    drawer,
     sheet,
     bottom: isMobile,
     setDescribed,
   };
   const describedBy = described ? descriptionId : undefined;
-  const drawer = isMobile || side;
 
   // vaul fits a drawer above an iOS keyboard by setting its height and bottom in px, then on
   // the way down puts back the height it first saw. Where the page itself shrinks for the
   // keyboard (Android here) that was already the short one, so the drawer stayed half height
   // and later steps of a dialog were squeezed into it. Whenever no keyboard covers the page,
   // the drawer goes back to its CSS size. After vaul's own listener: the next frame.
+  // Known limit: leans on vaul's inline styles, the order its listener runs in and its keyboard
+  // threshold (KEYBOARD_PX); recheck on a vaul upgrade, or drop it once vaul stops pinning px.
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!open || !drawer || !viewport) return;
