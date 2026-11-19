@@ -7,7 +7,7 @@ const DIR = "packages/db/migrations";
 const FIRST_CHECKED = 19;
 // A migration that removes or reshapes something says so on its first line, naming the release
 // that stopped using it: `-- galena: contract (unused since 1.2.0)`.
-const CONTRACT = /^-- galena: contract\b/;
+const CONTRACT = /^-- galena: contract \(unused since [^)\s]+\)/;
 
 // During a deploy the previous release's API and jobs keep running against the new schema until
 // their own stacks update, so a migration may only add. Each of these can break that code.
@@ -54,6 +54,10 @@ test("names what would break the release before it", () => {
   ]);
   expect(breaking('ALTER TABLE "monitor" ADD COLUMN "note" text NOT NULL;')).toEqual([
     "adds a required column without a default",
+  ]);
+  // A marker has to name the release, or nothing says the old code is gone.
+  expect(breaking('-- galena: contract\nALTER TABLE "monitor" DROP COLUMN "kind";')).toEqual([
+    "drops",
   ]);
   // The rule would have caught the ones applied before it.
   expect(breaking(readFileSync(join(DIR, "0016_drop_rate_limit.sql"), "utf8"))).toEqual(["drops"]);
