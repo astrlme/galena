@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import { expect, type Page, test } from "@playwright/test";
-import { choose, expectAccessible, rowAction, signIn, totp } from "./helpers.ts";
+import { choose, expectAccessible, isPhone, rowAction, signIn, totp } from "./helpers.ts";
 
 // Each run signs in as a member of its own (`member:local`), so the seeded owner every other
 // spec uses never has two-factor turned on or its password changed.
@@ -139,7 +139,7 @@ test("make an API key, see it once, then delete it after confirming its name; a 
   await page.keyboard.press("Escape");
   await expect(shown).toBeVisible();
   // Nor does a tap on the drawer's handle.
-  if ((page.viewportSize()?.width ?? 1280) < 640) {
+  if (isPhone(page)) {
     await page.locator("[data-vaul-handle]").click();
     await page.waitForTimeout(300); // vaul waits 120 ms to tell a tap from a double tap
     const drawer = page.getByRole("dialog", { name: `API key for ${name}` });

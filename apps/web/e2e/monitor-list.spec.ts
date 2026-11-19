@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, type Page, test } from "@playwright/test";
-import { expectAccessible, journey, rowAction, signIn } from "./helpers.ts";
+import { expectAccessible, isPhone, journey, rowAction, signIn } from "./helpers.ts";
 
 /** A local endpoint the local hot path checks on 127.0.0.1; closed, it refuses connections. */
 async function endpoint() {
@@ -94,7 +94,7 @@ test("filters to down monitors in one action and pauses two at once", async ({
   // What a monitor checks: a tooltip on its name, and a line under it where a finger can't hover.
   // Only https:// is dropped: this plain http:// address keeps saying so.
   const url = row(upName).getByText(up.url, { exact: true });
-  if ((page.viewportSize()?.width ?? 1280) < 640) await expect(url).toBeVisible();
+  if (isPhone(page)) await expect(url).toBeVisible();
   else await expect(url).toBeHidden();
 
   const j = journey();

@@ -40,11 +40,16 @@ export function journey() {
   };
 }
 
+/** Below 640 px every form and dialog is a bottom drawer, and lists fold to fewer columns. */
+export const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1280) < 640;
+
+/** Until nothing animates: a drawer or dialog has finished opening or closing. */
+export const settle = (page: Page) =>
+  page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
+
 export async function expectAccessible(page: Page) {
   // A dialog fading in has text at partial opacity; check what people read once it has opened.
-  await page.waitForFunction(() =>
-    document.getAnimations().every((a) => a.playState !== "running"),
-  );
+  await settle(page);
   // The phone's bar is sticky, so on a scrolled page it covers whatever passes under it, which
   // axe reads as an obscured target. A person scrolls a little; check the page as it is laid out,
   // with the bar back in the flow at the top (where it already sits, so nothing else moves).

@@ -1,9 +1,9 @@
 import { expect, type Locator, test } from "@playwright/test";
-import { openSection, rowAction, signIn } from "./helpers.ts";
+import { isPhone, openSection, rowAction, settle, signIn } from "./helpers.ts";
 
 // Below 640 px every form and dialog is a bottom drawer.
 test.beforeEach(({ page }) => {
-  test.skip((page.viewportSize()?.width ?? 1280) >= 640, "the bottom drawer is the phone's");
+  test.skip(!isPhone(page), "the bottom drawer is the phone's");
 });
 
 const box = async (locator: Locator) => {
@@ -25,9 +25,7 @@ test("a form's drawer fits the screen, keeps Minimize off the handle and its foo
   const drawer = page.getByRole("dialog", { name: "Add a monitor" });
   const form = drawer.getByRole("form", { name: "Add a monitor" });
   await expect(form).toBeVisible();
-  await page.waitForFunction(() =>
-    document.getAnimations().every((a) => a.playState !== "running"),
-  );
+  await settle(page);
 
   // Inside the visible viewport, short of its top edge.
   const height = page.viewportSize()?.height ?? 0;
@@ -89,9 +87,7 @@ test("the menu drawer floats inside the screen with its own scroll", async ({ pa
   await page.getByRole("button", { name: "Menu" }).click();
   const menu = page.getByRole("dialog", { name: /menu/ });
   await expect(menu.getByRole("navigation", { name: "Dashboard" })).toBeVisible();
-  await page.waitForFunction(() =>
-    document.getAnimations().every((a) => a.playState !== "running"),
-  );
+  await settle(page);
   const frame = await box(menu);
   expect(frame.x).toBeGreaterThanOrEqual(8);
   expect(frame.y).toBeGreaterThanOrEqual(8);
@@ -157,9 +153,7 @@ test("a drawer goes back to its full height once the keyboard is down", async ({
     .click();
   const drawer = page.getByRole("dialog", { name: "Add a monitor" });
   await expect(drawer.getByRole("form", { name: "Add a monitor" })).toBeVisible();
-  await page.waitForFunction(() =>
-    document.getAnimations().every((a) => a.playState !== "running"),
-  );
+  await settle(page);
   const full = await box(drawer);
 
   // A keyboard that shrinks the page, as Android's does here, then goes away.
