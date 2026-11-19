@@ -10,10 +10,11 @@ announces it**, and **everything that can run twice carries a deterministic key*
 ## The API
 
 The API is Hono on one Lambda behind an API Gateway HTTP API, throttled at 20 requests a second
-per route with bursts of 40: lower for sign-in and the subscribe form, higher for heartbeat
-check-ins and alerts. The dashboard reaches it on its own origin: the dashboard's CloudFront
-distribution forwards `/auth/*` and `/v1/*` to it, so cookies are first-party and there is no
-CORS. A secret header that only CloudFront adds keeps the API from being called directly.
+per route with bursts of 40: lower for sign-in, Slack and the subscribe form, higher for
+heartbeat check-ins and alerts. The dashboard reaches it on its own origin: the dashboard's
+CloudFront distribution forwards `/auth/*` and `/v1/*` to it, so cookies are first-party and
+there is no CORS. A secret header that only CloudFront adds keeps the API from being called
+directly.
 
 Requests are validated with the same Zod schemas the dashboard uses, and errors follow RFC 9457
 (`application/problem+json`) with a stable `code`. Domain rules live in `packages/core`; the API
