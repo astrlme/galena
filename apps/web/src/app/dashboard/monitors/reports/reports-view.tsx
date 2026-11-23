@@ -11,7 +11,7 @@ import { Select } from "../../../../components/ui/select.tsx";
 import { api, unwrap } from "../../../../lib/api.ts";
 import { hm } from "../../../../lib/time.ts";
 import { latency, percent } from "../monitor-row.ts";
-import { budgetText, monthsBefore, reportCsv, type UptimeReport } from "./report.ts";
+import { budgetText, monthsBefore, reportCsv, shareUp, type UptimeReport } from "./report.ts";
 
 type MonitorMonth = UptimeReport["monitors"][number];
 type ComponentMonth = UptimeReport["components"][number];
@@ -19,18 +19,16 @@ type ComponentMonth = UptimeReport["components"][number];
 // Daily rollups are kept 400 days: this month and the twelve before it.
 const MONTHS = 13;
 
-const shareUp = (r: { minutes: number; minutesDown: number }) =>
-  r.minutes === 0 ? undefined : 1 - r.minutesDown / r.minutes;
-const last = { sortFn: "basic", sortUndefined: "last" } as const;
-const none = (words: string) => <span className="text-slate">{words}</span>;
+const noValueLast = { sortFn: "basic", sortUndefined: "last" } as const;
+const muted = (words: string) => <span className="text-slate">{words}</span>;
 const uptimeCell = ({ getValue }: { getValue: () => number | undefined }) => {
   const value = getValue();
-  return value === undefined ? none("No data") : percent(value);
+  return value === undefined ? muted("No data") : percent(value);
 };
 
-const mon = columnsFor<MonitorMonth>();
-const MONITOR_COLUMNS = mon.columns([
-  mon.accessor("name", {
+const monitorCol = columnsFor<MonitorMonth>();
+const MONITOR_COLUMNS = monitorCol.columns([
+  monitorCol.accessor("name", {
     header: "Monitor",
     cell: ({ row: { original: m } }) => (
       <Link href={`/dashboard/monitors/view/?id=${m.id}`} className="hover:underline">
@@ -38,49 +36,49 @@ const MONITOR_COLUMNS = mon.columns([
       </Link>
     ),
   }),
-  mon.accessor(shareUp, {
+  monitorCol.accessor(shareUp, {
     id: "uptime",
     header: "Uptime",
-    ...last,
+    ...noValueLast,
     cell: uptimeCell,
     meta: { className: "text-right tabular-nums" },
   }),
-  mon.accessor("minutesDown", {
+  monitorCol.accessor("minutesDown", {
     header: "Down",
     cell: ({ getValue }) => hm(getValue()),
     meta: { className: "hidden text-right tabular-nums @lg:table-cell" },
   }),
-  mon.accessor("incidents", {
+  monitorCol.accessor("incidents", {
     header: "Incidents",
     meta: { className: "hidden text-right tabular-nums @lg:table-cell" },
   }),
-  mon.accessor((m) => m.p95Ms ?? undefined, {
+  monitorCol.accessor((m) => m.p95Ms ?? undefined, {
     id: "p95",
     header: "p95",
-    ...last,
+    ...noValueLast,
     cell: ({ getValue }) => {
       const p95 = getValue();
-      return p95 === undefined ? none("No data") : latency(p95);
+      return p95 === undefined ? muted("No data") : latency(p95);
     },
     meta: { className: "hidden text-right tabular-nums @2xl:table-cell" },
   }),
-  mon.accessor((m) => m.slaTarget ?? undefined, {
+  monitorCol.accessor((m) => m.slaTarget ?? undefined, {
     id: "target",
     header: "SLA target",
-    ...last,
+    ...noValueLast,
     cell: ({ getValue }) => {
       const target = getValue();
-      return target === undefined ? none("None") : `${target}%`;
+      return target === undefined ? muted("None") : `${target}%`;
     },
     meta: { className: "hidden text-right tabular-nums @xl:table-cell" },
   }),
-  mon.accessor((m) => m.budget?.leftMinutes, {
+  monitorCol.accessor((m) => m.budget?.leftMinutes, {
     id: "budget",
     header: "Error budget",
-    ...last,
+    ...noValueLast,
     cell: ({ row: { original: m } }) =>
       m.budget === null ? (
-        none("None")
+        muted("None")
       ) : (
         <span className={m.budget.leftMinutes < 0 ? "font-semibold" : undefined}>
           {budgetText(m.budget)}
@@ -90,22 +88,22 @@ const MONITOR_COLUMNS = mon.columns([
   }),
 ]);
 
-const com = columnsFor<ComponentMonth>();
-const COMPONENT_COLUMNS = com.columns([
-  com.accessor("name", { header: "Component" }),
-  com.accessor(shareUp, {
+const componentCol = columnsFor<ComponentMonth>();
+const COMPONENT_COLUMNS = componentCol.columns([
+  componentCol.accessor("name", { header: "Component" }),
+  componentCol.accessor(shareUp, {
     id: "uptime",
     header: "Uptime",
-    ...last,
+    ...noValueLast,
     cell: uptimeCell,
     meta: { className: "text-right tabular-nums" },
   }),
-  com.accessor("minutesDown", {
+  componentCol.accessor("minutesDown", {
     header: "Down",
     cell: ({ getValue }) => hm(getValue()),
     meta: { className: "hidden text-right tabular-nums @md:table-cell" },
   }),
-  com.accessor("incidents", {
+  componentCol.accessor("incidents", {
     header: "Incidents",
     meta: { className: "hidden text-right tabular-nums @lg:table-cell" },
   }),
@@ -113,7 +111,8 @@ const COMPONENT_COLUMNS = com.columns([
 
 /** Hands the browser the report as a file. */
 function download(report: UptimeReport) {
-  const url = URL.createObjectURL(new Blob([reportCsv(report)], { type: "text/csv" }));
+  // The byte order mark tells Excel the file is UTF-8, so names outside ASCII survive.
+  const url = URL.createObjectURL(new Blob(["\uFEFF", reportCsv(report)], { type: "text/csv" }));
   const link = document.createElement("a");
   link.href = url;
   link.download = `uptime-${report.month}.csv`;
@@ -129,6 +128,8 @@ export function ReportsView() {
   const report = useQuery({
     queryKey: ["reports", "uptime", month],
     queryFn: () => unwrap(api.GET("/v1/reports/uptime", { params: { query: { month } } })),
+    // A month that is over no longer changes; each read of one costs the telemetry table.
+    staleTime: month === months[0]?.value ? 0 : Number.POSITIVE_INFINITY,
   });
 
   return (
