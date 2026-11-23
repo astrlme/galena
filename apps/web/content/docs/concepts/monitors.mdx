@@ -133,6 +133,8 @@ left    = allowed − minutes down
 ```
 
 A finished month has no minutes left, so it met its target exactly when its budget didn't go below
-zero. The CSV has one row per monitor and component, with uptime to three decimals rounded down;
+zero. A paused monitor counts no minutes still to come, since nothing will check them. A target
+takes up to three decimals, such as 99.995%. A deleted monitor leaves the report for every month,
+including the months it was checked. The CSV has one row per monitor and component, with uptime to three decimals rounded down;
 a name that would start a spreadsheet formula gets a leading `'`. The same month comes from
 `GET /v1/reports/uptime?month=2026-10` in the [API](/docs/reference/api/).
