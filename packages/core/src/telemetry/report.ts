@@ -1,5 +1,11 @@
-import type { ComponentStatus } from "@galena/contracts";
-import { dayMark } from "../publishing/uptime.ts";
+import type {
+  ComponentId,
+  ComponentStatus,
+  MonitorId,
+  MonitorType,
+  UptimeReport,
+} from "@galena/contracts";
+import { componentMinutes } from "../publishing/uptime.ts";
 import { type MinuteCounts, mergeMinutes, type RegionRollup } from "./rollup.ts";
 import { monthSpan, totalOf } from "./series.ts";
 
@@ -38,19 +44,65 @@ export function minutesLeftIn(month: string, now: Date): number {
   return Math.max(0, Math.floor((to.getTime() - start) / 60_000));
 }
 
+/** What a month's report is made of. */
+export type ReportInputs = {
+  month: string;
+  /** Each with its month as telemetry counted it. */
+  monitors: ReadonlyArray<{
+    id: MonitorId;
+    name: string;
+    type: MonitorType;
+    enabled: boolean;
+    slaTarget: number | null;
+    counted: MonthOf;
+  }>;
+  components: ReadonlyArray<{ id: ComponentId; name: string }>;
+  /** The month's rows from the uptime rollup. */
+  days: ReadonlyArray<{
+    componentId: ComponentId;
+    minutes: Partial<Record<ComponentStatus, number>>;
+  }>;
+  /** Incidents that started in the month, by the monitor that opened them and by component. */
+  incidents: {
+    monitors: ReadonlyMap<MonitorId, number>;
+    components: ReadonlyMap<ComponentId, number>;
+  };
+};
+
 /**
- * A component's days from the uptime rollup as minutes measured and down, the status page's own
- * rule: partial and major outages are down (whole minutes a day), maintenance is not taken out.
- * Measured minutes stay fractional, as the rollup stores them.
+ * Every monitor's and component's month. A paused monitor's budget counts no minutes still to
+ * come, since nothing will check them.
  */
-export function componentMinutes(
-  days: ReadonlyArray<Partial<Record<ComponentStatus, number>>>,
-): MinuteCounts {
-  let minutes = 0;
-  let down = 0;
-  for (const day of days) {
-    minutes += Object.values(day).reduce((sum, m) => sum + m, 0);
-    down += dayMark(day).downMinutes;
-  }
-  return { minutes, down };
+export function uptimeReport(inputs: ReportInputs, now: Date): UptimeReport {
+  const left = minutesLeftIn(inputs.month, now);
+  const daysOf = Map.groupBy(inputs.days, (d) => d.componentId);
+  return {
+    month: inputs.month,
+    monitors: inputs.monitors.map(({ id, name, type, enabled, slaTarget, counted }) => ({
+      id,
+      name,
+      type,
+      ...counted,
+      incidents: inputs.incidents.monitors.get(id) ?? 0,
+      slaTarget,
+      budget:
+        slaTarget === null
+          ? null
+          : errorBudget(
+              { minutes: counted.minutes, down: counted.minutesDown },
+              slaTarget,
+              enabled ? left : 0,
+            ),
+    })),
+    components: inputs.components.map(({ id, name }) => {
+      const { minutes, down } = componentMinutes((daysOf.get(id) ?? []).map((d) => d.minutes));
+      return {
+        id,
+        name,
+        minutes: Math.round(minutes),
+        minutesDown: down,
+        incidents: inputs.incidents.components.get(id) ?? 0,
+      };
+    }),
+  };
 }

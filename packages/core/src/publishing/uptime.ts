@@ -9,6 +9,7 @@ import type {
 } from "@galena/contracts";
 import type { Incident, Maintenance } from "../ports.ts";
 import { componentStatus } from "../status/aggregate.ts";
+import type { MinuteCounts } from "../telemetry/rollup.ts";
 
 /** An `internal_only` monitor never reaches the page: no status, history or uptime of its own. */
 export const onPage = (monitor: { publishPolicy: PublishPolicy }) =>
@@ -102,6 +103,23 @@ export function dayMark(minutes: Partial<Record<ComponentStatus, number>>): {
   const down = (minutes.partial_outage ?? 0) + (minutes.major_outage ?? 0);
   // Whole minutes only, like the mark: a blip under a minute is noise.
   return { worst, downMinutes: Math.floor(down) };
+}
+
+/**
+ * A component's days from the uptime rollup as minutes measured and down, the page's own rule:
+ * partial and major outages are down (whole minutes a day), maintenance counts as up. Measured
+ * minutes stay fractional, as the rollup stores them.
+ */
+export function componentMinutes(
+  days: ReadonlyArray<Partial<Record<ComponentStatus, number>>>,
+): MinuteCounts {
+  let minutes = 0;
+  let down = 0;
+  for (const day of days) {
+    minutes += Object.values(day).reduce((sum, m) => sum + m, 0);
+    down += dayMark(day).downMinutes;
+  }
+  return { minutes, down };
 }
 
 /** Whole minutes per state, leaving out states held for less than a minute. */

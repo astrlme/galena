@@ -19,8 +19,7 @@ import type {
   Maintenance,
 } from "../ports.ts";
 import { componentStatus, isOpenPublished, pageIndicator } from "../status/aggregate.ts";
-import { componentMinutes } from "../telemetry/report.ts";
-import { dayMark, onPage, wholeMinutes } from "./uptime.ts";
+import { componentMinutes, dayMark, onPage, wholeMinutes } from "./uptime.ts";
 
 const DAY = 86_400_000;
 const STRIP_DAYS = 90;

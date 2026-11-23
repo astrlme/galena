@@ -3,6 +3,7 @@ import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 import {
   type ComponentHistory,
+  componentMinutes,
   dayMark,
   type RollupInputs,
   rollupUptime,
@@ -237,4 +238,14 @@ describe("rollupUptime", () => {
       degraded_performance: 60,
     });
   });
+});
+
+test("a component's minutes: every measured minute counts, outages down, maintenance up", () => {
+  expect(
+    componentMinutes([
+      { operational: 1400.5, partial_outage: 39.5 },
+      { operational: 1380, under_maintenance: 50, major_outage: 10 },
+      { degraded_performance: 0.4 },
+    ]),
+  ).toEqual({ minutes: 2880.4, down: 49 });
 });

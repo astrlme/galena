@@ -1,6 +1,7 @@
+import type { ComponentId, MonitorId } from "@galena/contracts";
 import fc from "fast-check";
 import { expect, test } from "vitest";
-import { componentMinutes, errorBudget, minutesLeftIn, monthOf } from "./report.ts";
+import { errorBudget, minutesLeftIn, monthOf, uptimeReport } from "./report.ts";
 import { mergeRollups, type RawCheck, type Rollup, rollUp } from "./rollup.ts";
 
 const REGIONS = ["eu-west-1", "eu-west-3", "eu-north-1"];
@@ -48,7 +49,8 @@ function days(checks: RawCheck[], quorum: number): Rollup[] {
   );
 }
 
-// Counted straight from the raw checks, the way the task states it.
+// Counted straight from the raw checks: a minute is down when a quorum of its answers
+// is down, and a minute of only probe errors isn't counted.
 function counted(checks: RawCheck[], quorum: number) {
   const byMinute = Map.groupBy(
     checks.filter((c) => c.status !== "error"),
@@ -114,12 +116,47 @@ test("minutes left in a month: none once it is over, all of it before it starts"
   expect(minutesLeftIn("2026-12", new Date("2026-11-24T12:00:00.000Z"))).toBe(44_640);
 });
 
-test("a component's minutes: every measured minute counts, outages down, maintenance up", () => {
-  expect(
-    componentMinutes([
-      { operational: 1400.5, partial_outage: 39.5 },
-      { operational: 1380, under_maintenance: 50, major_outage: 10 },
-      { degraded_performance: 0.4 },
-    ]),
-  ).toEqual({ minutes: 2880.4, down: 49 });
+test("a paused monitor's budget counts no minutes still to come; no target, no budget", () => {
+  const counted = { minutes: 30_000, minutesDown: 10, p95Ms: 240 };
+  const monitor = (n: number, enabled: boolean, slaTarget: number | null) => ({
+    id: `01920000-0000-7000-8000-0000000000a${n}` as MonitorId,
+    name: `Monitor ${n}`,
+    type: "http" as const,
+    enabled,
+    slaTarget,
+    counted,
+  });
+  const api = "01920000-0000-7000-8000-000000000011" as ComponentId;
+  const web = "01920000-0000-7000-8000-000000000012" as ComponentId;
+  const report = uptimeReport(
+    {
+      month: "2026-11",
+      monitors: [monitor(1, true, 99.9), monitor(2, false, 99.9), monitor(3, true, null)],
+      components: [
+        { id: api, name: "API" },
+        { id: web, name: "Web" },
+      ],
+      days: [
+        { componentId: api, minutes: { operational: 1400.4, major_outage: 39.6 } },
+        { componentId: api, minutes: { operational: 1440 } },
+      ],
+      incidents: {
+        monitors: new Map([[monitor(3, true, null).id, 2]]),
+        components: new Map([[api, 1]]),
+      },
+    },
+    // 9,360 minutes of November still to come.
+    new Date("2026-11-24T12:00:00.000Z"),
+  );
+  expect(report.monitors.map((m) => [m.incidents, m.budget])).toEqual([
+    // 0.1% of 30,000 + 9,360 minutes is 39.
+    [0, { allowedMinutes: 39, leftMinutes: 29 }],
+    // Paused: 0.1% of the 30,000 checked only.
+    [0, { allowedMinutes: 30, leftMinutes: 20 }],
+    [2, null],
+  ]);
+  expect(report.components).toEqual([
+    { id: api, name: "API", minutes: 2880, minutesDown: 39, incidents: 1 },
+    { id: web, name: "Web", minutes: 0, minutesDown: 0, incidents: 0 },
+  ]);
 });
