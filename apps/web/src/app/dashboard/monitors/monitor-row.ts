@@ -59,8 +59,12 @@ export const latency = (ms: number) =>
 export const uptimeOf = (summary: MonitorSummary | null) =>
   summary && summary.minutes > 0 ? 1 - summary.minutesDown / summary.minutes : undefined;
 
-/** Two decimals, rounded down: a month with a minute down never reads 100.00%. */
-export const percent = (share: number) => `${(Math.floor(share * 10_000) / 100).toFixed(2)}%`;
+/**
+ * Two decimals, rounded down: a month with a minute down never reads 100.00%. The nudge keeps a
+ * share such as 0.668, stored a hair under, from reading 66.79%; a real share is never that close.
+ */
+export const percent = (share: number) =>
+  `${(Math.floor(share * 10_000 + 1e-9) / 100).toFixed(2)}%`;
 
 export function ago(iso: string, now: number) {
   const minutes = Math.floor((now - Date.parse(iso)) / 60_000);

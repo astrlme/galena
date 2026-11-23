@@ -4,7 +4,11 @@ import { hm } from "../../../../lib/time.ts";
 export type UptimeReport =
   paths["/v1/reports/uptime"]["get"]["responses"][200]["content"]["application/json"];
 
-type Budget = { allowedMinutes: number; leftMinutes: number };
+type Budget = NonNullable<UptimeReport["monitors"][number]["budget"]>;
+
+/** The share of checked minutes up, 0 to 1; undefined without any. */
+export const shareUp = (r: { minutes: number; minutesDown: number }) =>
+  r.minutes === 0 ? undefined : 1 - r.minutesDown / r.minutes;
 
 export const budgetText = ({ allowedMinutes, leftMinutes }: Budget) =>
   leftMinutes >= 0
@@ -33,9 +37,12 @@ function cell(value: string | number | null) {
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-/** Three decimals, rounded down like the page's two: a month with a minute down never reads 100. */
+/**
+ * Three decimals, rounded down like the page's two: a month with a minute down never reads 100.
+ * In whole numbers, so 332 of 1,000 minutes down reads 66.800, not 66.799.
+ */
 const uptime = (minutes: number, down: number) =>
-  minutes === 0 ? null : (Math.floor((1 - down / minutes) * 100_000) / 1000).toFixed(3);
+  minutes === 0 ? null : (Math.floor(((minutes - down) * 100_000) / minutes) / 1000).toFixed(3);
 
 /** The report as RFC 4180 CSV: monitors, then components. */
 export function reportCsv(report: UptimeReport) {

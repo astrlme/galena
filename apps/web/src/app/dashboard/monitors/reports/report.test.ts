@@ -35,6 +35,13 @@ const report: UptimeReport = {
       minutesDown: 40,
       incidents: 1,
     },
+    {
+      id: "01920000-0000-7000-8000-000000000012",
+      name: "Web",
+      minutes: 1000,
+      minutesDown: 332,
+      incidents: 0,
+    },
   ],
 };
 
@@ -44,6 +51,7 @@ test("the CSV has a row per monitor and component, quotes what needs it and neve
     'monitor,"Checkout, ""new""",2026-10,44640,12,99.973,1,230,99.9,44,32',
     "monitor,'=HYPERLINK(1),2026-10,0,0,,0,,,,",
     "component,API,2026-10,2880,40,98.611,1,,,,",
+    "component,Web,2026-10,1000,332,66.800,0,,,,",
     "",
   ]);
 });
