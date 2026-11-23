@@ -1,19 +1,8 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { BatchWriteCommand, DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { expect, test } from "@playwright/test";
-import { draft, expectAccessible, signIn } from "./helpers.ts";
+import { draft, expectAccessible, putTelemetry, signIn } from "./helpers.ts";
 
 const REGIONS = ["eu-west-1", "eu-west-3", "eu-north-1"];
 const MINUTE = 60_000;
-
-// DynamoDB Local, as `pnpm dev:local` runs it (one shared database, the `telemetry` table).
-const doc = DynamoDBDocumentClient.from(
-  new DynamoDBClient({
-    endpoint: "http://localhost:8000",
-    region: "eu-central-1",
-    credentials: { accessKeyId: "local", secretAccessKey: "local" },
-  }),
-);
 
 test("a monitor's draft shows why it opened, with the failing regions in view", async ({
   page,
@@ -42,10 +31,7 @@ test("a monitor's draft shows why it opened, with the failing regions in view", 
       };
     }),
   );
-  for (let i = 0; i < items.length; i += 25) {
-    const batch = items.slice(i, i + 25).map((Item) => ({ PutRequest: { Item } }));
-    await doc.send(new BatchWriteCommand({ RequestItems: { telemetry: batch } }));
-  }
+  await putTelemetry(items);
   const id = draft(`${name} is down`, monitorId);
 
   await page.goto(`/dashboard/incidents/view/?id=${id}`);

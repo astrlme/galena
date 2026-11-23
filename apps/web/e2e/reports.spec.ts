@@ -1,20 +1,9 @@
 import { readFile } from "node:fs/promises";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { BatchWriteCommand, DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { histogramOf, quantileOf, rollUp } from "@galena/core";
 import { expect, test } from "@playwright/test";
-import { choose, expectAccessible, isPhone, rowAction, signIn } from "./helpers.ts";
+import { choose, expectAccessible, isPhone, putTelemetry, rowAction, signIn } from "./helpers.ts";
 
 const DAY = 86_400_000;
-
-// DynamoDB Local, as `pnpm dev:local` runs it (one shared database, the `telemetry` table).
-const doc = DynamoDBDocumentClient.from(
-  new DynamoDBClient({
-    endpoint: "http://localhost:8000",
-    region: "eu-central-1",
-    credentials: { accessKeyId: "local", secretAccessKey: "local" },
-  }),
-);
 
 test("last month's report shows a monitor's uptime and SLA budget, and downloads as CSV", async ({
   page,
@@ -50,10 +39,7 @@ test("last month's report shows a monitor's uptime and SLA budget, and downloads
       { pk: `MON#${id}`, sk: `D#${day}#eu-west-1`, ...answers, ttl: 0 },
     ];
   }).flat();
-  for (let i = 0; i < items.length; i += 25) {
-    const batch = items.slice(i, i + 25).map((Item) => ({ PutRequest: { Item } }));
-    await doc.send(new BatchWriteCommand({ RequestItems: { telemetry: batch } }));
-  }
+  await putTelemetry(items);
 
   // The target is set in the monitor's own form.
   await page.goto("/dashboard/monitors/");

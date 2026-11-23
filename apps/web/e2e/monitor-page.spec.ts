@@ -1,22 +1,11 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { BatchWriteCommand, DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { expiryKey, expiryPartition, workspaceId } from "@galena/contracts";
 import { histogramOf, quantileOf, rollUp } from "@galena/core";
 import { expect, test } from "@playwright/test";
-import { expectAccessible, signIn } from "./helpers.ts";
+import { expectAccessible, putTelemetry, signIn } from "./helpers.ts";
 
 const REGIONS = ["eu-west-1", "eu-west-3", "eu-north-1"];
 const HOUR = 3_600_000;
 const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
-
-// DynamoDB Local, as `pnpm dev:local` runs it (one shared database, the `telemetry` table).
-const doc = DynamoDBDocumentClient.from(
-  new DynamoDBClient({
-    endpoint: "http://localhost:8000",
-    region: "eu-central-1",
-    credentials: { accessKeyId: "local", secretAccessKey: "local" },
-  }),
-);
 
 /** One region's hour as `rollup.telemetry` writes it: 60 answers taking `ms` each. */
 function hourItem(monitorId: string, start: number, region: string, ms: number) {
@@ -62,10 +51,7 @@ test("a monitor's page reads its 7-day p95, and each chart's table holds the cha
       ),
     ),
   );
-  for (let i = 0; i < items.length; i += 25) {
-    const batch = items.slice(i, i + 25).map((Item) => ({ PutRequest: { Item } }));
-    await doc.send(new BatchWriteCommand({ RequestItems: { telemetry: batch } }));
-  }
+  await putTelemetry(items);
 
   await page.goto("/dashboard/monitors/");
   await page.getByRole("link", { name }).click();
@@ -131,23 +117,20 @@ test("a certificate 10 days from expiry shows on Home and on its monitor's page"
   const me = (await (await page.request.get("/v1/me")).json()) as { workspaceId: string };
   // As the hourly scan stores it, a minute short of 10 days out.
   const expiresAt = new Date(Date.now() + 10 * 24 * HOUR - 60_000).toISOString();
-  await doc.send(
-    new PutCommand({
-      TableName: "telemetry",
-      Item: {
-        pk: expiryPartition(workspaceId.parse(me.workspaceId)),
-        sk: expiryKey({ kind: "certificate", name: host }),
-        kind: "certificate",
-        name: host,
-        expiresAt,
-        issuer: "Galena test CA",
-        monitorIds: [id],
-        checkedAt: new Date().toISOString(),
-        sent: null,
-        ttl: Math.floor(Date.now() / 1000) + 3600,
-      },
-    }),
-  );
+  await putTelemetry([
+    {
+      pk: expiryPartition(workspaceId.parse(me.workspaceId)),
+      sk: expiryKey({ kind: "certificate", name: host }),
+      kind: "certificate",
+      name: host,
+      expiresAt,
+      issuer: "Galena test CA",
+      monitorIds: [id],
+      checkedAt: new Date().toISOString(),
+      sent: null,
+      ttl: Math.floor(Date.now() / 1000) + 3600,
+    },
+  ]);
 
   await page.goto("/dashboard/");
   const soon = page.getByRole("region", { name: "Needs you" });

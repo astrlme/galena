@@ -1,7 +1,26 @@
 import { execSync } from "node:child_process";
 import { createHmac } from "node:crypto";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { BatchWriteCommand, DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page } from "@playwright/test";
+
+// DynamoDB Local, as `pnpm dev:local` runs it (one shared database, the `telemetry` table).
+const telemetry = DynamoDBDocumentClient.from(
+  new DynamoDBClient({
+    endpoint: "http://localhost:8000",
+    region: "eu-central-1",
+    credentials: { accessKeyId: "local", secretAccessKey: "local" },
+  }),
+);
+
+/** Writes items to the local telemetry table as the jobs would, 25 to a batch. */
+export async function putTelemetry(items: Record<string, unknown>[]) {
+  for (let i = 0; i < items.length; i += 25) {
+    const batch = items.slice(i, i + 25).map((Item) => ({ PutRequest: { Item } }));
+    await telemetry.send(new BatchWriteCommand({ RequestItems: { telemetry: batch } }));
+  }
+}
 
 // Seeded by `pnpm db:seed` (apps/api/src/seed.ts); local databases only.
 export const OWNER = { email: "owner@example.com", password: "galena-local-owner" };
