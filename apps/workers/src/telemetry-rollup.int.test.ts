@@ -1,7 +1,8 @@
 import { CreateTableCommand, DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { BatchWriteCommand, DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import type { MonitorId } from "@galena/contracts";
-import { fixedClock, quantileOf, rollUp } from "@galena/core";
+import { fixedClock, histogramOf, monthOf, quantileOf, rollUp } from "@galena/core";
+import { minutesOf, regionRollupOf, spanKeys } from "@galena/integrations/telemetry";
 import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { dynamoTelemetryStore, rollUpDay, rollUpTelemetry } from "./telemetry-rollup.ts";
@@ -182,4 +183,54 @@ test("the backfill writes a day older than 30 days, but not its hours, which wou
   expect((await items("UH#", pk)).size).toBe(0);
   expect((await items("D#", pk)).size).toBe(3);
   expect((await items("UD#", pk)).get("UD#2026-09-01")).toMatchObject({ minutes: 1, down: 0 });
+});
+
+test("a month rolled up day by day from raw checks counts what the raw checks say", async () => {
+  const id = "01920000-0000-7000-8000-0000000000c3" as MonitorId;
+  const pk = `MON#${id}`;
+  // The first three days of October, checked once an hour in every region, answering in 100 ms
+  // plus the hour. At 06:00 on the 2nd Ireland and Paris both fail, a quorum; at 07:00 only
+  // Ireland does; at 08:00 on the 3rd every probe fails itself, so nobody knows.
+  const raw: Record<string, unknown>[] = [];
+  const latencies: number[] = [];
+  for (const day of ["2026-10-01", "2026-10-02", "2026-10-03"]) {
+    for (let hour = 0; hour < 24; hour++) {
+      const at = `${day}T${String(hour).padStart(2, "0")}:00:00.000Z`;
+      for (const region of REGIONS) {
+        const down =
+          day === "2026-10-02" &&
+          ((hour === 6 && region !== "eu-north-1") || (hour === 7 && region === "eu-west-1"));
+        const error = day === "2026-10-03" && hour === 8;
+        const status = error ? "error" : down ? "down" : "up";
+        if (status === "up") latencies.push(100 + hour);
+        raw.push({
+          pk,
+          sk: `R#${at}#${region}`,
+          status,
+          latencyMs: status === "up" ? 100 + hour : null,
+          phases: null,
+        });
+      }
+    }
+  }
+  await put(raw);
+
+  const store = dynamoTelemetryStore(doc, "telemetry");
+  const now = Date.parse("2026-10-04T00:05:00.000Z");
+  for (const day of ["2026-10-01", "2026-10-02", "2026-10-03"]) {
+    await rollUpDay(store, { id, quorum: 2 }, day, now);
+  }
+  // Read back the way the report reads a month.
+  const month = monthOf({
+    minutes: (await store.query(pk, spanKeys("UD", "2026-10-01", "2026-10-31"))).map(minutesOf),
+    regions: (await store.query(pk, spanKeys("D", "2026-10-01", "2026-10-31"))).map(
+      (item) => regionRollupOf(item).rollup,
+    ),
+  });
+  expect(month).toEqual({
+    // 72 hours checked, less the one only errors answered.
+    minutes: 71,
+    minutesDown: 1,
+    p95Ms: Math.round(quantileOf(histogramOf(latencies), 0.95) ?? 0),
+  });
 });
