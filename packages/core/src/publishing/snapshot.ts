@@ -19,6 +19,7 @@ import type {
   Maintenance,
 } from "../ports.ts";
 import { componentStatus, isOpenPublished, pageIndicator } from "../status/aggregate.ts";
+import { componentMinutes } from "../telemetry/report.ts";
 import { dayMark, onPage, wholeMinutes } from "./uptime.ts";
 
 const DAY = 86_400_000;
@@ -164,14 +165,7 @@ export function buildSnapshot(inputs: SnapshotInputs, clock: Clock): Snapshot {
       if (!minutes) return { date, ...dayMark({}) };
       return { date, ...dayMark(minutes), minutes: wholeMinutes(minutes) };
     });
-    let measured = 0;
-    let down = 0;
-    for (const date of dates) {
-      const minutes = rows.get(date);
-      if (!minutes) continue;
-      measured += Object.values(minutes).reduce((sum, m) => sum + m, 0);
-      down += dayMark(minutes).downMinutes;
-    }
+    const { minutes: measured, down } = componentMinutes(dates.flatMap((d) => rows.get(d) ?? []));
     return {
       id: component.id,
       groupId: component.groupId,

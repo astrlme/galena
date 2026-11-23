@@ -24,6 +24,7 @@ export * from "./result.ts";
 export * from "./roles.ts";
 export * from "./status/aggregate.ts";
 export * from "./telemetry/histogram.ts";
+export * from "./telemetry/report.ts";
 export * from "./telemetry/rollup.ts";
 export * from "./telemetry/series.ts";
 export * from "./telemetry/summary.ts";
