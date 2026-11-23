@@ -68,8 +68,12 @@ export const statusPageParts = [
   { title: "Internal page", href: "/dashboard/status-page/internal/" },
 ] as const satisfies readonly Place[];
 
-/** Every place, for lookups and the palette's "Go to". */
-export const places: readonly Place[] = [...sections, ...statusPageParts];
+/** Every place, for lookups and the palette's "Go to"; Uptime reports is linked from Monitors. */
+export const places: readonly Place[] = [
+  ...sections,
+  ...statusPageParts,
+  { title: "Uptime reports", href: "/dashboard/monitors/reports/" },
+];
 
 /** Whether `pathname` is in `place`; Home is only itself. */
 export const isCurrent = (place: Place, pathname: string) =>

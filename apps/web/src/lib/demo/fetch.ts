@@ -1,6 +1,7 @@
 import { monitorAnswer } from "./charts.ts";
 import { demoData } from "./data.ts";
 import { evidenceAnswer } from "./evidence.ts";
+import { reportAnswer } from "./report.ts";
 
 // The demo build's stand-in for the network: the dashboard's requests are answered here, in the
 // browser, from sample data. Nothing is ever saved.
@@ -46,6 +47,11 @@ export async function demoFetch(request: Request): Promise<Response> {
     "/v1/slack": data.slack,
     "/v1/team": data.team,
     "/v1/invites/preview": data.invitePreview,
+    "/v1/reports/uptime": reportAnswer(
+      data,
+      url.searchParams.get("month") ?? new Date().toISOString().slice(0, 7),
+      new Date(),
+    ),
     ...Object.fromEntries(data.incidents.map((i) => [`/v1/incidents/${i.id}`, i])),
   };
   const log = /^\/v1\/webhook-endpoints\/([^/]+)\/deliveries$/.exec(url.pathname);
