@@ -208,11 +208,11 @@ test("probe messages group checks by monitor and canaries by region", () => {
   expect(probeMessage.safeParse({ kind: "heartbeat" }).success).toBe(false);
 });
 
-test("an SLA target is optional and sits above 0% and below 100%", () => {
+test("an SLA target is optional, above 0% and below 100%, to a thousandth", () => {
   const body = { name: "API", http: { url: "https://api.example.com/" } };
   expect(monitorInput.parse(body).slaTarget).toBeNull();
-  expect(monitorInput.parse({ ...body, slaTarget: 99.95 }).slaTarget).toBe(99.95);
-  for (const slaTarget of [0, 100, 101]) {
+  expect(monitorInput.parse({ ...body, slaTarget: 99.995 }).slaTarget).toBe(99.995);
+  for (const slaTarget of [0, 100, 101, 99.9996]) {
     expect(monitorInput.safeParse({ ...body, slaTarget }).success).toBe(false);
   }
 });
