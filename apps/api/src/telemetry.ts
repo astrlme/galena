@@ -266,19 +266,29 @@ export function dynamoTelemetry(
     },
     async month(id, month, today) {
       const { days } = monthSpan(month);
-      // Today has no day rollup until after midnight; its hours stand in for it meanwhile.
-      const running = today >= days.from && today <= days.to;
-      const hours = async (prefix: "UH" | "H") =>
-        running ? span(id, spanKeys(prefix, `${today}T00`, `${today}T23`)) : [];
-      const [dayMinutes, dayRegions, hourMinutes, hourRegions] = await Promise.all([
+      const inMonth = (day: string) => day >= days.from && day <= days.to;
+      const hoursOf = async (day: string) =>
+        inMonth(day)
+          ? Promise.all([
+              span(id, spanKeys("UH", `${day}T00`, `${day}T23`)),
+              span(id, spanKeys("H", `${day}T00`, `${day}T23`)),
+            ])
+          : [[], []];
+      // A day has no day rollup until five past the next midnight; its hours stand in meanwhile.
+      const [dayMinutes, dayRegions, [todayMinutes, todayRegions]] = await Promise.all([
         span(id, spanKeys("UD", days.from, days.to)),
         span(id, spanKeys("D", days.from, days.to)),
-        hours("UH"),
-        hours("H"),
+        hoursOf(today),
       ]);
+      // Only in those five minutes is yesterday's still missing, so only then are its hours read.
+      const yesterday = dayKey(Date.parse(`${today}T00:00:00.000Z`) - DAY);
+      const isYesterdayRolled = dayMinutes.some((item) => item.sk === `UD#${yesterday}`);
+      const [lateMinutes, lateRegions] = isYesterdayRolled ? [[], []] : await hoursOf(yesterday);
       return monthOf({
-        minutes: [...dayMinutes, ...hourMinutes].map(minutesOf),
-        regions: [...dayRegions, ...hourRegions].map((item) => regionRollupOf(item).rollup),
+        minutes: [...dayMinutes, ...todayMinutes, ...lateMinutes].map(minutesOf),
+        regions: [...dayRegions, ...todayRegions, ...lateRegions].map(
+          (item) => regionRollupOf(item).rollup,
+        ),
       });
     },
     async checkIn(id, issuedAt, at) {

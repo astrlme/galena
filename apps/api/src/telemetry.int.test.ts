@@ -330,4 +330,16 @@ test("a 90-day chart reads one item per region per day, and a month adds its day
   expect(days).toHaveLength(90);
   expect(days[0]).toEqual({ date: "2026-08-05", minutes: 1440, minutesDown: 2 });
   expect(days.at(-1)).toEqual({ date: "2026-11-02", minutes: 13 * 60, minutesDown: 13 });
+
+  // Just after midnight, before the 2nd's day rollup lands, its hours still count.
+  expect(await telemetry.month(CHARTED, "2026-11", "2026-11-03")).toMatchObject({
+    minutes: 1440 + 13 * 60,
+    minutesDown: 2 + 13,
+  });
+  // Once it lands, the day counts and its hours don't count again.
+  await put([{ pk: `MON#${CHARTED}`, sk: "UD#2026-11-02", minutes: 1440, down: 20 }]);
+  expect(await telemetry.month(CHARTED, "2026-11", "2026-11-03")).toMatchObject({
+    minutes: 2 * 1440,
+    minutesDown: 2 + 20,
+  });
 });
