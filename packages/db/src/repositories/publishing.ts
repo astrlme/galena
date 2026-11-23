@@ -6,7 +6,7 @@ import {
   type WorkspaceId,
 } from "@galena/contracts";
 import type { SnapshotInputs, UptimeDay } from "@galena/core";
-import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import type { Db } from "../client.ts";
 import { monitor, monitorStateChange, page, uptimeDaily, workspace } from "../schema/index.ts";
@@ -158,11 +158,12 @@ export async function saveUptimeDays(db: Db, workspaceId: WorkspaceId, days: rea
     });
 }
 
-/** Every component's rollups from `fromDay` (a UTC date, `YYYY-MM-DD`) on. */
+/** Every component's rollups from `fromDay` (a UTC date, `YYYY-MM-DD`) on, up to `toDay` if given. */
 export async function listUptimeDays(
   db: Db,
   workspaceId: WorkspaceId,
   fromDay: string,
+  toDay?: string,
 ): Promise<UptimeDay[]> {
   const rows = await db
     .select({
@@ -171,7 +172,13 @@ export async function listUptimeDays(
       minutes: uptimeDaily.minutes,
     })
     .from(uptimeDaily)
-    .where(and(eq(uptimeDaily.workspaceId, workspaceId), gte(uptimeDaily.day, fromDay)))
+    .where(
+      and(
+        eq(uptimeDaily.workspaceId, workspaceId),
+        gte(uptimeDaily.day, fromDay),
+        toDay === undefined ? undefined : lte(uptimeDaily.day, toDay),
+      ),
+    )
     .orderBy(asc(uptimeDaily.day));
   return rows;
 }

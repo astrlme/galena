@@ -86,6 +86,7 @@ export {
   recordMonitorTransition,
   saveUptimeDays,
 } from "./repositories/publishing.ts";
+export { monthIncidentCounts } from "./repositories/reports.ts";
 export {
   type SlackInstall,
   type SlackInstallRow,
