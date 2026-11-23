@@ -11,6 +11,7 @@ import {
 } from "@galena/contracts";
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -47,6 +48,8 @@ export const monitor = pgTable(
     downStatus: downStatus().notNull().default("major_outage"),
     detection: jsonb().$type<DetectionSettings>().notNull(),
     enabled: boolean().notNull().default(true),
+    /** A percentage such as 99.9; null for no target. */
+    slaTarget: doublePrecision(),
     /** The last confirmed state detection reported, and its `transitionSeq`. */
     state: monitorState().notNull().default("unknown"),
     stateSeq: integer().notNull().default(0),

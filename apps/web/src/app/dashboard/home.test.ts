@@ -52,6 +52,7 @@ const monitor = (n: number, name: string): Monitor => ({
     recoverAtOnce: false,
   },
   enabled: true,
+  slaTarget: null,
 });
 
 /** Down for `minutes` in `failing` regions, answering in the others. */

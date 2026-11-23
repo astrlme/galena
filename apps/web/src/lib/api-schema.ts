@@ -600,6 +600,8 @@ export interface paths {
                                 };
                                 /** @default true */
                                 enabled: boolean;
+                                /** @default null */
+                                slaTarget: number | null;
                             }[];
                         };
                     };
@@ -686,6 +688,8 @@ export interface paths {
                         };
                         /** @default true */
                         enabled?: boolean;
+                        /** @default null */
+                        slaTarget?: number | null;
                     };
                 };
             };
@@ -760,6 +764,8 @@ export interface paths {
                             };
                             /** @default true */
                             enabled: boolean;
+                            /** @default null */
+                            slaTarget: number | null;
                             /** Format: uri */
                             pingUrl: string | null;
                         };
@@ -861,6 +867,8 @@ export interface paths {
                                 };
                                 /** @default true */
                                 enabled: boolean;
+                                /** @default null */
+                                slaTarget: number | null;
                             }[];
                         };
                     };
@@ -1028,6 +1036,8 @@ export interface paths {
                         };
                         /** @default true */
                         enabled?: boolean;
+                        /** @default null */
+                        slaTarget?: number | null;
                     };
                 };
             };
@@ -1102,6 +1112,8 @@ export interface paths {
                             };
                             /** @default true */
                             enabled: boolean;
+                            /** @default null */
+                            slaTarget: number | null;
                         };
                     };
                 };

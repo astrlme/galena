@@ -958,6 +958,15 @@
                           "enabled": {
                             "type": "boolean",
                             "default": true
+                          },
+                          "slaTarget": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "exclusiveMinimum": 0,
+                            "exclusiveMaximum": 100,
+                            "default": null
                           }
                         },
                         "required": [
@@ -1165,6 +1174,15 @@
                   "enabled": {
                     "type": "boolean",
                     "default": true
+                  },
+                  "slaTarget": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "exclusiveMinimum": 0,
+                    "exclusiveMaximum": 100,
+                    "default": null
                   }
                 },
                 "required": [
@@ -1363,6 +1381,15 @@
                     "enabled": {
                       "type": "boolean",
                       "default": true
+                    },
+                    "slaTarget": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0,
+                      "exclusiveMaximum": 100,
+                      "default": null
                     },
                     "pingUrl": {
                       "type": [
@@ -1613,6 +1640,15 @@
                           "enabled": {
                             "type": "boolean",
                             "default": true
+                          },
+                          "slaTarget": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "exclusiveMinimum": 0,
+                            "exclusiveMaximum": 100,
+                            "default": null
                           }
                         },
                         "required": [
@@ -2022,6 +2058,15 @@
                   "enabled": {
                     "type": "boolean",
                     "default": true
+                  },
+                  "slaTarget": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "exclusiveMinimum": 0,
+                    "exclusiveMaximum": 100,
+                    "default": null
                   }
                 },
                 "required": [
@@ -2220,6 +2265,15 @@
                     "enabled": {
                       "type": "boolean",
                       "default": true
+                    },
+                    "slaTarget": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0,
+                      "exclusiveMaximum": 100,
+                      "default": null
                     }
                   },
                   "required": [

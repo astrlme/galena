@@ -97,6 +97,7 @@ export function demoData(now: Date) {
     downStatus: s.downStatus ?? "major_outage",
     detection: DETECTION,
     enabled: true,
+    slaTarget: null,
   }));
 
   const telemetry: Reading[] = scenes.map((s) => {

@@ -20,6 +20,7 @@ const columns = {
   downStatus: monitor.downStatus,
   detection: monitor.detection,
   enabled: monitor.enabled,
+  slaTarget: monitor.slaTarget,
 };
 
 export function monitorRepository(db: Db): MonitorRepository {

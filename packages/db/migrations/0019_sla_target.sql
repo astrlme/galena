@@ -1,0 +1,1 @@
+ALTER TABLE "monitor" ADD COLUMN "sla_target" double precision;
