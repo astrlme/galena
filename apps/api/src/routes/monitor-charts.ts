@@ -140,9 +140,9 @@ export function registerMonitorChartRoutes(app: App, deps: Deps) {
       method: "get",
       path: "/v1/monitors/{id}/uptime",
       tags: ["Monitors"],
-      summary: "A monitor's month: minutes checked, minutes down, incidents it opened",
+      summary: "A monitor's month: minutes checked, minutes down, p95, incidents it opened",
       description:
-        "A minute is down when a quorum of regions failed it. Maintenance is not taken out. The month defaults to the current one (UTC); each hour counts once rolled up, at five past the next.",
+        "A minute is down when a quorum of regions failed it. Maintenance is not taken out. The p95 is over every region's answers. The month defaults to the current one (UTC); each hour counts once rolled up, at five past the next.",
       middleware: [viewer],
       request: {
         params: z.object({ id: monitorId }),
@@ -156,12 +156,9 @@ export function registerMonitorChartRoutes(app: App, deps: Deps) {
       const now = new Date().toISOString();
       const asked = c.req.valid("query").month ?? now.slice(0, 7);
       if (!(await monitors.findById(member.workspaceId, id))) notFound("Monitor");
-      const minutes = await deps.telemetry.minutes(id, asked, now.slice(0, 10));
+      const counted = await deps.telemetry.month(id, asked, now.slice(0, 10));
       const incidents = await countMonitorIncidents(db, member.workspaceId, id, monthSpan(asked));
-      return c.json(
-        { month: asked, minutes: minutes.minutes, minutesDown: minutes.down, incidents },
-        200,
-      );
+      return c.json({ month: asked, ...counted, incidents }, 200);
     },
   );
 }

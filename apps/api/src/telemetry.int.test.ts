@@ -1,7 +1,7 @@
 import { CreateTableCommand, DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { BatchWriteCommand, DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { expiryPartition, monitorId, workspaceId } from "@galena/contracts";
-import { rollUp, seriesWindow } from "@galena/core";
+import { pointOf, rollUp, seriesWindow } from "@galena/core";
 import { GenericContainer, type StartedTestContainer } from "testcontainers";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { dynamoTelemetry, RECENT_MINUTES } from "./telemetry.ts";
@@ -294,24 +294,31 @@ test("a 90-day chart reads one item per region per day, and a month adds its day
     [null, 540, 270],
   ]);
 
-  // October: 31 days of 1440 minutes, two of each down.
-  expect(await telemetry.minutes(CHARTED, "2026-10", "2026-11-02")).toEqual({
+  // October: 31 days of 1440 minutes, two of each down, and every answer 100 ms.
+  const oneDay = pointOf(day).p95Ms;
+  expect(await telemetry.month(CHARTED, "2026-10", "2026-11-02")).toEqual({
     minutes: 31 * 1440,
-    down: 62,
+    minutesDown: 62,
+    p95Ms: oneDay,
   });
-  // November so far: the 1st rolled up, and the 2nd's hours until noon, one minute down in each.
+  // November so far: the 1st rolled up, and the 2nd's hours until noon, one minute down in each
+  // and one 5-second answer each, which outnumber the 1st's three quick ones.
+  const slow = rollUp(
+    [{ region: "eu-west-1", scheduledAt: "t1", status: "up", latencyMs: 5000, phases: null }],
+    2,
+  ).regions.get("eu-west-1");
   await put(
-    Array.from({ length: 13 }, (_, h) => ({
-      pk: `MON#${CHARTED}`,
-      sk: `UH#2026-11-02T${String(h).padStart(2, "0")}`,
-      minutes: 60,
-      down: 1,
-    })),
+    Array.from({ length: 13 }, (_, h) => {
+      const hour = `2026-11-02T${String(h).padStart(2, "0")}`;
+      return [
+        { pk: `MON#${CHARTED}`, sk: `UH#${hour}`, minutes: 60, down: 1 },
+        { pk: `MON#${CHARTED}`, sk: `H#${hour}#eu-west-1`, ...slow },
+      ];
+    }).flat(),
   );
-  expect(await telemetry.minutes(CHARTED, "2026-11", "2026-11-02")).toEqual({
-    minutes: 1440 + 13 * 60,
-    down: 2 + 13,
-  });
+  const november = await telemetry.month(CHARTED, "2026-11", "2026-11-02");
+  expect(november).toMatchObject({ minutes: 1440 + 13 * 60, minutesDown: 2 + 13 });
+  expect(november.p95Ms).toBeGreaterThan(4000);
   // The uptime bar's 90 days end today, from its hours so far.
   const days = await telemetry.days(CHARTED, "2026-11-02");
   // Just after midnight on the 3rd, the 2nd has no day rollup yet: its hours stand in.

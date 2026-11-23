@@ -28,7 +28,9 @@ import {
 import {
   dayKey,
   type MinuteCounts,
+  type MonthOf,
   mergeMinutes,
+  monthOf,
   monthSpan,
   ninetyDays,
   type PointAt,
@@ -86,8 +88,11 @@ export type Telemetry = {
   series(id: MonitorId, window: SeriesWindow): Promise<{ points: PointAt[]; totals: Total[] }>;
   /** A chart window's minutes checked and down: a small item an hour or a day. */
   uptime(id: MonitorId, window: SeriesWindow): Promise<MinuteCounts>;
-  /** A month's minutes (`YYYY-MM`): its rolled-up days, and today's hours while it is today's. */
-  minutes(id: MonitorId, month: string, today: string): Promise<MinuteCounts>;
+  /**
+   * A month (`YYYY-MM`): minutes checked and down, and its p95, from its rolled-up days and,
+   * while it is running, today's hours.
+   */
+  month(id: MonitorId, month: string, today: string): Promise<MonthOf>;
   /** The 90 days to `today` (`YYYY-MM-DD`), oldest first; see `ninetyDays`. */
   days(id: MonitorId, today: string): Promise<MonitorDay[]>;
   /** One monitor's results scheduled since `since` (60 minutes at most), newest first, with errors. */
@@ -259,14 +264,22 @@ export function dynamoTelemetry(
       // `~` sorts after `#`, so the bound takes every region's result at `to`.
       return (await span(id, { from: `R#${from}`, to: `R#${to}~` })).map(checkOf);
     },
-    async minutes(id, month, today) {
+    async month(id, month, today) {
       const { days } = monthSpan(month);
-      const items = await span(id, spanKeys("UD", days.from, days.to));
       // Today has no day rollup until after midnight; its hours stand in for it meanwhile.
-      if (today >= days.from && today <= days.to) {
-        items.push(...(await span(id, spanKeys("UH", `${today}T00`, `${today}T23`))));
-      }
-      return items.map(minutesOf).reduce<MinuteCounts>(mergeMinutes, { minutes: 0, down: 0 });
+      const running = today >= days.from && today <= days.to;
+      const hours = async (prefix: "UH" | "H") =>
+        running ? span(id, spanKeys(prefix, `${today}T00`, `${today}T23`)) : [];
+      const [dayMinutes, dayRegions, hourMinutes, hourRegions] = await Promise.all([
+        span(id, spanKeys("UD", days.from, days.to)),
+        span(id, spanKeys("D", days.from, days.to)),
+        hours("UH"),
+        hours("H"),
+      ]);
+      return monthOf({
+        minutes: [...dayMinutes, ...hourMinutes].map(minutesOf),
+        regions: [...dayRegions, ...hourRegions].map((item) => regionRollupOf(item).rollup),
+      });
     },
     async checkIn(id, issuedAt, at) {
       try {

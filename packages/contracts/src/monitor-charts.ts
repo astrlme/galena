@@ -90,5 +90,7 @@ export const monitorUptime = z.object({
   month,
   minutes: z.int().nonnegative(),
   minutesDown: z.int().nonnegative(),
+  /** Over every region's answers; null without any. */
+  p95Ms: z.int().nonnegative().nullable(),
   incidents: z.int().nonnegative(),
 });

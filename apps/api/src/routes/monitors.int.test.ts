@@ -9,7 +9,7 @@ import {
   type RecentCheck,
   type StoredPing,
 } from "@galena/contracts";
-import type { MinuteCounts, PointAt } from "@galena/core";
+import type { MinuteCounts, MonthOf, PointAt } from "@galena/core";
 import { schema } from "@galena/db";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
@@ -39,7 +39,7 @@ let charts: Map<MonitorId, Awaited<ReturnType<Telemetry["series"]>>>;
 let uptimes: Map<MonitorId, MinuteCounts>;
 let days: Map<MonitorId, MonitorDay[]>;
 let checks: Map<MonitorId, RecentCheck[]>;
-let months: Map<string, MinuteCounts>;
+let months: Map<string, MonthOf>;
 let pings: Map<MonitorId, StoredPing>;
 let expiries: Expiry[];
 let owner: Session;
@@ -394,7 +394,7 @@ test("a monitor's days and its last hour of checks pass through; an unknown one 
 test("a monitor's month says its minutes down and the incidents it opened, nobody else's", async () => {
   const watched = await create({ name: "Watched", http: { url: "https://month.example.com/" } });
   const other = await create({ name: "Other", http: { url: "https://other.example.com/" } });
-  months.set(`${watched.id} 2026-10`, { minutes: 44_640, down: 12 });
+  months.set(`${watched.id} 2026-10`, { minutes: 44_640, minutesDown: 12, p95Ms: 230 });
   const [ws] = await deps.db.select().from(schema.workspace);
   const incident = (monitor: string, startedAt: string, extra: Record<string, unknown> = {}) => ({
     id: v7() as IncidentId,
@@ -424,6 +424,7 @@ test("a monitor's month says its minutes down and the incidents it opened, nobod
     month: "2026-10",
     minutes: 44_640,
     minutesDown: 12,
+    p95Ms: 230,
     incidents: 2,
   });
   expect((await owner.call(`/v1/monitors/${watched.id}/uptime?month=2026-13`)).status).toBe(400);

@@ -1,6 +1,6 @@
 // Dependencies for tests. Nothing connects until a query runs, so unit tests need no database.
 import type { Expiry, MonitorDay, MonitorId, RecentCheck, StoredPing } from "@galena/contracts";
-import type { MinuteCounts, WorkflowEngine } from "@galena/core";
+import type { MinuteCounts, MonthOf, WorkflowEngine } from "@galena/core";
 import { createDb } from "@galena/db";
 import { guard } from "@galena/integrations/net";
 import { appKeys, LOCAL_APP_KEY } from "@galena/integrations/secrets";
@@ -28,12 +28,12 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
   };
   // Telemetry the test sets directly instead of DynamoDB.
   const readings = new Map<MonitorId, MonitorReading>();
-  // Each monitor's chart, days and last hour, and a month's minutes by `<monitorId> <YYYY-MM>`.
+  // Each monitor's chart, days and last hour, and a month by `<monitorId> <YYYY-MM>`.
   const charts = new Map<MonitorId, Awaited<ReturnType<Telemetry["series"]>>>();
   const uptimes = new Map<MonitorId, MinuteCounts>();
   const days = new Map<MonitorId, MonitorDay[]>();
   const checks = new Map<MonitorId, RecentCheck[]>();
-  const months = new Map<string, MinuteCounts>();
+  const months = new Map<string, MonthOf>();
   // Check-ins as DynamoDB keeps them: an older URL never overwrites a newer one's.
   const pings = new Map<MonitorId, StoredPing>();
   const checkInTimes = new Map<MonitorId, string[]>();
@@ -65,8 +65,8 @@ export function testDeps(url = "postgres://unused:unused@localhost:1/unused") {
         .filter((r) => r.scheduledAt >= from && r.scheduledAt <= to)
         .toSorted((a, b) => (a.scheduledAt < b.scheduledAt ? -1 : 1));
     },
-    async minutes(id, month, _today) {
-      return months.get(`${id} ${month}`) ?? { minutes: 0, down: 0 };
+    async month(id, month, _today) {
+      return months.get(`${id} ${month}`) ?? { minutes: 0, minutesDown: 0, p95Ms: null };
     },
     async checkIn(id, issuedAt, at) {
       if ((pings.get(id)?.issuedAt ?? 0) > issuedAt.getTime()) return false;

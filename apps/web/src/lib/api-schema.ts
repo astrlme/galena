@@ -1359,8 +1359,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * A monitor's month: minutes checked, minutes down, incidents it opened
-         * @description A minute is down when a quorum of regions failed it. Maintenance is not taken out. The month defaults to the current one (UTC); each hour counts once rolled up, at five past the next.
+         * A monitor's month: minutes checked, minutes down, p95, incidents it opened
+         * @description A minute is down when a quorum of regions failed it. Maintenance is not taken out. The p95 is over every region's answers. The month defaults to the current one (UTC); each hour counts once rolled up, at five past the next.
          */
         get: {
             parameters: {
@@ -1385,6 +1385,7 @@ export interface paths {
                             month: string;
                             minutes: number;
                             minutesDown: number;
+                            p95Ms: number | null;
                             incidents: number;
                         };
                     };
