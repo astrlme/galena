@@ -256,6 +256,22 @@ export function MonitorForm({
           </label>
         ))}
       </fieldset>
+      <Field
+        id="monitor-sla"
+        label="SLA target (optional)"
+        help="Uptime each month should reach, in percent, such as 99.9. Uptime reports show the down time it still allows."
+        error={errors.slaTarget?.message}
+        inputMode="decimal"
+        {...form.register("slaTarget", {
+          // "99.9%" means 99.9.
+          setValueAs: (v: string | number | null | undefined) => {
+            const text = String(v ?? "")
+              .replace(/%\s*$/, "")
+              .trim();
+            return text === "" ? null : Number(text);
+          },
+        })}
+      />
       <p aria-live="polite" className="font-semibold text-major empty:hidden">
         {problem}
       </p>

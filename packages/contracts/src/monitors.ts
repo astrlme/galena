@@ -90,7 +90,7 @@ export const monitorConfig = z.object({
   enabled: z.boolean().default(true),
   /** Uptime the month should reach, as a percentage such as 99.9; reports show its error budget. */
   slaTarget: z
-    .number()
+    .number({ error: "Enter a percentage such as 99.9." })
     .gt(0, "Use a target above 0%, such as 99.9.")
     .lt(100, "Use a target below 100%, such as 99.9.")
     .nullable()
