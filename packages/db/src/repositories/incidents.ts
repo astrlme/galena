@@ -300,11 +300,16 @@ export function listDrafts(db: Db) {
 }
 
 /** A monitor's own incidents, dismissed drafts and deleted ones aside. */
-const monitorsOwn = (workspaceId: WorkspaceId, monitorId: MonitorId) => [
+/** The incidents a monitor's counts include: drafts and internal ones too, never dismissed or deleted. */
+export const countedIncidents = (workspaceId: WorkspaceId) => [
   eq(incident.workspaceId, workspaceId),
-  eq(incident.dedupKey, monitorDedupKey(monitorId)),
   isNull(incident.deletedAt),
   sql`${incident.visibility}::text <> 'dismissed'`,
+];
+
+const monitorsOwn = (workspaceId: WorkspaceId, monitorId: MonitorId) => [
+  ...countedIncidents(workspaceId),
+  eq(incident.dedupKey, monitorDedupKey(monitorId)),
 ];
 
 /** How many incidents a monitor opened from `from` up to `to`. */
