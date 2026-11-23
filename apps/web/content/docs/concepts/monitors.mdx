@@ -45,6 +45,7 @@ hop. A check aimed at one fails with `blocked_by_guard`. See [Security model](/d
 | Component | none | Yes |
 | Down status: what the component shows while the monitor is down | Major outage | Yes |
 | Publish policy | Ask a person first | Yes |
+| SLA target: the uptime each month should reach, such as 99.9% | none | Yes |
 | Paused | no | Yes |
 | Accepted status codes, up to 20 | any 2xx | API |
 | Timeout, 1 to 10 seconds | 10 s | API |
@@ -108,3 +109,30 @@ One probe's outcome for one monitor in one minute is a **check result**:
 The dashboard shows each monitor's last hour per region. Results stay in DynamoDB for 90 days.
 The page's history is built from something smaller: each monitor's confirmed state changes, kept
 in the database. See [Detection](/docs/concepts/detection/).
+
+## Uptime reports
+
+**Monitors → Uptime reports** shows one month (UTC) at a time, the running month or one of the
+twelve before it, and downloads it as CSV. The running month counts up to the last whole
+hour.
+
+| Column | A monitor | A component |
+| --- | --- | --- |
+| Uptime | Minutes checked, less minutes down, over minutes checked. A minute is down when a quorum of regions failed it. | The page's [uptime figure](/docs/concepts/status-and-uptime/#the-uptime-figure), over the month |
+| Down | Minutes down | Partial and major outage minutes |
+| Incidents | Opened by the monitor and started in the month, drafts and internal ones too | Published incidents naming it that started in the month |
+| p95 | Over every region's answers | |
+| Error budget | With an SLA target: the down time the month still allows | |
+
+Maintenance is not taken out of either. A monitor's error budget counts the minutes still to
+come, so partway through a month it says how much more down time the month can take:
+
+```
+allowed = (100% − target) × (minutes checked + minutes left in the month), rounded down
+left    = allowed − minutes down
+```
+
+A finished month has no minutes left, so it met its target exactly when its budget didn't go below
+zero. The CSV has one row per monitor and component, with uptime to three decimals rounded down;
+a name that would start a spreadsheet formula gets a leading `'`. The same month comes from
+`GET /v1/reports/uptime?month=2026-10` in the [API](/docs/reference/api/).
