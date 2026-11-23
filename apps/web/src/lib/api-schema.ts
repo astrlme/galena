@@ -1400,6 +1400,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/reports/uptime": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every monitor's and component's month: uptime, incidents, p95 and error budget
+         * @description The month defaults to the current one (UTC). A monitor's minute is down when a quorum of regions failed it; each hour counts once rolled up, at five past the next, and days are kept 400 days. A component counts the minutes its status page showed, partial and major outages as down. Maintenance is not taken out of either. A monitor's error budget is its SLA target's share of the minutes checked plus the minutes still to come this month, less the minutes down.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    month?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Monitors in creation order, components in page order */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            month: string;
+                            monitors: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                /** @enum {string} */
+                                type: "http" | "heartbeat";
+                                minutes: number;
+                                minutesDown: number;
+                                incidents: number;
+                                p95Ms: number | null;
+                                slaTarget: number | null;
+                                budget: {
+                                    allowedMinutes: number;
+                                    leftMinutes: number;
+                                } | null;
+                            }[];
+                            components: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                minutes: number;
+                                minutesDown: number;
+                                incidents: number;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/expiries": {
         parameters: {
             query?: never;

@@ -33,6 +33,7 @@ import { registerMonitorChartRoutes } from "./routes/monitor-charts.ts";
 import { registerMonitorRoutes } from "./routes/monitors.ts";
 import { registerNotificationRoutes } from "./routes/notifications.ts";
 import { registerPublicRoutes } from "./routes/public.ts";
+import { registerReportRoutes } from "./routes/reports.ts";
 import { startJob } from "./routes/shared.ts";
 import { registerSlackRoutes } from "./routes/slack.ts";
 import { registerTeamRoutes } from "./routes/team.ts";
@@ -50,6 +51,10 @@ export const openApiConfig = {
     { name: "Monitors", description: "HTTP monitors, their settings and their latest results." },
     { name: "Incidents", description: "Incidents and their updates." },
     { name: "Maintenance", description: "Scheduled maintenance windows." },
+    {
+      name: "Reports",
+      description: "A month's uptime, incidents, p95 and error budget per monitor and component.",
+    },
     {
       name: "Notifications",
       description: "Slack and webhook endpoints, email subscribers, and the Slack app.",
@@ -327,6 +332,7 @@ export function createApp(deps: Deps) {
   registerComponentRoutes(app, deps);
   registerMonitorRoutes(app, deps);
   registerMonitorChartRoutes(app, deps);
+  registerReportRoutes(app, deps);
   registerExpiryRoutes(app, deps);
   registerIncidentRoutes(app, deps);
   registerIncidentEvidenceRoutes(app, deps);
