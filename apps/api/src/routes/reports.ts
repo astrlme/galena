@@ -1,11 +1,5 @@
-import { month, uptimeReport } from "@galena/contracts";
-import {
-  componentMinutes,
-  errorBudget,
-  type MonthOf,
-  minutesLeftIn,
-  monthSpan,
-} from "@galena/core";
+import { month, uptimeReport as uptimeReportSchema } from "@galena/contracts";
+import { monthSpan, type ReportInputs, uptimeReport } from "@galena/core";
 import {
   componentRepository,
   listUptimeDays,
@@ -16,7 +10,7 @@ import { createRoute, z } from "@hono/zod-openapi";
 import { type App, type Deps, requireRole } from "../http.ts";
 import { json } from "./shared.ts";
 
-/** Monitors whose month is read from telemetry at once: each is up to four queries. */
+/** Monitors whose month is read from telemetry at once: each is two to six queries. */
 const AT_ONCE = 10;
 
 export function registerReportRoutes(app: App, deps: Deps) {
@@ -34,65 +28,39 @@ export function registerReportRoutes(app: App, deps: Deps) {
       middleware: [viewer],
       request: { query: z.object({ month: month.optional() }) },
       responses: {
-        200: json(uptimeReport, "Monitors in creation order, components in page order"),
+        200: json(uptimeReportSchema, "Monitors in creation order, components in page order"),
       },
     }),
     async (c) => {
       const { workspaceId } = c.get("member");
       const now = new Date();
-      const asked = c.req.valid("query").month ?? now.toISOString().slice(0, 7);
-      const span = monthSpan(asked);
+      const month = c.req.valid("query").month ?? now.toISOString().slice(0, 7);
+      const span = monthSpan(month);
       const [monitors, components, incidents, days] = await Promise.all([
         monitorRepository(db).listByWorkspace(workspaceId),
         componentRepository(db).listByWorkspace(workspaceId),
         monthIncidentCounts(db, workspaceId, span),
         listUptimeDays(db, workspaceId, span.days.from, span.days.to),
       ]);
-      // Known limit: a month reads about 100 small items per monitor (a day in each region);
-      // past a few hundred monitors, a monthly rollup item would cut that to three.
-      // In the monitors' order.
-      const months: MonthOf[] = [];
+      // Known limit: each monitor's month reads a minutes item and an item per region for every
+      // day, each region item holding a latency histogram, so a long list spends much of the
+      // telemetry table's burst capacity; a monthly item written by the rollup would cut it to a
+      // few. A deleted monitor leaves every month's report, though its items and incidents stay.
       const today = now.toISOString().slice(0, 10);
+      const counted: ReportInputs["monitors"][number][] = [];
       for (let i = 0; i < monitors.length; i += AT_ONCE) {
         const batch = monitors.slice(i, i + AT_ONCE);
-        months.push(
-          ...(await Promise.all(batch.map((m) => deps.telemetry.month(m.id, asked, today)))),
+        counted.push(
+          ...(await Promise.all(
+            batch.map(async (m) => ({
+              ...m,
+              counted: await deps.telemetry.month(m.id, month, today),
+            })),
+          )),
         );
       }
-      const left = minutesLeftIn(asked, now);
-      const daysOf = Map.groupBy(days, (d) => d.componentId);
       return c.json(
-        {
-          month: asked,
-          monitors: monitors.map((m, i) => {
-            const counted = months[i] ?? { minutes: 0, minutesDown: 0, p95Ms: null };
-            const { minutes, minutesDown } = counted;
-            return {
-              id: m.id,
-              name: m.name,
-              type: m.type,
-              ...counted,
-              incidents: incidents.monitors.get(m.id) ?? 0,
-              slaTarget: m.slaTarget,
-              budget:
-                m.slaTarget === null
-                  ? null
-                  : errorBudget({ minutes, down: minutesDown }, m.slaTarget, left),
-            };
-          }),
-          components: components.map((component) => {
-            const { minutes, down } = componentMinutes(
-              (daysOf.get(component.id) ?? []).map((d) => d.minutes),
-            );
-            return {
-              id: component.id,
-              name: component.name,
-              minutes: Math.round(minutes),
-              minutesDown: down,
-              incidents: incidents.components.get(component.id) ?? 0,
-            };
-          }),
-        },
+        uptimeReport({ month, monitors: counted, components, days, incidents }, now),
         200,
       );
     },
